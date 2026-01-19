@@ -16,7 +16,6 @@ namespace FlowTime.Sim.Tests.Service;
 /// </summary>
 public class TemplateGenerateProvenanceTests : IClassFixture<WebApplicationFactory<Program>>
 {
-    private readonly WebApplicationFactory<Program> factory;
     private readonly HttpClient client;
 
     public TemplateGenerateProvenanceTests(WebApplicationFactory<Program> factory)

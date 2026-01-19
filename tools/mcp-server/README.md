@@ -68,6 +68,11 @@ Suggested chat flow once connected:
 - "Get the run summary for run_id."
 - "Get the graph for run_id."
 - "Get the state window for run_id from bin 0 to 30."
+- "Ingest this CSV as series arrivals_baseline."
+- "Summarize series arrivals_baseline (basic or expert)."
+- "Fit a profile from series arrivals_baseline."
+- "Preview the fitted profile."
+- "Apply the profile to draft draft-id node arrivals."
 
 Notes:
 
@@ -76,6 +81,7 @@ Notes:
   that can see `templates-draft/`. Configure the Sim draft templates root (`FLOWTIME_SIM_DRAFT_TEMPLATES_DIR`)
   so a single Sim instance can resolve draftIds.
 - `validate_draft`, `generate_model`, and `run_draft` call the Sim draft endpoints (`/api/v1/drafts/*`).
+- `ingest_series`, `summarize_series`, `fit_profile`, and `preview_profile` call Sim data/profile endpoints (`/api/v1/series/*`, `/api/v1/profiles/*`).
 
 ## VS Code Task
 

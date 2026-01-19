@@ -17,7 +17,12 @@ test('tool list includes required PoC tools', () => {
     'diff_draft',
     'validate_draft',
     'generate_model',
-    'run_draft'
+    'run_draft',
+    'ingest_series',
+    'summarize_series',
+    'fit_profile',
+    'preview_profile',
+    'map_series_to_inputs'
   ];
   for (const name of required) {
     assert.ok(names.includes(name), `missing tool ${name}`);

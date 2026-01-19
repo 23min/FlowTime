@@ -603,6 +603,408 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 			}
 		});
 
+		// API: POST /api/v1/series/ingest  (ingest pre-aggregated series data)
+		api.MapPost("/series/ingest", (SeriesIngestRequest request, IConfiguration config) =>
+		{
+			if (request is null)
+			{
+				return Results.BadRequest(new { error = "Request body is required." });
+			}
+
+			if (string.IsNullOrWhiteSpace(request.Content))
+			{
+				return Results.BadRequest(new { error = "content is required." });
+			}
+
+			var format = string.IsNullOrWhiteSpace(request.Format) ? "csv" : request.Format.Trim().ToLowerInvariant();
+			if (format is not ("csv" or "table"))
+			{
+				return Results.BadRequest(new { error = "format must be 'csv' or 'table'." });
+			}
+
+			var seriesId = string.IsNullOrWhiteSpace(request.SeriesId)
+				? $"series-{Guid.NewGuid():N}"
+				: request.SeriesId.Trim();
+
+			if (!ServiceHelpers.IsSafeSeriesId(seriesId))
+			{
+				return Results.BadRequest(new { error = "seriesId contains invalid characters." });
+			}
+
+			string detailLevel;
+			try
+			{
+				detailLevel = ResolveDetailLevel(request.DetailLevel);
+			}
+			catch (InvalidOperationException ex)
+			{
+				return Results.BadRequest(new { error = ex.Message });
+			}
+			SeriesParseResult parseResult;
+			try
+			{
+				parseResult = SeriesParser.Parse(request.Content);
+			}
+			catch (InvalidOperationException ex)
+			{
+				return Results.BadRequest(new { error = ex.Message });
+			}
+
+			var seriesRoot = ServiceHelpers.SeriesRoot(config);
+			var storage = new SeriesStorage(seriesRoot);
+			var document = new SeriesDocument
+			{
+				SeriesId = seriesId,
+				Bins = parseResult.Bins,
+				Values = parseResult.Values,
+				Metadata = request.Metadata,
+				SourceFormat = format
+			};
+
+			storage.Save(document);
+
+			var response = new Dictionary<string, object?>
+			{
+				["seriesId"] = seriesId,
+				["count"] = parseResult.Values.Length,
+				["metadata"] = request.Metadata
+			};
+
+			if (detailLevel == "expert")
+			{
+				response["diagnostics"] = new
+				{
+					parseResult.Diagnostics.Delimiter,
+					parseResult.Diagnostics.HasHeader,
+					parseResult.Diagnostics.Columns,
+					parseResult.Diagnostics.RowCount,
+					seriesPath = Path.Combine(seriesRoot, seriesId)
+				};
+			}
+
+			return Results.Ok(response);
+		});
+
+		// API: POST /api/v1/series/summarize  (summarize stored series)
+		api.MapPost("/series/summarize", (SeriesSummaryRequest request, IConfiguration config) =>
+		{
+			if (request is null)
+			{
+				return Results.BadRequest(new { error = "Request body is required." });
+			}
+
+			if (string.IsNullOrWhiteSpace(request.SeriesId))
+			{
+				return Results.BadRequest(new { error = "seriesId is required." });
+			}
+
+			if (!ServiceHelpers.IsSafeSeriesId(request.SeriesId))
+			{
+				return Results.BadRequest(new { error = "seriesId contains invalid characters." });
+			}
+
+			string detailLevel;
+			try
+			{
+				detailLevel = ResolveDetailLevel(request.DetailLevel);
+			}
+			catch (InvalidOperationException ex)
+			{
+				return Results.BadRequest(new { error = ex.Message });
+			}
+			var storage = new SeriesStorage(ServiceHelpers.SeriesRoot(config));
+
+			SeriesDocument document;
+			try
+			{
+				document = storage.Load(request.SeriesId);
+			}
+			catch (FileNotFoundException)
+			{
+				return Results.NotFound(new { error = $"Series '{request.SeriesId}' not found." });
+			}
+			catch (Exception ex)
+			{
+				return Results.Problem($"Failed to read series: {ex.Message}");
+			}
+
+			var summary = BuildSeriesSummary(document);
+			var response = new Dictionary<string, object?>
+			{
+				["seriesId"] = document.SeriesId,
+				["count"] = document.Values.Length,
+				["min"] = summary.Min,
+				["max"] = summary.Max,
+				["avg"] = summary.Avg,
+				["peak"] = new { summary.PeakBin, summary.PeakValue },
+				["percentiles"] = summary.Percentiles,
+				["periodicity"] = summary.Periodicity
+			};
+
+			if (detailLevel == "expert")
+			{
+				response["diagnostics"] = summary.Diagnostics;
+			}
+
+			return Results.Ok(response);
+		});
+
+		// API: POST /api/v1/profiles/fit  (fit profile or PMF from samples/summary)
+		api.MapPost("/profiles/fit", (ProfileFitRequest request, IConfiguration config) =>
+		{
+			if (request is null)
+			{
+				return Results.BadRequest(new { error = "Request body is required." });
+			}
+
+			string detailLevel;
+			try
+			{
+				detailLevel = ResolveDetailLevel(request.DetailLevel);
+			}
+			catch (InvalidOperationException ex)
+			{
+				return Results.BadRequest(new { error = ex.Message });
+			}
+
+			var mode = ResolveProfileMode(request.Mode, request.SeriesId, request.Samples, request.Summary);
+			if (mode is null)
+			{
+				return Results.BadRequest(new { error = "mode must be 'profile' or 'pmf' (or provide a clear input source)." });
+			}
+
+			var storage = new SeriesStorage(ServiceHelpers.SeriesRoot(config));
+			if (mode == "profile")
+			{
+				TemplateProfile profile;
+				string method;
+				object summary;
+				object diagnostics;
+				try
+				{
+					(profile, method, summary, diagnostics) = BuildProfileFit(request, storage);
+				}
+				catch (FileNotFoundException)
+				{
+					return Results.NotFound(new { error = $"Series '{request.SeriesId}' not found." });
+				}
+				catch (InvalidOperationException ex)
+				{
+					return Results.BadRequest(new { error = ex.Message });
+				}
+				var response = new Dictionary<string, object?>
+				{
+					["kind"] = "profile",
+					["method"] = method,
+					["profile"] = profile,
+					["summary"] = summary
+				};
+
+				if (detailLevel == "expert")
+				{
+					response["diagnostics"] = diagnostics;
+				}
+
+				return Results.Ok(response);
+			}
+
+			PmfSpec pmf;
+			string methodText;
+			object pmfSummary;
+			object pmfDiagnostics;
+			try
+			{
+				(pmf, methodText, pmfSummary, pmfDiagnostics) = BuildPmfFit(request, storage);
+			}
+			catch (FileNotFoundException)
+			{
+				return Results.NotFound(new { error = $"Series '{request.SeriesId}' not found." });
+			}
+			catch (InvalidOperationException ex)
+			{
+				return Results.BadRequest(new { error = ex.Message });
+			}
+			var pmfResponse = new Dictionary<string, object?>
+			{
+				["kind"] = "pmf",
+				["method"] = methodText,
+				["pmf"] = pmf,
+				["summary"] = pmfSummary
+			};
+
+			if (detailLevel == "expert")
+			{
+				pmfResponse["diagnostics"] = pmfDiagnostics;
+			}
+
+			return Results.Ok(pmfResponse);
+		});
+
+		// API: POST /api/v1/profiles/preview  (preview profile/PMF)
+		api.MapPost("/profiles/preview", (ProfilePreviewRequest request) =>
+		{
+			if (request is null)
+			{
+				return Results.BadRequest(new { error = "Request body is required." });
+			}
+
+			string detailLevel;
+			try
+			{
+				detailLevel = ResolveDetailLevel(request.DetailLevel);
+			}
+			catch (InvalidOperationException ex)
+			{
+				return Results.BadRequest(new { error = ex.Message });
+			}
+
+			if (request.Profile is null && request.Pmf is null)
+			{
+				return Results.BadRequest(new { error = "profile or pmf must be provided." });
+			}
+
+			var preview = BuildProfilePreview(request);
+			var response = new Dictionary<string, object?>
+			{
+				["summary"] = preview.Summary
+			};
+
+			if (detailLevel == "expert")
+			{
+				response["diagnostics"] = preview.Diagnostics;
+			}
+
+			return Results.Ok(response);
+		});
+
+		// API: POST /api/v1/drafts/map-profile  (apply profile/PMF to a draft node)
+		api.MapPost("/drafts/map-profile", async (
+			DraftProfileMapRequest request,
+			IConfiguration config,
+			ILogger<TemplateService> templateLogger) =>
+		{
+			if (request is null)
+			{
+				return Results.BadRequest(new { error = "Request body is required." });
+			}
+
+			if (string.IsNullOrWhiteSpace(request.NodeId))
+			{
+				return Results.BadRequest(new { error = "nodeId is required." });
+			}
+
+			string detailLevel;
+			try
+			{
+				detailLevel = ResolveDetailLevel(request.DetailLevel);
+			}
+			catch (InvalidOperationException ex)
+			{
+				return Results.BadRequest(new { error = ex.Message });
+			}
+
+			if (request.Profile is null && request.Pmf is null)
+			{
+				return Results.BadRequest(new { error = "profile or pmf must be provided." });
+			}
+
+			var resolveResult = await ResolveDraftSourceAsync(request.Source, config).ConfigureAwait(false);
+			if (resolveResult.ErrorResult is not null)
+			{
+				return resolveResult.ErrorResult;
+			}
+
+			if (resolveResult.Value is null)
+			{
+				return Results.BadRequest(new { error = "Draft source resolution failed." });
+			}
+
+			var (draftId, draftYaml) = resolveResult.Value;
+			Template template;
+			try
+			{
+				template = TemplateParser.ParseFromYaml(draftYaml);
+			}
+			catch (TemplateParsingException ex)
+			{
+				return Results.BadRequest(new { error = ex.Message });
+			}
+			catch (TemplateValidationException ex)
+			{
+				return Results.BadRequest(new { error = ex.Message });
+			}
+
+			var node = template.Nodes.FirstOrDefault(n => string.Equals(n.Id, request.NodeId, StringComparison.OrdinalIgnoreCase));
+			if (node is null)
+			{
+				return Results.NotFound(new { error = $"Node '{request.NodeId}' not found." });
+			}
+
+			if (request.Pmf is not null)
+			{
+				node.Kind = "pmf";
+				node.Pmf = request.Pmf;
+				node.Values = null;
+				node.Expr = null;
+				node.Dependencies = null;
+			}
+
+			if (request.Profile is not null)
+			{
+				if (request.Pmf is null && node.Pmf is null)
+				{
+					return Results.BadRequest(new { error = "profile requires a pmf to be present on the target node." });
+				}
+
+				node.Profile = request.Profile;
+			}
+
+			if (request.Provenance is not null && request.Provenance.Count > 0)
+			{
+				node.Metadata ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+				foreach (var kvp in request.Provenance)
+				{
+					node.Metadata[kvp.Key] = kvp.Value;
+				}
+			}
+
+			var updatedYaml = TemplateYamlSerializer.Serialize(template);
+			var persisted = false;
+
+			if (request.Persist)
+			{
+				if (!string.Equals(request.Source.Type, "draftId", StringComparison.OrdinalIgnoreCase))
+				{
+					return Results.BadRequest(new { error = "persist requires source.type 'draftId'." });
+				}
+
+				var draftsRoot = ServiceHelpers.DraftTemplatesRoot(config);
+				var draftPath = Path.Combine(draftsRoot, $"{draftId}.yaml");
+				File.WriteAllText(draftPath, updatedYaml);
+				persisted = true;
+			}
+
+			var response = new Dictionary<string, object?>
+			{
+				["draftId"] = draftId,
+				["nodeId"] = node.Id,
+				["content"] = updatedYaml,
+				["persisted"] = persisted
+			};
+
+			if (detailLevel == "expert")
+			{
+				response["diagnostics"] = new
+				{
+					nodeKind = node.Kind,
+					metadata = node.Metadata,
+					templateId = template.Metadata?.Id
+				};
+			}
+
+			return Results.Ok(response);
+		});
+
 		// API: GET /api/v1/models  (list all generated models)
 		api.MapGet("/models", (IConfiguration config) =>
 		{
@@ -1090,6 +1492,468 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		return (null, Results.BadRequest(new { error = $"Unsupported source.type '{source.Type}'." }));
 	}
 
+	private static string ResolveDetailLevel(string? detailLevel)
+	{
+		if (string.IsNullOrWhiteSpace(detailLevel))
+		{
+			return "basic";
+		}
+
+		var normalized = detailLevel.Trim().ToLowerInvariant();
+		if (normalized is "basic" or "expert")
+		{
+			return normalized;
+		}
+
+		throw new InvalidOperationException("detailLevel must be 'basic' or 'expert'.");
+	}
+
+	private static SeriesSummary BuildSeriesSummary(SeriesDocument document)
+	{
+		if (document.Values.Length == 0)
+		{
+			throw new InvalidOperationException("Series contains no values.");
+		}
+
+		var values = document.Values;
+		var sorted = values.OrderBy(value => value).ToArray();
+		var min = sorted[0];
+		var max = sorted[^1];
+		var avg = values.Average();
+		var sum = values.Sum();
+		var peakIndex = Array.IndexOf(values, max);
+		var percentiles = new Dictionary<string, double>
+		{
+			["p50"] = Percentile(sorted, 0.50),
+			["p90"] = Percentile(sorted, 0.90),
+			["p95"] = Percentile(sorted, 0.95),
+			["p99"] = Percentile(sorted, 0.99)
+		};
+
+		var periodicity = DetectPeriodicity(document, out var periodicityScore);
+		var diagnostics = new SeriesSummaryDiagnostics
+		{
+			Sum = sum,
+			Median = percentiles["p50"],
+			StdDev = ComputeStdDev(values, avg),
+			PeriodicityScore = periodicityScore
+		};
+
+		return new SeriesSummary(
+			min,
+			max,
+			avg,
+			percentiles,
+			document.Bins.ElementAtOrDefault(peakIndex),
+			max,
+			periodicity,
+			diagnostics);
+	}
+
+	private static double Percentile(double[] sorted, double percentile)
+	{
+		if (sorted.Length == 1)
+		{
+			return sorted[0];
+		}
+
+		var position = (sorted.Length - 1) * percentile;
+		var lower = (int)Math.Floor(position);
+		var upper = (int)Math.Ceiling(position);
+		if (lower == upper)
+		{
+			return sorted[lower];
+		}
+
+		var fraction = position - lower;
+		return sorted[lower] + (sorted[upper] - sorted[lower]) * fraction;
+	}
+
+	private static double ComputeStdDev(double[] values, double mean)
+	{
+		if (values.Length <= 1)
+		{
+			return 0d;
+		}
+
+		var variance = values.Sum(v => Math.Pow(v - mean, 2)) / values.Length;
+		return Math.Sqrt(variance);
+	}
+
+	private static PeriodicityInfo DetectPeriodicity(SeriesDocument document, out double? score)
+	{
+		score = null;
+		if (document.Metadata?.BinSize is null || string.IsNullOrWhiteSpace(document.Metadata.BinUnit))
+		{
+			return new PeriodicityInfo(false, null, null);
+		}
+
+		var binsPerDay = TryGetBinsPerDay(document.Metadata.BinSize.Value, document.Metadata.BinUnit);
+		if (binsPerDay is null)
+		{
+			return new PeriodicityInfo(false, null, null);
+		}
+
+		var candidates = new List<(string Label, int Period)>
+		{
+			("daily", binsPerDay.Value),
+			("weekly", binsPerDay.Value * 7)
+		};
+
+		var bestScore = 0d;
+		string? bestLabel = null;
+		int? bestPeriod = null;
+
+		foreach (var candidate in candidates)
+		{
+			if (candidate.Period <= 0 || document.Values.Length < candidate.Period * 2)
+			{
+				continue;
+			}
+
+			var candidateScore = ComputePeriodicityScore(document.Values, candidate.Period);
+			if (candidateScore > bestScore)
+			{
+				bestScore = candidateScore;
+				bestLabel = candidate.Label;
+				bestPeriod = candidate.Period;
+			}
+		}
+
+		score = bestScore > 0 ? bestScore : null;
+		if (bestScore >= 0.85 && bestPeriod.HasValue && bestLabel != null)
+		{
+			return new PeriodicityInfo(true, bestPeriod, bestLabel);
+		}
+
+		return new PeriodicityInfo(false, bestPeriod, bestLabel);
+	}
+
+	private static int? TryGetBinsPerDay(int binSize, string binUnit)
+	{
+		var normalized = binUnit.Trim().ToLowerInvariant();
+		return normalized switch
+		{
+			"minute" or "minutes" => 24 * 60 % binSize == 0 ? 24 * 60 / binSize : null,
+			"hour" or "hours" => 24 % binSize == 0 ? 24 / binSize : null,
+			"second" or "seconds" => 24 * 60 * 60 % binSize == 0 ? 24 * 60 * 60 / binSize : null,
+			"day" or "days" => 1 % binSize == 0 ? 1 / binSize : null,
+			_ => null
+		};
+	}
+
+	private static double ComputePeriodicityScore(double[] values, int period)
+	{
+		double diffSum = 0;
+		double baseSum = 0;
+
+		for (var i = period; i < values.Length; i++)
+		{
+			var diff = Math.Abs(values[i] - values[i - period]);
+			diffSum += diff;
+			baseSum += Math.Abs(values[i]);
+		}
+
+		if (baseSum <= 0)
+		{
+			return 0d;
+		}
+
+		var score = 1d - (diffSum / baseSum);
+		return Math.Clamp(score, 0d, 1d);
+	}
+
+	private static string? ResolveProfileMode(string? mode, string? seriesId, double[]? samples, ProfileSummaryStats? summary)
+	{
+		if (!string.IsNullOrWhiteSpace(mode))
+		{
+			var normalized = mode.Trim().ToLowerInvariant();
+			if (normalized is "profile" or "pmf")
+			{
+				return normalized;
+			}
+			return null;
+		}
+
+		if (!string.IsNullOrWhiteSpace(seriesId))
+		{
+			return "profile";
+		}
+
+		if (samples is not null && samples.Length > 0)
+		{
+			return "pmf";
+		}
+
+		if (summary is not null)
+		{
+			return "pmf";
+		}
+
+		return null;
+	}
+
+	private static (TemplateProfile Profile, string Method, object Summary, object Diagnostics) BuildProfileFit(
+		ProfileFitRequest request,
+		SeriesStorage storage)
+	{
+		double[] values;
+		string method;
+		string source;
+
+		if (!string.IsNullOrWhiteSpace(request.SeriesId))
+		{
+			var document = storage.Load(request.SeriesId);
+			values = document.Values;
+			method = "series-normalized";
+			source = $"series:{document.SeriesId}";
+		}
+		else if (request.Summary is not null)
+		{
+			if (request.Bins is null || request.Bins <= 0)
+			{
+				throw new InvalidOperationException("bins is required when fitting a profile from summary stats.");
+			}
+
+			values = BuildSyntheticProfile(request.Bins.Value, request.Summary);
+			method = "summary-synthetic";
+			source = "summary";
+		}
+		else
+		{
+			throw new InvalidOperationException("seriesId or summary is required to fit a profile.");
+		}
+
+		var weights = NormalizeWeights(values);
+		var profile = new TemplateProfile
+		{
+			Kind = "inline",
+			Weights = weights
+		};
+
+		var summary = new
+		{
+			source,
+			count = values.Length,
+			min = values.Min(),
+			max = values.Max(),
+			avg = values.Average()
+		};
+
+		var diagnostics = new
+		{
+			method,
+			weightsMin = weights.Min(),
+			weightsMax = weights.Max(),
+			weightsAvg = weights.Average()
+		};
+
+		return (profile, method, summary, diagnostics);
+	}
+
+	private static (PmfSpec Pmf, string Method, object Summary, object Diagnostics) BuildPmfFit(
+		ProfileFitRequest request,
+		SeriesStorage storage)
+	{
+		double[] samples;
+		string method;
+		string source;
+
+		if (request.Samples is not null && request.Samples.Length > 0)
+		{
+			samples = request.Samples;
+			method = "empirical-samples";
+			source = "samples";
+		}
+		else if (!string.IsNullOrWhiteSpace(request.SeriesId))
+		{
+			var document = storage.Load(request.SeriesId);
+			samples = document.Values;
+			method = "empirical-series";
+			source = $"series:{document.SeriesId}";
+		}
+		else if (request.Summary is not null)
+		{
+			var pmfFromSummary = BuildPmfFromSummary(request.Summary);
+			var summary = new
+			{
+				source = "summary",
+				count = request.Summary.Count,
+				min = request.Summary.Min,
+				max = request.Summary.Max
+			};
+			var diagnostics = new
+			{
+				method = "synthetic-triangular",
+				used = new { request.Summary.Min, request.Summary.Max, request.Summary.P50, request.Summary.Avg }
+			};
+			return (pmfFromSummary, "synthetic-triangular", summary, diagnostics);
+		}
+		else
+		{
+			throw new InvalidOperationException("samples, seriesId, or summary is required to fit a PMF.");
+		}
+
+		var pmf = BuildPmfFromSamples(samples);
+		var expectedValue = ComputeExpectedValue(pmf);
+		var pmfSummary = new
+		{
+			source,
+			count = samples.Length,
+			expected = expectedValue,
+			min = pmf.Values.Min(),
+			max = pmf.Values.Max()
+		};
+		var pmfDiagnostics = new
+		{
+			method,
+			uniqueValues = pmf.Values.Length
+		};
+
+		return (pmf, method, pmfSummary, pmfDiagnostics);
+	}
+
+	private static double[] BuildSyntheticProfile(int bins, ProfileSummaryStats summary)
+	{
+		var weights = Enumerable.Repeat(1d, bins).ToArray();
+		if (summary.PeakBin.HasValue && summary.PeakBin.Value >= 0 && summary.PeakBin.Value < bins)
+		{
+			weights[summary.PeakBin.Value] = 1.5d;
+		}
+		return weights;
+	}
+
+	private static double[] NormalizeWeights(double[] values)
+	{
+		if (values.Length == 0)
+		{
+			throw new InvalidOperationException("Profile weights must have at least one value.");
+		}
+
+		if (values.Any(v => v < 0))
+		{
+			throw new InvalidOperationException("Profile weights must be non-negative.");
+		}
+
+		var average = values.Average();
+		if (average <= 0)
+		{
+			throw new InvalidOperationException("Profile weights must have a positive average.");
+		}
+
+		var scale = 1d / average;
+		return values.Select(v => v * scale).ToArray();
+	}
+
+	private static PmfSpec BuildPmfFromSamples(double[] samples)
+	{
+		if (samples.Length == 0)
+		{
+			throw new InvalidOperationException("samples must contain at least one value.");
+		}
+
+		var grouped = samples
+			.GroupBy(value => Math.Round(value, 6))
+			.OrderBy(group => group.Key)
+			.ToArray();
+
+		var values = grouped.Select(group => group.Key).ToArray();
+		var counts = grouped.Select(group => group.Count()).ToArray();
+		var total = counts.Sum();
+		var probabilities = counts.Select(count => count / (double)total).ToArray();
+
+		return new PmfSpec
+		{
+			Values = values,
+			Probabilities = probabilities
+		};
+	}
+
+	private static PmfSpec BuildPmfFromSummary(ProfileSummaryStats summary)
+	{
+		if (!summary.Min.HasValue || !summary.Max.HasValue)
+		{
+			throw new InvalidOperationException("summary.min and summary.max are required to build a PMF.");
+		}
+
+		var min = summary.Min.Value;
+		var max = summary.Max.Value;
+
+		if (Math.Abs(max - min) < 1e-9)
+		{
+			return new PmfSpec
+			{
+				Values = new[] { min },
+				Probabilities = new[] { 1d }
+			};
+		}
+
+		var peak = summary.P50 ?? summary.Avg ?? (min + max) / 2d;
+		var values = new[] { min, peak, max };
+		var probabilities = new[] { 0.25d, 0.5d, 0.25d };
+
+		return new PmfSpec
+		{
+			Values = values,
+			Probabilities = probabilities
+		};
+	}
+
+	private static double ComputeExpectedValue(PmfSpec pmf)
+	{
+		double sum = 0;
+		for (var i = 0; i < pmf.Values.Length; i++)
+		{
+			sum += pmf.Values[i] * pmf.Probabilities[i];
+		}
+		return sum;
+	}
+
+	private static ProfilePreview BuildProfilePreview(ProfilePreviewRequest request)
+	{
+		if (request.Profile is not null)
+		{
+			var weights = request.Profile.Weights ?? Array.Empty<double>();
+			var summary = new
+			{
+				kind = "profile",
+				count = weights.Length,
+				min = weights.Length > 0 ? weights.Min() : 0d,
+				max = weights.Length > 0 ? weights.Max() : 0d,
+				avg = weights.Length > 0 ? weights.Average() : 0d,
+				sample = weights.Take(10).ToArray()
+			};
+
+			var diagnostics = new
+			{
+				normalized = Math.Abs(summary.avg - 1d) < 0.01,
+				request.Profile.Kind
+			};
+
+			return new ProfilePreview(summary, diagnostics);
+		}
+
+		var pmf = request.Pmf ?? new PmfSpec();
+		var expected = pmf.Values.Length == 0 ? 0d : ComputeExpectedValue(pmf);
+		var summaryPmf = new
+		{
+			kind = "pmf",
+			count = pmf.Values.Length,
+			expected,
+			min = pmf.Values.Length > 0 ? pmf.Values.Min() : 0d,
+			max = pmf.Values.Length > 0 ? pmf.Values.Max() : 0d,
+			preview = pmf.Values.Zip(pmf.Probabilities).Take(10).Select(pair => new { value = pair.First, probability = pair.Second }).ToArray()
+		};
+
+		var diagnosticsPmf = new
+		{
+			normalized = Math.Abs(pmf.Probabilities.Sum() - 1d) < 0.01,
+			uniqueValues = pmf.Values.Length
+		};
+
+		return new ProfilePreview(summaryPmf, diagnosticsPmf);
+	}
+
 	// Helper utilities
 	public static class ServiceHelpers
 	{
@@ -1210,6 +2074,14 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 			return modelsDir;
 		}
 
+		public static string SeriesRoot(IConfiguration? configuration = null)
+		{
+			var dataRoot = DataRoot(configuration);
+			var seriesDir = Path.Combine(dataRoot, "series");
+			Directory.CreateDirectory(seriesDir);
+			return seriesDir;
+		}
+
 		/// <summary>
 		/// Ensures runtime catalogs directory exists and is populated with demo catalogs if empty.
 		/// Copies source catalogs to runtime location during startup for consistent behavior.
@@ -1296,6 +2168,94 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		public RunRngOptions? Rng { get; init; }
 		public RunCreationOptions? Options { get; init; }
 		public object? Actor { get; init; }
+	}
+
+	public sealed class SeriesIngestRequest
+	{
+		public string? SeriesId { get; init; }
+		public string? Format { get; init; }
+		public string? Content { get; init; }
+		public SeriesMetadata? Metadata { get; init; }
+		public string? DetailLevel { get; init; }
+	}
+
+	public sealed class SeriesSummaryRequest
+	{
+		public string? SeriesId { get; init; }
+		public string? DetailLevel { get; init; }
+	}
+
+	public sealed class ProfileFitRequest
+	{
+		public string? Mode { get; init; }
+		public string? SeriesId { get; init; }
+		public double[]? Samples { get; init; }
+		public ProfileSummaryStats? Summary { get; init; }
+		public int? Bins { get; init; }
+		public string? DetailLevel { get; init; }
+	}
+
+	public sealed class ProfileSummaryStats
+	{
+		public double? Min { get; init; }
+		public double? Max { get; init; }
+		public double? Avg { get; init; }
+		public double? P50 { get; init; }
+		public double? P90 { get; init; }
+		public double? P95 { get; init; }
+		public double? P99 { get; init; }
+		public int? Count { get; init; }
+		public int? PeakBin { get; init; }
+	}
+
+	public sealed class ProfilePreviewRequest
+	{
+		public TemplateProfile? Profile { get; init; }
+		public PmfSpec? Pmf { get; init; }
+		public string? DetailLevel { get; init; }
+	}
+
+	public sealed class DraftProfileMapRequest
+	{
+		public DraftSource Source { get; init; } = new();
+		public string? NodeId { get; init; }
+		public TemplateProfile? Profile { get; init; }
+		public PmfSpec? Pmf { get; init; }
+		public Dictionary<string, string>? Provenance { get; init; }
+		public bool Persist { get; init; } = true;
+		public string? DetailLevel { get; init; }
+	}
+
+	private sealed record SeriesSummary(
+		double Min,
+		double Max,
+		double Avg,
+		Dictionary<string, double> Percentiles,
+		int PeakBin,
+		double PeakValue,
+		PeriodicityInfo Periodicity,
+		SeriesSummaryDiagnostics Diagnostics);
+
+	private sealed class SeriesSummaryDiagnostics
+	{
+		public double Sum { get; init; }
+		public double Median { get; init; }
+		public double StdDev { get; init; }
+		public double? PeriodicityScore { get; init; }
+	}
+
+	private sealed record PeriodicityInfo(bool Detected, int? PeriodBins, string? Label);
+
+	private sealed record ProfilePreview(object Summary, object Diagnostics);
+
+	private static class TemplateYamlSerializer
+	{
+		private static readonly ISerializer Serializer = new SerializerBuilder()
+			.WithNamingConvention(CamelCaseNamingConvention.Instance)
+			.ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull | DefaultValuesHandling.OmitDefaults)
+			.Build();
+
+		public static string Serialize(Template template) => Serializer.Serialize(template);
 	}
 
 	// === OBSOLETE DTOs REMOVED ===

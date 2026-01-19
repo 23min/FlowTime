@@ -79,7 +79,7 @@ Tool names are illustrative; the key is the capability surface.
 - `fit_profile`: convert samples or summary stats into an input profile (PMF or equivalent).
 - `preview_profile`: show the derived profile shape and bins before applying it.
 - Chart digitization is out of scope for the MCP server; convert chart images to series client-side, then use `ingest_series`.
-Note: profile fitting lives in the MCP server for the PoC, but it is a natural fit to move into FlowTime.Sim later for reuse across CLI/UI/API.
+Note: profile fitting is handled by FlowTime.Sim.Service endpoints and surfaced through MCP tools for the PoC.
 
 ---
 

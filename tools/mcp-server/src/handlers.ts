@@ -13,7 +13,12 @@ import type {
   DraftPatchArgs,
   DraftIdArgs,
   ValidateDraftArgs,
-  GenerateModelArgs
+  GenerateModelArgs,
+  IngestSeriesArgs,
+  SummarizeSeriesArgs,
+  FitProfileArgs,
+  PreviewProfileArgs,
+  MapSeriesToInputsArgs
 } from './tools.js';
 import { fetchJson, HttpError } from './http.js';
 import { assertBinWindow } from './guards.js';
@@ -351,6 +356,99 @@ const generateModel = async (config: ServerConfig, args: GenerateModelArgs): Pro
   return toToolResult({ model: response });
 };
 
+const ingestSeries = async (config: ServerConfig, args: IngestSeriesArgs): Promise<CallToolResult> => {
+  const response = await fetchJson<unknown>(
+    `${config.simApiUrl}/series/ingest`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        seriesId: args.seriesId,
+        format: args.format,
+        content: args.content,
+        metadata: args.metadata,
+        detailLevel: args.detailLevel
+      })
+    },
+    config.requestTimeoutMs
+  );
+
+  return toToolResult({ series: response });
+};
+
+const summarizeSeries = async (config: ServerConfig, args: SummarizeSeriesArgs): Promise<CallToolResult> => {
+  const response = await fetchJson<unknown>(
+    `${config.simApiUrl}/series/summarize`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        seriesId: args.seriesId,
+        detailLevel: args.detailLevel
+      })
+    },
+    config.requestTimeoutMs
+  );
+
+  return toToolResult({ summary: response });
+};
+
+const fitProfile = async (config: ServerConfig, args: FitProfileArgs): Promise<CallToolResult> => {
+  const response = await fetchJson<unknown>(
+    `${config.simApiUrl}/profiles/fit`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        mode: args.mode,
+        seriesId: args.seriesId,
+        samples: args.samples,
+        summary: args.summary,
+        bins: args.bins,
+        detailLevel: args.detailLevel
+      })
+    },
+    config.requestTimeoutMs
+  );
+
+  return toToolResult({ fit: response });
+};
+
+const previewProfile = async (config: ServerConfig, args: PreviewProfileArgs): Promise<CallToolResult> => {
+  const response = await fetchJson<unknown>(
+    `${config.simApiUrl}/profiles/preview`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        profile: args.profile,
+        pmf: args.pmf,
+        detailLevel: args.detailLevel
+      })
+    },
+    config.requestTimeoutMs
+  );
+
+  return toToolResult({ preview: response });
+};
+
+const mapSeriesToInputs = async (config: ServerConfig, args: MapSeriesToInputsArgs): Promise<CallToolResult> => {
+  const response = await fetchJson<unknown>(
+    `${config.draftSimApiUrl}/drafts/map-profile`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        source: { type: 'draftId', id: args.draftId },
+        nodeId: args.nodeId,
+        profile: args.profile,
+        pmf: args.pmf,
+        provenance: args.provenance,
+        persist: args.persist,
+        detailLevel: args.detailLevel
+      })
+    },
+    config.requestTimeoutMs
+  );
+
+  return toToolResult({ draft: response });
+};
+
 export const createHandlers = (config: ServerConfig): ToolHandlers => {
   const draftStore = new DraftStore({
     templatesDir: config.templatesDir,
@@ -370,6 +468,11 @@ export const createHandlers = (config: ServerConfig): ToolHandlers => {
     diffDraft: (args) => diffDraft(draftStore, args),
     validateDraft: (args) => validateDraft(config, args),
     generateModel: (args) => generateModel(config, args),
-    runDraft: (args) => runDraft(config, args)
+    runDraft: (args) => runDraft(config, args),
+    ingestSeries: (args) => ingestSeries(config, args),
+    summarizeSeries: (args) => summarizeSeries(config, args),
+    fitProfile: (args) => fitProfile(config, args),
+    previewProfile: (args) => previewProfile(config, args),
+    mapSeriesToInputs: (args) => mapSeriesToInputs(config, args)
   };
 };

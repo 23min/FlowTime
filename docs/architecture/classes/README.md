@@ -46,6 +46,8 @@ Classes provide this dimension:
 - Same topology; multiple classes traverse it.
 - Classes are orthogonal to **labels** (customer, region, env), which are contextual metadata.
 
+See [Class Dimension Decision](../class-dimension-decision.md) for the rationale behind **one class per entity**, plus alternatives like composite classes and labels.
+
 This epic focuses on **gold data** (aggregated time‑binned metrics), not per‑transaction traces, but is compatible with future silver telemetry.
 
 ---

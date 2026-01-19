@@ -16,6 +16,11 @@ export type ToolHandlers = {
   validateDraft: (args: ValidateDraftArgs) => Promise<CallToolResult>;
   generateModel: (args: GenerateModelArgs) => Promise<CallToolResult>;
   runDraft: (args: RunDraftArgs) => Promise<CallToolResult>;
+  ingestSeries: (args: IngestSeriesArgs) => Promise<CallToolResult>;
+  summarizeSeries: (args: SummarizeSeriesArgs) => Promise<CallToolResult>;
+  fitProfile: (args: FitProfileArgs) => Promise<CallToolResult>;
+  previewProfile: (args: PreviewProfileArgs) => Promise<CallToolResult>;
+  mapSeriesToInputs: (args: MapSeriesToInputsArgs) => Promise<CallToolResult>;
 };
 
 export type RunTemplateArgs = {
@@ -85,6 +90,78 @@ export type GenerateModelArgs = {
   mode?: 'simulation' | 'telemetry';
 };
 
+export type SeriesMetadata = {
+  units?: string;
+  source?: string;
+  binSize?: number;
+  binUnit?: string;
+  timezone?: string;
+  timeRange?: {
+    start?: string;
+    end?: string;
+  };
+};
+
+export type IngestSeriesArgs = {
+  seriesId?: string;
+  format?: 'csv' | 'table';
+  content: string;
+  metadata?: SeriesMetadata;
+  detailLevel?: 'basic' | 'expert';
+};
+
+export type SummarizeSeriesArgs = {
+  seriesId: string;
+  detailLevel?: 'basic' | 'expert';
+};
+
+export type ProfileSummaryStats = {
+  min?: number;
+  max?: number;
+  avg?: number;
+  p50?: number;
+  p90?: number;
+  p95?: number;
+  p99?: number;
+  count?: number;
+  peakBin?: number;
+};
+
+export type ProfileSpec = {
+  kind: 'inline';
+  weights: number[];
+};
+
+export type PmfSpec = {
+  values: number[];
+  probabilities: number[];
+};
+
+export type FitProfileArgs = {
+  mode?: 'profile' | 'pmf';
+  seriesId?: string;
+  samples?: number[];
+  summary?: ProfileSummaryStats;
+  bins?: number;
+  detailLevel?: 'basic' | 'expert';
+};
+
+export type PreviewProfileArgs = {
+  profile?: ProfileSpec;
+  pmf?: PmfSpec;
+  detailLevel?: 'basic' | 'expert';
+};
+
+export type MapSeriesToInputsArgs = {
+  draftId: string;
+  nodeId: string;
+  profile?: ProfileSpec;
+  pmf?: PmfSpec;
+  provenance?: Record<string, string>;
+  persist?: boolean;
+  detailLevel?: 'basic' | 'expert';
+};
+
 const TOOL_NAMES = [
   'list_templates',
   'run_template',
@@ -98,7 +175,12 @@ const TOOL_NAMES = [
   'diff_draft',
   'validate_draft',
   'generate_model',
-  'run_draft'
+  'run_draft',
+  'ingest_series',
+  'summarize_series',
+  'fit_profile',
+  'preview_profile',
+  'map_series_to_inputs'
 ] as const;
 
 export const getToolNames = (): string[] => [...TOOL_NAMES];
@@ -274,5 +356,124 @@ export const registerTools = (server: McpServer, handlers: ToolHandlers): void =
       }
     },
     async (args) => handlers.runDraft(args)
+  );
+
+  server.registerTool(
+    'ingest_series',
+    {
+      description: 'Ingest a pre-aggregated series (CSV or pasted table) into FlowTime.Sim.Service.',
+      inputSchema: {
+        seriesId: z.string().min(1).optional(),
+        format: z.enum(['csv', 'table']).optional(),
+        content: z.string().min(1),
+        detailLevel: z.enum(['basic', 'expert']).optional(),
+        metadata: z
+          .object({
+            units: z.string().optional(),
+            source: z.string().optional(),
+            binSize: z.number().int().positive().optional(),
+            binUnit: z.string().optional(),
+            timezone: z.string().optional(),
+            timeRange: z
+              .object({
+                start: z.string().optional(),
+                end: z.string().optional()
+              })
+              .optional()
+          })
+          .optional()
+      }
+    },
+    async (args) => handlers.ingestSeries(args)
+  );
+
+  server.registerTool(
+    'summarize_series',
+    {
+      description: 'Summarize a stored series (min/avg/percentiles/periodicity) from FlowTime.Sim.Service.',
+      inputSchema: {
+        seriesId: z.string().min(1),
+        detailLevel: z.enum(['basic', 'expert']).optional()
+      }
+    },
+    async (args) => handlers.summarizeSeries(args)
+  );
+
+  server.registerTool(
+    'fit_profile',
+    {
+      description: 'Fit a profile or PMF from samples, summary stats, or an ingested series.',
+      inputSchema: {
+        mode: z.enum(['profile', 'pmf']).optional(),
+        seriesId: z.string().min(1).optional(),
+        samples: z.array(z.number()).optional(),
+        summary: z
+          .object({
+            min: z.number().optional(),
+            max: z.number().optional(),
+            avg: z.number().optional(),
+            p50: z.number().optional(),
+            p90: z.number().optional(),
+            p95: z.number().optional(),
+            p99: z.number().optional(),
+            count: z.number().int().optional(),
+            peakBin: z.number().int().optional()
+          })
+          .optional(),
+        bins: z.number().int().optional(),
+        detailLevel: z.enum(['basic', 'expert']).optional()
+      }
+    },
+    async (args) => handlers.fitProfile(args)
+  );
+
+  server.registerTool(
+    'preview_profile',
+    {
+      description: 'Preview a profile or PMF before applying it to a draft.',
+      inputSchema: {
+        profile: z
+          .object({
+            kind: z.literal('inline'),
+            weights: z.array(z.number())
+          })
+          .optional(),
+        pmf: z
+          .object({
+            values: z.array(z.number()),
+            probabilities: z.array(z.number())
+          })
+          .optional(),
+        detailLevel: z.enum(['basic', 'expert']).optional()
+      }
+    },
+    async (args) => handlers.previewProfile(args)
+  );
+
+  server.registerTool(
+    'map_series_to_inputs',
+    {
+      description: 'Apply a fitted profile or PMF to a draft node.',
+      inputSchema: {
+        draftId: z.string().min(1),
+        nodeId: z.string().min(1),
+        profile: z
+          .object({
+            kind: z.literal('inline'),
+            weights: z.array(z.number())
+          })
+          .optional(),
+        pmf: z
+          .object({
+            values: z.array(z.number()),
+            probabilities: z.array(z.number())
+          })
+          .optional(),
+        provenance: z.record(z.string(), z.string()).optional(),
+        persist: z.boolean().optional(),
+        detailLevel: z.enum(['basic', 'expert']).optional()
+      }
+    },
+    async (args) => handlers.mapSeriesToInputs(args)
   );
 };
