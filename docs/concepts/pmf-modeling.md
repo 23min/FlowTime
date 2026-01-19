@@ -6,9 +6,18 @@
 
 Probability Mass Functions (PMFs) are a fundamental tool in FlowTime for modeling uncertainty and variability in business processes. This guide explains PMF concepts, implementation across FlowTime components, and best practices for effective probabilistic modeling within the charter execution framework.
 
+In FlowTime, it helps to separate three ideas:
+- **Const series**: exact values per time bin (no uncertainty).
+- **PMF (distribution)**: uncertainty about a value within a bin (what value is typical).
+- **Profile weights**: time-of-day or seasonality shape (when the value is higher or lower).
+
+PMFs and profiles are orthogonal and can be combined. A PMF provides the baseline expected value, and a profile scales that value across bins to match the time pattern. If you already know the exact volume per bin, use a const series instead of a PMF.
+
 ## What are PMFs?
 
-A **Probability Mass Function** defines the probability distribution of a discrete random variable. In FlowTime, PMFs model uncertainty in workflow parameters like arrival rates, attempt counts, or processing volumes.
+A **Probability Mass Function** defines the probability distribution of a discrete random variable. In FlowTime, PMFs model uncertainty in workflow parameters like arrival rates, attempt counts, or processing volumes for a single bin.
+
+PMFs answer the question: "What values are plausible for this quantity in a typical bin?" They do not encode time-of-day patterns. Use profile weights for the time pattern and a PMF for the uncertainty of the values themselves.
 
 ### Mathematical Foundation
 
@@ -22,6 +31,27 @@ A PMF assigns probabilities to discrete values such that:
 Arrivals per hour: { 1: 0.1, 2: 0.3, 3: 0.4, 4: 0.2 }
 Expected value: 1*0.1 + 2*0.3 + 3*0.4 + 4*0.2 = 2.7 arrivals/hour
 ```
+
+### PMFs vs Const Series vs Profile Weights
+
+**Const series (exact per-bin values)**
+- Use when you already know the per-bin volume.
+- Example: `values: [90, 120, 130, 110]` (4 bins).
+
+**PMF (distribution of values)**
+- Use when the value varies from bin to bin and you want to capture that uncertainty.
+- Example: `pmf: { 80: 0.2, 100: 0.6, 140: 0.2 }` -> expected value 106.
+
+**Profile weights (time pattern)**
+- Use to shape a baseline across time bins (commute peaks, seasonal swings).
+- Example weights: `[0.6, 0.9, 1.3, 1.2]` (average is 1.0).
+
+**Combining PMF + profile**
+- PMF gives the baseline expected value for each bin.
+- Profile scales it across time bins.
+- Example: expected value 100 with weights `[0.6, 0.9, 1.3, 1.2]` yields per-bin values `[60, 90, 130, 120]`.
+
+If you want exact per-bin values, use a const series or telemetry. If you want an average plus realistic variation, use a PMF. If you also need time-of-day shape, add a profile.
 
 ## PMFs Across FlowTime Components
 
