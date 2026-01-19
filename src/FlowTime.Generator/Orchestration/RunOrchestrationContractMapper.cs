@@ -97,7 +97,8 @@ public static class RunOrchestrationContractMapper
                 ProvenancePath = manifest.Storage.ProvenancePath
             },
             InputHash = result.InputHash ?? result.RunDocument.InputHash,
-            Rng = new RunRngOptions { Kind = "pcg32", Seed = result.RngSeed }
+            Rng = new RunRngOptions { Kind = "pcg32", Seed = result.RngSeed },
+            EdgeQuality = "missing"
         };
     }
 

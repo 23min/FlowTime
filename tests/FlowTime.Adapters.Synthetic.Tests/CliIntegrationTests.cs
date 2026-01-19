@@ -15,47 +15,10 @@ public class CliIntegrationTests
         // This test assumes the CLI has been run with the hello example
         // We'll create a temporary run to ensure it exists
         var tempOutput = Path.Combine(Path.GetTempPath(), "flowtime-cli-test");
-        
-        // Run the CLI to produce artifacts
-        var process = new System.Diagnostics.Process
-        {
-            StartInfo = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "dotnet",
-                Arguments = $"run --project {GetCliProjectPath()} -- run {GetHelloModelPath()} --out {tempOutput}",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true,
-                WorkingDirectory = GetFlowTimeRoot()
-            }
-        };
-
-        process.Start();
-
-        var outputTask = process.StandardOutput.ReadToEndAsync();
-        var errorTask = process.StandardError.ReadToEndAsync();
-
-        var timeout = TimeSpan.FromSeconds(60);
-        using var timeoutCts = new CancellationTokenSource(timeout);
-        try
-        {
-            await Task.WhenAll(process.WaitForExitAsync(timeoutCts.Token), outputTask, errorTask);
-        }
-        catch (OperationCanceledException)
-        {
-            if (!process.HasExited)
-            {
-                process.Kill(entireProcessTree: true);
-            }
-
-            throw new TimeoutException($"CLI run did not finish within {timeout.TotalSeconds}s.");
-        }
-
-        var output = await outputTask;
-        var error = await errorTask;
-
-        if (process.ExitCode != 0)
+        var cliDll = await EnsureCliBuiltAsync();
+        var cliArgs = $"{cliDll} run {GetHelloModelPath()} --out {tempOutput}";
+        var (output, error, exitCode) = await RunProcessAsync("dotnet", cliArgs, TimeSpan.FromSeconds(60));
+        if (exitCode != 0)
         {
             throw new Exception($"CLI failed: {error}");
         }
@@ -134,8 +97,78 @@ public class CliIntegrationTests
         return Path.Combine(GetFlowTimeRoot(), "src", "FlowTime.Cli", "FlowTime.Cli.csproj");
     }
 
+    private static string GetCliOutputPath()
+    {
+        return Path.Combine(GetFlowTimeRoot(), "src", "FlowTime.Cli", "bin", "Debug", "net9.0", "FlowTime.Cli.dll");
+    }
+
     private static string GetHelloModelPath()
     {
         return Path.Combine(GetFlowTimeRoot(), "examples", "hello", "model.yaml");
+    }
+
+    private static async Task<string> EnsureCliBuiltAsync()
+    {
+        var cliDll = GetCliOutputPath();
+        if (File.Exists(cliDll))
+        {
+            return cliDll;
+        }
+
+        var buildArgs = $"build {GetCliProjectPath()} --nologo";
+        var (_, error, exitCode) = await RunProcessAsync("dotnet", buildArgs, TimeSpan.FromSeconds(180));
+        if (exitCode != 0)
+        {
+            throw new Exception($"CLI build failed: {error}");
+        }
+
+        if (!File.Exists(cliDll))
+        {
+            throw new FileNotFoundException($"CLI output not found after build: {cliDll}");
+        }
+
+        return cliDll;
+    }
+
+    private static async Task<(string Output, string Error, int ExitCode)> RunProcessAsync(
+        string fileName,
+        string arguments,
+        TimeSpan timeout)
+    {
+        var process = new System.Diagnostics.Process
+        {
+            StartInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = fileName,
+                Arguments = arguments,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+                WorkingDirectory = GetFlowTimeRoot()
+            }
+        };
+
+        process.Start();
+
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
+
+        using var timeoutCts = new CancellationTokenSource(timeout);
+        try
+        {
+            await Task.WhenAll(process.WaitForExitAsync(timeoutCts.Token), outputTask, errorTask);
+        }
+        catch (OperationCanceledException)
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+
+            throw new TimeoutException($"Process '{fileName} {arguments}' did not finish within {timeout.TotalSeconds}s.");
+        }
+
+        return (await outputTask, await errorTask, process.ExitCode);
     }
 }

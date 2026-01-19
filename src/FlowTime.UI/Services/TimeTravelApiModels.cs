@@ -74,6 +74,9 @@ public sealed record TimeTravelStateMetadataDto
 
     [JsonPropertyName("classCoverage")]
     public string? ClassCoverage { get; init; }
+
+    [JsonPropertyName("edgeQuality")]
+    public string? EdgeQuality { get; init; }
 }
 
 public sealed record TimeTravelSchemaMetadataDto

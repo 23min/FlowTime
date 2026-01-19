@@ -25,5 +25,29 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
-      - name: Test
-        run: dotnet test --configuration Release --no-build --filter "FullyQualifiedName!~Performance"
+      - name: Test (Expressions)
+        run: dotnet test --configuration Release --no-build tests/FlowTime.Expressions.Tests/FlowTime.Expressions.Tests.csproj --blame-hang --blame-hang-timeout 60s
+
+      - name: Test (Core)
+        run: dotnet test --configuration Release --no-build tests/FlowTime.Core.Tests/FlowTime.Core.Tests.csproj --blame-hang --blame-hang-timeout 60s
+
+      - name: Test (Engine)
+        run: dotnet test --configuration Release --no-build tests/FlowTime.Tests/FlowTime.Tests.csproj --blame-hang --blame-hang-timeout 60s --filter "FullyQualifiedName!~Performance"
+
+      - name: Test (Synthetic Adapters)
+        run: dotnet test --configuration Release --no-build tests/FlowTime.Adapters.Synthetic.Tests/FlowTime.Adapters.Synthetic.Tests.csproj --blame-hang --blame-hang-timeout 60s
+
+      - name: Test (Sim)
+        run: dotnet test --configuration Release --no-build tests/FlowTime.Sim.Tests/FlowTime.Sim.Tests.csproj --blame-hang --blame-hang-timeout 60s
+
+      - name: Test (UI)
+        run: dotnet test --configuration Release --no-build tests/FlowTime.UI.Tests/FlowTime.UI.Tests.csproj --blame-hang --blame-hang-timeout 60s
+
+      - name: Test (API)
+        run: dotnet test --configuration Release --no-build tests/FlowTime.Api.Tests/FlowTime.Api.Tests.csproj --blame-hang --blame-hang-timeout 60s
+
+      - name: Test (Integration)
+        run: dotnet test --configuration Release --no-build tests/FlowTime.Integration.Tests/FlowTime.Integration.Tests.csproj --blame-hang --blame-hang-timeout 60s
+
+      - name: Test (CLI)
+        run: dotnet test --configuration Release --no-build tests/FlowTime.Cli.Tests/FlowTime.Cli.Tests.csproj --blame-hang --blame-hang-timeout 60s

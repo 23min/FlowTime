@@ -17,6 +17,7 @@
       "metadataPath": "<dynamic>",
       "provenancePath": "<dynamic>"
     },
+    "edgeQuality": "missing",
     "classCoverage": "missing"
   },
   "window": {

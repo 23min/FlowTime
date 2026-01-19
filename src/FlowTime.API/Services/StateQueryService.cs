@@ -3326,6 +3326,7 @@ public sealed class StateQueryService
         var telemetryResolved = metadata.TelemetrySources.Count > 0 &&
             !context.InitialWarnings.Any(w => string.Equals(w.Code, "telemetry_sources_missing", StringComparison.OrdinalIgnoreCase));
         var mergedCoverage = MergeClassCoverage(classCoverage, context.Manifest.ClassCoverage);
+        var edgeQuality = ResolveEdgeQuality(context, mergedCoverage);
         return new StateMetadata
         {
             RunId = context.Manifest.RunId,
@@ -3348,7 +3349,8 @@ public sealed class StateQueryService
                 MetadataPath = metadata.Storage.MetadataPath,
                 ProvenancePath = metadata.Storage.ProvenancePath
             },
-            ClassCoverage = mergedCoverage
+            ClassCoverage = mergedCoverage,
+            EdgeQuality = edgeQuality
         };
     }
 
@@ -3379,6 +3381,104 @@ public sealed class StateQueryService
             "full" => 2,
             _ => -1
         };
+    }
+
+    private static string ResolveEdgeQuality(StateRunContext context, string? classCoverage)
+    {
+        if (context.SeriesIndex.Series is null || context.SeriesIndex.Series.Length == 0)
+        {
+            return "missing";
+        }
+
+        var edgeSeriesEntries = context.SeriesIndex.Series
+            .Where(IsEdgeSeriesMetadata)
+            .ToList();
+
+        if (edgeSeriesEntries.Count == 0)
+        {
+            return "missing";
+        }
+
+        var classIds = context.SeriesIndex.Classes?
+            .Select(entry => entry.Id)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray()
+            ?? Array.Empty<string>();
+
+        if (classIds.Length == 0)
+        {
+            return "exact";
+        }
+
+        var coverage = classCoverage?.Trim().ToLowerInvariant();
+        if (coverage == "missing")
+        {
+            return "approx";
+        }
+
+        if (coverage == "partial")
+        {
+            return "partialClass";
+        }
+
+        var edgeTokens = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var edgeClassCoverage = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        var hasFlowTotal = false;
+
+        foreach (var series in edgeSeriesEntries)
+        {
+            if (!TryParseEdgeSeriesId(series.Id, out var edgeToken, out var metric))
+            {
+                continue;
+            }
+
+            if (!string.Equals(metric, "flowTotal", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            hasFlowTotal = true;
+            edgeTokens.Add(edgeToken);
+
+            if (string.IsNullOrWhiteSpace(series.Class) ||
+                string.Equals(series.Class, "DEFAULT", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!edgeClassCoverage.TryGetValue(edgeToken, out var classes))
+            {
+                classes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                edgeClassCoverage[edgeToken] = classes;
+            }
+
+            classes.Add(series.Class.Trim());
+        }
+
+        if (!hasFlowTotal)
+        {
+            return "missing";
+        }
+
+        if (edgeClassCoverage.Count == 0)
+        {
+            return "approx";
+        }
+
+        var expectedClasses = new HashSet<string>(classIds, StringComparer.OrdinalIgnoreCase);
+        foreach (var edgeToken in edgeTokens)
+        {
+            if (!edgeClassCoverage.TryGetValue(edgeToken, out var classes) ||
+                classes.Count == 0 ||
+                !expectedClasses.IsSubsetOf(classes))
+            {
+                return "partialClass";
+            }
+        }
+
+        return "exact";
     }
 
     private static IReadOnlyList<StateWarning> BuildWarnings(StateRunContext context, IReadOnlyList<ModeValidationWarning> additionalWarnings)

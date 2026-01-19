@@ -31,6 +31,8 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private const string kernelPolicyRunId = "run_state_retry_kernel_policy";
     private const string retryEdgesRunId = "run_state_edges";
     private const string edgeFlowRunId = "run_state_edge_flow";
+    private const string edgeFlowApproxRunId = "run_state_edge_flow_approx";
+    private const string edgeFlowPartialRunId = "run_state_edge_flow_partial";
     private const string classRunId = "run_state_classes";
     private const string queueClassRunId = "run_state_classes_queue";
     private const string serviceWithBufferDerivedRunId = "run_state_servicewithbuffer_derived";
@@ -78,6 +80,8 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateKernelPolicyRun();
         CreateRetryEdgesRun();
         CreateEdgeFlowRun();
+        CreateEdgeFlowApproxRun();
+        CreateEdgeFlowPartialRun();
         CreateClassRun();
         CreateServiceWithBufferClassRun();
         CreateServiceWithBufferDerivedRun();
@@ -127,6 +131,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal("telemetry", payload.Metadata.Mode);
         Assert.True(payload.Metadata.TelemetrySourcesResolved);
         Assert.Equal("missing", payload.Metadata.ClassCoverage);
+        Assert.Equal("missing", payload.Metadata.EdgeQuality);
         Assert.Empty(payload.Warnings);
 
         Assert.Equal(1, payload.Bin.Index);
@@ -161,6 +166,63 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Empty(queue.Telemetry.Warnings);
         Assert.NotNull(queue.Aliases);
         Assert.Equal("Open backlog", queue.Aliases!["queue"]);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_IncludesEdgeQuality()
+    {
+        var response = await client.GetAsync($"/v1/runs/{edgeFlowRunId}/state_window?startBin=0&endBin=3");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.NotNull(payload);
+        Assert.Equal("exact", payload!.Metadata.EdgeQuality);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_IncludesApproxEdgeQuality()
+    {
+        var response = await client.GetAsync($"/v1/runs/{edgeFlowApproxRunId}/state_window?startBin=0&endBin=3");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.NotNull(payload);
+        Assert.Equal("approx", payload!.Metadata.EdgeQuality);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_IncludesPartialClassEdgeQuality()
+    {
+        var response = await client.GetAsync($"/v1/runs/{edgeFlowPartialRunId}/state_window?startBin=0&endBin=3");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.NotNull(payload);
+        Assert.Equal("partialClass", payload!.Metadata.EdgeQuality);
     }
 
     [Fact]
@@ -1253,6 +1315,58 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
             manifestSeries: manifestSeries);
     }
 
+    private void CreateEdgeFlowApproxRun()
+    {
+        var edgeSeries = new Dictionary<string, double[]>
+        {
+            ["edge_order_to_support_flowTotal@EDGE_ORDER_TO_SUPPORT_FLOWTOTAL@DEFAULT.csv"] = new[] { 9d, 6d, 9d, 4d }
+        };
+
+        var manifestSeries = edgeSeries.Keys
+            .Select(fileName => (id: Path.GetFileNameWithoutExtension(fileName), path: $"series/{fileName}", unit: "entities/bin"))
+            .ToArray();
+
+        CreateRun(
+            edgeFlowApproxRunId,
+            BuildEdgeFlowModelYaml(),
+            mode: "telemetry",
+            seriesOutputs: edgeSeries,
+            manifestSeries: manifestSeries,
+            classIds: new[] { "vip", "standard" });
+    }
+
+    private void CreateEdgeFlowPartialRun()
+    {
+        var edgeSeries = new Dictionary<string, double[]>
+        {
+            ["edge_order_to_support_flowTotal@EDGE_ORDER_TO_SUPPORT_FLOWTOTAL@DEFAULT.csv"] = new[] { 9d, 6d, 9d, 4d }
+        };
+
+        var classSeries = new Dictionary<string, double[]>
+        {
+            ["OrderService_arrivals@ORDERSERVICE@vip.csv"] = new[] { 7d, 6d, 6d, 5d },
+            ["OrderService_arrivals@ORDERSERVICE@standard.csv"] = new[] { 1d, 1d, 1d, 1d },
+            ["OrderService_served@ORDERSERVICE@vip.csv"] = new[] { 6d, 5d, 5d, 4d },
+            ["OrderService_served@ORDERSERVICE@standard.csv"] = new[] { 1d, 1d, 1d, 1d }
+        };
+
+        var seriesOutputs = edgeSeries
+            .Concat(classSeries)
+            .ToDictionary(pair => pair.Key, pair => pair.Value);
+
+        var manifestSeries = seriesOutputs.Keys
+            .Select(fileName => (id: Path.GetFileNameWithoutExtension(fileName), path: $"series/{fileName}", unit: "entities/bin"))
+            .ToArray();
+
+        CreateRun(
+            edgeFlowPartialRunId,
+            BuildEdgeFlowModelYaml(),
+            mode: "telemetry",
+            seriesOutputs: seriesOutputs,
+            manifestSeries: manifestSeries,
+            classIds: new[] { "vip", "standard" });
+    }
+
     private void CreateClassRun()
     {
         var overrides = new Dictionary<string, double[]>
@@ -1522,7 +1636,8 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         string mode,
         Dictionary<string, double[]>? overrides = null,
         Dictionary<string, double[]>? seriesOutputs = null,
-        IReadOnlyCollection<(string id, string path, string unit)>? manifestSeries = null)
+        IReadOnlyCollection<(string id, string path, string unit)>? manifestSeries = null,
+        IReadOnlyCollection<string>? classIds = null)
     {
         var runDir = Path.Combine(artifactsRoot, runIdentifier);
         var modelDir = Path.Combine(runDir, "model");
@@ -1547,7 +1662,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         }
         File.WriteAllText(Path.Combine(modelDir, "model.yaml"), modelYaml, System.Text.Encoding.UTF8);
         WriteMetadata(modelDir, runIdentifier, mode);
-        WriteSeriesIndex(seriesDir, manifestSeries);
+        WriteSeriesIndex(seriesDir, manifestSeries, classIds);
         File.WriteAllText(Path.Combine(runDir, "run.json"), BuildRunJson(runIdentifier, mode, manifestSeries), System.Text.Encoding.UTF8);
     }
 
@@ -1792,7 +1907,10 @@ private static void WriteSeries(string directory, string fileName, IReadOnlyList
     }
 }
 
-    private static void WriteSeriesIndex(string seriesDirectory, IReadOnlyCollection<(string id, string path, string unit)>? entries)
+    private static void WriteSeriesIndex(
+        string seriesDirectory,
+        IReadOnlyCollection<(string id, string path, string unit)>? entries,
+        IReadOnlyCollection<string>? classIds = null)
     {
         Directory.CreateDirectory(seriesDirectory);
 
@@ -1815,7 +1933,11 @@ private static void WriteSeries(string directory, string fileName, IReadOnlyList
                 @class = ExtractClassId(entry.id),
                 points = binCount,
                 hash = $"sha256:{entry.id}"
-            }).ToArray()
+            }).ToArray(),
+            classes = (classIds ?? Array.Empty<string>())
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => new { id })
+                .ToArray()
         };
 
         var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions(JsonSerializerDefaults.Web)

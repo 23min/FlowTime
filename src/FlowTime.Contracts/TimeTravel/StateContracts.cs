@@ -35,6 +35,7 @@ public sealed class StateMetadata
     public bool TelemetrySourcesResolved { get; init; }
     public required SchemaMetadata Schema { get; init; }
     public required StorageDescriptor Storage { get; init; }
+    public required string EdgeQuality { get; init; }
     public RunRngOptions? Rng { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? InputHash { get; init; }

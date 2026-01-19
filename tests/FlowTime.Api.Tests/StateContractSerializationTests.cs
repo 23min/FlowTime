@@ -32,7 +32,8 @@ public class StateContractSerializationTests
                     ModelPath = "model.yaml",
                     MetadataPath = "metadata.json",
                     ProvenancePath = "provenance.json"
-                }
+                },
+                EdgeQuality = "missing"
             },
             Bin = new BinDetail
             {

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using FlowTime.Core.Analysis;
+using FlowTime.Core.Artifacts;
 using FlowTime.Core.Models;
 using FlowTime.Core.Nodes;
 
@@ -8,6 +9,449 @@ namespace FlowTime.Core.Tests.Analysis;
 
 public class InvariantAnalyzerTests
 {
+    [Fact]
+    public void Analyze_WarnsWhenOutgoingEdgeFlowDoesNotMatchServed()
+    {
+        var model = new ModelDefinition
+        {
+            Grid = new GridDefinition { Bins = 2, BinSize = 1, BinUnit = "hours" },
+            Topology = new TopologyDefinition
+            {
+                Nodes =
+                {
+                    new TopologyNodeDefinition
+                    {
+                        Id = "Source",
+                        Kind = "service",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "source_arrivals",
+                            Served = "source_served"
+                        }
+                    },
+                    new TopologyNodeDefinition
+                    {
+                        Id = "Target",
+                        Kind = "service",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "target_arrivals",
+                            Served = "target_served"
+                        }
+                    }
+                },
+                Edges =
+                {
+                    new TopologyEdgeDefinition
+                    {
+                        Source = "Source",
+                        Target = "Target",
+                        Measure = "served"
+                    }
+                }
+            }
+        };
+
+        var evaluated = new Dictionary<NodeId, double[]>
+        {
+            [new NodeId("source_arrivals")] = new[] { 10d, 10d },
+            [new NodeId("source_served")] = new[] { 10d, 10d },
+            [new NodeId("target_arrivals")] = new[] { 10d, 10d },
+            [new NodeId("target_served")] = new[] { 10d, 10d }
+        };
+
+        var edgeSeries = new[]
+        {
+            new RunArtifactWriter.EdgeSeriesInput
+            {
+                EdgeId = "Source->Target",
+                Metric = "flowTotal",
+                Values = new[] { 8d, 10d }
+            }
+        };
+
+        var result = InvariantAnalyzer.Analyze(model, evaluated, edgeSeries: edgeSeries);
+
+        Assert.Contains(result.Warnings, warning => warning.Code == "edge_flow_mismatch_outgoing");
+    }
+
+    [Fact]
+    public void Analyze_WarnsWhenIncomingEdgeFlowDoesNotMatchArrivals()
+    {
+        var model = new ModelDefinition
+        {
+            Grid = new GridDefinition { Bins = 2, BinSize = 1, BinUnit = "hours" },
+            Topology = new TopologyDefinition
+            {
+                Nodes =
+                {
+                    new TopologyNodeDefinition
+                    {
+                        Id = "Source",
+                        Kind = "service",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "source_arrivals",
+                            Served = "source_served"
+                        }
+                    },
+                    new TopologyNodeDefinition
+                    {
+                        Id = "Target",
+                        Kind = "service",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "target_arrivals",
+                            Served = "target_served"
+                        }
+                    }
+                },
+                Edges =
+                {
+                    new TopologyEdgeDefinition
+                    {
+                        Source = "Source",
+                        Target = "Target",
+                        Measure = "served"
+                    }
+                }
+            }
+        };
+
+        var evaluated = new Dictionary<NodeId, double[]>
+        {
+            [new NodeId("source_arrivals")] = new[] { 10d, 10d },
+            [new NodeId("source_served")] = new[] { 10d, 10d },
+            [new NodeId("target_arrivals")] = new[] { 8d, 10d },
+            [new NodeId("target_served")] = new[] { 10d, 10d }
+        };
+
+        var edgeSeries = new[]
+        {
+            new RunArtifactWriter.EdgeSeriesInput
+            {
+                EdgeId = "Source->Target",
+                Metric = "flowTotal",
+                Values = new[] { 10d, 10d }
+            }
+        };
+
+        var result = InvariantAnalyzer.Analyze(model, evaluated, edgeSeries: edgeSeries);
+
+        Assert.Contains(result.Warnings, warning => warning.Code == "edge_flow_mismatch_incoming");
+    }
+
+    [Fact]
+    public void Analyze_WarnsWhenEdgeClassFlowsDoNotMatchServedClasses()
+    {
+        var model = new ModelDefinition
+        {
+            Grid = new GridDefinition { Bins = 1, BinSize = 1, BinUnit = "hours" },
+            Classes =
+            {
+                new ClassDefinition { Id = "Alpha" },
+                new ClassDefinition { Id = "Beta" }
+            },
+            Traffic = new TrafficDefinition
+            {
+                Arrivals =
+                {
+                    new ArrivalDefinition
+                    {
+                        NodeId = "arrivals_alpha",
+                        ClassId = "Alpha",
+                        Pattern = new ArrivalPatternDefinition { Kind = "constant", RatePerBin = 1 }
+                    },
+                    new ArrivalDefinition
+                    {
+                        NodeId = "arrivals_beta",
+                        ClassId = "Beta",
+                        Pattern = new ArrivalPatternDefinition { Kind = "constant", RatePerBin = 1 }
+                    }
+                }
+            },
+            Nodes =
+            {
+                new NodeDefinition { Id = "arrivals_alpha", Kind = "const", Values = new[] { 1d } },
+                new NodeDefinition { Id = "arrivals_beta", Kind = "const", Values = new[] { 1d } },
+                new NodeDefinition { Id = "arrivals_total", Kind = "expr", Expr = "arrivals_alpha + arrivals_beta" },
+                new NodeDefinition { Id = "served_total", Kind = "expr", Expr = "arrivals_total" },
+                new NodeDefinition { Id = "target_arrivals", Kind = "const", Values = new[] { 2d } },
+                new NodeDefinition { Id = "target_served", Kind = "const", Values = new[] { 2d } }
+            },
+            Topology = new TopologyDefinition
+            {
+                Nodes =
+                {
+                    new TopologyNodeDefinition
+                    {
+                        Id = "Source",
+                        Kind = "service",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "arrivals_total",
+                            Served = "served_total"
+                        }
+                    },
+                    new TopologyNodeDefinition
+                    {
+                        Id = "Target",
+                        Kind = "service",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "target_arrivals",
+                            Served = "target_served"
+                        }
+                    }
+                },
+                Edges =
+                {
+                    new TopologyEdgeDefinition
+                    {
+                        Source = "Source",
+                        Target = "Target",
+                        Measure = "served"
+                    }
+                }
+            }
+        };
+
+        var evaluated = new Dictionary<NodeId, double[]>
+        {
+            [new NodeId("arrivals_alpha")] = new[] { 1d },
+            [new NodeId("arrivals_beta")] = new[] { 1d },
+            [new NodeId("arrivals_total")] = new[] { 2d },
+            [new NodeId("served_total")] = new[] { 2d },
+            [new NodeId("target_arrivals")] = new[] { 2d },
+            [new NodeId("target_served")] = new[] { 2d }
+        };
+
+        var edgeSeries = new[]
+        {
+            new RunArtifactWriter.EdgeSeriesInput
+            {
+                EdgeId = "Source->Target",
+                Metric = "flowTotal",
+                ClassId = "Alpha",
+                Values = new[] { 2d }
+            }
+        };
+
+        var result = InvariantAnalyzer.Analyze(model, evaluated, edgeSeries: edgeSeries);
+
+        Assert.Contains(result.Warnings, warning => warning.Code == "edge_class_partial_coverage");
+    }
+
+    [Fact]
+    public void Analyze_WarnsWhenEdgeClassCoverageIsPartial()
+    {
+        var model = new ModelDefinition
+        {
+            Grid = new GridDefinition { Bins = 1, BinSize = 1, BinUnit = "hours" },
+            Classes =
+            {
+                new ClassDefinition { Id = "Alpha" },
+                new ClassDefinition { Id = "Beta" }
+            },
+            Traffic = new TrafficDefinition
+            {
+                Arrivals =
+                {
+                    new ArrivalDefinition
+                    {
+                        NodeId = "arrivals_alpha",
+                        ClassId = "Alpha",
+                        Pattern = new ArrivalPatternDefinition { Kind = "constant", RatePerBin = 1 }
+                    },
+                    new ArrivalDefinition
+                    {
+                        NodeId = "arrivals_beta",
+                        ClassId = "Beta",
+                        Pattern = new ArrivalPatternDefinition { Kind = "constant", RatePerBin = 1 }
+                    }
+                }
+            },
+            Nodes =
+            {
+                new NodeDefinition { Id = "arrivals_alpha", Kind = "const", Values = new[] { 1d } },
+                new NodeDefinition { Id = "arrivals_beta", Kind = "const", Values = new[] { 1d } },
+                new NodeDefinition { Id = "arrivals_total", Kind = "expr", Expr = "arrivals_alpha + arrivals_beta" },
+                new NodeDefinition { Id = "served_total", Kind = "expr", Expr = "arrivals_total" },
+                new NodeDefinition { Id = "target_arrivals", Kind = "const", Values = new[] { 2d } },
+                new NodeDefinition { Id = "target_served", Kind = "const", Values = new[] { 2d } }
+            },
+            Topology = new TopologyDefinition
+            {
+                Nodes =
+                {
+                    new TopologyNodeDefinition
+                    {
+                        Id = "Source",
+                        Kind = "service",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "arrivals_total",
+                            Served = "served_total"
+                        }
+                    },
+                    new TopologyNodeDefinition
+                    {
+                        Id = "Target",
+                        Kind = "service",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "target_arrivals",
+                            Served = "target_served"
+                        }
+                    }
+                },
+                Edges =
+                {
+                    new TopologyEdgeDefinition
+                    {
+                        Source = "Source",
+                        Target = "Target",
+                        Measure = "served"
+                    }
+                }
+            }
+        };
+
+        var evaluated = new Dictionary<NodeId, double[]>
+        {
+            [new NodeId("arrivals_alpha")] = new[] { 1d },
+            [new NodeId("arrivals_beta")] = new[] { 1d },
+            [new NodeId("arrivals_total")] = new[] { 2d },
+            [new NodeId("served_total")] = new[] { 2d },
+            [new NodeId("target_arrivals")] = new[] { 2d },
+            [new NodeId("target_served")] = new[] { 2d }
+        };
+
+        var edgeSeries = new[]
+        {
+            new RunArtifactWriter.EdgeSeriesInput
+            {
+                EdgeId = "Source->Target",
+                Metric = "flowTotal",
+                ClassId = "Alpha",
+                Values = new[] { 1d }
+            }
+        };
+
+        var result = InvariantAnalyzer.Analyze(model, evaluated, edgeSeries: edgeSeries);
+
+        Assert.Contains(result.Warnings, warning => warning.Code == "edge_class_partial_coverage");
+    }
+
+    [Fact]
+    public void Analyze_DoesNotWarnWhenEdgeClassFlowsMatchServed()
+    {
+        var model = new ModelDefinition
+        {
+            Grid = new GridDefinition { Bins = 1, BinSize = 1, BinUnit = "hours" },
+            Classes =
+            {
+                new ClassDefinition { Id = "Alpha" },
+                new ClassDefinition { Id = "Beta" }
+            },
+            Traffic = new TrafficDefinition
+            {
+                Arrivals =
+                {
+                    new ArrivalDefinition
+                    {
+                        NodeId = "arrivals_alpha",
+                        ClassId = "Alpha",
+                        Pattern = new ArrivalPatternDefinition { Kind = "constant", RatePerBin = 1 }
+                    },
+                    new ArrivalDefinition
+                    {
+                        NodeId = "arrivals_beta",
+                        ClassId = "Beta",
+                        Pattern = new ArrivalPatternDefinition { Kind = "constant", RatePerBin = 1 }
+                    }
+                }
+            },
+            Nodes =
+            {
+                new NodeDefinition { Id = "arrivals_alpha", Kind = "const", Values = new[] { 1d } },
+                new NodeDefinition { Id = "arrivals_beta", Kind = "const", Values = new[] { 1d } },
+                new NodeDefinition { Id = "arrivals_total", Kind = "expr", Expr = "arrivals_alpha + arrivals_beta" },
+                new NodeDefinition { Id = "served_total", Kind = "expr", Expr = "arrivals_total" },
+                new NodeDefinition { Id = "target_arrivals", Kind = "const", Values = new[] { 2d } },
+                new NodeDefinition { Id = "target_served", Kind = "const", Values = new[] { 2d } }
+            },
+            Topology = new TopologyDefinition
+            {
+                Nodes =
+                {
+                    new TopologyNodeDefinition
+                    {
+                        Id = "Source",
+                        Kind = "service",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "arrivals_total",
+                            Served = "served_total"
+                        }
+                    },
+                    new TopologyNodeDefinition
+                    {
+                        Id = "Target",
+                        Kind = "service",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "target_arrivals",
+                            Served = "target_served"
+                        }
+                    }
+                },
+                Edges =
+                {
+                    new TopologyEdgeDefinition
+                    {
+                        Source = "Source",
+                        Target = "Target",
+                        Measure = "served"
+                    }
+                }
+            }
+        };
+
+        var evaluated = new Dictionary<NodeId, double[]>
+        {
+            [new NodeId("arrivals_alpha")] = new[] { 1d },
+            [new NodeId("arrivals_beta")] = new[] { 1d },
+            [new NodeId("arrivals_total")] = new[] { 2d },
+            [new NodeId("served_total")] = new[] { 2d },
+            [new NodeId("target_arrivals")] = new[] { 2d },
+            [new NodeId("target_served")] = new[] { 2d }
+        };
+
+        var edgeSeries = new[]
+        {
+            new RunArtifactWriter.EdgeSeriesInput
+            {
+                EdgeId = "Source->Target",
+                Metric = "flowTotal",
+                ClassId = "Alpha",
+                Values = new[] { 1d }
+            },
+            new RunArtifactWriter.EdgeSeriesInput
+            {
+                EdgeId = "Source->Target",
+                Metric = "flowTotal",
+                ClassId = "Beta",
+                Values = new[] { 1d }
+            }
+        };
+
+        var result = InvariantAnalyzer.Analyze(model, evaluated, edgeSeries: edgeSeries);
+
+        Assert.DoesNotContain(result.Warnings, warning => warning.Code == "edge_class_mismatch");
+        Assert.DoesNotContain(result.Warnings, warning => warning.Code == "edge_class_partial_coverage");
+    }
+
     [Fact]
     public void Analyze_DoesNotWarn_WhenParallelismScalesCapacity()
     {

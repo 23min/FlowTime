@@ -19,6 +19,7 @@
       "metadataPath": "METADATA_PATH",
       "provenancePath": "PROVENANCE_PATH"
     },
+    "edgeQuality": "missing",
     "rng": {
       "kind": "pcg32",
       "seed": 123

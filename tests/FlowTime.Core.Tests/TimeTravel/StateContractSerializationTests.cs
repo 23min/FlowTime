@@ -36,7 +36,8 @@ public class StateContractSerializationTests
                 Storage = new StorageDescriptor
                 {
                     ModelPath = "data/models/order-system/schema-1/mode-simulation/sha256-abc123/model.yaml"
-                }
+                },
+                EdgeQuality = "missing"
             },
             Bin = new BinDetail
             {

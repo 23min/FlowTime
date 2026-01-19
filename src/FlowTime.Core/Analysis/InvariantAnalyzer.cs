@@ -17,7 +17,8 @@ public static class InvariantAnalyzer
     public static InvariantAnalysisResult Analyze(
         ModelDefinition model,
         IReadOnlyDictionary<NodeId, double[]> evaluatedSeries,
-        double tolerance = defaultTolerance)
+        double tolerance = defaultTolerance,
+        IReadOnlyList<RunArtifactWriter.EdgeSeriesInput>? edgeSeries = null)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(evaluatedSeries);
@@ -63,6 +64,19 @@ public static class InvariantAnalyzer
                     }
                     edges.Add(edge);
                 }
+            }
+        }
+
+        var edgeFlowSeries = BuildEdgeFlowSeriesLookup(edgeSeries);
+        var edgeClassSeries = BuildEdgeClassSeriesLookup(edgeSeries);
+        IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>>? classContributions = null;
+        if (edgeClassSeries.Count > 0 &&
+            TryCreateTimeGrid(model.Grid, out var classGrid))
+        {
+            var classAssignments = ClassAssignmentMapBuilder.Build(model);
+            if (classAssignments.Count > 0)
+            {
+                classContributions = ClassContributionBuilder.Build(model, classGrid, evaluatedSeries, classAssignments, out _);
             }
         }
 
@@ -206,6 +220,62 @@ public static class InvariantAnalyzer
                     ? val
                     : 0d;
                 ValidateQueue(nodeId, queueDepth, arrivals, served, errors, seed);
+            }
+
+            if (edgeFlowSeries.Count > 0)
+            {
+                if (served != null && outgoingEdges.TryGetValue(nodeId, out var outgoing))
+                {
+                    if (TrySumEdgeFlows(outgoing, served.Length, out var outgoingSum))
+                    {
+                        CheckEdgeConservation(
+                            nodeId,
+                            "edge_flow_mismatch_outgoing",
+                            "Served does not match sum of outgoing edge flows.",
+                            served,
+                            outgoingSum,
+                            outgoing);
+                    }
+                }
+
+                if (arrivals != null && incomingEdges.TryGetValue(nodeId, out var incoming))
+                {
+                    if (TrySumEdgeFlows(incoming, arrivals.Length, out var incomingSum))
+                    {
+                        CheckEdgeConservation(
+                            nodeId,
+                            "edge_flow_mismatch_incoming",
+                            "Arrivals do not match sum of incoming edge flows.",
+                            arrivals,
+                            incomingSum,
+                            incoming);
+                    }
+                }
+            }
+
+            if (classContributions != null)
+            {
+                if (!string.IsNullOrWhiteSpace(semantics.Served) &&
+                    classContributions.TryGetValue(new NodeId(semantics.Served), out var servedByClass) &&
+                    outgoingEdges.TryGetValue(nodeId, out var outgoing))
+                {
+                    CheckEdgeClassFlows(
+                        nodeId,
+                        "Per-class served does not match outgoing edge flows.",
+                        servedByClass,
+                        outgoing);
+                }
+
+                if (!string.IsNullOrWhiteSpace(semantics.Arrivals) &&
+                    classContributions.TryGetValue(new NodeId(semantics.Arrivals), out var arrivalsByClass) &&
+                    incomingEdges.TryGetValue(nodeId, out var incoming))
+                {
+                    CheckEdgeClassFlows(
+                        nodeId,
+                        "Per-class arrivals do not match incoming edge flows.",
+                        arrivalsByClass,
+                        incoming);
+                }
             }
 
             // Soft info: missing prerequisite metrics
@@ -367,6 +437,75 @@ public static class InvariantAnalyzer
         return warnings.Count == 0
             ? new InvariantAnalysisResult(Array.Empty<InvariantWarning>())
             : new InvariantAnalysisResult(warnings);
+
+        Dictionary<string, double[]> BuildEdgeFlowSeriesLookup(IReadOnlyList<RunArtifactWriter.EdgeSeriesInput>? inputs)
+        {
+            var lookup = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+            if (inputs is null)
+            {
+                return lookup;
+            }
+
+            foreach (var series in inputs)
+            {
+                if (!string.Equals(series.Metric, "flowTotal", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(series.ClassId))
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(series.EdgeId) || series.Values is null)
+                {
+                    continue;
+                }
+
+                lookup[series.EdgeId.Trim()] = series.Values;
+            }
+
+            return lookup;
+        }
+
+        Dictionary<string, Dictionary<string, double[]>> BuildEdgeClassSeriesLookup(
+            IReadOnlyList<RunArtifactWriter.EdgeSeriesInput>? inputs)
+        {
+            var lookup = new Dictionary<string, Dictionary<string, double[]>>(StringComparer.OrdinalIgnoreCase);
+            if (inputs is null)
+            {
+                return lookup;
+            }
+
+            foreach (var series in inputs)
+            {
+                if (!string.Equals(series.Metric, "flowTotal", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(series.ClassId))
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(series.EdgeId) || series.Values is null)
+                {
+                    continue;
+                }
+
+                if (!lookup.TryGetValue(series.EdgeId.Trim(), out var perClass))
+                {
+                    perClass = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+                    lookup[series.EdgeId.Trim()] = perClass;
+                }
+
+                perClass[series.ClassId.Trim()] = series.Values;
+            }
+
+            return lookup;
+        }
 
         bool TryGetSeries(string? id, out double[]? series)
         {
@@ -564,6 +703,250 @@ public static class InvariantAnalyzer
             }
         }
 
+        bool TrySumEdgeFlows(IReadOnlyList<TopologyEdgeDefinition> edges, int expectedLength, out double[] sum)
+        {
+            sum = Array.Empty<double>();
+            if (edges.Count == 0)
+            {
+                return false;
+            }
+
+            var relevantEdges = edges.Where(IsFlowEdge).ToList();
+            if (relevantEdges.Count == 0)
+            {
+                return false;
+            }
+
+            var total = new double[expectedLength];
+            foreach (var edge in relevantEdges)
+            {
+                var edgeId = ResolveEdgeSeriesId(edge);
+                if (string.IsNullOrWhiteSpace(edgeId) ||
+                    !edgeFlowSeries.TryGetValue(edgeId, out var series) ||
+                    series.Length != expectedLength)
+                {
+                    return false;
+                }
+
+                for (var i = 0; i < expectedLength; i++)
+                {
+                    total[i] += series[i];
+                }
+            }
+
+            sum = total;
+            return true;
+        }
+
+        bool TrySumEdgeClassFlows(
+            IReadOnlyList<TopologyEdgeDefinition> edges,
+            IEnumerable<string> classIds,
+            int expectedLength,
+            out Dictionary<string, double[]> totals,
+            out HashSet<string> coveredClasses)
+        {
+            totals = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+            coveredClasses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var classId in classIds)
+            {
+                if (string.IsNullOrWhiteSpace(classId))
+                {
+                    continue;
+                }
+
+                totals[classId] = new double[expectedLength];
+            }
+
+            if (totals.Count == 0)
+            {
+                return false;
+            }
+
+            var hasEdgeClassData = false;
+            foreach (var edge in edges.Where(IsFlowEdge))
+            {
+                var edgeId = ResolveEdgeSeriesId(edge);
+                if (string.IsNullOrWhiteSpace(edgeId) ||
+                    !edgeClassSeries.TryGetValue(edgeId, out var perClass))
+                {
+                    continue;
+                }
+
+                hasEdgeClassData = true;
+                foreach (var (classId, series) in perClass)
+                {
+                    if (!totals.TryGetValue(classId, out var total) || series.Length != expectedLength)
+                    {
+                        continue;
+                    }
+
+                    coveredClasses.Add(classId);
+                    for (var i = 0; i < expectedLength; i++)
+                    {
+                        total[i] += series[i];
+                    }
+                }
+            }
+
+            return hasEdgeClassData;
+        }
+
+        void CheckEdgeClassFlows(
+            string nodeId,
+            string message,
+            IReadOnlyDictionary<string, double[]> nodeByClass,
+            IReadOnlyList<TopologyEdgeDefinition> edges)
+        {
+            if (nodeByClass.Count == 0)
+            {
+                return;
+            }
+
+            var length = GetSeriesLength(nodeByClass);
+            if (length == 0)
+            {
+                return;
+            }
+
+            if (TrySumEdgeClassFlows(edges, nodeByClass.Keys, length, out var edgeByClass, out var covered))
+            {
+                CheckEdgeClassConservation(
+                    nodeId,
+                    "edge_class_mismatch",
+                    message,
+                    nodeByClass,
+                    edgeByClass,
+                    covered,
+                    edges);
+            }
+        }
+
+        void CheckEdgeConservation(
+            string nodeId,
+            string code,
+            string message,
+            double[] nodeSeries,
+            double[] edgeSeriesSum,
+            IReadOnlyList<TopologyEdgeDefinition> edges)
+        {
+            if (nodeSeries.Length != edgeSeriesSum.Length)
+            {
+                return;
+            }
+
+            Span<int> bins = stackalloc int[5];
+            var binCount = 0;
+            var worstDiff = 0d;
+            for (var i = 0; i < nodeSeries.Length; i++)
+            {
+                var diff = Math.Abs(nodeSeries[i] - edgeSeriesSum[i]);
+                if (diff > tolerance)
+                {
+                    if (binCount < bins.Length)
+                    {
+                        bins[binCount++] = i;
+                    }
+
+                    if (diff > worstDiff)
+                    {
+                        worstDiff = diff;
+                    }
+                }
+            }
+
+            if (binCount > 0)
+            {
+                warnings.Add(new InvariantWarning(
+                    nodeId,
+                    code,
+                    BuildEdgeWarningMessage(message, edges),
+                    bins[..binCount].ToArray(),
+                    double.IsFinite(worstDiff) ? worstDiff : null));
+            }
+        }
+
+        void CheckEdgeClassConservation(
+            string nodeId,
+            string code,
+            string message,
+            IReadOnlyDictionary<string, double[]> nodeByClass,
+            IReadOnlyDictionary<string, double[]> edgeByClass,
+            IReadOnlySet<string> coveredClasses,
+            IReadOnlyList<TopologyEdgeDefinition> edges)
+        {
+            Span<int> bins = stackalloc int[5];
+            var binCount = 0;
+            var worstDiff = 0d;
+            var mismatchedClasses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var missingClasses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var (classId, nodeSeries) in nodeByClass)
+            {
+                if (!edgeByClass.TryGetValue(classId, out var edgeSeries))
+                {
+                    missingClasses.Add(classId);
+                    continue;
+                }
+
+                if (nodeSeries.Length != edgeSeries.Length)
+                {
+                    mismatchedClasses.Add(classId);
+                    continue;
+                }
+
+                for (var i = 0; i < nodeSeries.Length; i++)
+                {
+                    var diff = Math.Abs(nodeSeries[i] - edgeSeries[i]);
+                    if (diff > tolerance)
+                    {
+                        mismatchedClasses.Add(classId);
+                        if (binCount < bins.Length)
+                        {
+                            bins[binCount++] = i;
+                        }
+
+                        if (diff > worstDiff)
+                        {
+                            worstDiff = diff;
+                        }
+                    }
+                }
+            }
+
+            if (mismatchedClasses.Count == 0 && missingClasses.Count == 0)
+            {
+                return;
+            }
+
+            var notCoveredClasses = nodeByClass.Keys
+                .Where(classId => !coveredClasses.Contains(classId))
+                .ToArray();
+            foreach (var classId in notCoveredClasses)
+            {
+                missingClasses.Add(classId);
+            }
+
+            var warningCode = missingClasses.Count > 0 ? "edge_class_partial_coverage" : code;
+            var mismatchedList = string.Join(", ", mismatchedClasses.OrderBy(name => name, StringComparer.OrdinalIgnoreCase));
+            var missingList = string.Join(", ", missingClasses.OrderBy(name => name, StringComparer.OrdinalIgnoreCase));
+            var detail = message;
+            if (!string.IsNullOrWhiteSpace(mismatchedList))
+            {
+                detail = $"{detail} Classes: {mismatchedList}.";
+            }
+            else if (!string.IsNullOrWhiteSpace(missingList))
+            {
+                detail = $"{detail} Missing classes: {missingList}.";
+            }
+            warnings.Add(new InvariantWarning(
+                nodeId,
+                warningCode,
+                BuildEdgeWarningMessage(detail, edges),
+                binCount > 0 ? bins[..binCount].ToArray() : Array.Empty<int>(),
+                double.IsFinite(worstDiff) ? worstDiff : null,
+                "warning"));
+        }
+
         void ValidateDlqConnectivity(string nodeId)
         {
             if (incomingEdges.TryGetValue(nodeId, out var inbound) && inbound.Count > 0)
@@ -692,6 +1075,45 @@ public static class InvariantAnalyzer
             return $"{source}->{target}";
         }
 
+        static string BuildEdgeWarningMessage(string message, IReadOnlyList<TopologyEdgeDefinition> edges)
+        {
+            if (edges.Count == 0)
+            {
+                return message;
+            }
+
+            var distinct = edges
+                .Select(GetEdgeLabel)
+                .Where(label => !string.IsNullOrWhiteSpace(label))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (distinct.Length == 0)
+            {
+                return message;
+            }
+
+            var suffix = FormatEdgeList(distinct, 3);
+            var trimmed = message.TrimEnd();
+            if (trimmed.EndsWith(".", StringComparison.Ordinal))
+            {
+                trimmed = trimmed[..^1];
+            }
+
+            return $"{trimmed}. Edges: {suffix}.";
+        }
+
+        static string FormatEdgeList(IReadOnlyList<string> labels, int max)
+        {
+            if (labels.Count <= max)
+            {
+                return string.Join(", ", labels);
+            }
+
+            var prefix = string.Join(", ", labels.Take(max));
+            return $"{prefix} (+{labels.Count - max} more)";
+        }
+
         static string ExtractNodeId(string value)
         {
             if (string.IsNullOrWhiteSpace(value))
@@ -702,6 +1124,61 @@ public static class InvariantAnalyzer
             var trimmed = value.Trim();
             var separatorIndex = trimmed.IndexOf(':');
             return separatorIndex >= 0 ? trimmed[..separatorIndex] : trimmed;
+        }
+
+        static string ExtractPort(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var trimmed = value.Trim();
+            var separatorIndex = trimmed.IndexOf(':');
+            return separatorIndex >= 0 ? trimmed[(separatorIndex + 1)..] : string.Empty;
+        }
+
+        static bool IsFlowEdge(TopologyEdgeDefinition edge)
+        {
+            if (!string.IsNullOrWhiteSpace(edge.Measure) &&
+                !edge.Measure.Equals("served", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var port = ExtractPort(edge.Source);
+            if (!string.IsNullOrWhiteSpace(port) &&
+                !port.Equals("out", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        static string ResolveEdgeSeriesId(TopologyEdgeDefinition edge)
+        {
+            if (!string.IsNullOrWhiteSpace(edge.Id))
+            {
+                return edge.Id!;
+            }
+
+            if (string.IsNullOrWhiteSpace(edge.Source) || string.IsNullOrWhiteSpace(edge.Target))
+            {
+                return string.Empty;
+            }
+
+            return $"{edge.Source}->{edge.Target}";
+        }
+
+        static int GetSeriesLength(IReadOnlyDictionary<string, double[]> seriesByClass)
+        {
+            foreach (var series in seriesByClass.Values)
+            {
+                return series.Length;
+            }
+
+            return 0;
         }
 
         static double SumFinite(double[] series)

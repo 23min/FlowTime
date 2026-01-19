@@ -55,7 +55,7 @@
         "stateMetadata": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["runId", "templateId", "mode", "schema", "storage"],
+            "required": ["runId", "templateId", "mode", "schema", "storage", "edgeQuality"],
             "properties": {
                 "runId": { "type": "string", "minLength": 1 },
                 "templateId": { "type": "string", "minLength": 1 },
@@ -68,6 +68,7 @@
                 "schema": { "$ref": "#/$defs/schemaMetadata" },
                 "storage": { "$ref": "#/$defs/storageDescriptor" },
                 "classCoverage": { "type": ["string", "null"], "enum": ["full", "partial", "missing", null] },
+                "edgeQuality": { "type": "string", "enum": ["exact", "approx", "missing", "partialClass"] },
                 "rng": {
                     "anyOf": [
                         { "type": "null" },

@@ -46,3 +46,14 @@ Kick off implementation when ready, starting with the tracking doc creation.
 - Keep the milestone ID dynamic in session prompts; do not hardcode a specific ID.
 - If the milestone is already in progress, use the tracking doc to resume.
 - When the epic completes, archive the milestone specs together.
+- Prefer running tests per project to avoid long-running full-suite timeouts. Use `--blame-hang` with a short timeout to catch hangs quickly.
+- Recommended per-project test order (each with `--blame-hang --blame-hang-timeout 60s`):
+  - `tests/FlowTime.Expressions.Tests/FlowTime.Expressions.Tests.csproj`
+  - `tests/FlowTime.Core.Tests/FlowTime.Core.Tests.csproj`
+  - `tests/FlowTime.Tests/FlowTime.Tests.csproj`
+  - `tests/FlowTime.Adapters.Synthetic.Tests/FlowTime.Adapters.Synthetic.Tests.csproj`
+  - `tests/FlowTime.Sim.Tests/FlowTime.Sim.Tests.csproj`
+  - `tests/FlowTime.UI.Tests/FlowTime.UI.Tests.csproj`
+  - `tests/FlowTime.Api.Tests/FlowTime.Api.Tests.csproj`
+  - `tests/FlowTime.Integration.Tests/FlowTime.Integration.Tests.csproj`
+  - `tests/FlowTime.Cli.Tests/FlowTime.Cli.Tests.csproj`

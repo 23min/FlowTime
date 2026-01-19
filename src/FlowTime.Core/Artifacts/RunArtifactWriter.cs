@@ -111,16 +111,8 @@ public static class RunArtifactWriter
         var expandedModel = ModelCompiler.Compile(modelDefinition);
         var effectiveContext = BuildEffectiveContext(expandedModel, grid, request.Context);
 
-        var invariantResult = InvariantAnalyzer.Analyze(expandedModel, effectiveContext);
-        var warningEntries = invariantResult.Warnings.Select(w => new RunWarningEntry
-        {
-            NodeId = w.NodeId,
-            Code = w.Code,
-            Message = w.Message,
-            Bins = w.Bins?.ToArray(),
-            Value = w.Value,
-            Severity = w.Severity
-        }).ToList();
+        var invariantResult = InvariantAnalyzer.Analyze(expandedModel, effectiveContext, edgeSeries: request.EdgeSeries);
+        var warningEntries = BuildWarningEntries(invariantResult.Warnings);
 
         var resolvedSeries = ResolveSeries((object?)modelDto.Outputs, effectiveContext);
         var seriesDescriptorMap = new Dictionary<string, SeriesDescriptor>(StringComparer.OrdinalIgnoreCase);
@@ -1105,6 +1097,25 @@ public static class RunArtifactWriter
         }
 
         return false;
+    }
+
+    private static List<RunWarningEntry> BuildWarningEntries(IReadOnlyList<InvariantWarning> warnings)
+    {
+        var entries = new List<RunWarningEntry>(warnings.Count);
+        foreach (var warning in warnings)
+        {
+            entries.Add(new RunWarningEntry
+            {
+                NodeId = warning.NodeId,
+                Code = warning.Code,
+                Message = warning.Message,
+                Bins = warning.Bins?.ToArray(),
+                Value = warning.Value,
+                Severity = warning.Severity
+            });
+        }
+
+        return entries;
     }
 
     private static string DetermineClassCoverage(

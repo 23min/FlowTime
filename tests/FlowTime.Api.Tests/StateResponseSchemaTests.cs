@@ -163,6 +163,42 @@ public class StateResponseSchemaTests : IClassFixture<TestWebApplicationFactory>
         Assert.False(IsSchemaValid(node!), "Expected unknown aggregation to fail schema validation.");
     }
 
+    [Fact]
+    public async Task StateResponse_IncludesEdgeQuality()
+    {
+        var runId = EnsureSchemaRun();
+        var response = await client.GetAsync($"/v1/runs/{runId}/state?binIndex=1");
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync();
+        var node = JsonNode.Parse(json);
+
+        Assert.NotNull(node);
+        var metadata = node!.AsObject()["metadata"]?.AsObject();
+        Assert.NotNull(metadata);
+
+        metadata!["edgeQuality"] = "exact";
+        Assert.True(IsSchemaValid(node!), "Expected edgeQuality to be allowed by schema.");
+    }
+
+    [Fact]
+    public async Task StateWindow_IncludesEdgeQuality()
+    {
+        var runId = EnsureSchemaRun();
+        var response = await client.GetAsync($"/v1/runs/{runId}/state_window?startBin=0&endBin=3");
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync();
+        var node = JsonNode.Parse(json);
+
+        Assert.NotNull(node);
+        var metadata = node!.AsObject()["metadata"]?.AsObject();
+        Assert.NotNull(metadata);
+
+        metadata!["edgeQuality"] = "exact";
+        Assert.True(IsSchemaValid(node!), "Expected edgeQuality to be allowed by schema.");
+    }
+
     private string EnsureSchemaRun()
     {
         lock (setupLock)
