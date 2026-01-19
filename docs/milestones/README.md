@@ -2,7 +2,7 @@
 
 The `docs/milestones/` folder now mirrors the active roadmap status:
 
-- **Active / Upcoming work** remains at the top level. Today that includes `M-06.01-evaluation-integrity-dag-contract.md`, `M-07.01-mcp-server-poc.md`, `M-07.02-mcp-modeling-draft-workflow.md`, `M-07.03-mcp-data-intake-profile-fitting.md`, and `M-07.04-mcp-storage-abstraction.md` plus the shared `tracking/` documents.
+- **Active / Upcoming work** remains at the top level. Today that includes `M-06.01-evaluation-integrity-dag-contract.md` plus the shared `tracking/` documents.
 - **Completed milestones** have been archived under `docs/milestones/completed/`. Every reference in the repo now points to the files in that subfolder (e.g., `docs/milestones/completed/UI-M-03.12.md`).
 
 ## Adding a new milestone
@@ -17,8 +17,4 @@ The `docs/milestones/` folder now mirrors the active roadmap status:
 
 - **Active Milestones:**
   - `M-06.01-evaluation-integrity-dag-contract.md`
-  - `M-07.01-mcp-server-poc.md`
-  - `M-07.02-mcp-modeling-draft-workflow.md`
-  - `M-07.03-mcp-data-intake-profile-fitting.md`
-  - `M-07.04-mcp-storage-abstraction.md`
 - **Archive:** See `docs/milestones/completed/` for historic milestones across backend, UI, time-travel, and service epics.

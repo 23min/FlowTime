@@ -1,6 +1,6 @@
 # MCP Server Implementation Plan (Node/TypeScript)
 
-Status: M-07.01 PoC implemented (pending commit)
+Status: M-07.01–M-07.04 complete; MCP modeling + analysis delivered via HTTP-only storage-backed drafts/run bundles (see `docs/releases/M-07.02.md`, `docs/releases/M-07.03.md`, `docs/releases/M-07.04.md`, and the tracking docs).
 
 ## 1. Goals
 
@@ -69,11 +69,9 @@ Add tools:
 - `create_draft`, `apply_draft_patch`, `validate_draft`, `generate_model`.
 
 Draft storage:
-- Default to `templates-draft/`.
-- Option A: configure Sim to read from `templates-draft/` during MCP runs.
-- Option B: add a Sim endpoint that accepts inline template content or a draft path list.
-
-This phase may require a small FlowTime.Sim.Service extension if per-request template sources are needed.
+- Use Sim draft endpoints backed by the storage abstraction (no direct filesystem access).
+- MCP server reads/writes draft content over HTTP and references drafts by `StorageRef`.
+- Sim can generate a model bundle from a draft and return a `modelRef` for later runs.
 
 ## 7. Phase 2: Data Intake and Profile Fitting
 
@@ -81,10 +79,10 @@ Add tools:
 - `ingest_series`, `summarize_series`, `fit_profile`, `map_series_to_inputs`.
 
 Storage:
-- Keep input series under a dedicated MCP data folder (for example `data/mcp/series/`).
-- Track provenance for each series (source, timestamp, units).
+- Input series are stored via Sim data intake endpoints with provenance captured alongside the series metadata.
+- V1 assumes pre-aggregated series; the MCP server only brokers the workflow over HTTP.
 
-Note: profile fitting lives in the MCP server for the PoC, but it is a natural fit to move into FlowTime.Sim later for reuse across CLI/UI/API.
+Note: profile fitting now lives in FlowTime.Sim so the same fitting logic can be reused across CLI/UI/API in the future.
 
 ## 8. Phase 3: Hardening
 
@@ -102,10 +100,15 @@ A .NET MCP server is viable and aligns with the FlowTime stack, but it will like
 
 ## 10. FlowTime Changes: Expected Scope
 
-PoC can be modular and use existing HTTP APIs. Likely changes for a full modeling loop:
-- Add Sim endpoints to accept inline draft templates or multiple template roots.
-- Add a structured "run summary" endpoint if current surfaces are insufficient.
-- Optional: parameter validation endpoint if not already exposed.
+Delivered surfaces for the modeling loop:
+- Sim draft endpoints (CRUD/validate/generate/run) backed by storage refs.
+- Sim data intake + profile fitting endpoints for pre-aggregated series.
+- Template source endpoint for approved templates.
+- Run orchestration returning `bundleRef`, with API import reading bundles from storage.
+
+Future work (hardening):
+- Auth, quotas, and rate limits for multi-tenant deployments.
+- Optional parameter validation and richer run summary surfaces.
 
 ## 11. UI Changes
 
