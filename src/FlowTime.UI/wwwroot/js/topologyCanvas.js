@@ -7,6 +7,7 @@
     const EdgeTypeThroughput = 'throughput';
     const EdgeTypeEffort = 'effort';
     const EdgeTypeTerminal = 'terminal';
+    const EDGE_BADGE_DEFAULT = '#2563EB';
     const EDGE_OVERLAY_BASE_COLORS = {
         success: '#009E73',
         warning: '#E69F00',
@@ -2061,7 +2062,7 @@
             }
 
             const edgeField = String(edge.field ?? edge.Field ?? '').trim().toLowerCase();
-            const isFailureField = edgeField === 'failures' || edgeField === 'exhaustedfailures';
+            const isFailureField = edgeField === 'errors' || edgeField === 'failures' || edgeField === 'exhaustedfailures';
             const edgeSeriesEntry = resolveEdgeSeriesEntry(edgeSeries, edgeId, edge);
             let failureValue = null;
             if (isFailureField) {
@@ -2077,36 +2078,31 @@
                     }
                     const selectedBin = Number(overlaySettings.selectedBin ?? -1);
                     const startIndex = Number.isFinite(edgeSeriesStartIndex) ? edgeSeriesStartIndex : 0;
-                    const attemptsValue = sampleEdgeMetricValue(edgeSeriesEntry, 'attemptsVolume', overlaySettings, selectedBin, startIndex);
-                    const flowValue = sampleEdgeMetricValue(edgeSeriesEntry, 'flowVolume', overlaySettings, selectedBin, startIndex);
-                    const retriesValue = Number.isFinite(attemptsValue) && Number.isFinite(flowValue)
-                        ? Math.max(0, attemptsValue - flowValue)
-                        : null;
-                    return Boolean(Number.isFinite(retriesValue) && retriesValue > 0.0001);
+                    const retryValue = sampleEdgeMetricValue(edgeSeriesEntry, 'retryVolume', overlaySettings, selectedBin, startIndex);
+                    return Boolean(Number.isFinite(retryValue) && retryValue > 0.0001);
                 })()
                 : false;
 
             let labelBounds = null;
             const warningStyle = resolveEdgeWarningStyle(state.edgeWarningsById, edgeId, fromId, toId);
+            const badgeColor = EDGE_BADGE_DEFAULT;
             if (!isFailureField && overlaySample && overlaySettings.showEdgeOverlayLabels !== false) {
-                const labelColor = overlaySample.baseColor ?? overlaySample.color ?? '#2563EB';
-                labelBounds = drawEdgeOverlayLabel(ctx, pathPoints, overlaySample.text, labelColor, warningStyle);
+                labelBounds = drawEdgeOverlayLabel(ctx, pathPoints, overlaySample.text, badgeColor, warningStyle);
             } else if (!isFailureField && flowSample && overlaySettings.showEdgeOverlayLabels !== false) {
-                const labelColor = flowSample.baseColor ?? flowSample.color ?? baseStrokeColor;
-                labelBounds = drawEdgeOverlayLabel(ctx, pathPoints, flowSample.text, labelColor, warningStyle);
+                labelBounds = drawEdgeOverlayLabel(ctx, pathPoints, flowSample.text, badgeColor, warningStyle);
             } else if (isThroughputEdge && overlaySettings.showEdgeOverlayLabels !== false) {
                 const throughputValue = sampleThroughputValue(fromNode, overlaySettings);
                 if (throughputValue !== null && throughputValue !== undefined) {
                     const text = formatMetricValue(throughputValue);
                     if (text) {
-                        labelBounds = drawEdgeOverlayLabel(ctx, pathPoints, text, baseStrokeColor, warningStyle);
+                        labelBounds = drawEdgeOverlayLabel(ctx, pathPoints, text, badgeColor, warningStyle);
                     }
                 }
             } else if (isFailureField && overlaySettings.showEdgeOverlayLabels !== false) {
                 if (Number.isFinite(failureValue)) {
                     const text = formatMetricValue(failureValue);
                     if (text) {
-                        labelBounds = drawEdgeOverlayLabel(ctx, pathPoints, text, baseStrokeColor, warningStyle);
+                        labelBounds = drawEdgeOverlayLabel(ctx, pathPoints, text, badgeColor, warningStyle);
                     }
                 }
             }
@@ -2916,7 +2912,7 @@
         const toId = seriesEntry.to ?? seriesEntry.To ?? '';
         const field = seriesEntry.field ?? seriesEntry.Field ?? '';
         const fieldKey = String(field ?? '').trim().toLowerCase();
-        const isFailureField = fieldKey === 'failures' || fieldKey === 'exhaustedfailures';
+        const isFailureField = fieldKey === 'errors' || fieldKey === 'failures' || fieldKey === 'exhaustedfailures';
         const failureMetric = 'failuresVolume';
         const edgeType = seriesEntry.edgeType ?? seriesEntry.EdgeType ?? '';
         const title = fromId && toId ? `${fromId} -> ${toId}` : (fromId || toId || 'Edge');
@@ -2926,22 +2922,27 @@
 
         const lines = [];
         const flowValue = sampleEdgeMetricValue(seriesEntry, 'flowVolume', overlays, selectedBin, startIndex);
+        const retryValue = sampleEdgeMetricValue(seriesEntry, 'retryVolume', overlays, selectedBin, startIndex);
         const attemptsValue = sampleEdgeMetricValue(seriesEntry, 'attemptsVolume', overlays, selectedBin, startIndex);
 
         if (isFailureField) {
             const failuresValue = sampleEdgeMetricValue(seriesEntry, failureMetric, overlays, selectedBin, startIndex);
-            addMetricLine(lines, fieldKey === 'exhaustedfailures' ? 'Exhausted' : 'Failures', failuresValue, formatMetricValue);
+            const label = fieldKey === 'errors'
+                ? 'Errors'
+                : (fieldKey === 'exhaustedfailures' ? 'Exhausted' : 'Failures');
+            addMetricLine(lines, label, failuresValue, formatMetricValue);
         } else {
             addMetricLine(lines, 'Flow', flowValue, formatMetricValue);
-            if (Number.isFinite(attemptsValue)) {
-                const retriesValue = Number.isFinite(flowValue)
-                    ? Math.max(0, attemptsValue - flowValue)
-                    : null;
-                addMetricLine(lines, 'Retries', retriesValue, formatMetricValue);
-                addMetricLine(lines, 'Total volume', attemptsValue, formatMetricValue);
+            if (Number.isFinite(retryValue)) {
+                addMetricLine(lines, 'Retries', retryValue, formatMetricValue);
+                if (Number.isFinite(flowValue)) {
+                    addMetricLine(lines, 'Total volume', flowValue + retryValue, formatMetricValue);
+                }
+            } else if (!Number.isFinite(flowValue) && Number.isFinite(attemptsValue)) {
+                addMetricLine(lines, 'Effort load', attemptsValue, formatMetricValue);
             }
             addMetricLine(lines, 'Retry rate', sampleEdgeSeriesValue(seriesEntry.series, 'retryRate', selectedBin, startIndex), formatPercent);
-            addRetryLoadDeltaLine(lines, attemptsValue, flowValue, overlays);
+            addRetryLoadDeltaLine(lines, retryValue, flowValue, overlays);
             addEdgeClassMetricLines(lines, seriesEntry, overlays, selectedBin, startIndex);
         }
 
@@ -2993,8 +2994,8 @@
         lines.push(`${label} ${formatted}`);
     }
 
-    function addRetryLoadDeltaLine(lines, attemptsValue, flowValue, overlays) {
-        if (!Number.isFinite(attemptsValue) || !Number.isFinite(flowValue) || flowValue <= 0) {
+    function addRetryLoadDeltaLine(lines, retryValue, flowValue, overlays) {
+        if (!Number.isFinite(retryValue) || !Number.isFinite(flowValue) || flowValue <= 0) {
             return;
         }
 
@@ -3002,7 +3003,7 @@
             return;
         }
 
-        const delta = (attemptsValue - flowValue) / flowValue;
+        const delta = retryValue / flowValue;
         if (!Number.isFinite(delta) || Math.abs(delta) < 0.0001) {
             return;
         }
@@ -7963,17 +7964,15 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
 
             const attemptsValue = sampleEdgeMetricValue(series, 'attemptsVolume', overlays, selectedBin, startIndex);
             const retryRate = sampleEdgeSeriesValue(series.series, 'retryRate', selectedBin, startIndex);
+            const retryValue = sampleEdgeMetricValue(series, 'retryVolume', overlays, selectedBin, startIndex);
             const totalLoad = Number.isFinite(attemptsValue) ? attemptsValue : null;
-            const retriesValue = Number.isFinite(attemptsValue) && Number.isFinite(flowValue)
-                ? Math.max(0, attemptsValue - flowValue)
-                : null;
-            const showRetryBadge = Boolean(!isFailureField && Number.isFinite(retriesValue) && retriesValue > 0.0001);
+            const showRetryBadge = Boolean(!isFailureField && Number.isFinite(retryValue) && retryValue > 0.0001);
             const sample = {
                 value: flowValue,
                 text: formatMetricValue(flowValue),
                 retryRate,
                 attempts: Number.isFinite(totalLoad) ? totalLoad : null,
-                retries: retriesValue,
+                retries: retryValue,
                 showRetryBadge
             };
 

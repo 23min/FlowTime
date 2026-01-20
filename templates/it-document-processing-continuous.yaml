@@ -91,7 +91,7 @@ parameters:
     type: number
     title: "Retry rate"
     description: "Fraction of served items that retry"
-    default: 0.15
+    default: 0.25
     minimum: 0
     maximum: 1
   - name: retryFailureRate

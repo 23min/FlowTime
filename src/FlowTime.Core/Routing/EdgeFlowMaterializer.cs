@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using FlowTime.Core.Artifacts;
@@ -44,12 +45,14 @@ public static class EdgeFlowMaterializer
         }
 
         var edgeLookup = edgeCandidates
-            .Where(candidate => ShouldEmitFlowEdge(candidate.Edge))
+            .Where(candidate => ShouldEmitThroughputEdge(candidate.Edge))
             .GroupBy(candidate => new EdgeKey(candidate.SourceNodeId, candidate.TargetNodeId), EdgeKeyComparer.Instance)
             .ToDictionary(group => group.Key, group => group.First(), EdgeKeyComparer.Instance);
 
         var result = new List<RunArtifactWriter.EdgeSeriesInput>();
         var handledRouterEdges = new HashSet<EdgeKey>(EdgeKeyComparer.Instance);
+        var flowVolumes = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+        var throughputEdgesByTarget = new Dictionary<string, List<EdgeCandidate>>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var spec in routerSpecs.Values)
         {
@@ -91,6 +94,9 @@ public static class EdgeFlowMaterializer
                     }
                 }
 
+                var edgeId = GetEdgeId(candidate.Edge);
+                flowVolumes[edgeId] = routeTotal;
+                RegisterThroughputEdge(throughputEdgesByTarget, candidate);
                 AddEdgeSeriesMetric(result, candidate.Edge, "flowVolume", routeTotal, routeClasses);
                 handledRouterEdges.Add(new EdgeKey(candidate.SourceNodeId, candidate.TargetNodeId));
             }
@@ -127,6 +133,9 @@ public static class EdgeFlowMaterializer
                     }
                 }
 
+                var edgeId = GetEdgeId(candidate.Edge);
+                flowVolumes[edgeId] = routeTotal;
+                RegisterThroughputEdge(throughputEdgesByTarget, candidate);
                 AddEdgeSeriesMetric(result, candidate.Edge, "flowVolume", routeTotal, routeClasses);
                 handledRouterEdges.Add(new EdgeKey(candidate.SourceNodeId, candidate.TargetNodeId));
             }
@@ -134,7 +143,7 @@ public static class EdgeFlowMaterializer
 
         foreach (var group in edgeCandidates
             .Where(candidate => !routerIds.Contains(candidate.SourceNodeId))
-            .Where(candidate => ShouldEmitFlowEdge(candidate.Edge))
+            .Where(candidate => ShouldEmitThroughputEdge(candidate.Edge))
             .GroupBy(candidate => candidate.SourceNodeId, StringComparer.OrdinalIgnoreCase))
         {
             if (!topologyNodes.TryGetValue(group.Key, out var node))
@@ -157,16 +166,6 @@ public static class EdgeFlowMaterializer
             if (classSeries != null && classSeries.TryGetValue(new NodeId(servedSeriesId), out var byClass))
             {
                 classSeriesForServed = byClass.ToDictionary(entry => entry.Key, entry => entry.Value.ToArray(), StringComparer.OrdinalIgnoreCase);
-            }
-
-            var attemptsSeriesId = ResolveAttemptsSeriesId(node.Semantics);
-            double[]? attemptsSeries = null;
-            var hasAttemptsSeries = !string.IsNullOrWhiteSpace(attemptsSeriesId) &&
-                totals.TryGetValue(new NodeId(attemptsSeriesId!), out attemptsSeries);
-            Dictionary<string, double[]>? classSeriesForAttempts = null;
-            if (hasAttemptsSeries && classSeries != null && classSeries.TryGetValue(new NodeId(attemptsSeriesId!), out var attemptsByClass))
-            {
-                classSeriesForAttempts = attemptsByClass.ToDictionary(entry => entry.Key, entry => entry.Value.ToArray(), StringComparer.OrdinalIgnoreCase);
             }
 
             var edges = group.ToList();
@@ -198,21 +197,177 @@ public static class EdgeFlowMaterializer
                     }
                 }
 
+                var edgeId = GetEdgeId(candidate.Edge);
+                flowVolumes[edgeId] = series;
+                RegisterThroughputEdge(throughputEdgesByTarget, candidate);
                 AddEdgeSeriesMetric(result, candidate.Edge, "flowVolume", series, routeClasses);
-                if (hasAttemptsSeries)
+            }
+        }
+
+        foreach (var candidate in edgeCandidates.Where(candidate => IsEffortEdge(candidate.Edge)))
+        {
+            var port = ExtractPort(candidate.Edge.Source);
+            if (!string.IsNullOrWhiteSpace(port) && !port.Equals("out", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var measure = NormalizeEdgeMeasure(candidate.Edge);
+            if (!IsEffortMeasure(measure))
+            {
+                continue;
+            }
+
+            if (!topologyNodes.TryGetValue(candidate.SourceNodeId, out var node))
+            {
+                continue;
+            }
+
+            var attemptsSeriesId = ResolveAttemptsSeriesId(node.Semantics);
+            if (string.IsNullOrWhiteSpace(attemptsSeriesId) ||
+                !totals.TryGetValue(new NodeId(attemptsSeriesId), out var attemptsSeries))
+            {
+                continue;
+            }
+
+            var multiplier = NormalizeMultiplier(candidate.Edge.Multiplier ?? candidate.Edge.Weight);
+            var attemptsScaled = ScaleSeries(attemptsSeries, multiplier);
+            Dictionary<string, double[]>? attemptsClasses = null;
+            if (classSeries != null && classSeries.TryGetValue(new NodeId(attemptsSeriesId), out var attemptsByClass))
+            {
+                attemptsClasses = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+                foreach (var (classId, classValues) in attemptsByClass)
                 {
-                    var attemptsSeriesScaled = ScaleSeries(attemptsSeries!, fraction);
-                    Dictionary<string, double[]>? attemptsClasses = null;
-                    if (classSeriesForAttempts != null)
+                    attemptsClasses[classId] = ScaleSeries(classValues, multiplier);
+                }
+            }
+
+            AddEdgeSeriesMetric(result, candidate.Edge, "attemptsVolume", attemptsScaled, attemptsClasses);
+        }
+
+        foreach (var candidate in edgeCandidates.Where(candidate => IsTerminalEdge(candidate.Edge)))
+        {
+            var measure = NormalizeEdgeMeasure(candidate.Edge);
+            if (!IsFailureMeasure(measure))
+            {
+                continue;
+            }
+
+            if (!topologyNodes.TryGetValue(candidate.SourceNodeId, out var node))
+            {
+                continue;
+            }
+
+            var seriesId = ResolveTerminalSeriesId(node.Semantics, measure);
+            if (string.IsNullOrWhiteSpace(seriesId) ||
+                !totals.TryGetValue(new NodeId(seriesId), out var failureSeries))
+            {
+                continue;
+            }
+
+            var multiplier = NormalizeMultiplier(candidate.Edge.Multiplier ?? candidate.Edge.Weight);
+            var failuresScaled = ScaleSeries(failureSeries, multiplier);
+            Dictionary<string, double[]>? failuresByClass = null;
+            if (classSeries != null && classSeries.TryGetValue(new NodeId(seriesId), out var classFailureSeries))
+            {
+                failuresByClass = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+                foreach (var (classId, classValues) in classFailureSeries)
+                {
+                    failuresByClass[classId] = ScaleSeries(classValues, multiplier);
+                }
+            }
+
+            AddEdgeSeriesMetric(result, candidate.Edge, "failuresVolume", failuresScaled, failuresByClass);
+        }
+
+        foreach (var (targetNodeId, incomingEdges) in throughputEdgesByTarget)
+        {
+            if (!topologyNodes.TryGetValue(targetNodeId, out var node))
+            {
+                continue;
+            }
+
+            var retryEchoSeriesId = ResolveRetryEchoSeriesId(node.Semantics);
+            if (string.IsNullOrWhiteSpace(retryEchoSeriesId) ||
+                !totals.TryGetValue(new NodeId(retryEchoSeriesId), out var retrySeries))
+            {
+                continue;
+            }
+
+            if (incomingEdges.Count == 0)
+            {
+                continue;
+            }
+
+            var edgeInfos = incomingEdges
+                .Select(edge =>
+                {
+                    var edgeId = GetEdgeId(edge.Edge);
+                    flowVolumes.TryGetValue(edgeId, out var flowSeries);
+                    return (edge.Edge, EdgeId: edgeId, Flow: flowSeries);
+                })
+                .ToList();
+
+            var perEdgeSeries = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+            foreach (var info in edgeInfos)
+            {
+                if (!perEdgeSeries.ContainsKey(info.EdgeId))
+                {
+                    perEdgeSeries[info.EdgeId] = new double[retrySeries.Length];
+                }
+            }
+
+            for (var i = 0; i < retrySeries.Length; i++)
+            {
+                var retryValue = retrySeries[i];
+                if (!double.IsFinite(retryValue) || retryValue <= 0)
+                {
+                    continue;
+                }
+
+                var totalFlow = 0d;
+                foreach (var info in edgeInfos)
+                {
+                    if (info.Flow is null)
                     {
-                        attemptsClasses = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
-                        foreach (var (classId, classValues) in classSeriesForAttempts)
-                        {
-                            attemptsClasses[classId] = ScaleSeries(classValues, fraction);
-                        }
+                        continue;
                     }
 
-                    AddEdgeSeriesMetric(result, candidate.Edge, "attemptsVolume", attemptsSeriesScaled, attemptsClasses);
+                    var flowValue = info.Flow[i];
+                    if (double.IsFinite(flowValue) && flowValue > 0)
+                    {
+                        totalFlow += flowValue;
+                    }
+                }
+
+                if (totalFlow <= 0)
+                {
+                    var perEdge = retryValue / edgeInfos.Count;
+                    foreach (var info in edgeInfos)
+                    {
+                        perEdgeSeries[info.EdgeId][i] = perEdge;
+                    }
+
+                    continue;
+                }
+
+                foreach (var info in edgeInfos)
+                {
+                    var flowValue = info.Flow is null ? 0d : info.Flow[i];
+                    if (!double.IsFinite(flowValue) || flowValue <= 0)
+                    {
+                        continue;
+                    }
+
+                    perEdgeSeries[info.EdgeId][i] = retryValue * (flowValue / totalFlow);
+                }
+            }
+
+            foreach (var info in edgeInfos)
+            {
+                if (perEdgeSeries[info.EdgeId].Any(value => value > 0))
+                {
+                    AddEdgeSeriesMetric(result, info.Edge, "retryVolume", perEdgeSeries[info.EdgeId], null);
                 }
             }
         }
@@ -278,9 +433,9 @@ public static class EdgeFlowMaterializer
         return true;
     }
 
-    private static bool ShouldEmitFlowEdge(TopologyEdgeDefinition edge)
+    private static bool ShouldEmitThroughputEdge(TopologyEdgeDefinition edge)
     {
-        if (!IsServedMeasure(edge.Measure))
+        if (!IsThroughputEdge(edge) || !IsServedMeasure(edge))
         {
             return false;
         }
@@ -295,9 +450,77 @@ public static class EdgeFlowMaterializer
         return true;
     }
 
-    private static bool IsServedMeasure(string? measure)
+    private static bool IsServedMeasure(TopologyEdgeDefinition edge)
     {
-        return string.IsNullOrWhiteSpace(measure) || measure.Equals("served", StringComparison.OrdinalIgnoreCase);
+        var measure = NormalizeEdgeMeasure(edge);
+        return string.Equals(measure, "served", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsFailureMeasure(string? measure)
+    {
+        if (string.IsNullOrWhiteSpace(measure))
+        {
+            return false;
+        }
+
+        return string.Equals(measure, "errors", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(measure, "failures", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(measure, "exhaustedfailures", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsEffortMeasure(string? measure)
+    {
+        if (string.IsNullOrWhiteSpace(measure))
+        {
+            return false;
+        }
+
+        return string.Equals(measure, "attempts", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(measure, "load", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsThroughputEdge(TopologyEdgeDefinition edge)
+    {
+        var type = NormalizeEdgeType(edge);
+        return type == "throughput" || type == "topology";
+    }
+
+    private static bool IsEffortEdge(TopologyEdgeDefinition edge)
+    {
+        var type = NormalizeEdgeType(edge);
+        return type == "effort" || type == "dependency";
+    }
+
+    private static bool IsTerminalEdge(TopologyEdgeDefinition edge)
+    {
+        var type = NormalizeEdgeType(edge);
+        return type == "terminal";
+    }
+
+    private static string NormalizeEdgeType(TopologyEdgeDefinition edge)
+    {
+        if (string.IsNullOrWhiteSpace(edge.Type))
+        {
+            return "throughput";
+        }
+
+        return edge.Type.Trim().ToLowerInvariant();
+    }
+
+    private static string NormalizeEdgeMeasure(TopologyEdgeDefinition edge)
+    {
+        if (!string.IsNullOrWhiteSpace(edge.Measure))
+        {
+            return edge.Measure.Trim().ToLowerInvariant();
+        }
+
+        var port = ExtractPort(edge.Source);
+        if (!string.IsNullOrWhiteSpace(port) && !port.Equals("out", StringComparison.OrdinalIgnoreCase))
+        {
+            return port.Trim().ToLowerInvariant();
+        }
+
+        return "served";
     }
 
     private static string? ResolveServedSeriesId(TopologyNodeSemanticsDefinition semantics)
@@ -310,6 +533,76 @@ public static class EdgeFlowMaterializer
         return string.IsNullOrWhiteSpace(semantics.Attempts) ? null : semantics.Attempts;
     }
 
+    private static string? ResolveErrorsSeriesId(TopologyNodeSemanticsDefinition semantics)
+    {
+        return string.IsNullOrWhiteSpace(semantics.Errors) ? null : semantics.Errors;
+    }
+
+    private static string? ResolveFailuresSeriesId(TopologyNodeSemanticsDefinition semantics)
+    {
+        return string.IsNullOrWhiteSpace(semantics.Failures) ? null : semantics.Failures;
+    }
+
+    private static string? ResolveExhaustedFailuresSeriesId(TopologyNodeSemanticsDefinition semantics)
+    {
+        return string.IsNullOrWhiteSpace(semantics.ExhaustedFailures) ? null : semantics.ExhaustedFailures;
+    }
+
+    private static string? ResolveRetryEchoSeriesId(TopologyNodeSemanticsDefinition semantics)
+    {
+        return string.IsNullOrWhiteSpace(semantics.RetryEcho) ? null : semantics.RetryEcho;
+    }
+
+    private static string? ResolveTerminalSeriesId(TopologyNodeSemanticsDefinition semantics, string? measure)
+    {
+        if (string.IsNullOrWhiteSpace(measure))
+        {
+            return null;
+        }
+
+        if (string.Equals(measure, "errors", StringComparison.OrdinalIgnoreCase))
+        {
+            return ResolveErrorsSeriesId(semantics);
+        }
+
+        if (string.Equals(measure, "exhaustedfailures", StringComparison.OrdinalIgnoreCase))
+        {
+            return ResolveExhaustedFailuresSeriesId(semantics);
+        }
+
+        if (string.Equals(measure, "failures", StringComparison.OrdinalIgnoreCase))
+        {
+            return ResolveFailuresSeriesId(semantics);
+        }
+
+        return null;
+    }
+
+    private static string GetEdgeId(TopologyEdgeDefinition edge)
+    {
+        return string.IsNullOrWhiteSpace(edge.Id)
+            ? $"{edge.Source}->{edge.Target}"
+            : edge.Id!;
+    }
+
+    private static void RegisterThroughputEdge(
+        Dictionary<string, List<EdgeCandidate>> edgesByTarget,
+        EdgeCandidate candidate)
+    {
+        if (!edgesByTarget.TryGetValue(candidate.TargetNodeId, out var list))
+        {
+            list = new List<EdgeCandidate>();
+            edgesByTarget[candidate.TargetNodeId] = list;
+        }
+
+        var edgeId = GetEdgeId(candidate.Edge);
+        if (list.Any(entry => string.Equals(GetEdgeId(entry.Edge), edgeId, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        list.Add(candidate);
+    }
 
     private static string ExtractNodeId(string value)
     {
@@ -336,6 +629,16 @@ public static class EdgeFlowMaterializer
     }
 
     private static double NormalizeWeight(double weight) => weight <= 0 ? 1d : weight;
+
+    private static double NormalizeMultiplier(double? raw)
+    {
+        if (!raw.HasValue || double.IsNaN(raw.Value) || double.IsInfinity(raw.Value))
+        {
+            return 1d;
+        }
+
+        return raw.Value;
+    }
 
     private static double[] ScaleSeries(double[] source, double fraction)
     {

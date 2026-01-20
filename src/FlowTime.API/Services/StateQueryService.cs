@@ -2266,7 +2266,9 @@ public sealed class StateQueryService
             merged[retryEdge.Id] = retryEdge;
         }
 
-        return merged.Values.ToList();
+        var edges = merged.Values.ToList();
+        AddRetryVolumeToThroughputEdges(context, edges, startBin, count);
+        return edges;
     }
 
     private static IReadOnlyList<EdgeSeries> BuildArtifactEdgeSeries(StateRunContext context, int startBin, int count)
@@ -2320,6 +2322,152 @@ public sealed class StateQueryService
         }
 
         return builders.Values.Select(builder => builder.Build()).ToList();
+    }
+
+    private static void AddRetryVolumeToThroughputEdges(
+        StateRunContext context,
+        List<EdgeSeries> edges,
+        int startBin,
+        int count)
+    {
+        if (edges.Count == 0 || context.Topology.Edges is null || context.Topology.Edges.Count == 0)
+        {
+            return;
+        }
+
+        var edgeSeriesById = edges.ToDictionary(edge => edge.Id, StringComparer.OrdinalIgnoreCase);
+        var throughputIncoming = new Dictionary<string, List<EdgeSeries>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var edge in context.Topology.Edges)
+        {
+            var edgeType = string.IsNullOrWhiteSpace(edge.EdgeType)
+                ? "throughput"
+                : edge.EdgeType.Trim().ToLowerInvariant();
+            if (!string.Equals(edgeType, "throughput", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var edgeId = string.IsNullOrWhiteSpace(edge.Id)
+                ? $"{edge.Source}->{edge.Target}"
+                : edge.Id!;
+            if (!edgeSeriesById.TryGetValue(edgeId, out var series))
+            {
+                continue;
+            }
+
+            var targetId = ExtractNodeReference(edge.Target);
+            if (string.IsNullOrWhiteSpace(targetId))
+            {
+                continue;
+            }
+
+            if (!throughputIncoming.TryGetValue(targetId, out var list))
+            {
+                list = new List<EdgeSeries>();
+                throughputIncoming[targetId] = list;
+            }
+
+            if (list.Contains(series))
+            {
+                continue;
+            }
+
+            list.Add(series);
+        }
+
+        foreach (var (targetId, incomingEdges) in throughputIncoming)
+        {
+            if (!context.NodeData.TryGetValue(targetId, out var nodeData))
+            {
+                continue;
+            }
+
+            var retrySeries = ComputeRetryEchoSeries(nodeData, startBin, count, allowDerived: true);
+            if (retrySeries is null)
+            {
+                continue;
+            }
+
+            if (incomingEdges.Count == 0)
+            {
+                continue;
+            }
+
+            var edgeInfos = new List<(EdgeSeries Edge, double?[]? Flow, double?[] Retry)>();
+            foreach (var edge in incomingEdges)
+            {
+                if (edge.Series.ContainsKey("retryVolume"))
+                {
+                    continue;
+                }
+
+                var retryValues = new double?[count];
+                edge.Series["retryVolume"] = retryValues;
+
+                edgeInfos.Add((
+                    edge,
+                    edge.Series.TryGetValue("flowVolume", out var values) ? values : null,
+                    retryValues));
+            }
+
+            if (edgeInfos.Count == 0)
+            {
+                continue;
+            }
+            var splitCount = edgeInfos.Count;
+
+            for (var i = 0; i < count; i++)
+            {
+                var retryValue = retrySeries[i];
+                if (!retryValue.HasValue || !double.IsFinite(retryValue.Value) || retryValue.Value <= 0)
+                {
+                    continue;
+                }
+
+                var totalFlow = 0d;
+                foreach (var info in edgeInfos)
+                {
+                    if (info.Flow is null)
+                    {
+                        continue;
+                    }
+
+                    var flowValue = info.Flow[i];
+                    if (flowValue.HasValue && double.IsFinite(flowValue.Value) && flowValue.Value > 0)
+                    {
+                        totalFlow += flowValue.Value;
+                    }
+                }
+
+                if (totalFlow <= 0)
+                {
+                    var perEdge = Normalize(retryValue.Value / splitCount);
+                    foreach (var info in edgeInfos)
+                    {
+                        info.Retry[i] = perEdge;
+                    }
+
+                    continue;
+                }
+
+                foreach (var info in edgeInfos)
+                {
+                    if (info.Flow is null)
+                    {
+                        continue;
+                    }
+
+                    var flowValue = info.Flow[i];
+                    if (!flowValue.HasValue || !double.IsFinite(flowValue.Value) || flowValue.Value <= 0)
+                    {
+                        continue;
+                    }
+
+                    info.Retry[i] = Normalize(retryValue.Value * (flowValue.Value / totalFlow));
+                }
+            }
+        }
     }
 
     private static IReadOnlyList<EdgeSeries> BuildRetryEdgeSeries(StateRunContext context, int startBin, int count)
