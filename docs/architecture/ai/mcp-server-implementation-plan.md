@@ -1,6 +1,6 @@
 # MCP Server Implementation Plan (Node/TypeScript)
 
-Status: M-07.01–M-07.04 complete; MCP modeling + analysis delivered via HTTP-only storage-backed drafts/run bundles (see `docs/releases/M-07.02.md`, `docs/releases/M-07.03.md`, `docs/releases/M-07.04.md`, and the tracking docs).
+Status: M-08.01–M-08.04 complete; MCP modeling + analysis delivered via HTTP-only storage-backed drafts/run bundles (see `docs/releases/M-08.02.md`, `docs/releases/M-08.03.md`, `docs/releases/M-08.04.md`, and the tracking docs).
 
 ## 1. Goals
 

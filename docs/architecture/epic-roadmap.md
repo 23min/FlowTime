@@ -51,10 +51,10 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 - **Folder:** `docs/architecture/ai/`
 - **Goal:** Deliver an MCP server that supports both modeling and analysis: draft templates in a working area, validate/generate/run via FlowTime.Sim and FlowTime API, and use analyst tools to inspect graph/state outputs for verification and iteration.
 - **Key Milestones:**
-  - `docs/milestones/completed/M-07.01-mcp-server-poc.md`
-  - `docs/milestones/completed/M-07.02-mcp-modeling-draft-workflow.md`
-  - `docs/milestones/completed/M-07.03-mcp-data-intake-profile-fitting.md`
-  - `docs/milestones/completed/M-07.04-mcp-storage-abstraction.md`
+  - `docs/milestones/completed/M-08.01-mcp-server-poc.md`
+  - `docs/milestones/completed/M-08.02-mcp-modeling-draft-workflow.md`
+  - `docs/milestones/completed/M-08.03-mcp-data-intake-profile-fitting.md`
+  - `docs/milestones/completed/M-08.04-mcp-storage-abstraction.md`
 - **Notes:** MCP modeling + analyst loop is implemented with HTTP-only storage-backed drafts and run bundles; epic closed pending further expansion.
 
 ### Near-Term / In-Flight Epics

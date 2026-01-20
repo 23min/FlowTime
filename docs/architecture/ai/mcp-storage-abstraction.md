@@ -101,10 +101,10 @@ Configuration should be shared by MCP server, Sim, and Engine services so they c
 ## 10. Milestone Mapping
 
 This storage work is delivered last in the MCP epic:
-- M-07.01: MCP Server PoC (run + inspect loop).
-- M-07.02: Draft workflow tools (authoring surface).
-- M-07.03: Data intake and profile fitting.
-- M-07.04: Storage abstraction (HTTP-only drafts/runs, pluggable backends).
+- M-08.01: MCP Server PoC (run + inspect loop).
+- M-08.02: Draft workflow tools (authoring surface).
+- M-08.03: Data intake and profile fitting.
+- M-08.04: Storage abstraction (HTTP-only drafts/runs, pluggable backends).
 
 ## 11. Risks and Open Questions
 
