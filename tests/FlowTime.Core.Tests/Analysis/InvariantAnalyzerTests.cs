@@ -142,6 +142,63 @@ public class InvariantAnalyzerTests
     }
 
     [Fact]
+    public void Analyze_WarnsWhenEdgeDefinesLag()
+    {
+        var model = new ModelDefinition
+        {
+            Grid = new GridDefinition { Bins = 2, BinSize = 1, BinUnit = "hours" },
+            Topology = new TopologyDefinition
+            {
+                Nodes =
+                {
+                    new TopologyNodeDefinition
+                    {
+                        Id = "Source",
+                        Kind = "service",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "source_arrivals",
+                            Served = "source_served"
+                        }
+                    },
+                    new TopologyNodeDefinition
+                    {
+                        Id = "Target",
+                        Kind = "service",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "target_arrivals",
+                            Served = "target_served"
+                        }
+                    }
+                },
+                Edges =
+                {
+                    new TopologyEdgeDefinition
+                    {
+                        Source = "Source",
+                        Target = "Target",
+                        Measure = "served",
+                        Lag = 2
+                    }
+                }
+            }
+        };
+
+        var evaluated = new Dictionary<NodeId, double[]>
+        {
+            [new NodeId("source_arrivals")] = new[] { 10d, 10d },
+            [new NodeId("source_served")] = new[] { 10d, 10d },
+            [new NodeId("target_arrivals")] = new[] { 10d, 10d },
+            [new NodeId("target_served")] = new[] { 10d, 10d }
+        };
+
+        var result = InvariantAnalyzer.Analyze(model, evaluated);
+
+        Assert.Contains(result.Warnings, warning => warning.Code == "edge_behavior_violation_lag");
+    }
+
+    [Fact]
     public void Analyze_WarnsWhenEdgeClassFlowsDoNotMatchServedClasses()
     {
         var model = new ModelDefinition

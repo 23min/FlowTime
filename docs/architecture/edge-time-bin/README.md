@@ -139,9 +139,10 @@ EdgeTimeBins are **optional but highly recommended**:
   - If behavior is needed between two nodes, model it as an explicit node (often a `serviceWithBuffer`) with edges on either side.
 - **No new time model**
   - Edge metrics are recorded on the same fixed time grid as node metrics; there are no per-edge event queues or DES-style timing.
-- **No path-level aggregation**
+- **No path-level aggregation (with a bounded exception)**
   - This epic focuses on per-edge, per-bin, per-class flows.
-  - Path-level metrics and aggregations (multi-edge routes, end-to-end latency over paths, toxic route analysis) are explicitly deferred to the **Anomaly & Pathology Detection** epic (`docs/architecture/anomaly-detection/`).
+  - Full path-level analytics (multi-edge routes, conformance checks, toxic route analysis) remain deferred to the **Anomaly & Pathology Detection** epic (`docs/architecture/anomaly-detection/`).
+  - **Exception:** A near-term milestone (M-07.05) introduces a *derived sink latency* series using edge flows and node delays. This is a single derived metric, not a full path-mining system.
 
 ---
 

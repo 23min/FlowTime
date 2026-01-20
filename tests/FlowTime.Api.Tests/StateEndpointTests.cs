@@ -33,6 +33,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private const string edgeFlowRunId = "run_state_edge_flow";
     private const string edgeFlowApproxRunId = "run_state_edge_flow_approx";
     private const string edgeFlowPartialRunId = "run_state_edge_flow_partial";
+    private const string edgeFlowRouterSubsetRunId = "run_state_edge_flow_router_subset";
     private const string classRunId = "run_state_classes";
     private const string queueClassRunId = "run_state_classes_queue";
     private const string serviceWithBufferDerivedRunId = "run_state_servicewithbuffer_derived";
@@ -82,6 +83,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateEdgeFlowRun();
         CreateEdgeFlowApproxRun();
         CreateEdgeFlowPartialRun();
+        CreateEdgeFlowRouterSubsetRun();
         CreateClassRun();
         CreateServiceWithBufferClassRun();
         CreateServiceWithBufferDerivedRun();
@@ -223,6 +225,25 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
 
         Assert.NotNull(payload);
         Assert.Equal("partialClass", payload!.Metadata.EdgeQuality);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_IncludesExactEdgeQuality_ForRouterClassSubset()
+    {
+        var response = await client.GetAsync($"/v1/runs/{edgeFlowRouterSubsetRunId}/state_window?startBin=0&endBin=3");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.NotNull(payload);
+        Assert.Equal("exact", payload!.Metadata.EdgeQuality);
     }
 
     [Fact]
@@ -1367,6 +1388,38 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
             classIds: new[] { "vip", "standard" });
     }
 
+    private void CreateEdgeFlowRouterSubsetRun()
+    {
+        var overrides = new Dictionary<string, double[]>
+        {
+            ["Router_arrivals.csv"] = new[] { 10d, 10d, 10d, 10d },
+            ["Router_served.csv"] = new[] { 10d, 10d, 10d, 10d },
+            ["QueueA_arrivals.csv"] = new[] { 6d, 6d, 6d, 6d },
+            ["QueueA_served.csv"] = new[] { 6d, 6d, 6d, 6d },
+            ["QueueB_arrivals.csv"] = new[] { 4d, 4d, 4d, 4d },
+            ["QueueB_served.csv"] = new[] { 4d, 4d, 4d, 4d }
+        };
+
+        var edgeSeries = new Dictionary<string, double[]>
+        {
+            ["edge_router_to_a_flowTotal@EDGE_ROUTER_TO_A_FLOWTOTAL@vip.csv"] = new[] { 6d, 6d, 6d, 6d },
+            ["edge_router_to_b_flowTotal@EDGE_ROUTER_TO_B_FLOWTOTAL@standard.csv"] = new[] { 4d, 4d, 4d, 4d }
+        };
+
+        var manifestSeries = edgeSeries.Keys
+            .Select(fileName => (id: Path.GetFileNameWithoutExtension(fileName), path: $"series/{fileName}", unit: "entities/bin"))
+            .ToArray();
+
+        CreateRun(
+            edgeFlowRouterSubsetRunId,
+            BuildEdgeFlowRouterModelYaml(),
+            mode: "telemetry",
+            overrides: overrides,
+            seriesOutputs: edgeSeries,
+            manifestSeries: manifestSeries,
+            classIds: new[] { "vip", "standard" });
+    }
+
     private void CreateClassRun()
     {
         var overrides = new Dictionary<string, double[]>
@@ -1839,6 +1892,60 @@ topology:
     - id: "order_to_support"
       from: "OrderService:out"
       to: "SupportQueue:in"
+
+""";
+    }
+
+    private static string BuildEdgeFlowRouterModelYaml()
+    {
+        return $"""
+schemaVersion: 1
+
+grid:
+  bins: {binCount}
+  binSize: {binSizeMinutes}
+  binUnit: minutes
+  startTimeUtc: "{startTimeUtc:O}"
+
+classes:
+  - id: "vip"
+  - id: "standard"
+
+topology:
+  nodes:
+    - id: "Router"
+      kind: "router"
+      semantics:
+        arrivals: "file:Router_arrivals.csv"
+        served: "file:Router_served.csv"
+    - id: "QueueA"
+      kind: "service"
+      semantics:
+        arrivals: "file:QueueA_arrivals.csv"
+        served: "file:QueueA_served.csv"
+    - id: "QueueB"
+      kind: "service"
+      semantics:
+        arrivals: "file:QueueB_arrivals.csv"
+        served: "file:QueueB_served.csv"
+  edges:
+    - id: "router_to_a"
+      from: "Router:out"
+      to: "QueueA:in"
+    - id: "router_to_b"
+      from: "Router:out"
+      to: "QueueB:in"
+
+nodes:
+  - id: "Router"
+    kind: router
+    inputs:
+      queue: "file:Router_served.csv"
+    routes:
+      - target: "file:QueueA_arrivals.csv"
+        classes: ["vip"]
+      - target: "file:QueueB_arrivals.csv"
+        classes: ["standard"]
 
 """;
     }

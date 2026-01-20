@@ -238,12 +238,17 @@ topology:
         arrivals: arrivals_airport
         served: served_airport
         capacity: cap_airport
+        attempts: airport_attempts
         failures: airport_retry_failures
+        retryEcho: airport_retry_echo
+        retryKernel: [0.0, 0.6, 0.3, 0.1]
         processingTimeMsSum: airport_processing_time_ms_sum
         servedCount: served_airport
         aliases:
           arrivals: "Airport-bound riders"
           served: "Airport line departures"
+          attempts: "Airport boarding attempts"
+          retryEcho: "Airport retry inflow"
           failures: "Airport failed retries"
     - id: Airport
       kind: sink
@@ -322,42 +327,71 @@ topology:
     - id: north_to_hub
       from: OriginNorth:out
       to: CentralHub:in
+      type: throughput
+      measure: served
     - id: south_to_hub
       from: OriginSouth:out
       to: CentralHub:in
+      type: throughput
+      measure: served
     - id: hub_to_queue
       from: CentralHub:out
       to: HubQueue:in
+      type: throughput
+      measure: served
     - id: queue_to_router
       from: HubQueue:out
       to: HubDispatchRouter:in
+      type: throughput
+      measure: served
     - id: router_to_airport_queue
       from: HubDispatchRouter:out
       to: AirportDispatchQueue:in
+      type: throughput
+      measure: served
     - id: router_to_downtown_queue
       from: HubDispatchRouter:out
       to: DowntownDispatchQueue:in
+      type: throughput
+      measure: served
     - id: router_to_industrial_queue
       from: HubDispatchRouter:out
       to: IndustrialDispatchQueue:in
+      type: throughput
+      measure: served
     - id: airport_queue_to_line
       from: AirportDispatchQueue:out
       to: LineAirport:in
+      type: throughput
+      measure: served
     - id: downtown_queue_to_line
       from: DowntownDispatchQueue:out
       to: LineDowntown:in
+      type: throughput
+      measure: served
     - id: industrial_queue_to_line
       from: IndustrialDispatchQueue:out
       to: LineIndustrial:in
+      type: throughput
+      measure: served
     - id: line_to_airport
       from: LineAirport:out
       to: Airport:in
+      type: throughput
+      measure: served
+      lag: 5
     - id: line_to_downtown
       from: LineDowntown:out
       to: Downtown:in
+      type: throughput
+      measure: served
+      lag: 3
     - id: line_to_industrial
       from: LineIndustrial:out
       to: Industrial:in
+      type: throughput
+      measure: served
+      lag: 4
     - id: hub_to_loss
       from: CentralHub:errors
       to: HubLossQueue:arrivals

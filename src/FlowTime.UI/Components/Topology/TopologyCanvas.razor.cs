@@ -64,6 +64,9 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     [Parameter] public IReadOnlyDictionary<string, NodeSparklineData>? NodeSparklines { get; set; }
     [Parameter] public IReadOnlyList<TimeTravelEdgeSeriesDto>? EdgeSeries { get; set; }
     [Parameter] public int EdgeSeriesStartIndex { get; set; }
+    [Parameter] public IReadOnlyCollection<string> SelectedClasses { get; set; } = Array.Empty<string>();
+    [Parameter] public bool HasClassSelection { get; set; }
+    [Parameter] public string? EdgeQuality { get; set; }
     [Parameter] public EventCallback<double> ZoomPercentChanged { get; set; }
     [Parameter] public EventCallback<ViewportSnapshot> ViewportChanged { get; set; }
     [Parameter] public EventCallback<string?> NodeFocused { get; set; }
@@ -157,7 +160,24 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         {
             preserveViewportHint = true;
         }
-        var payloads = BuildCanvasPayloads(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, tooltipNodeId, OverlaySettings, ActiveBin, snapshotForRender, preserveViewport, Title, NodeWarnings, EdgeSeries, EdgeSeriesStartIndex, DimmedNodes);
+        var payloads = BuildCanvasPayloads(
+            filteredGraph,
+            NodeMetrics,
+            NodeSparklines,
+            focusedNodeId,
+            tooltipNodeId,
+            OverlaySettings,
+            ActiveBin,
+            snapshotForRender,
+            preserveViewport,
+            Title,
+            NodeWarnings,
+            EdgeSeries,
+            EdgeSeriesStartIndex,
+            DimmedNodes,
+            HasClassSelection,
+            SelectedClasses,
+            EdgeQuality);
         if (payloads.SceneSignature != lastSceneSignature)
         {
             pendingScenePayload = payloads.Scene;
@@ -436,7 +456,24 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             return;
         }
 
-        var payloads = BuildCanvasPayloads(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, tooltipNodeId, OverlaySettings, ActiveBin, snapshot: pendingViewportSnapshot ?? RequestedViewport, preserveViewport: preserveViewportHint, title: Title, nodeWarningsMap: NodeWarnings, edgeSeries: EdgeSeries, edgeSeriesStartIndex: EdgeSeriesStartIndex, dimmedNodes: DimmedNodes);
+        var payloads = BuildCanvasPayloads(
+            filteredGraph,
+            NodeMetrics,
+            NodeSparklines,
+            focusedNodeId,
+            tooltipNodeId,
+            OverlaySettings,
+            ActiveBin,
+            snapshot: pendingViewportSnapshot ?? RequestedViewport,
+            preserveViewport: preserveViewportHint,
+            title: Title,
+            nodeWarningsMap: NodeWarnings,
+            edgeSeries: EdgeSeries,
+            edgeSeriesStartIndex: EdgeSeriesStartIndex,
+            dimmedNodes: DimmedNodes,
+            hasClassSelection: HasClassSelection,
+            selectedClasses: SelectedClasses,
+            edgeQuality: EdgeQuality);
         if (payloads.SceneSignature != lastSceneSignature)
         {
             pendingScenePayload = payloads.Scene;
@@ -861,7 +898,10 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         IReadOnlyDictionary<string, IReadOnlyList<NodeWarningPayload>>? nodeWarningsMap,
         IReadOnlyList<TimeTravelEdgeSeriesDto>? edgeSeries,
         int edgeSeriesStartIndex,
-        IReadOnlyCollection<string>? dimmedNodes)
+        IReadOnlyCollection<string>? dimmedNodes,
+        bool hasClassSelection,
+        IReadOnlyCollection<string> selectedClasses,
+        string? edgeQuality)
     {
         var thresholds = ColorScale.ColorThresholds.FromOverlay(overlays);
         var outgoingGroups = graph.Edges
@@ -1134,7 +1174,11 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             overlays.ShowRetryMetrics,
             overlays.ShowRetryBudget,
             overlays.ShowTerminalEdges,
-            overlays.ShowEdgeMultipliers);
+            overlays.ShowEdgeMultipliers,
+            hasClassSelection,
+            selectedClasses.ToArray(),
+            edgeQuality,
+            ShouldShowEdgeFallbackIndicator(edgeQuality));
 
         TooltipPayload? tooltip = null;
         if (!string.IsNullOrWhiteSpace(tooltipNode))
@@ -1168,6 +1212,16 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         var overlaySignature = ComputeOverlaySignature(overlayPayload);
 
         return new CanvasPayloadBundle(scenePayload, overlayPayload, sceneSignature, overlaySignature);
+    }
+
+    private static bool ShouldShowEdgeFallbackIndicator(string? edgeQuality)
+    {
+        if (string.IsNullOrWhiteSpace(edgeQuality))
+        {
+            return false;
+        }
+
+        return !string.Equals(edgeQuality, "exact", StringComparison.OrdinalIgnoreCase);
     }
 
     private sealed record CanvasPayloadBundle(
@@ -1262,6 +1316,14 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         hash.Add(overlays.IncludeDlqNodes);
         hash.Add(overlays.IncludeExpressionNodes);
         hash.Add(overlays.IncludeConstNodes);
+        hash.Add(overlays.HasClassSelection);
+        hash.Add(overlays.SelectedClasses.Count);
+        foreach (var classId in overlays.SelectedClasses)
+        {
+            hash.Add(classId ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+        }
+        hash.Add(overlays.EdgeQuality ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+        hash.Add(overlays.ShowEdgeFallbackIndicator);
 
         foreach (var node in payload.Nodes)
         {

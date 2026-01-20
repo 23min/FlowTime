@@ -342,6 +342,7 @@
                             </div>
                             @{
                                 var aggregationLabel = GetAggregationIndicatorLabel();
+                                var edgeQualityLabel = ResolveEdgeQualityLabel(windowData?.Metadata.EdgeQuality);
                             }
                             @if (!string.IsNullOrWhiteSpace(aggregationLabel))
                             {
@@ -368,6 +369,22 @@
                                                    SelectionChanged="OnClassSelectionChanged"
                                                    ModeChanged="OnClassSelectionModeChanged"
                                                    QueryKey="classes" />
+                                </div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(edgeQualityLabel))
+                            {
+                                <div class="topology-flow-overlay topology-edge-quality-overlay">
+                                    <div class="topology-flow-header">
+                                        <MudText Typo="Typo.overline" Class="topology-flow-panel-title">Edge quality</MudText>
+                                    </div>
+                                    <MudChip T="string"
+                                             Variant="Variant.Outlined"
+                                             Color="Color.Default"
+                                             Size="Size.Small"
+                                             Class="topology-edge-quality-chip"
+                                             Ripple="false">
+                                        @edgeQualityLabel
+                                    </MudChip>
                                 </div>
                             }
                             @if (focusViewEnabled)
@@ -427,6 +444,9 @@
                                             NodeSparklines="nodeSparklines"
                                             EdgeSeries="windowData?.Edges"
                                             EdgeSeriesStartIndex="@(windowData?.Window.StartBin ?? 0)"
+                                            SelectedClasses="selectedClasses"
+                                            HasClassSelection="@(selectedClasses.Count > 0)"
+                                            EdgeQuality="@windowData?.Metadata.EdgeQuality"
                                             NodeWarnings="nodeWarningsForCanvas"
                                             OverlaySettings="overlaySettings"
                                             ActiveBin="renderBin"
@@ -2797,13 +2817,18 @@ private const string pmfExpectationLabel = "Value";
             }
         }
 
+        var timestampLabel = FormatTimestampSnapshot(context.Timestamps, localIndex);
+        var headerLabel = string.IsNullOrWhiteSpace(timestampLabel)
+            ? $"bin {bin}"
+            : $"{timestampLabel} - bin {bin}";
+
         return new ActiveMetricsComputationResult(
             metrics,
             classContributionMap,
             classFilteredNodes,
             bin,
             bin.ToString(CultureInfo.InvariantCulture),
-            FormatTimestampSnapshot(context.Timestamps, localIndex),
+            headerLabel,
             context.IncludeInspectorDetails);
     }
 
@@ -3229,7 +3254,10 @@ private const string pmfExpectationLabel = "Value";
         if (windowData is { } data)
         {
             var localIndex = bin - data.Window.StartBin;
-            selectedTimestampLabel = FormatTimestamp(localIndex);
+            var timestamp = FormatTimestamp(localIndex);
+            selectedTimestampLabel = string.IsNullOrWhiteSpace(timestamp)
+                ? $"bin {bin}"
+                : $"{timestamp} - bin {bin}";
         }
         else
         {
@@ -3582,6 +3610,24 @@ private const string pmfExpectationLabel = "Value";
     private string GetAggregationIndicatorLabel()
     {
         return "Avg";
+    }
+
+    private static string? ResolveEdgeQualityLabel(string? edgeQuality)
+    {
+        if (string.IsNullOrWhiteSpace(edgeQuality))
+        {
+            return null;
+        }
+
+        var normalized = edgeQuality.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "exact" => "Exact",
+            "approx" => "Approx",
+            "partialclass" => "Partial class",
+            "missing" => "Missing",
+            _ => edgeQuality.Trim()
+        };
     }
 
     private static string BuildProvenanceTooltip(MetricProvenanceEvaluation provenance)

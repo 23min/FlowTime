@@ -91,7 +91,7 @@ public static class EdgeFlowMaterializer
                     }
                 }
 
-                AddEdgeSeries(result, candidate.Edge, routeTotal, routeClasses);
+                AddEdgeSeriesMetric(result, candidate.Edge, "flowTotal", routeTotal, routeClasses);
                 handledRouterEdges.Add(new EdgeKey(candidate.SourceNodeId, candidate.TargetNodeId));
             }
 
@@ -127,7 +127,7 @@ public static class EdgeFlowMaterializer
                     }
                 }
 
-                AddEdgeSeries(result, candidate.Edge, routeTotal, routeClasses);
+                AddEdgeSeriesMetric(result, candidate.Edge, "flowTotal", routeTotal, routeClasses);
                 handledRouterEdges.Add(new EdgeKey(candidate.SourceNodeId, candidate.TargetNodeId));
             }
         }
@@ -159,6 +159,16 @@ public static class EdgeFlowMaterializer
                 classSeriesForServed = byClass.ToDictionary(entry => entry.Key, entry => entry.Value.ToArray(), StringComparer.OrdinalIgnoreCase);
             }
 
+            var attemptsSeriesId = ResolveAttemptsSeriesId(node.Semantics);
+            double[]? attemptsSeries = null;
+            var hasAttemptsSeries = !string.IsNullOrWhiteSpace(attemptsSeriesId) &&
+                totals.TryGetValue(new NodeId(attemptsSeriesId!), out attemptsSeries);
+            Dictionary<string, double[]>? classSeriesForAttempts = null;
+            if (hasAttemptsSeries && classSeries != null && classSeries.TryGetValue(new NodeId(attemptsSeriesId!), out var attemptsByClass))
+            {
+                classSeriesForAttempts = attemptsByClass.ToDictionary(entry => entry.Key, entry => entry.Value.ToArray(), StringComparer.OrdinalIgnoreCase);
+            }
+
             var edges = group.ToList();
             var totalWeight = edges.Sum(edge => NormalizeWeight(edge.Edge.Weight));
             if (totalWeight <= 0)
@@ -188,16 +198,32 @@ public static class EdgeFlowMaterializer
                     }
                 }
 
-                AddEdgeSeries(result, candidate.Edge, series, routeClasses);
+                AddEdgeSeriesMetric(result, candidate.Edge, "flowTotal", series, routeClasses);
+                if (hasAttemptsSeries)
+                {
+                    var attemptsSeriesScaled = ScaleSeries(attemptsSeries!, fraction);
+                    Dictionary<string, double[]>? attemptsClasses = null;
+                    if (classSeriesForAttempts != null)
+                    {
+                        attemptsClasses = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+                        foreach (var (classId, classValues) in classSeriesForAttempts)
+                        {
+                            attemptsClasses[classId] = ScaleSeries(classValues, fraction);
+                        }
+                    }
+
+                    AddEdgeSeriesMetric(result, candidate.Edge, "attemptsLoad", attemptsSeriesScaled, attemptsClasses);
+                }
             }
         }
 
         return result;
     }
 
-    private static void AddEdgeSeries(
+    private static void AddEdgeSeriesMetric(
         List<RunArtifactWriter.EdgeSeriesInput> result,
         TopologyEdgeDefinition edge,
+        string metric,
         double[] values,
         Dictionary<string, double[]>? byClass)
     {
@@ -208,7 +234,7 @@ public static class EdgeFlowMaterializer
         result.Add(new RunArtifactWriter.EdgeSeriesInput
         {
             EdgeId = edgeId,
-            Metric = "flowTotal",
+            Metric = metric,
             Values = values
         });
 
@@ -222,7 +248,7 @@ public static class EdgeFlowMaterializer
             result.Add(new RunArtifactWriter.EdgeSeriesInput
             {
                 EdgeId = edgeId,
-                Metric = "flowTotal",
+                Metric = metric,
                 Values = series,
                 ClassId = classId
             });
@@ -278,6 +304,12 @@ public static class EdgeFlowMaterializer
     {
         return string.IsNullOrWhiteSpace(semantics.Served) ? null : semantics.Served;
     }
+
+    private static string? ResolveAttemptsSeriesId(TopologyNodeSemanticsDefinition semantics)
+    {
+        return string.IsNullOrWhiteSpace(semantics.Attempts) ? null : semantics.Attempts;
+    }
+
 
     private static string ExtractNodeId(string value)
     {

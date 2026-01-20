@@ -209,6 +209,72 @@ public class FlowTimeApiClientTests
     }
 
     [Fact]
+    public async Task GetRunStateWindowAsync_ParsesEdgeClassSeries()
+    {
+        HttpRequestMessage? captured = null;
+        var handler = new StubHandler(request =>
+        {
+            captured = request;
+            const string json = """
+            {
+              "metadata": {
+                "runId": "run_edges",
+                "templateId": "orders",
+                "templateTitle": "Orders",
+                "templateVersion": "1.0.0",
+                "mode": "simulation",
+                "telemetrySourcesResolved": true,
+                "schema": { "id": "time-travel/v1", "version": "1", "hash": "sha256:edges" },
+                "storage": { "modelPath": "runs/run_edges/model.yaml", "metadataPath": null, "provenancePath": null },
+                "edgeQuality": "partialClass"
+              },
+              "window": { "startBin": 0, "endBin": 1, "binCount": 2 },
+              "timestampsUtc": ["2025-01-01T00:00:00Z", "2025-01-01T00:05:00Z"],
+              "nodes": [],
+              "edges": [
+                {
+                  "id": "edge_a_b_flow",
+                  "from": "A",
+                  "to": "B",
+                  "series": {
+                    "flowTotal": [ 4, 5 ]
+                  },
+                  "byClass": {
+                    "Priority": {
+                      "flowTotal": [ 2, 3 ]
+                    }
+                  }
+                }
+              ],
+              "warnings": []
+            }
+            """;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            };
+        });
+
+        using var http = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://localhost:8080/")
+        };
+        var opts = Options.Create(new FlowTimeApiOptions { ApiVersion = "v1" });
+        var client = new FlowTimeApiClient(http, opts.Value);
+
+        var response = await client.GetRunStateWindowAsync("run_edges", 0, 1, null, CancellationToken.None);
+
+        Assert.True(response.Success);
+        Assert.Equal("/v1/runs/run_edges/state_window?startBin=0&endBin=1", captured?.RequestUri?.PathAndQuery);
+
+        var edge = Assert.Single(response.Value?.Edges ?? Array.Empty<TimeTravelEdgeSeriesDto>());
+        Assert.NotNull(edge.ByClass);
+        var classSeries = Assert.Contains("Priority", edge.ByClass!);
+        var flowSeries = Assert.Contains("flowTotal", classSeries);
+        Assert.Equal(3, flowSeries[1]);
+    }
+
+    [Fact]
     public async Task GetRunGraphAsync_ParsesResponse()
     {
         HttpRequestMessage? captured = null;

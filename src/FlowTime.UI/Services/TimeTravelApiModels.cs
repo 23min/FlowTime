@@ -262,6 +262,9 @@ public sealed record TimeTravelEdgeSeriesDto
 
     [JsonPropertyName("series")]
     public IReadOnlyDictionary<string, double?[]> Series { get; init; } = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("byClass")]
+    public IReadOnlyDictionary<string, IReadOnlyDictionary<string, double?[]>>? ByClass { get; init; }
 }
 
 public sealed record TimeTravelNodeMetricsDto

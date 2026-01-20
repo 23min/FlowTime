@@ -410,6 +410,90 @@ public sealed class TopologyCanvasRenderTests : TestContext
     }
 
     [Fact]
+    public void RenderForwardsEdgeClassSeries()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+        var edgeSeries = new[]
+        {
+            new TimeTravelEdgeSeriesDto
+            {
+                Id = "edge_ingress_processor_flow",
+                From = "ingress",
+                To = "processor",
+                Series = new Dictionary<string, double?[]>
+                {
+                    ["flowTotal"] = new double?[] { 10, 12, 8 }
+                },
+                ByClass = new Dictionary<string, IReadOnlyDictionary<string, double?[]>>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["Priority"] = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["flowTotal"] = new double?[] { 6, 7, 4 }
+                    }
+                }
+            }
+        };
+
+        var sceneCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true);
+        sceneCall.SetVoidResult();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true).SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.EdgeSeries, edgeSeries));
+
+        var payload = Assert.IsType<CanvasScenePayload>(sceneCall.Invocations.Single().Arguments[1]);
+        var series = Assert.Single(payload.EdgeSeries ?? Array.Empty<TimeTravelEdgeSeriesDto>());
+        Assert.NotNull(series.ByClass);
+        Assert.True(series.ByClass!.ContainsKey("Priority"));
+    }
+
+    [Fact]
+    public void OverlayIncludesEdgeQualityAndClassSelection()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+        var selectedClasses = new[] { "Priority", "Standard" };
+
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.SelectedClasses, selectedClasses)
+            .Add(p => p.HasClassSelection, true)
+            .Add(p => p.EdgeQuality, "approx"));
+
+        var payload = Assert.IsType<CanvasOverlayPayload>(overlayCall.Invocations.Single().Arguments[1]);
+        Assert.True(payload.Overlays.HasClassSelection);
+        Assert.Equal(selectedClasses, payload.Overlays.SelectedClasses);
+        Assert.Equal("approx", payload.Overlays.EdgeQuality);
+    }
+
+    [Fact]
+    public void OverlayIncludesFallbackIndicatorWhenEdgeQualityMissing()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.EdgeQuality, "missing"));
+
+        var payload = Assert.IsType<CanvasOverlayPayload>(overlayCall.Invocations.Single().Arguments[1]);
+        Assert.True(payload.Overlays.ShowEdgeFallbackIndicator);
+    }
+
+    [Fact]
     public void UpdatesMetricsTriggerAdditionalRender()
     {
         var graph = CreateGraph();

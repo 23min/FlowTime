@@ -140,7 +140,11 @@ internal sealed record OverlaySettingsPayload(
     bool ShowRetryMetrics,
     bool ShowRetryBudget,
     bool ShowTerminalEdges,
-    bool ShowEdgeMultipliers);
+    bool ShowEdgeMultipliers,
+    bool HasClassSelection,
+    IReadOnlyList<string> SelectedClasses,
+    string? EdgeQuality,
+    bool ShowEdgeFallbackIndicator);
 
 internal sealed record ViewportSnapshotPayload(
     double Scale,

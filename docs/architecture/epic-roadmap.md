@@ -63,6 +63,12 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 - **Goal:** Derive or surface per-edge throughput/attempt volumes and related metrics to support edge heat maps, conservation checks, and richer topology overlays.
 - **Notes:** Not started; depends on stable node semantics from Classes and ServiceWithBuffer (now complete).
 
+#### Dependency Constraints & Shared Resources
+
+- **Folder:** `docs/architecture/dependency-constraints/`
+- **Goal:** Model downstream dependencies (databases, caches, external APIs) as resource constraints so shared bottlenecks and coupling are visible while preserving the minimal arrivals/served basis.
+- **Notes:** Depends on explicit edge semantics/metrics (M-07.04) so effort vs throughput load is engine-owned and validated.
+
 #### Telemetry Ingestion and Canonical Bundles
 
 - **Folder:** `docs/architecture/telemetry-ingestion/`

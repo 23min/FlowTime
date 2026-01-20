@@ -67,6 +67,30 @@ public static class InvariantAnalyzer
             }
         }
 
+        if (model.Topology.Edges is { Count: > 0 })
+        {
+            foreach (var edge in model.Topology.Edges)
+            {
+                var lag = edge.Lag ?? 0;
+                if (lag <= 0)
+                {
+                    continue;
+                }
+
+                var sourceId = ExtractNodeId(edge.Source);
+                var edgeId = string.IsNullOrWhiteSpace(edge.Id)
+                    ? $"{edge.Source}->{edge.Target}"
+                    : edge.Id!;
+                warnings.Add(new InvariantWarning(
+                    string.IsNullOrWhiteSpace(sourceId) ? "engine" : sourceId,
+                    "edge_behavior_violation_lag",
+                    $"Edge '{edgeId}' applies a lag of {lag} bin(s). Model transit as an explicit node instead of edge behavior.",
+                    Array.Empty<int>(),
+                    null,
+                    "warning"));
+            }
+        }
+
         var edgeFlowSeries = BuildEdgeFlowSeriesLookup(edgeSeries);
         var edgeClassSeries = BuildEdgeClassSeriesLookup(edgeSeries);
         IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>>? classContributions = null;
@@ -226,7 +250,7 @@ public static class InvariantAnalyzer
             {
                 if (served != null && outgoingEdges.TryGetValue(nodeId, out var outgoing))
                 {
-                    if (TrySumEdgeFlows(outgoing, served.Length, out var outgoingSum))
+                    if (TrySumEdgeFlows(outgoing, served.Length, applyLag: false, out var outgoingSum))
                     {
                         CheckEdgeConservation(
                             nodeId,
@@ -240,7 +264,7 @@ public static class InvariantAnalyzer
 
                 if (arrivals != null && incomingEdges.TryGetValue(nodeId, out var incoming))
                 {
-                    if (TrySumEdgeFlows(incoming, arrivals.Length, out var incomingSum))
+                    if (TrySumEdgeFlows(incoming, arrivals.Length, applyLag: true, out var incomingSum))
                     {
                         CheckEdgeConservation(
                             nodeId,
@@ -263,7 +287,8 @@ public static class InvariantAnalyzer
                         nodeId,
                         "Per-class served does not match outgoing edge flows.",
                         servedByClass,
-                        outgoing);
+                        outgoing,
+                        applyLag: false);
                 }
 
                 if (!string.IsNullOrWhiteSpace(semantics.Arrivals) &&
@@ -274,7 +299,8 @@ public static class InvariantAnalyzer
                         nodeId,
                         "Per-class arrivals do not match incoming edge flows.",
                         arrivalsByClass,
-                        incoming);
+                        incoming,
+                        applyLag: true);
                 }
             }
 
@@ -703,7 +729,7 @@ public static class InvariantAnalyzer
             }
         }
 
-        bool TrySumEdgeFlows(IReadOnlyList<TopologyEdgeDefinition> edges, int expectedLength, out double[] sum)
+        bool TrySumEdgeFlows(IReadOnlyList<TopologyEdgeDefinition> edges, int expectedLength, bool applyLag, out double[] sum)
         {
             sum = Array.Empty<double>();
             if (edges.Count == 0)
@@ -728,9 +754,16 @@ public static class InvariantAnalyzer
                     return false;
                 }
 
+                var lag = applyLag && edge.Lag is > 0 ? edge.Lag.Value : 0;
                 for (var i = 0; i < expectedLength; i++)
                 {
-                    total[i] += series[i];
+                    var index = i - lag;
+                    if (index < 0 || index >= series.Length)
+                    {
+                        continue;
+                    }
+
+                    total[i] += series[index];
                 }
             }
 
@@ -742,6 +775,7 @@ public static class InvariantAnalyzer
             IReadOnlyList<TopologyEdgeDefinition> edges,
             IEnumerable<string> classIds,
             int expectedLength,
+            bool applyLag,
             out Dictionary<string, double[]> totals,
             out HashSet<string> coveredClasses)
         {
@@ -781,9 +815,16 @@ public static class InvariantAnalyzer
                     }
 
                     coveredClasses.Add(classId);
+                    var lag = applyLag && edge.Lag is > 0 ? edge.Lag.Value : 0;
                     for (var i = 0; i < expectedLength; i++)
                     {
-                        total[i] += series[i];
+                        var index = i - lag;
+                        if (index < 0 || index >= series.Length)
+                        {
+                            continue;
+                        }
+
+                        total[i] += series[index];
                     }
                 }
             }
@@ -795,7 +836,8 @@ public static class InvariantAnalyzer
             string nodeId,
             string message,
             IReadOnlyDictionary<string, double[]> nodeByClass,
-            IReadOnlyList<TopologyEdgeDefinition> edges)
+            IReadOnlyList<TopologyEdgeDefinition> edges,
+            bool applyLag)
         {
             if (nodeByClass.Count == 0)
             {
@@ -808,7 +850,7 @@ public static class InvariantAnalyzer
                 return;
             }
 
-            if (TrySumEdgeClassFlows(edges, nodeByClass.Keys, length, out var edgeByClass, out var covered))
+            if (TrySumEdgeClassFlows(edges, nodeByClass.Keys, length, applyLag, out var edgeByClass, out var covered))
             {
                 CheckEdgeClassConservation(
                     nodeId,

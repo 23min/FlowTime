@@ -3412,17 +3412,6 @@ public sealed class StateQueryService
             return "exact";
         }
 
-        var coverage = classCoverage?.Trim().ToLowerInvariant();
-        if (coverage == "missing")
-        {
-            return "approx";
-        }
-
-        if (coverage == "partial")
-        {
-            return "partialClass";
-        }
-
         var edgeTokens = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var edgeClassCoverage = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
         var hasFlowTotal = false;
@@ -3464,21 +3453,124 @@ public sealed class StateQueryService
 
         if (edgeClassCoverage.Count == 0)
         {
+            var coverage = classCoverage?.Trim().ToLowerInvariant();
+            if (coverage == "missing")
+            {
+                return "approx";
+            }
+
+            if (coverage == "partial")
+            {
+                return "partialClass";
+            }
+
             return "approx";
         }
 
         var expectedClasses = new HashSet<string>(classIds, StringComparer.OrdinalIgnoreCase);
+        var expectedEdgeClasses = BuildEdgeClassExpectations(context);
         foreach (var edgeToken in edgeTokens)
         {
+            var expected = expectedClasses;
+            if (expectedEdgeClasses.TryGetValue(edgeToken, out var edgeExpected) && edgeExpected.Count > 0)
+            {
+                expected = edgeExpected;
+            }
+
             if (!edgeClassCoverage.TryGetValue(edgeToken, out var classes) ||
                 classes.Count == 0 ||
-                !expectedClasses.IsSubsetOf(classes))
+                !expected.IsSubsetOf(classes))
             {
                 return "partialClass";
             }
         }
 
         return "exact";
+    }
+
+    private static IReadOnlyDictionary<string, HashSet<string>> BuildEdgeClassExpectations(StateRunContext context)
+    {
+        if (context.Topology.Nodes is null || context.Topology.Edges is null || context.ModelNodes.Count == 0)
+        {
+            return new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var arrivalLookup = context.Topology.Nodes
+            .Where(node => !string.IsNullOrWhiteSpace(node.Semantics?.Arrivals))
+            .ToDictionary(node => node.Semantics!.Arrivals.Trim(), node => node.Id, StringComparer.OrdinalIgnoreCase);
+
+        var edgeTokensByPair = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var edge in context.Topology.Edges)
+        {
+            var sourceId = ExtractNodeReference(edge.Source);
+            var targetId = ExtractNodeReference(edge.Target);
+            if (string.IsNullOrWhiteSpace(sourceId) || string.IsNullOrWhiteSpace(targetId))
+            {
+                continue;
+            }
+
+            var rawId = string.IsNullOrWhiteSpace(edge.Id)
+                ? $"{edge.Source}->{edge.Target}"
+                : edge.Id!;
+            var edgeToken = NormalizeEdgeToken(rawId);
+            if (string.IsNullOrWhiteSpace(edgeToken))
+            {
+                continue;
+            }
+
+            edgeTokensByPair[$"{sourceId}|{targetId}"] = edgeToken;
+        }
+
+        var expectations = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var node in context.ModelNodes.Values)
+        {
+            if (!string.Equals(node.Kind, "router", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (node.Router?.Routes is null)
+            {
+                continue;
+            }
+
+            foreach (var route in node.Router.Routes)
+            {
+                if (string.IsNullOrWhiteSpace(route.Target) || route.Classes is null || route.Classes.Length == 0)
+                {
+                    continue;
+                }
+
+                if (!arrivalLookup.TryGetValue(route.Target.Trim(), out var targetNodeId))
+                {
+                    continue;
+                }
+
+                var key = $"{node.Id}|{targetNodeId}";
+                if (!edgeTokensByPair.TryGetValue(key, out var edgeToken))
+                {
+                    continue;
+                }
+
+                if (!expectations.TryGetValue(edgeToken, out var expectedClasses))
+                {
+                    expectedClasses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    expectations[edgeToken] = expectedClasses;
+                }
+
+                foreach (var classId in route.Classes)
+                {
+                    if (string.IsNullOrWhiteSpace(classId))
+                    {
+                        continue;
+                    }
+
+                    expectedClasses.Add(classId.Trim());
+                }
+            }
+        }
+
+        return expectations;
     }
 
     private static IReadOnlyList<StateWarning> BuildWarnings(StateRunContext context, IReadOnlyList<ModeValidationWarning> additionalWarnings)

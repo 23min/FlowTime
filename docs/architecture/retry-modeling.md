@@ -18,7 +18,7 @@ FlowTime maintains **deterministic, single-pass evaluation** while handling comp
 - **Conservative flow accounting** that tracks attempts, successes, failures, and retry echoes
 - **Forward-only DAG evaluation** with explicit handling of temporal dependencies
 
-> **Implementation update (Mar 2025):** The expression engine now ships `CONV` with inline kernel literals (e.g., `CONV(failures, [0.0, 0.6, 0.3, 0.1])`). The template `templates/supply-chain-incident-retry.yaml` demonstrates end-to-end wiring—throughput vs effort edges, attempts/failures/retryEcho series, and UI toggles.
+> **Implementation update (Mar 2025):** The expression engine now ships `CONV` with inline kernel literals (e.g., `CONV(failures, [0.0, 0.6, 0.3, 0.1])`). The template `templates/supply-chain-incident-retry.yaml` demonstrates end-to-end wiring—throughput vs effort edges, attempts/failures/retryEcho series, and edge overlays that consume **engine-emitted** edge metrics.
 
 ---
 
@@ -107,7 +107,8 @@ edges:
 
 - Canvas: terminal edges use a distinct stroke (e.g., dotted crimson) and badges display retry budget.  
 - Inspector: service stack shows Attempts, Served, Failures, Retry Echo, **Exhausted**, and, if present, **Budget Remaining**.  
-- Feature bar gains toggles for “Show Retry Budget” and “Show Terminal Edges”.
+- Feature bar gains toggles for “Show Retry Budget” and “Show Terminal Edges”.  
+- Edge overlays must read **explicit edge metrics** from the API (no client-side inference of attempts or retry load).
 
 > **Gap (TT‑M‑03.28)**: Current milestone implements attempts/failures/retryEcho but does not yet enforce max-attempt budgets or terminal destinations. Governance support is slated for a follow-up milestone (recommended TT‑M‑03.30 or TT‑M‑03.31 depending on backlog). See _Delivery Roadmap_ for scheduling guidance.
 
@@ -735,7 +736,9 @@ By **avoiding algebraic loops** and using **bounded history buffers**, FlowTime 
 
 This foundation enables data-driven optimization of retry policies, early detection of retry storms, and comprehensive understanding of how failure patterns propagate through complex distributed systems.
 - **Retry Edge Slice (TT‑M‑03.31)**  
-  `/v1/runs/{runId}/state_window` now emits a server-computed `edges` collection describing each retry-relevant dependency:
+  `/v1/runs/{runId}/state_window` emits a server-computed `edges` collection describing each retry-relevant dependency:
   - `id`, `from`, `to`, `edgeType`, `field`, `multiplier`, `lag`.
+  - **Edge metrics** (per edge, per bin) must be explicit: `flowTotal` (throughput), `attemptsLoad` (effort), `failuresLoad` (terminal), and optional `retryRate`.
+  - **Edge warnings** should be keyed by `edgeId` so clients never parse warning strings.
   - Series keys: `attemptsLoad`, `failuresLoad`, `retryRate` (aligned with `window.startBin`).  
   UI surfaces consume those series directly for overlay rendering; clients no longer derive retry metrics from node data.

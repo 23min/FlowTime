@@ -707,6 +707,7 @@
                 tooltipMetrics: null,
                 edgeOverlayLegend: null,
                 edgeOverlayContext: null,
+                edgeFlowContext: null,
                 globalWarningsByNode: new Map(),
                 edgeSeries: new Map(),
                 edgeSeriesStartIndex: 0,
@@ -1806,6 +1807,13 @@
             const overlayContext = buildEdgeOverlayContext(edgesPayload, nodeMap, overlaySettings, edgeSeries, edgeSeriesStartIndex);
             state.edgeOverlayContext = overlayContext;
             state.edgeOverlayLegend = overlayContext?.legend ?? null;
+            state.edgeFlowContext = buildEdgeFlowContext(
+                edgesPayload,
+                nodeMap,
+                overlaySettings,
+                edgeSeries,
+                edgeSeriesStartIndex
+            );
             state.lastNodeCount = nodesPayload.length;
             state.lastEdgeCount = edgesPayload.length;
             state.sceneDirty = false;
@@ -1819,6 +1827,7 @@
         const edges = state.sceneRawEdges ?? edgesPayload;
         const legacyTooltip = state.sceneLegacyTooltip ?? legacyTooltipValue;
         const overlayContext = state.edgeOverlayContext;
+        const flowContext = state.edgeFlowContext;
 
         const frameStart = typeof performance !== 'undefined' && typeof performance.now === 'function'
             ? performance.now()
@@ -1921,15 +1930,18 @@
                     : '#9AA1AC';
 
             let dashPattern = isDependency ? [4, 3] : (isEffortEdge ? [8, 4] : null);
-            let lineWidth = isDependency ? 1.4 : (isEffortEdge ? 3.2 : 3);
+            const baseLineWidth = isDependency ? 1.4 : (isEffortEdge ? 3.2 : 3);
             const overlaySample = overlayContext?.samples?.get(edgeId) ?? null;
-            if (overlaySample && !isDependency) {
-                lineWidth *= 2;
-            }
-            let strokeColor = baseStrokeColor;
-            if (overlaySample?.color) {
-                strokeColor = overlaySample.color;
-            }
+            const flowSample = flowContext?.samples?.get(edgeId) ?? null;
+            const overlayStyle = computeEdgeOverlayStyle(
+                baseStrokeColor,
+                baseLineWidth,
+                overlaySample,
+                flowSample,
+                flowContext,
+                isDependency);
+            let lineWidth = overlayStyle.lineWidth;
+            let strokeColor = overlayStyle.strokeColor;
 
             if (emphasized) {
                 strokeColor = focusedEdge ? '#1D4ED8' : '#0EA5E9';
@@ -2047,17 +2059,50 @@
                 }
             }
 
-            if (overlaySample && overlaySettings.showEdgeOverlayLabels !== false) {
+            const edgeField = String(edge.field ?? edge.Field ?? '').trim().toLowerCase();
+            const isFailureField = edgeField === 'failures' || edgeField === 'exhaustedfailures';
+            let failureValue = null;
+            if (isFailureField) {
+                const edgeSeriesEntry = resolveEdgeSeriesEntry(edgeSeries, edgeId, edge);
+                const selectedBin = Number(overlaySettings.selectedBin ?? -1);
+                const startIndex = Number.isFinite(edgeSeriesStartIndex) ? edgeSeriesStartIndex : 0;
+                const failureMetric = edgeField === 'exhaustedfailures' ? 'exhaustedFailuresLoad' : 'failuresLoad';
+                failureValue = sampleEdgeMetricValue(edgeSeriesEntry, failureMetric, overlaySettings, selectedBin, startIndex);
+            }
+            const retryBadgeEligible = !isFailureField
+                ? (() => {
+                    const retryLoad = resolveNodeRetryLoad(nodeMap, toId, overlaySettings, overlayNodeLookup);
+                    return Boolean(retryLoad && Number.isFinite(retryLoad.retries) && retryLoad.retries > 0.0001);
+                })()
+                : false;
+
+            let labelBounds = null;
+            const warningStyle = resolveEdgeWarningStyle(nodeMap, state.globalWarningsByNode, edgeId, fromId, toId);
+            if (!isFailureField && overlaySample && overlaySettings.showEdgeOverlayLabels !== false) {
                 const labelColor = overlaySample.baseColor ?? overlaySample.color ?? '#2563EB';
-                drawEdgeOverlayLabel(ctx, pathPoints, overlaySample.text, labelColor);
+                labelBounds = drawEdgeOverlayLabel(ctx, pathPoints, overlaySample.text, labelColor, warningStyle);
+            } else if (!isFailureField && flowSample && overlaySettings.showEdgeOverlayLabels !== false) {
+                const labelColor = flowSample.baseColor ?? flowSample.color ?? baseStrokeColor;
+                labelBounds = drawEdgeOverlayLabel(ctx, pathPoints, flowSample.text, labelColor, warningStyle);
             } else if (isThroughputEdge && overlaySettings.showEdgeOverlayLabels !== false) {
                 const throughputValue = sampleThroughputValue(fromNode, overlaySettings);
                 if (throughputValue !== null && throughputValue !== undefined) {
                     const text = formatMetricValue(throughputValue);
                     if (text) {
-                        drawEdgeOverlayLabel(ctx, pathPoints, text, baseStrokeColor);
+                        labelBounds = drawEdgeOverlayLabel(ctx, pathPoints, text, baseStrokeColor, warningStyle);
                     }
                 }
+            } else if (isFailureField && overlaySettings.showEdgeOverlayLabels !== false) {
+                if (Number.isFinite(failureValue)) {
+                    const text = formatMetricValue(failureValue);
+                    if (text) {
+                        labelBounds = drawEdgeOverlayLabel(ctx, pathPoints, text, baseStrokeColor, warningStyle);
+                    }
+                }
+            }
+
+            if (labelBounds && (flowSample?.showRetryBadge || retryBadgeEligible)) {
+                drawEdgeRetryBadge(ctx, labelBounds);
             }
 
 
@@ -2278,9 +2323,14 @@
         drawCanvasTitle(ctx, state);
         drawEdgeOverlayLegend(ctx, state);
 
-        const tooltipMeta = hoveredNodeId ? nodeMap.get(hoveredNodeId) : null;
-        const tooltipAnchorMeta = hoveredNodeId ? nodeMap.get(hoveredNodeId) : null;
-        tryDrawTooltip(ctx, nodeMap, tooltipAnchorMeta, legacyTooltip, state);
+        const edgeTooltipDrawn = tryDrawEdgeTooltip(ctx, edges, edgeSeries, overlaySettings, state);
+        if (!edgeTooltipDrawn) {
+            const tooltipMeta = hoveredNodeId ? nodeMap.get(hoveredNodeId) : null;
+            const tooltipAnchorMeta = hoveredNodeId ? nodeMap.get(hoveredNodeId) : null;
+            tryDrawTooltip(ctx, nodeMap, tooltipAnchorMeta, legacyTooltip, state);
+        }
+
+        drawEdgeFallbackIndicator(ctx, overlaySettings, state);
 
         if (state.hoveredChip) {
             drawChipTooltip(ctx, state);
@@ -2577,7 +2627,7 @@
         }
 
         const tooltipMetrics = state.tooltipMetrics;
-        if (!tooltipMetrics?.active) {
+        if (!tooltipMetrics?.active || tooltipMetrics.kind !== 'node') {
             toggle.style.display = 'none';
             return;
         }
@@ -2639,6 +2689,393 @@
             }
         }
         return null;
+    }
+
+    function tryDrawEdgeTooltip(ctx, edges, edgeSeries, overlays, state) {
+        if (!ctx || !overlays || !state) {
+            return false;
+        }
+
+        const edgeId = state.hoveredEdgeId ?? state.inspectorEdgeHoverId ?? state.focusedEdgeId ?? null;
+        if (!edgeId) {
+            return false;
+        }
+
+        const hitbox = Array.isArray(state.edgeHitboxes)
+            ? state.edgeHitboxes.find(edge => edge?.id === edgeId)
+            : null;
+        if (!hitbox || !Array.isArray(hitbox.points) || hitbox.points.length === 0) {
+            return false;
+        }
+
+        const seriesMap = edgeSeries instanceof Map ? edgeSeries : normalizeEdgeSeries(edgeSeries);
+        const nodeMap = state.sceneNodeMap ?? null;
+        const edgeMeta = Array.isArray(edges)
+            ? edges.find(edge => {
+                const fromId = edge?.from ?? edge?.From ?? '';
+                const toId = edge?.to ?? edge?.To ?? '';
+                const resolvedId = edge?.id ?? edge?.Id ?? (fromId && toId ? `${fromId}->${toId}` : '');
+                return resolvedId === edgeId;
+            })
+            : null;
+        const seriesEntry = resolveEdgeSeriesEntry(seriesMap, edgeId, edgeMeta);
+
+        const selectedBin = Number(overlays.selectedBin ?? -1);
+        const startIndex = Number.isFinite(state.edgeSeriesStartIndex) ? state.edgeSeriesStartIndex : 0;
+        const payload = seriesEntry
+            ? buildEdgeTooltipPayload(seriesEntry, overlays, selectedBin, startIndex, nodeMap)
+            : buildEdgeMissingTooltipPayload(edgeMeta, overlays);
+        if (!payload) {
+            return false;
+        }
+
+        const points = hitbox.points;
+        const midIndex = Math.max(0, Math.floor(points.length / 2));
+        const anchor = points[midIndex] ?? points[0];
+        if (!anchor) {
+            return false;
+        }
+
+        const ratio = Number(state.deviceRatio ?? window.devicePixelRatio ?? 1) || 1;
+        const toDevice = (value) => Math.round(value * ratio * 1000) / 1000;
+        const paddingX = toDevice(12);
+        const paddingY = toDevice(6);
+        const lineHeight = toDevice(16);
+        const fontSizePx = 12 * ratio;
+        const fontRegular = `${fontSizePx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
+        const fontStrong = `600 ${fontSizePx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
+        const dateOffsetY = 5 * ratio;
+
+        const title = payload.title ?? '';
+        const subtitle = payload.subtitle ?? '';
+        const lines = (payload.lines ?? []).map(line => String(line).trim()).filter(line => line.length > 0);
+
+        if (!title && lines.length === 0) {
+            return false;
+        }
+
+        const canvasWidthDevice = Number.isFinite(state.canvasWidth) ? state.canvasWidth * ratio : ctx.canvas.width;
+        const canvasHeightDevice = Number.isFinite(state.canvasHeight) ? state.canvasHeight * ratio : ctx.canvas.height;
+        const minMargin = toDevice(12);
+
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+        let width = 0;
+        ctx.font = fontStrong;
+        width = Math.max(width, ctx.measureText(title).width);
+        ctx.font = fontRegular;
+        if (subtitle) {
+            width = Math.max(width, ctx.measureText(subtitle).width);
+        }
+        for (const line of lines) {
+            width = Math.max(width, ctx.measureText(line).width);
+        }
+
+        const infoReserve = toDevice(InspectorIconSize + InspectorTooltipInset * 2);
+        width += infoReserve;
+        const minBoxWidth = toDevice(180);
+        const maxBoxWidth = Math.max(minBoxWidth, canvasWidthDevice - minMargin * 2);
+        width = Math.min(Math.max(width, minBoxWidth), maxBoxWidth);
+
+        const textLineCount = 1 + (subtitle ? 1 : 0) + lines.length;
+        const boxWidth = Math.ceil(width + paddingX * 2);
+        const boxHeight = Math.ceil(paddingY * 2 + textLineCount * lineHeight);
+
+        const scale = Number(state.scale ?? 1);
+        const offsetX = Number(state.offsetX ?? 0);
+        const offsetY = Number(state.offsetY ?? 0);
+
+        const anchorScreenX = toDevice(offsetX + scale * Number(anchor.x ?? 0));
+        const anchorScreenY = toDevice(offsetY + scale * Number(anchor.y ?? 0));
+        const gap = toDevice(10);
+        let tooltipTop = Math.round(anchorScreenY - (boxHeight / 2));
+        tooltipTop = Math.max(minMargin, Math.min(canvasHeightDevice - boxHeight - minMargin, tooltipTop));
+
+        const leftCandidate = Math.round(anchorScreenX - gap - boxWidth);
+        const rightCandidate = Math.round(anchorScreenX + gap);
+        let tooltipX = leftCandidate;
+        let tooltipSide = 'left';
+        if (tooltipX < minMargin) {
+            tooltipX = rightCandidate;
+            tooltipSide = 'right';
+        }
+        const maxX = canvasWidthDevice - boxWidth - minMargin;
+        if (tooltipX > maxX) {
+            tooltipX = maxX;
+        }
+        if (tooltipX < minMargin) {
+            tooltipX = minMargin;
+        }
+
+        const darkMode = isDarkTheme();
+        const bg = darkMode ? 'rgba(15, 23, 42, 0.96)' : 'rgba(255, 255, 255, 0.97)';
+        const fg = darkMode ? '#F8FAFC' : '#0F172A';
+        const subtitleColor = darkMode ? '#94A3B8' : '#4B5563';
+        const border = darkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(15, 23, 42, 0.12)';
+
+        ctx.lineWidth = Math.max(1, ratio);
+        ctx.fillStyle = bg;
+        ctx.strokeStyle = border;
+
+        const radius = 6;
+        ctx.beginPath();
+        roundedRectPath(ctx, tooltipX, tooltipTop, boxWidth, boxHeight, radius);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.textBaseline = 'top';
+        let textY = tooltipTop + paddingY;
+        ctx.fillStyle = fg;
+        ctx.font = fontStrong;
+        ctx.fillText(title, tooltipX + paddingX, textY);
+
+        ctx.font = fontRegular;
+        if (subtitle) {
+            textY += lineHeight + dateOffsetY;
+            ctx.fillStyle = subtitleColor;
+            ctx.fillText(subtitle, tooltipX + paddingX, textY);
+            ctx.fillStyle = fg;
+        }
+
+        for (const line of lines) {
+            textY += lineHeight;
+            ctx.fillText(line, tooltipX + paddingX, textY);
+        }
+
+        ctx.restore();
+
+        const tooltipCssX = tooltipX / ratio;
+        const tooltipCssY = tooltipTop / ratio;
+        state.tooltipMetrics = {
+            active: true,
+            x: tooltipCssX,
+            y: tooltipCssY,
+            width: (boxWidth / ratio),
+            height: (boxHeight / ratio),
+            side: tooltipSide,
+            kind: 'edge',
+            id: edgeId
+        };
+
+        return true;
+    }
+
+    function resolveEdgeSeriesEntry(seriesMap, edgeId, edgeMeta) {
+        if (!seriesMap || !(seriesMap instanceof Map)) {
+            return null;
+        }
+
+        if (edgeId && seriesMap.has(edgeId)) {
+            return seriesMap.get(edgeId);
+        }
+
+        const fromId = edgeMeta?.from ?? edgeMeta?.From ?? null;
+        const toId = edgeMeta?.to ?? edgeMeta?.To ?? null;
+        if (!fromId || !toId) {
+            return null;
+        }
+
+        const field = edgeMeta?.field ?? edgeMeta?.Field ?? null;
+        const normalizedField = field ? String(field).trim().toLowerCase() : null;
+        let fallback = null;
+        for (const entry of seriesMap.values()) {
+            if (!entry || entry.from !== fromId || entry.to !== toId) {
+                continue;
+            }
+            if (normalizedField) {
+                const entryField = String(entry.field ?? '').trim().toLowerCase();
+                if (entryField === normalizedField) {
+                    return entry;
+                }
+            }
+            if (!fallback) {
+                fallback = entry;
+            }
+        }
+
+        return fallback;
+    }
+
+    function buildEdgeTooltipPayload(seriesEntry, overlays, selectedBin, startIndex, nodeMap) {
+        if (!seriesEntry) {
+            return null;
+        }
+
+        const fromId = seriesEntry.from ?? seriesEntry.From ?? '';
+        const toId = seriesEntry.to ?? seriesEntry.To ?? '';
+        const field = seriesEntry.field ?? seriesEntry.Field ?? '';
+        const fieldKey = String(field ?? '').trim().toLowerCase();
+        const isFailureField = fieldKey === 'failures' || fieldKey === 'exhaustedfailures';
+        const failureMetric = fieldKey === 'exhaustedfailures' ? 'exhaustedFailuresLoad' : 'failuresLoad';
+        const edgeType = seriesEntry.edgeType ?? seriesEntry.EdgeType ?? '';
+        const title = fromId && toId ? `${fromId} -> ${toId}` : (fromId || toId || 'Edge');
+        const subtitle = field
+            ? `Field: ${field}`
+            : (edgeType ? `Type: ${edgeType}` : '');
+
+        const lines = [];
+        const flowValue = sampleEdgeMetricValue(seriesEntry, 'flowTotal', overlays, selectedBin, startIndex);
+        const retryLoad = resolveNodeRetryLoad(nodeMap, toId, overlays, null);
+        const attemptsValue = retryLoad?.attempts ?? sampleEdgeMetricValue(seriesEntry, 'attemptsLoad', overlays, selectedBin, startIndex);
+
+        if (isFailureField) {
+            const failuresValue = sampleEdgeMetricValue(seriesEntry, failureMetric, overlays, selectedBin, startIndex);
+            addMetricLine(lines, fieldKey === 'exhaustedfailures' ? 'Exhausted' : 'Failures', failuresValue, formatMetricValue);
+        } else {
+            addMetricLine(lines, 'Flow', flowValue, formatMetricValue);
+            if (Number.isFinite(attemptsValue)) {
+                const retriesValue = retryLoad
+                    ? retryLoad.retries
+                    : Number.isFinite(flowValue)
+                        ? Math.max(0, attemptsValue - flowValue)
+                        : null;
+                addMetricLine(lines, 'Retries', retriesValue, formatMetricValue);
+                addMetricLine(lines, 'Total load', attemptsValue, formatMetricValue);
+            }
+            addMetricLine(lines, 'Retry rate', sampleEdgeSeriesValue(seriesEntry.series, 'retryRate', selectedBin, startIndex), formatPercent);
+            addRetryLoadDeltaLine(lines, attemptsValue, flowValue, overlays);
+            addEdgeClassMetricLines(lines, seriesEntry, overlays, selectedBin, startIndex);
+        }
+
+        addEdgeLagLine(lines, seriesEntry.lag ?? seriesEntry.Lag ?? null);
+        addEdgeQualityLine(lines, overlays?.edgeQuality ?? null);
+
+        if (!title && lines.length === 0) {
+            return null;
+        }
+
+        return {
+            title,
+            subtitle,
+            lines
+        };
+    }
+
+    function buildEdgeMissingTooltipPayload(edgeMeta, overlays) {
+        if (!edgeMeta) {
+            return null;
+        }
+
+        const fromId = edgeMeta?.from ?? edgeMeta?.From ?? '';
+        const toId = edgeMeta?.to ?? edgeMeta?.To ?? '';
+        const field = edgeMeta?.field ?? edgeMeta?.Field ?? '';
+        const title = fromId && toId ? `${fromId} -> ${toId}` : (fromId || toId || 'Edge');
+        const subtitle = field ? `Field: ${field}` : '';
+        const lines = ['No edge series available'];
+        addEdgeLagLine(lines, edgeMeta?.lag ?? edgeMeta?.Lag ?? null);
+        addEdgeQualityLine(lines, overlays?.edgeQuality ?? null);
+
+        return {
+            title,
+            subtitle,
+            lines
+        };
+    }
+
+    function addMetricLine(lines, label, value, formatter) {
+        if (!Number.isFinite(value)) {
+            return;
+        }
+
+        const formatted = formatter(value);
+        if (!formatted) {
+            return;
+        }
+
+        lines.push(`${label} ${formatted}`);
+    }
+
+    function addRetryLoadDeltaLine(lines, attemptsValue, flowValue, overlays) {
+        if (!Number.isFinite(attemptsValue) || !Number.isFinite(flowValue) || flowValue <= 0) {
+            return;
+        }
+
+        if (overlays?.hasClassSelection) {
+            return;
+        }
+
+        const delta = (attemptsValue - flowValue) / flowValue;
+        if (!Number.isFinite(delta) || Math.abs(delta) < 0.0001) {
+            return;
+        }
+
+        const formatted = formatPercent(delta);
+        if (!formatted) {
+            return;
+        }
+
+        const sign = delta > 0 ? '+' : '';
+        lines.push(`Retry load ${sign}${formatted}`);
+    }
+
+    function addEdgeClassMetricLines(lines, seriesEntry, overlays, selectedBin, startIndex) {
+        const byClass = seriesEntry.byClass ?? seriesEntry.ByClass ?? null;
+        const selectedClasses = Array.isArray(overlays?.selectedClasses) ? overlays.selectedClasses : [];
+        if (!byClass) {
+            return;
+        }
+
+        const classKeys = selectedClasses.length > 0 ? selectedClasses : Object.keys(byClass);
+        for (const classId of classKeys) {
+            const classSeries = findEdgeClassSeries(byClass, classId);
+            if (!classSeries) {
+                continue;
+            }
+            const value = sampleEdgeSeriesValue(classSeries, 'flowTotal', selectedBin, startIndex);
+            if (Number.isFinite(value)) {
+                lines.push(`${classId} ${formatMetricValue(value)}`);
+            }
+        }
+    }
+
+    function addEdgeQualityLine(lines, edgeQuality) {
+        if (!edgeQuality || edgeQuality === 'exact') {
+            return;
+        }
+
+        const label = formatEdgeQualityLabel(edgeQuality);
+        lines.push(`Edge quality ${label ?? edgeQuality}`);
+    }
+
+    function addEdgeLagLine(lines, lag) {
+        const lagValue = Number(lag);
+        if (!Number.isFinite(lagValue) || lagValue <= 0) {
+            return;
+        }
+
+        const bins = Math.round(lagValue);
+        const suffix = bins === 1 ? 'bin' : 'bins';
+        lines.push(`Lag +${bins} ${suffix}`);
+    }
+
+    function formatEdgeQualityLabel(edgeQuality) {
+        if (!edgeQuality) {
+            return null;
+        }
+
+        const normalized = String(edgeQuality).trim().toLowerCase();
+        if (!normalized) {
+            return null;
+        }
+
+        if (normalized === 'partialclass') {
+            return 'partial class';
+        }
+
+        if (normalized === 'approx') {
+            return 'approx';
+        }
+
+        if (normalized === 'missing') {
+            return 'missing';
+        }
+
+        if (normalized === 'exact') {
+            return 'exact';
+        }
+
+        return normalized;
     }
 
     function tryDrawTooltip(ctx, nodeMap, anchorCandidate, legacyTooltip, state) {
@@ -2846,7 +3283,9 @@
             y: tooltipCssY,
             width: (boxWidth / ratio),
             height: (boxHeight / ratio),
-            side: tooltipSide
+            side: tooltipSide,
+            kind: 'node',
+            id: anchorMeta?.id ?? anchorMeta?.Id ?? null
         };
     }
 
@@ -3222,6 +3661,23 @@
         const overlaySettings = parseOverlaySettings(payload?.overlays ?? payload?.Overlays ?? {});
         state.overlaySettings = overlaySettings;
         state.refreshChipHitboxes = true;
+        if (state.sceneRawEdges && state.sceneNodeMap) {
+            state.edgeOverlayContext = buildEdgeOverlayContext(
+                state.sceneRawEdges,
+                state.sceneNodeMap,
+                overlaySettings,
+                state.edgeSeries,
+                state.edgeSeriesStartIndex
+            );
+            state.edgeOverlayLegend = state.edgeOverlayContext?.legend ?? null;
+            state.edgeFlowContext = buildEdgeFlowContext(
+                state.sceneRawEdges,
+                state.sceneNodeMap,
+                overlaySettings,
+                state.edgeSeries,
+                state.edgeSeriesStartIndex
+            );
+        }
 
         const desiredScale = overlaySettings.manualScale ?? state.overlayScale ?? 1;
         let manualScaleChanged = state.lastOverlayZoom === null || Math.abs(state.lastOverlayZoom - desiredScale) > 0.001;
@@ -3594,6 +4050,15 @@
         const flowLatencyWarningMs = Number.isFinite(flowLatencyWarnRaw) && flowLatencyWarnRaw > 0 ? flowLatencyWarnRaw : 2000;
         const flowLatencyCriticalCandidate = Number.isFinite(flowLatencyCritRaw) && flowLatencyCritRaw > 0 ? flowLatencyCritRaw : 10000;
         const flowLatencyCriticalMs = Math.max(flowLatencyWarningMs, flowLatencyCriticalCandidate);
+        const selectedClassesRaw = raw.selectedClasses ?? raw.SelectedClasses ?? [];
+        const selectedClasses = Array.isArray(selectedClassesRaw)
+            ? selectedClassesRaw.map(item => String(item).trim()).filter(item => item.length > 0)
+            : [];
+        const hasClassSelection = boolOr(raw.hasClassSelection ?? raw.HasClassSelection, selectedClasses.length > 0);
+        const edgeQualityRaw = raw.edgeQuality ?? raw.EdgeQuality ?? null;
+        const edgeQuality = typeof edgeQualityRaw === 'string' && edgeQualityRaw.trim().length > 0
+            ? edgeQualityRaw.trim()
+            : null;
 
         let edgeStyle = 'orthogonal';
         if (typeof edgeStyleRaw === 'string') {
@@ -3664,7 +4129,11 @@
                 serviceTimeCriticalMs,
                 flowLatencyWarningMs,
                 flowLatencyCriticalMs
-            }
+            },
+            hasClassSelection,
+            selectedClasses,
+            edgeQuality,
+            showEdgeFallbackIndicator: boolOr(raw.showEdgeFallbackIndicator ?? raw.ShowEdgeFallbackIndicator, edgeQuality && edgeQuality !== 'exact')
         };
     }
 
@@ -4086,6 +4555,7 @@
         const schedule = nodeMeta.dispatchSchedule ?? nodeMeta.DispatchSchedule ?? null;
         const retryTax = isServiceNode ? resolveRetryTaxValue(nodeMeta) : null;
         const hasRetryLoop = showRetryMetrics && isServiceNode && Number.isFinite(retryTax) && retryTax > 0;
+        const showRetryBadgeOnNodes = overlays.showRetryBadgeOnNodes === true;
         let warningEntries = normalizeWarningEntries(nodeMeta, state.globalWarningsByNode);
         const warningCodes = new Set(warningEntries.map(entry => (entry.code ?? '').toString().toLowerCase()));
         const addSyntheticWarning = (code, message) => {
@@ -4676,7 +5146,9 @@
             const finalStackX = drewChip ? stackX : chipsStart;
             const badgeGap = drewChip ? stackSpacing : Math.max(8, Math.min(16, nodeWidth * 0.2));
             const badgeLeft = finalStackX + badgeGap;
-            drawRetryBadge(ctx, nodeMeta, retryTax, { left: badgeLeft });
+            if (showRetryBadgeOnNodes) {
+                drawRetryBadge(ctx, nodeMeta, retryTax, { left: badgeLeft });
+            }
         }
 
         if (overlays.showCapacityDependencies !== false) {
@@ -6828,7 +7300,12 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
         const labelY = midpoint.point.y + perpY * offset;
 
         ctx.save();
-        ctx.fillStyle = 'rgba(33, 37, 41, 0.85)';
+        const darkMode = isDarkTheme();
+        ctx.fillStyle = darkMode ? 'rgba(226, 232, 240, 0.92)' : 'rgba(33, 37, 41, 0.85)';
+        ctx.shadowColor = darkMode ? 'rgba(15, 23, 42, 0.6)' : 'rgba(255, 255, 255, 0.6)';
+        ctx.shadowBlur = 2;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
         ctx.font = '10px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -6877,9 +7354,9 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
         ctx.restore();
     }
 
-    function drawEdgeOverlayLabel(ctx, points, text, accentColor) {
+    function drawEdgeOverlayLabel(ctx, points, text, accentColor, options) {
         if (!Array.isArray(points) || points.length < 2 || typeof text !== 'string' || text.trim().length === 0) {
-            return;
+            return null;
         }
 
         const segments = buildPolylineSegments(points);
@@ -6890,13 +7367,13 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
 
         const midpoint = pointAlongSegments(segments, totalLength / 2);
         if (!midpoint || !midpoint.point) {
-            return;
+            return null;
         }
 
         const anchor = midpoint.point;
-        const border = accentColor ?? EDGE_OVERLAY_BASE_COLORS.neutral;
-        const background = accentColor ?? EDGE_OVERLAY_BASE_COLORS.neutral;
-        const textColor = '#FFFFFF';
+        const background = options?.backgroundColor ?? accentColor ?? EDGE_OVERLAY_BASE_COLORS.neutral;
+        const border = options?.borderColor ?? accentColor ?? EDGE_OVERLAY_BASE_COLORS.neutral;
+        const textColor = options?.textColor ?? (isDarkColor(background) ? '#FFFFFF' : '#0F172A');
 
         ctx.save();
         ctx.font = '600 10px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
@@ -6920,6 +7397,50 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
         ctx.textBaseline = 'middle';
         ctx.fillText(text, anchor.x, y + height / 2);
         ctx.restore();
+        return {
+            left: x,
+            top: y,
+            width,
+            height,
+            right: x + width,
+            bottom: y + height,
+            centerX: anchor.x,
+            centerY: y + height / 2
+        };
+    }
+
+    function drawEdgeRetryBadge(ctx, labelBounds) {
+        if (!labelBounds) {
+            return null;
+        }
+
+        const badgeSize = Math.round(labelBounds.height ?? 14);
+        const gap = 6;
+        const centerX = labelBounds.right + gap + (badgeSize / 2);
+        const centerY = labelBounds.centerY;
+
+        ctx.save();
+        ctx.beginPath();
+        traceRoundedRect(ctx, centerX, centerY, badgeSize, badgeSize, Math.min(6, badgeSize / 2));
+        ctx.fillStyle = RETRY_BADGE_FILL;
+        ctx.strokeStyle = RETRY_BADGE_STROKE;
+        ctx.lineWidth = 1.1;
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = RETRY_BADGE_TEXT;
+        ctx.font = '600 11px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('R', centerX, centerY + 0.5);
+        ctx.restore();
+
+        return {
+            left: centerX - (badgeSize / 2),
+            top: centerY - (badgeSize / 2),
+            width: badgeSize,
+            height: badgeSize
+        };
     }
 
     function drawEdgeOverlayLegend(ctx, state) {
@@ -6993,6 +7514,62 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
         ctx.restore();
     }
 
+    function drawEdgeFallbackIndicator(ctx, overlays, state) {
+        if (!ctx || !overlays || !state) {
+            return;
+        }
+
+        if (!overlays.showEdgeFallbackIndicator) {
+            return;
+        }
+
+        const overlayRoot = ctx.canvas?.closest?.('.topology-stage');
+        if (overlayRoot && overlayRoot.querySelector('.topology-edge-quality-overlay')) {
+            return;
+        }
+
+        const qualityLabel = formatEdgeQualityLabel(overlays.edgeQuality);
+        const label = qualityLabel
+            ? `Edge overlay (${qualityLabel})`
+            : 'Edge overlay (approx)';
+
+        const ratio = Number(state.deviceRatio ?? window.devicePixelRatio ?? 1) || 1;
+        const toDevice = (value) => Math.round(value * ratio * 1000) / 1000;
+        const paddingX = toDevice(8);
+        const paddingY = toDevice(4);
+        const fontSizePx = 11 * ratio;
+        const font = `${fontSizePx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
+
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.font = font;
+
+        const textWidth = ctx.measureText(label).width;
+        const boxWidth = textWidth + paddingX * 2;
+        const boxHeight = fontSizePx + paddingY * 2;
+        const margin = toDevice(12);
+        const x = margin;
+        const y = margin;
+
+        const darkMode = isDarkTheme();
+        const bg = darkMode ? 'rgba(59, 130, 246, 0.18)' : 'rgba(37, 99, 235, 0.12)';
+        const border = darkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(15, 23, 42, 0.18)';
+        const fg = darkMode ? '#E2E8F0' : '#0F172A';
+
+        ctx.fillStyle = bg;
+        ctx.strokeStyle = border;
+        ctx.lineWidth = Math.max(1, ratio);
+        drawRoundedRectTopLeft(ctx, x, y, boxWidth, boxHeight, toDevice(8));
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = fg;
+        ctx.textBaseline = 'top';
+        ctx.fillText(label, x + paddingX, y + paddingY);
+
+        ctx.restore();
+    }
+
     function buildLegendEntryText(entry) {
         const label = typeof entry?.label === 'string' ? entry.label : '';
         const value = typeof entry?.value === 'string' ? entry.value : '';
@@ -7016,6 +7593,7 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
                 to: entry.to ?? entry.To ?? '',
                 field: typeof entry?.field === 'string' ? entry.field.toLowerCase() : (typeof entry?.Field === 'string' ? entry.Field.toLowerCase() : ''),
                 series: entry.series ?? entry.Series ?? {},
+                byClass: entry.byClass ?? entry.ByClass ?? null,
                 multiplier: entry.multiplier ?? entry.Multiplier,
                 lag: entry.lag ?? entry.Lag
             });
@@ -7050,6 +7628,202 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
 
         const value = values[index];
         return Number.isFinite(value) ? Number(value) : null;
+    }
+
+    function sampleEdgeMetricValue(seriesEntry, metricKey, overlays, selectedBin, startIndex) {
+        if (!seriesEntry || !metricKey) {
+            return null;
+        }
+
+        const hasClassSelection = overlays?.hasClassSelection === true;
+        const selectedClasses = Array.isArray(overlays?.selectedClasses) ? overlays.selectedClasses : [];
+        const byClass = seriesEntry.byClass ?? seriesEntry.ByClass ?? null;
+
+        if (hasClassSelection && selectedClasses.length > 0 && byClass) {
+            let total = 0;
+            let found = false;
+            for (const classId of selectedClasses) {
+                const classSeries = findEdgeClassSeries(byClass, classId);
+                if (!classSeries) {
+                    continue;
+                }
+                const value = sampleEdgeSeriesValue(classSeries, metricKey, selectedBin, startIndex);
+                if (Number.isFinite(value)) {
+                    total += value;
+                    found = true;
+                }
+            }
+            if (found) {
+                return total;
+            }
+        }
+
+        const series = seriesEntry.series ?? seriesEntry.Series ?? null;
+        return sampleEdgeSeriesValue(series, metricKey, selectedBin, startIndex);
+    }
+
+    function resolveNodeRetryLoad(nodeMap, nodeId, overlays, overlayNodeLookup) {
+        if (!nodeId || overlays?.hasClassSelection) {
+            return null;
+        }
+
+        const overlayNode = overlayNodeLookup?.get?.(nodeId);
+        const nodeMeta = overlayNode ?? nodeMap?.get?.(nodeId);
+        if (!nodeMeta) {
+            return null;
+        }
+
+        const rawMetrics = normalizeRawMetricMap(nodeMeta?.metrics?.raw ?? nodeMeta?.metrics?.Raw ?? null);
+        if (!rawMetrics) {
+            return null;
+        }
+
+        const arrivals = rawMetrics.arrivals;
+        const attempts = rawMetrics.attempts;
+        if (!Number.isFinite(arrivals) || !Number.isFinite(attempts)) {
+            return null;
+        }
+
+        const retries = Math.max(0, attempts - arrivals);
+        return {
+            arrivals,
+            attempts,
+            retries
+        };
+    }
+
+    function countIncomingThroughputEdges(edges) {
+        const counts = new Map();
+        if (!Array.isArray(edges)) {
+            return counts;
+        }
+
+        for (const edge of edges) {
+            const toId = edge?.to ?? edge?.To;
+            if (!toId) {
+                continue;
+            }
+
+            const edgeType = resolveEdgeType(edge);
+            if (edgeType !== EdgeTypeThroughput) {
+                continue;
+            }
+
+            const edgeField = String(edge?.field ?? edge?.Field ?? '').trim().toLowerCase();
+            if (edgeField === 'failures' || edgeField === 'exhaustedfailures') {
+                continue;
+            }
+
+            counts.set(toId, (counts.get(toId) ?? 0) + 1);
+        }
+
+        return counts;
+    }
+
+    function normalizeEdgeWarningToken(token) {
+        if (typeof token !== 'string') {
+            return null;
+        }
+
+        const trimmed = token.trim();
+        return trimmed.length > 0 ? trimmed.toLowerCase() : null;
+    }
+
+    function extractEdgeIdsFromWarningMessage(message) {
+        if (typeof message !== 'string') {
+            return [];
+        }
+
+        const marker = 'Edges:';
+        const index = message.indexOf(marker);
+        if (index < 0) {
+            const singleMarker = "Edge '";
+            const singleIndex = message.indexOf(singleMarker);
+            if (singleIndex < 0) {
+                return [];
+            }
+            const start = singleIndex + singleMarker.length;
+            const end = message.indexOf("'", start);
+            if (end <= start) {
+                return [];
+            }
+            const token = normalizeEdgeWarningToken(message.slice(start, end));
+            return token ? [token] : [];
+        }
+
+        let list = message.slice(index + marker.length).trim();
+        if (list.endsWith('.')) {
+            list = list.slice(0, -1).trim();
+        }
+
+        const moreIndex = list.indexOf('(+');
+        if (moreIndex >= 0) {
+            list = list.slice(0, moreIndex).trim();
+        }
+
+        if (!list) {
+            return [];
+        }
+
+        return list
+            .split(',')
+            .map(entry => normalizeEdgeWarningToken(entry))
+            .filter(Boolean);
+    }
+
+    function collectEdgeWarningIds(nodeMeta, globalWarnings) {
+        const entries = normalizeWarningEntries(nodeMeta, globalWarnings);
+        if (entries.length === 0) {
+            return [];
+        }
+
+        const ids = [];
+        for (const entry of entries) {
+            const code = (entry.code ?? '').toString().toLowerCase();
+            if (!code.startsWith('edge_')) {
+                continue;
+            }
+            const message = (entry.message ?? '').toString();
+            ids.push(...extractEdgeIdsFromWarningMessage(message));
+        }
+
+        return ids;
+    }
+
+    function resolveEdgeWarningStyle(nodeMap, globalWarnings, edgeId, fromId, toId) {
+        if (!nodeMap) {
+            return null;
+        }
+
+        const fromMeta = fromId ? nodeMap.get(fromId) : null;
+        const toMeta = toId ? nodeMap.get(toId) : null;
+        const candidates = new Set();
+        const normalizedEdgeId = normalizeEdgeWarningToken(edgeId ?? '');
+        if (normalizedEdgeId) {
+            candidates.add(normalizedEdgeId);
+        }
+        const arrowLabel = normalizeEdgeWarningToken(`${fromId ?? ''}->${toId ?? ''}`);
+        if (arrowLabel) {
+            candidates.add(arrowLabel);
+        }
+
+        if (candidates.size === 0) {
+            return null;
+        }
+
+        const fromEdgeIds = collectEdgeWarningIds(fromMeta, globalWarnings);
+        const toEdgeIds = collectEdgeWarningIds(toMeta, globalWarnings);
+        const allEdgeIds = fromEdgeIds.concat(toEdgeIds);
+        const hasMatch = allEdgeIds.some(id => id && candidates.has(id));
+        if (!hasMatch) {
+            return null;
+        }
+
+        return {
+            backgroundColor: '#FFE04D',
+            borderColor: '#F59E0B',
+            textColor: '#78350F'
+        };
     }
 
     function buildEdgeOverlayContext(edges, nodeMap, overlays, edgeSeries, edgeSeriesStartIndex) {
@@ -7157,6 +7931,136 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
             samples,
             legend: buildAttemptsLegend(thresholds, samples.size)
         };
+    }
+
+    function buildEdgeFlowContext(edges, nodeMap, overlays, edgeSeries, edgeSeriesStartIndex) {
+        if (!overlays) {
+            return null;
+        }
+
+        const selectedBin = Number(overlays.selectedBin ?? -1);
+        if (!Number.isFinite(selectedBin) || selectedBin < 0) {
+            return null;
+        }
+
+        const seriesMap = edgeSeries instanceof Map ? edgeSeries : normalizeEdgeSeries(edgeSeries);
+        if (!seriesMap || seriesMap.size === 0) {
+            return null;
+        }
+
+        const startIndex = Number.isFinite(edgeSeriesStartIndex) ? edgeSeriesStartIndex : 0;
+        const samples = new Map();
+        const values = [];
+        const incomingCounts = countIncomingThroughputEdges(edges);
+
+        for (const edge of edges) {
+            const fromId = edge.from ?? edge.From;
+            const toId = edge.to ?? edge.To;
+            if (!fromId || !toId) {
+                continue;
+            }
+
+            const edgeId = edge.id ?? edge.Id ?? `${fromId}->${toId}`;
+            const edgeField = String(edge.field ?? edge.Field ?? '').trim().toLowerCase();
+            const isFailureField = edgeField === 'failures' || edgeField === 'exhaustedfailures';
+            const series = seriesMap.get(edgeId);
+            if (!series) {
+                continue;
+            }
+
+            const flowValue = sampleEdgeFlowValue(series, overlays, selectedBin, startIndex);
+            if (!Number.isFinite(flowValue)) {
+                continue;
+            }
+
+            const attemptsValue = sampleEdgeMetricValue(series, 'attemptsLoad', overlays, selectedBin, startIndex);
+            const retryLoad = isFailureField ? null : resolveNodeRetryLoad(nodeMap, toId, overlays, null);
+            const retryRate = sampleEdgeSeriesValue(series.series, 'retryRate', selectedBin, startIndex);
+            const totalLoad = retryLoad?.attempts ?? (Number.isFinite(attemptsValue) ? attemptsValue : null);
+            const retriesValue = retryLoad
+                ? retryLoad.retries
+                : (Number.isFinite(attemptsValue) && Number.isFinite(flowValue))
+                    ? Math.max(0, attemptsValue - flowValue)
+                    : null;
+            const showRetryBadge = Boolean(!isFailureField && retryLoad && Number.isFinite(retriesValue) && retriesValue > 0.0001);
+            const sample = {
+                value: flowValue,
+                text: formatMetricValue(flowValue),
+                retryRate,
+                attempts: Number.isFinite(totalLoad) ? totalLoad : null,
+                retries: retriesValue,
+                showRetryBadge
+            };
+
+            if (Number.isFinite(retryRate)) {
+                const warning = Number(overlays.thresholds?.errorWarning ?? 0.02);
+                const critical = Number(overlays.thresholds?.errorCritical ?? 0.05);
+                sample.bucket = classifyRetryRate(retryRate, warning, critical);
+                const bucketColors = overlayBucketColors(sample.bucket);
+                sample.color = bucketColors.stroke;
+                sample.baseColor = bucketColors.base;
+            }
+
+            samples.set(edgeId, sample);
+            values.push(flowValue);
+        }
+
+        if (samples.size === 0) {
+            return null;
+        }
+
+        const maxValue = Math.max(1, ...values);
+        return {
+            samples,
+            maxValue
+        };
+    }
+
+    function computeEdgeOverlayStyle(baseStrokeColor, baseLineWidth, overlaySample, flowSample, flowContext, isDependency) {
+        let strokeColor = baseStrokeColor;
+        let lineWidth = baseLineWidth;
+
+        if (overlaySample && !isDependency) {
+            lineWidth *= 2;
+        }
+
+        if (overlaySample?.color) {
+            strokeColor = overlaySample.color;
+        } else if (flowSample?.color) {
+            strokeColor = flowSample.color;
+        }
+
+        if (flowSample && !isDependency) {
+            const maxValue = flowContext?.maxValue ?? 0;
+            const ratio = maxValue > 0 ? Math.min(flowSample.value / maxValue, 1) : 0;
+            lineWidth += ratio * 2.6;
+        }
+
+        return { strokeColor, lineWidth };
+    }
+
+    function sampleEdgeFlowValue(seriesEntry, overlays, selectedBin, startIndex) {
+        const totalValue = sampleEdgeMetricValue(seriesEntry, 'flowTotal', overlays, selectedBin, startIndex);
+        return Number.isFinite(totalValue) ? totalValue : null;
+    }
+
+    function findEdgeClassSeries(byClass, classId) {
+        if (!byClass || typeof byClass !== 'object') {
+            return null;
+        }
+
+        if (byClass[classId]) {
+            return byClass[classId];
+        }
+
+        const normalized = String(classId).trim().toLowerCase();
+        for (const key of Object.keys(byClass)) {
+            if (key.trim().toLowerCase() === normalized) {
+                return byClass[key];
+            }
+        }
+
+        return null;
     }
 
     function normalizeEdgeOverlayMode(raw) {
