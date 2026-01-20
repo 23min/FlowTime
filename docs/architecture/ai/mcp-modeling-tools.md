@@ -60,7 +60,7 @@ Tool names are illustrative; the key is the capability surface.
 
 ### 4.4 Model Generation and Runs
 - `generate_model`: expand a draft into an engine-ready model (returns model artifact ID or path).
-- `run_template`: orchestrate a run from a draft template with explicit budgets.
+- `run_draft`: orchestrate a run from a draft template with explicit budgets.
 - `run_model`: execute a model or bundle with the Engine (returns runId).
 - `get_run_summary`: return warnings, KPI summaries, and run metadata.
 
@@ -79,7 +79,7 @@ Tool names are illustrative; the key is the capability surface.
 - `fit_profile`: convert samples or summary stats into an input profile (PMF or equivalent).
 - `preview_profile`: show the derived profile shape and bins before applying it.
 - Chart digitization is out of scope for the MCP server; convert chart images to series client-side, then use `ingest_series`.
-Note: profile fitting lives in the MCP server for the PoC, but it is a natural fit to move into FlowTime.Sim later for reuse across CLI/UI/API.
+Note: profile fitting is handled by FlowTime.Sim.Service endpoints and surfaced through MCP tools for the PoC.
 
 ---
 
@@ -129,7 +129,7 @@ This guide shows how the assistant should route common user intents to tools. It
 - "Are these params valid?" -> `validate_parameters`
 
 **Run and inspect**
-- "Run it" / "simulate" -> `run_template` -> `get_run_summary`
+- "Run it" / "simulate" -> `run_draft` -> `get_run_summary`
 - "Show the series for X" -> `get_state_window` (analyst tool)
 - "Show the topology" -> `get_graph` (analyst tool)
 

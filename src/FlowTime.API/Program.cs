@@ -12,6 +12,7 @@ using FlowTime.API.Models;
 using FlowTime.API.Services;
 using FlowTime.API.Endpoints;
 using FlowTime.Contracts.TimeTravel;
+using FlowTime.Contracts.Storage;
 using FlowTime.Generator.Artifacts;
 using FlowTime.Generator.Orchestration;
 using System.Text.Json;
@@ -33,6 +34,12 @@ builder.Services.AddOpenApi();
 builder.Services.AddSingleton<IServiceInfoProvider, ServiceInfoProvider>();
 builder.Services.AddSingleton<IArtifactRegistry, FileSystemArtifactRegistry>();
 builder.Services.AddSingleton<IArtifactRegistry, FileSystemArtifactRegistry>();
+builder.Services.AddSingleton<IStorageBackend>(provider =>
+{
+    var config = provider.GetRequiredService<IConfiguration>();
+    var options = StorageBackendOptions.FromConfiguration(config);
+    return StorageBackendFactory.Create(options);
+});
 builder.Services.AddSingleton<RunManifestReader>();
 builder.Services.AddSingleton<ModeValidator>();
 builder.Services.AddSingleton<SimITemplateService>(sp =>

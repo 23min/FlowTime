@@ -1,4 +1,4 @@
-# FlowTime Roadmap — Updated 2025-11-23
+# FlowTime Roadmap — Updated 2026-01-19
 
 This roadmap supersedes the previous legacy plan (now archived under `docs/archive/ROADMAP-2025-06-legacy.md`). It reflects the current state of FlowTime Engine + Sim, acknowledges what the time-travel epic delivered, and outlines the next waves of work. Use this document as the high-level planning guide; architecture **epics** and milestone docs provide the implementation detail (see `docs/architecture/epic-roadmap.md` and `docs/development/epics-and-milestones.md`).
 
@@ -13,6 +13,7 @@ This roadmap supersedes the previous legacy plan (now archived under `docs/archi
 - DLQ and backlog retrofits across canonical templates; analyzers enforce DLQ semantics.
 - Updated docs: DLQ lens, template authoring/testing guides, expression extensions roadmap.
 - Topology focus view for provenance drilldown (focus toggle, upstream filtering, compact relayout, state preservation).
+- MCP modeling + analysis via an MCP server (drafts, data intake, profile fitting, run/import/inspect loop, storage-backed drafts/bundles).
 
 ## Near-Term Focus (Next Epic Candidates)
 1. **EdgeTimeBin / Edge Metrics (name TBD)**  
@@ -46,8 +47,6 @@ This roadmap supersedes the previous legacy plan (now archived under `docs/archi
 **Scenario Overlays & What-If Runs** – Derived overlay runs for capacity, parallelism, and arrivals experiments with deterministic provenance; see `docs/architecture/overlays/overlays.md`.  
 
 **Flow-Aware Anomaly & Pathology Detection** – Build on the time-binned DAG model to detect anomalies and recurring flow pathologies (e.g., retry storms, slow drains), group them into incidents, and surface incident-focused stories and dashboards for SREs and stakeholders; see `docs/architecture/anomaly-detection/README.md`.  
-
-**AI Analyst over the Digital Twin (MCP)** – Expose FlowTime graph and state APIs via MCP so AI assistants can act as read-only analysts over runs: answering incident questions, comparing scenarios, and drafting summaries using structured tools rather than ad-hoc API calls; see `docs/architecture/ai/`.  
 
 **Ptolemy-Inspired Semantics & Directors** – Keep time/coordination semantics explicit (e.g., a DiscreteTime director seam) and selectively borrow ideas like modal models, typed ports, and determinacy contracts to future-proof FlowTime’s engine while staying DT-first; see `docs/architecture/ptolemy/README.md`.  
 

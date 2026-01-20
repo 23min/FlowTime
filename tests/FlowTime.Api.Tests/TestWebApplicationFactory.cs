@@ -34,6 +34,8 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseSetting("ArtifactsDirectory", testDataDirectory);
         builder.UseSetting("DataDirectory", testDataDirectory);
         builder.UseSetting("ArtifactRegistry:AutoAddEnabled", "false");
+        builder.UseSetting("Storage:Backend", "filesystem");
+        builder.UseSetting("Storage:Root", Path.Combine(testDataDirectory, "storage"));
 
         base.ConfigureWebHost(builder);
     }

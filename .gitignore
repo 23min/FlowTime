@@ -2,6 +2,7 @@
 bin/
 obj/
 node_modules/
+tools/mcp-server/dist/
 
 # Run/output artifacts
 out/

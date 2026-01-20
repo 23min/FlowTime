@@ -98,6 +98,16 @@ public class TemplateService : ITemplateService
         }
     }
 
+    public async Task<string?> GetTemplateSourceAsync(string templateId)
+    {
+        await LoadTemplatesIfNeededAsync();
+
+        lock (cacheLock)
+        {
+            return templateCache.TryGetValue(templateId, out var cached) ? cached.originalYaml : null;
+        }
+    }
+
     public async Task<string> GenerateEngineModelAsync(string templateId, Dictionary<string, object> parameters, TemplateMode? modeOverride = null)
     {
         await LoadTemplatesIfNeededAsync();

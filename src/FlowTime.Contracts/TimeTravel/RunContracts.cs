@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text.Json;
+using FlowTime.Contracts.Storage;
 
 namespace FlowTime.Contracts.TimeTravel;
 
@@ -18,6 +19,7 @@ public sealed class RunImportRequest
     public string? RunId { get; init; }
     public string? BundlePath { get; init; }
     public string? BundleArchiveBase64 { get; init; }
+    public StorageRef? BundleRef { get; init; }
     public bool OverwriteExisting { get; init; }
 }
 
@@ -49,6 +51,7 @@ public sealed class RunCreateResponse
     public IReadOnlyList<StateWarning> Warnings { get; init; } = Array.Empty<StateWarning>();
     public bool? CanReplay { get; init; }
     public RunTelemetrySummary? Telemetry { get; init; }
+    public StorageRef? BundleRef { get; init; }
     public bool WasReused { get; init; }
 }
 

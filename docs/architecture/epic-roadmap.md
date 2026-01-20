@@ -46,6 +46,17 @@ The list below enumerates current epics under `docs/architecture/` in an order t
   - `docs/milestones/completed/SB-M-05.01.md` — Breaking introduction of `kind: serviceWithBuffer` and removal of `kind: backlog` from the public surface.
 - **Notes:** SB-M-05.01 through SB-M-05.04 are marked complete in tracking; epic is closed pending future expansion.
 
+#### MCP Modeling and Analysis (AI-Assisted Workflow)
+
+- **Folder:** `docs/architecture/ai/`
+- **Goal:** Deliver an MCP server that supports both modeling and analysis: draft templates in a working area, validate/generate/run via FlowTime.Sim and FlowTime API, and use analyst tools to inspect graph/state outputs for verification and iteration.
+- **Key Milestones:**
+  - `docs/milestones/completed/M-08.01-mcp-server-poc.md`
+  - `docs/milestones/completed/M-08.02-mcp-modeling-draft-workflow.md`
+  - `docs/milestones/completed/M-08.03-mcp-data-intake-profile-fitting.md`
+  - `docs/milestones/completed/M-08.04-mcp-storage-abstraction.md`
+- **Notes:** MCP modeling + analyst loop is implemented with HTTP-only storage-backed drafts and run bundles; epic closed pending further expansion.
+ 
 #### Evaluation Integrity (DAG/Spreadsheet Contract)
 
 - **Folder:** `docs/architecture/evaluation-integrity/`
@@ -104,12 +115,6 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 - **Folder:** `docs/architecture/anomaly-detection/`
 - **Goal:** Use the time-binned DAG model to detect incidents and recurring flow pathologies (retry storms, slow drains, stuck queues) and surface incident-focused stories and dashboards.
 - **Notes:** Builds on time travel and the engine semantics layer; also benefits from richer node/edge metrics.
-
-#### AI Analyst over the Digital Twin (MCP)
-
-- **Folder:** `docs/architecture/ai/`
-- **Goal:** Expose FlowTime graph and state APIs via MCP (and related interfaces) so AI agents can act as analysts over runs—answering questions, comparing scenarios, and drafting summaries in a structured way.
-- **Notes:** Depends on stable `/state`/`/state_window` semantics and a clear engine semantics contract.
 
 #### Streaming & Subsystems
 

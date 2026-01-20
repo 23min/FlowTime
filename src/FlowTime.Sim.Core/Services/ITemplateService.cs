@@ -17,6 +17,7 @@ public interface ITemplateService
     /// Get a specific template by ID.
     /// </summary>
     Task<Template?> GetTemplateAsync(string templateId);
+    Task<string?> GetTemplateSourceAsync(string templateId);
 
     /// <summary>
     /// Generate an Engine-compatible model from a template with parameter substitution.
