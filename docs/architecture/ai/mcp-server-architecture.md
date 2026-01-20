@@ -82,6 +82,7 @@ Where:
 
 - `window: { start: string; end: string; binSize: string; }`
 - `series: NodeSeries[]`
+  - **Planned (M-08.05):** include `edgeSeries: EdgeSeries[]` when edge metrics are available.
 
 Where `NodeSeries` might look like:
 
@@ -90,6 +91,12 @@ Where `NodeSeries` might look like:
 - `metrics: { [metricName: string]: number[] }`
 
 Each array in `metrics` is aligned with the bins defined by `window`.
+
+**Planned Edge Series (M-08.05):**
+- `edgeId: string`
+- `classId?: string`
+- `metrics: { [metricName: string]: number[] }`
+- `quality?: 'exact' | 'approx' | 'missing'`
 
 **Backed by**: FlowTime's `/state_window` (or a close variant).
 

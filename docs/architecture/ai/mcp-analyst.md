@@ -263,6 +263,7 @@ A practical v1 MCP server for FlowTime could be built around a small set of tool
 - Outputs:
   - For each node (and optionally class): aligned arrays for metrics such as:
     - `arrivals[]`, `served[]`, `errors[]`, `backlog[]`, `latency[]`, `capacity[]`, etc.
+- Planned (M-08.05): when edge metrics are available, return `edgeSeries` with `edgeId`, optional `classId`, and aligned metric arrays (e.g., `flowTotal[]`, `retries[]`, `attemptsLoad[]`), plus edge quality signals.
 - Backed by: FlowTime's `/state_window` (or a variant better aligned with MCP).
 
 ### 5.3 `detect_outages`
