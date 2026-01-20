@@ -65,7 +65,7 @@ public class InvariantAnalyzerTests
             new RunArtifactWriter.EdgeSeriesInput
             {
                 EdgeId = "Source->Target",
-                Metric = "flowTotal",
+                Metric = "flowVolume",
                 Values = new[] { 8d, 10d }
             }
         };
@@ -131,7 +131,7 @@ public class InvariantAnalyzerTests
             new RunArtifactWriter.EdgeSeriesInput
             {
                 EdgeId = "Source->Target",
-                Metric = "flowTotal",
+                Metric = "flowVolume",
                 Values = new[] { 10d, 10d }
             }
         };
@@ -288,7 +288,7 @@ public class InvariantAnalyzerTests
             new RunArtifactWriter.EdgeSeriesInput
             {
                 EdgeId = "Source->Target",
-                Metric = "flowTotal",
+                Metric = "flowVolume",
                 ClassId = "Alpha",
                 Values = new[] { 2d }
             }
@@ -389,7 +389,7 @@ public class InvariantAnalyzerTests
             new RunArtifactWriter.EdgeSeriesInput
             {
                 EdgeId = "Source->Target",
-                Metric = "flowTotal",
+                Metric = "flowVolume",
                 ClassId = "Alpha",
                 Values = new[] { 1d }
             }
@@ -490,14 +490,14 @@ public class InvariantAnalyzerTests
             new RunArtifactWriter.EdgeSeriesInput
             {
                 EdgeId = "Source->Target",
-                Metric = "flowTotal",
+                Metric = "flowVolume",
                 ClassId = "Alpha",
                 Values = new[] { 1d }
             },
             new RunArtifactWriter.EdgeSeriesInput
             {
                 EdgeId = "Source->Target",
-                Metric = "flowTotal",
+                Metric = "flowVolume",
                 ClassId = "Beta",
                 Values = new[] { 1d }
             }

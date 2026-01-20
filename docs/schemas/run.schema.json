@@ -37,7 +37,7 @@
         "createdUtc": { "type": "string", "format": "date-time" },
         "warnings": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": { "$ref": "#/$defs/warningEntry" },
             "uniqueItems": true
         },
         "series": {
@@ -58,6 +58,31 @@
                 "path": { "type": "string", "pattern": "^series/[A-Za-z0-9._@-]+\\.csv$" },
                 "unit": { "type": "string" }
             }
+        },
+        "warningEntry": {
+            "anyOf": [
+                { "type": "string" },
+                {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["code", "message"],
+                    "properties": {
+                        "code": { "type": "string", "minLength": 1 },
+                        "message": { "type": "string" },
+                        "nodeId": { "type": ["string", "null"] },
+                        "bins": {
+                            "type": "array",
+                            "items": { "type": "integer", "minimum": 0 }
+                        },
+                        "value": { "type": ["number", "null"] },
+                        "severity": { "type": "string" },
+                        "edgeIds": {
+                            "type": "array",
+                            "items": { "type": "string", "minLength": 1 }
+                        }
+                    }
+                }
+            ]
         }
     }
 }

@@ -389,8 +389,8 @@ public sealed class TopologyCanvasRenderTests : TestContext
                 Lag = 1,
                 Series = new Dictionary<string, double?[]>
                 {
-                    ["attemptsLoad"] = new double?[] { null, 20, 14 },
-                    ["failuresLoad"] = new double?[] { null, 2, 2 },
+                    ["attemptsVolume"] = new double?[] { null, 20, 14 },
+                    ["failuresVolume"] = new double?[] { null, 2, 2 },
                     ["retryRate"] = new double?[] { null, 0.1, 0.142857 }
                 }
             }
@@ -410,6 +410,39 @@ public sealed class TopologyCanvasRenderTests : TestContext
     }
 
     [Fact]
+    public void RenderForwardsEdgeSeriesStartIndex()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+        var edgeSeries = new[]
+        {
+            new TimeTravelEdgeSeriesDto
+            {
+                Id = "edge_ingress_processor_flow",
+                From = "ingress",
+                To = "processor",
+                Series = new Dictionary<string, double?[]>
+                {
+                    ["flowVolume"] = new double?[] { 10, 12, 8 }
+                }
+            }
+        };
+
+        var sceneCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true);
+        sceneCall.SetVoidResult();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true).SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.EdgeSeries, edgeSeries)
+            .Add(p => p.EdgeSeriesStartIndex, 7));
+
+        var payload = Assert.IsType<CanvasScenePayload>(sceneCall.Invocations.Single().Arguments[1]);
+        Assert.Equal(7, payload.EdgeSeriesStartIndex);
+    }
+
+    [Fact]
     public void RenderForwardsEdgeClassSeries()
     {
         var graph = CreateGraph();
@@ -423,13 +456,13 @@ public sealed class TopologyCanvasRenderTests : TestContext
                 To = "processor",
                 Series = new Dictionary<string, double?[]>
                 {
-                    ["flowTotal"] = new double?[] { 10, 12, 8 }
+                    ["flowVolume"] = new double?[] { 10, 12, 8 }
                 },
                 ByClass = new Dictionary<string, IReadOnlyDictionary<string, double?[]>>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["Priority"] = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
                     {
-                        ["flowTotal"] = new double?[] { 6, 7, 4 }
+                        ["flowVolume"] = new double?[] { 6, 7, 4 }
                     }
                 }
             }
@@ -472,6 +505,33 @@ public sealed class TopologyCanvasRenderTests : TestContext
         Assert.True(payload.Overlays.HasClassSelection);
         Assert.Equal(selectedClasses, payload.Overlays.SelectedClasses);
         Assert.Equal("approx", payload.Overlays.EdgeQuality);
+    }
+
+    [Fact]
+    public void OverlayIncludesEdgeWarnings()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+        var edgeWarnings = new Dictionary<string, IReadOnlyList<EdgeWarningPayload>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["ingress->processor"] = new[]
+            {
+                new EdgeWarningPayload("edge_flow_mismatch_incoming", "Arrivals do not match sum of incoming edge flows.")
+            }
+        };
+
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.EdgeWarnings, edgeWarnings));
+
+        var payload = Assert.IsType<CanvasOverlayPayload>(overlayCall.Invocations.Single().Arguments[1]);
+        Assert.NotNull(payload.EdgeWarnings);
+        Assert.True(payload.EdgeWarnings!.ContainsKey("ingress->processor"));
     }
 
     [Fact]

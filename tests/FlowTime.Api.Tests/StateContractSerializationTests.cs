@@ -50,7 +50,19 @@ public class StateContractSerializationTests
                     To = "SupportQueue",
                     Series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
                     {
-                        ["flowTotal"] = new double?[] { 1, 2, 3 }
+                        ["flowVolume"] = new double?[] { 1, 2, 3 }
+                    }
+                }
+            },
+            EdgeWarnings = new Dictionary<string, IReadOnlyList<StateWarning>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["edge_order_support"] = new[]
+                {
+                    new StateWarning
+                    {
+                        Code = "edge_flow_mismatch",
+                        Message = "Edge volume does not match expected served volume.",
+                        Severity = "warning"
                     }
                 }
             },

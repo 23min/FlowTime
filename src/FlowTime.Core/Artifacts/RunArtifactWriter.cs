@@ -1111,7 +1111,8 @@ public static class RunArtifactWriter
                 Message = warning.Message,
                 Bins = warning.Bins?.ToArray(),
                 Value = warning.Value,
-                Severity = warning.Severity
+                Severity = warning.Severity,
+                EdgeIds = warning.EdgeIds?.ToArray()
             });
         }
 
@@ -1184,6 +1185,7 @@ public sealed record RunWarningEntry
     public int[]? Bins { get; set; }
     public double? Value { get; set; }
     public string Severity { get; set; } = "warning";
+    public string[]? EdgeIds { get; set; }
 }
 
 internal sealed record GridJson { public int Bins { get; set; } public int BinSize { get; set; } public string BinUnit { get; set; } = "minutes"; public string Timezone { get; set; } = "UTC"; public string Align { get; set; } = "left"; }

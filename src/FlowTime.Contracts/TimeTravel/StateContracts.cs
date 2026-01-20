@@ -10,6 +10,8 @@ public sealed class StateSnapshotResponse
     public required BinDetail Bin { get; init; }
     public IReadOnlyList<NodeSnapshot> Nodes { get; init; } = Array.Empty<NodeSnapshot>();
     public IReadOnlyList<EdgeSeries> Edges { get; init; } = Array.Empty<EdgeSeries>();
+    public IReadOnlyDictionary<string, IReadOnlyList<StateWarning>> EdgeWarnings { get; init; }
+        = new Dictionary<string, IReadOnlyList<StateWarning>>(StringComparer.OrdinalIgnoreCase);
     public IReadOnlyList<StateWarning> Warnings { get; init; } = Array.Empty<StateWarning>();
 }
 
@@ -20,6 +22,8 @@ public sealed class StateWindowResponse
     public required IReadOnlyList<DateTimeOffset> TimestampsUtc { get; init; }
     public IReadOnlyList<NodeSeries> Nodes { get; init; } = Array.Empty<NodeSeries>();
     public IReadOnlyList<EdgeSeries> Edges { get; init; } = Array.Empty<EdgeSeries>();
+    public IReadOnlyDictionary<string, IReadOnlyList<StateWarning>> EdgeWarnings { get; init; }
+        = new Dictionary<string, IReadOnlyList<StateWarning>>(StringComparer.OrdinalIgnoreCase);
     public IReadOnlyList<StateWarning> Warnings { get; init; } = Array.Empty<StateWarning>();
 }
 

@@ -25,6 +25,7 @@
                     "items": { "$ref": "#/$defs/edgeSeries" },
                     "default": []
                 },
+                "edgeWarnings": { "$ref": "#/$defs/edgeWarnings" },
                 "warnings": { "$ref": "#/$defs/stateWarnings" }
             }
         },
@@ -49,6 +50,7 @@
                     "items": { "$ref": "#/$defs/edgeSeries" },
                     "default": []
                 },
+                "edgeWarnings": { "$ref": "#/$defs/edgeWarnings" },
                 "warnings": { "$ref": "#/$defs/stateWarnings" }
             }
         },
@@ -335,6 +337,15 @@
             "type": "array",
             "items": { "$ref": "#/$defs/stateWarning" },
             "default": []
+        },
+        "edgeWarnings": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/stateWarning" },
+                "default": []
+            },
+            "default": {}
         },
         "stateWarning": {
             "type": "object",

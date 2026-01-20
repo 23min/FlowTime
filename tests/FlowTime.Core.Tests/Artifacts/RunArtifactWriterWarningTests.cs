@@ -91,7 +91,7 @@ nodes:
                 new RunArtifactWriter.EdgeSeriesInput
                 {
                     EdgeId = "ServiceNode->Downstream",
-                    Metric = "flowTotal",
+                    Metric = "flowVolume",
                     Values = new[] { 0d }
                 }
             },
@@ -227,7 +227,7 @@ nodes:
                 new RunArtifactWriter.EdgeSeriesInput
                 {
                     EdgeId = "ServiceNode->Downstream",
-                    Metric = "flowTotal",
+                    Metric = "flowVolume",
                     Values = new[] { 0d }
                 }
             },

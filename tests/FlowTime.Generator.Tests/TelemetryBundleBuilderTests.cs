@@ -184,12 +184,15 @@ outputs:
         }
 
         var manifest = new TelemetryManifest(
-            SchemaVersion: 1,
+            SchemaVersion: 2,
             Window: new TelemetryManifestWindow("2025-01-01T00:00:00Z", 20),
             Grid: new TelemetryManifestGrid(4, 5, "minutes"),
             Files: manifestFiles,
             Warnings: Array.Empty<CaptureWarning>(),
-            Provenance: new TelemetryManifestProvenance(Path.GetFileName(runDir), "sha256:1111111111111111111111111111111111111111111111111111111111111111", null, DateTime.UtcNow.ToString("O")));
+            Provenance: new TelemetryManifestProvenance(Path.GetFileName(runDir), "sha256:1111111111111111111111111111111111111111111111111111111111111111", null, DateTime.UtcNow.ToString("O")),
+            SupportsClassMetrics: false,
+            Classes: null,
+            ClassCoverage: "missing");
 
         var json = JsonSerializer.Serialize(manifest, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
         File.WriteAllText(Path.Combine(captureDir, "manifest.json"), json);

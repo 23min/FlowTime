@@ -1040,9 +1040,48 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         var edge = edges!.FirstOrDefault(entry => string.Equals(entry?["id"]?.ToString(), "order_to_support", StringComparison.OrdinalIgnoreCase));
         Assert.NotNull(edge);
 
-        var series = edge!["series"]?["flowTotal"] as JsonArray;
+        var series = edge!["series"]?["flowVolume"] as JsonArray;
         Assert.NotNull(series);
         Assert.Equal(new[] { 9d, 6d, 9d, 4d }, series!.Select(v => v!.GetValue<double>()).ToArray());
+    }
+
+    [Fact]
+    public async Task GetStateWindow_IncludesEdgeWarningsById()
+    {
+        var response = await client.GetAsync($"/v1/runs/{edgeFlowRunId}/state_window?startBin=0&endBin=3");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = JsonNode.Parse(await response.Content.ReadAsStringAsync());
+        Assert.NotNull(payload);
+
+        var edgeWarnings = payload!["edgeWarnings"] as JsonObject;
+        Assert.NotNull(edgeWarnings);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_WithoutEdges_ReturnsEmptyEdgeWarningsAndEdges()
+    {
+        var response = await client.GetAsync($"/v1/runs/{runId}/state_window?startBin=0&endBin=1");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = JsonNode.Parse(await response.Content.ReadAsStringAsync());
+        Assert.NotNull(payload);
+
+        var edges = payload!["edges"] as JsonArray;
+        Assert.NotNull(edges);
+        Assert.Empty(edges!);
+
+        var edgeWarnings = payload["edgeWarnings"] as JsonObject;
+        Assert.NotNull(edgeWarnings);
+        Assert.Empty(edgeWarnings!);
     }
 
     [Fact]
@@ -1321,7 +1360,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     {
         var edgeSeries = new Dictionary<string, double[]>
         {
-            ["edge_order_to_support_flowTotal@EDGE_ORDER_TO_SUPPORT_FLOWTOTAL@DEFAULT.csv"] = new[] { 9d, 6d, 9d, 4d }
+            ["edge_order_to_support_flowVolume@EDGE_ORDER_TO_SUPPORT_FLOWVOLUME@DEFAULT.csv"] = new[] { 9d, 6d, 9d, 4d }
         };
 
         var manifestSeries = edgeSeries.Keys
@@ -1340,7 +1379,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     {
         var edgeSeries = new Dictionary<string, double[]>
         {
-            ["edge_order_to_support_flowTotal@EDGE_ORDER_TO_SUPPORT_FLOWTOTAL@DEFAULT.csv"] = new[] { 9d, 6d, 9d, 4d }
+            ["edge_order_to_support_flowVolume@EDGE_ORDER_TO_SUPPORT_FLOWVOLUME@DEFAULT.csv"] = new[] { 9d, 6d, 9d, 4d }
         };
 
         var manifestSeries = edgeSeries.Keys
@@ -1360,7 +1399,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     {
         var edgeSeries = new Dictionary<string, double[]>
         {
-            ["edge_order_to_support_flowTotal@EDGE_ORDER_TO_SUPPORT_FLOWTOTAL@DEFAULT.csv"] = new[] { 9d, 6d, 9d, 4d }
+            ["edge_order_to_support_flowVolume@EDGE_ORDER_TO_SUPPORT_FLOWVOLUME@DEFAULT.csv"] = new[] { 9d, 6d, 9d, 4d }
         };
 
         var classSeries = new Dictionary<string, double[]>
@@ -1402,8 +1441,8 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
 
         var edgeSeries = new Dictionary<string, double[]>
         {
-            ["edge_router_to_a_flowTotal@EDGE_ROUTER_TO_A_FLOWTOTAL@vip.csv"] = new[] { 6d, 6d, 6d, 6d },
-            ["edge_router_to_b_flowTotal@EDGE_ROUTER_TO_B_FLOWTOTAL@standard.csv"] = new[] { 4d, 4d, 4d, 4d }
+            ["edge_router_to_a_flowVolume@EDGE_ROUTER_TO_A_FLOWVOLUME@vip.csv"] = new[] { 6d, 6d, 6d, 6d },
+            ["edge_router_to_b_flowVolume@EDGE_ROUTER_TO_B_FLOWVOLUME@standard.csv"] = new[] { 4d, 4d, 4d, 4d }
         };
 
         var manifestSeries = edgeSeries.Keys

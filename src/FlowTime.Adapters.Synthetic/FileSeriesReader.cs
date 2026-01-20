@@ -236,6 +236,14 @@ public sealed class FileSeriesReader : ISeriesReader
             ? severityElement.GetString() ?? "warning"
             : "warning";
 
+        var edgeIds = element.TryGetProperty("edgeIds", out var edgeIdsElement) && edgeIdsElement.ValueKind == JsonValueKind.Array
+            ? edgeIdsElement.EnumerateArray()
+                .Select(entry => entry.GetString())
+                .Where(entry => !string.IsNullOrWhiteSpace(entry))
+                .Select(entry => entry!)
+                .ToArray()
+            : null;
+
         return new RunWarning
         {
             Code = element.TryGetProperty("code", out var codeElement) ? codeElement.GetString() ?? "engine_warning" : "engine_warning",
@@ -243,7 +251,8 @@ public sealed class FileSeriesReader : ISeriesReader
             NodeId = element.TryGetProperty("nodeId", out var nodeElement) ? nodeElement.GetString() : null,
             Bins = bins,
             Value = value,
-            Severity = severity
+            Severity = severity,
+            EdgeIds = edgeIds
         };
     }
 

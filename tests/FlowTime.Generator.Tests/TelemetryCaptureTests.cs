@@ -56,7 +56,7 @@ public sealed class TelemetryCaptureTests
 
         using var doc = JsonDocument.Parse(await File.ReadAllTextAsync(manifestPath));
         var root = doc.RootElement;
-        Assert.Equal(1, root.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal(2, root.GetProperty("schemaVersion").GetInt32());
         Assert.Equal(plan.Files.Count, root.GetProperty("files").GetArrayLength());
         Assert.Equal("sha256:1111111111111111111111111111111111111111111111111111111111111111", root.GetProperty("provenance").GetProperty("scenarioHash").GetString());
 
@@ -79,7 +79,7 @@ public sealed class TelemetryCaptureTests
         // Spot check first file data was normalised correctly (bin 0 value)
         var arrivalsCsv = System.IO.Path.Combine(outputDir, "OrderService_arrivals.csv");
         var arrivalLines = await File.ReadAllLinesAsync(arrivalsCsv);
-        Assert.Equal("0,10", arrivalLines[1]);
+        Assert.Equal("0,DEFAULT,10", arrivalLines[1]);
     }
 
     [Fact]
@@ -222,7 +222,7 @@ public sealed class TelemetryCaptureTests
     {
         var lines = await File.ReadAllLinesAsync(filePath);
         var parts = lines[binIndex + 1].Split(',');
-        parts[2] = "NaN";
+        parts[^1] = "NaN";
         lines[binIndex + 1] = string.Join(',', parts);
         await File.WriteAllLinesAsync(filePath, lines);
     }
@@ -231,7 +231,7 @@ public sealed class TelemetryCaptureTests
     {
         var lines = await File.ReadAllLinesAsync(filePath);
         var parts = lines[binIndex + 1].Split(',');
-        parts[2] = string.Empty;
+        parts[^1] = string.Empty;
         lines[binIndex + 1] = string.Join(',', parts);
         await File.WriteAllLinesAsync(filePath, lines);
     }

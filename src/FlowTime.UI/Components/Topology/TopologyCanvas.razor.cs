@@ -80,6 +80,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     [Parameter] public EventCallback<string?> EdgeHovered { get; set; }
     [Parameter] public EventCallback<BinDumpRequest> DumpBinRequested { get; set; }
     [Parameter] public IReadOnlyDictionary<string, IReadOnlyList<NodeWarningPayload>> NodeWarnings { get; set; } = new Dictionary<string, IReadOnlyList<NodeWarningPayload>>(StringComparer.OrdinalIgnoreCase);
+    [Parameter] public IReadOnlyDictionary<string, IReadOnlyList<EdgeWarningPayload>> EdgeWarnings { get; set; }
+        = new Dictionary<string, IReadOnlyList<EdgeWarningPayload>>(StringComparer.OrdinalIgnoreCase);
     [Parameter] public IReadOnlyCollection<string>? DimmedNodes { get; set; }
     [Parameter] public bool DiagnosticsOverlayEnabled { get; set; }
     [Parameter] public string? DiagnosticsUploadUrl { get; set; }
@@ -172,6 +174,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             preserveViewport,
             Title,
             NodeWarnings,
+            EdgeWarnings,
             EdgeSeries,
             EdgeSeriesStartIndex,
             DimmedNodes,
@@ -468,6 +471,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             preserveViewport: preserveViewportHint,
             title: Title,
             nodeWarningsMap: NodeWarnings,
+            edgeWarningsMap: EdgeWarnings,
             edgeSeries: EdgeSeries,
             edgeSeriesStartIndex: EdgeSeriesStartIndex,
             dimmedNodes: DimmedNodes,
@@ -896,6 +900,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         bool preserveViewport,
         string? title,
         IReadOnlyDictionary<string, IReadOnlyList<NodeWarningPayload>>? nodeWarningsMap,
+        IReadOnlyDictionary<string, IReadOnlyList<EdgeWarningPayload>>? edgeWarningsMap,
         IReadOnlyList<TimeTravelEdgeSeriesDto>? edgeSeries,
         int edgeSeriesStartIndex,
         IReadOnlyCollection<string>? dimmedNodes,
@@ -1206,7 +1211,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             snapshotPayload,
             preserveViewport,
             title,
-            flattenedWarnings);
+            flattenedWarnings,
+            edgeWarningsMap);
 
         var sceneSignature = ComputeSceneSignature(graph, scenePayload);
         var overlaySignature = ComputeOverlaySignature(overlayPayload);
@@ -1361,6 +1367,16 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             hash.Add(payload.SavedViewport.WorldCenterY);
             hash.Add(payload.SavedViewport.OverlayScale);
             hash.Add(payload.SavedViewport.BaseScale);
+        }
+
+        if (payload.EdgeWarnings is not null)
+        {
+            hash.Add(payload.EdgeWarnings.Count);
+            foreach (var entry in payload.EdgeWarnings)
+            {
+                hash.Add(entry.Key ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+                hash.Add(entry.Value?.Count ?? 0);
+            }
         }
 
         return hash.ToHashCode().ToString("X");

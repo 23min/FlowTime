@@ -71,14 +71,15 @@ public sealed class TelemetryCaptureGoldenTests
             Assert.True(File.Exists(csvPath), $"CSV not found: {csvPath}");
 
             var lines = await File.ReadAllLinesAsync(csvPath);
-            Assert.Equal("bin_index,value", lines[0]);
+            Assert.Equal("bin_index,classId,value", lines[0]);
             Assert.Equal(series.Values.Length + 1, lines.Length);
 
             for (var i = 0; i < series.Values.Length; i++)
             {
                 var parts = lines[i + 1].Split(',', StringSplitOptions.TrimEntries);
                 Assert.Equal(i.ToString(CultureInfo.InvariantCulture), parts[0]);
-                Assert.Equal(series.Values[i].ToString("G17", CultureInfo.InvariantCulture), parts[1]);
+                Assert.Equal("DEFAULT", parts[1]);
+                Assert.Equal(series.Values[i].ToString("G17", CultureInfo.InvariantCulture), parts[2]);
             }
 
             var expectedHash = ComputeSha256(csvPath);

@@ -12,6 +12,7 @@ using FlowTime.Core.Nodes;
 using FlowTime.Core.TimeTravel;
 using FlowTime.Generator.Artifacts;
 using FlowTime.Generator.Models;
+using YamlDotNet.RepresentationModel;
 using YamlDotNet.Serialization;
 
 namespace FlowTime.Generator;
@@ -40,6 +41,7 @@ public sealed class TelemetryBundleBuilder
 
         var modelYaml = await File.ReadAllTextAsync(modelPath, cancellationToken).ConfigureAwait(false);
         var normalizedYaml = NormalizeTelemetrySources(modelYaml, captureDir, captureFiles);
+        var rewrittenYaml = RewriteTelemetrySemanticsToSources(normalizedYaml, captureFiles.Values);
         var canonicalModel = ModelService.ParseAndConvert(normalizedYaml);
         var telemetrySeries = await LoadTelemetrySeriesAsync(captureDir, telemetryManifest, canonicalModel, cancellationToken).ConfigureAwait(false);
         var coverageWarnings = ValidateClassSeries(telemetryManifest, telemetrySeries);
@@ -77,7 +79,7 @@ public sealed class TelemetryBundleBuilder
                     kvp => (IReadOnlyDictionary<string, double[]>)new Dictionary<string, double[]>(kvp.Value, StringComparer.OrdinalIgnoreCase),
                     new NodeIdComparer()),
             ClassCoverageOverride = telemetryManifest.ClassCoverage,
-            SpecText = normalizedYaml,
+            SpecText = rewrittenYaml,
             RngSeed = null,
             StartTimeBias = null,
             DeterministicRunId = options.DeterministicRunId,
@@ -220,9 +222,12 @@ public sealed class TelemetryBundleBuilder
             var csvPath = Path.Combine(captureDir, file.Path);
             var values = await ReadTelemetrySeriesAsync(csvPath, manifest.Grid.Bins, cancellationToken).ConfigureAwait(false);
             var nodeKey = new NodeId(seriesNodeId);
-            context[nodeKey] = values;
-            if (!string.IsNullOrWhiteSpace(file.ClassId) &&
-                !string.Equals(file.ClassId, "DEFAULT", StringComparison.OrdinalIgnoreCase))
+            var classId = string.IsNullOrWhiteSpace(file.ClassId) ? "DEFAULT" : file.ClassId.Trim();
+            if (string.Equals(classId, "DEFAULT", StringComparison.OrdinalIgnoreCase))
+            {
+                context[nodeKey] = values;
+            }
+            else
             {
                 if (!classSeries.TryGetValue(nodeKey, out var perNode))
                 {
@@ -230,7 +235,7 @@ public sealed class TelemetryBundleBuilder
                     classSeries[nodeKey] = perNode;
                 }
 
-                perNode[file.ClassId] = values;
+                perNode[classId] = values;
             }
 
             var nodeDefinition = modelDefinition.Nodes.FirstOrDefault(n => string.Equals(n.Id, seriesNodeId, StringComparison.OrdinalIgnoreCase));
@@ -238,6 +243,25 @@ public sealed class TelemetryBundleBuilder
             {
                 nodeDefinition.Values = values.ToArray();
             }
+        }
+
+        foreach (var (nodeId, perClass) in classSeries)
+        {
+            if (context.ContainsKey(nodeId))
+            {
+                continue;
+            }
+
+            var totals = new double[manifest.Grid.Bins];
+            foreach (var series in perClass.Values)
+            {
+                for (var i = 0; i < totals.Length && i < series.Length; i++)
+                {
+                    totals[i] += series[i];
+                }
+            }
+
+            context[nodeId] = totals;
         }
 
         return new TelemetrySeriesLoadResult(context, classSeries);
@@ -269,6 +293,172 @@ public sealed class TelemetryBundleBuilder
         }
 
         return map;
+    }
+
+    private static string RewriteTelemetrySemanticsToSources(string modelYaml, IReadOnlyCollection<TelemetryManifestFile> captureFiles)
+    {
+        if (string.IsNullOrWhiteSpace(modelYaml) || captureFiles.Count == 0)
+        {
+            return modelYaml;
+        }
+
+        var yaml = new YamlStream();
+        try
+        {
+            yaml.Load(new StringReader(modelYaml));
+        }
+        catch
+        {
+            return modelYaml;
+        }
+
+        if (yaml.Documents.Count == 0 || yaml.Documents[0].RootNode is not YamlMappingNode root)
+        {
+            return modelYaml;
+        }
+
+        if (!root.Children.TryGetValue(new YamlScalarNode("topology"), out var topologyNode) || topologyNode is not YamlMappingNode topologyMap)
+        {
+            return modelYaml;
+        }
+
+        if (!topologyMap.Children.TryGetValue(new YamlScalarNode("nodes"), out var nodesNode) || nodesNode is not YamlSequenceNode nodes)
+        {
+            return modelYaml;
+        }
+
+        var filesByNodeMetric = new Dictionary<(string NodeId, TelemetryMetricKind Metric), List<TelemetryManifestFile>>(new NodeMetricComparer());
+        foreach (var file in captureFiles)
+        {
+            var nodeId = file.NodeId ?? string.Empty;
+            var key = (nodeId, file.Metric);
+            if (!filesByNodeMetric.TryGetValue(key, out var list))
+            {
+                list = new List<TelemetryManifestFile>();
+                filesByNodeMetric[key] = list;
+            }
+
+            list.Add(file);
+        }
+
+        var semanticsKey = new YamlScalarNode("semantics");
+        var fields = new[]
+        {
+            "arrivals",
+            "served",
+            "errors",
+            "attempts",
+            "failures",
+            "retryEcho",
+            "retryBudgetRemaining",
+            "externalDemand",
+            "queueDepth",
+            "capacity",
+            "processingTimeMsSum",
+            "servedCount"
+        };
+
+        var modified = false;
+        foreach (var node in nodes.Children.OfType<YamlMappingNode>())
+        {
+            if (!node.Children.TryGetValue(new YamlScalarNode("id"), out var idNode) || idNode is not YamlScalarNode idScalar || string.IsNullOrWhiteSpace(idScalar.Value))
+            {
+                continue;
+            }
+
+            var nodeId = idScalar.Value.Trim();
+            if (!node.Children.TryGetValue(semanticsKey, out var semanticsNode) || semanticsNode is not YamlMappingNode semantics)
+            {
+                continue;
+            }
+
+            foreach (var field in fields)
+            {
+                if (!TryGetMetricForField(field, out var metric))
+                {
+                    continue;
+                }
+
+                var keyNode = new YamlScalarNode(field);
+                if (!semantics.Children.TryGetValue(keyNode, out var valueNode) || valueNode is not YamlScalarNode scalar)
+                {
+                    continue;
+                }
+
+                var trimmed = scalar.Value?.Trim();
+                if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!filesByNodeMetric.TryGetValue((nodeId, metric), out var files))
+                {
+                    continue;
+                }
+
+                var file = files.FirstOrDefault(f => string.Equals(f.ClassId, "DEFAULT", StringComparison.OrdinalIgnoreCase))
+                    ?? files.FirstOrDefault();
+                if (file is null || string.IsNullOrWhiteSpace(file.Path))
+                {
+                    continue;
+                }
+
+                var fileName = Path.GetFileName(file.Path);
+                if (string.IsNullOrWhiteSpace(fileName))
+                {
+                    continue;
+                }
+
+                scalar.Value = $"file://telemetry/{fileName}";
+                modified = true;
+            }
+        }
+
+        if (!modified)
+        {
+            return modelYaml;
+        }
+
+        var writer = new StringWriter();
+        yaml.Save(writer, assignAnchors: false);
+        return writer.ToString();
+    }
+
+    private static bool TryGetMetricForField(string field, out TelemetryMetricKind metric)
+    {
+        switch (field)
+        {
+            case "arrivals":
+                metric = TelemetryMetricKind.Arrivals;
+                return true;
+            case "served":
+                metric = TelemetryMetricKind.Served;
+                return true;
+            case "errors":
+                metric = TelemetryMetricKind.Errors;
+                return true;
+            case "externalDemand":
+                metric = TelemetryMetricKind.ExternalDemand;
+                return true;
+            case "queueDepth":
+                metric = TelemetryMetricKind.QueueDepth;
+                return true;
+            case "capacity":
+                metric = TelemetryMetricKind.Capacity;
+                return true;
+            default:
+                metric = default;
+                return false;
+        }
+    }
+
+    private sealed class NodeMetricComparer : IEqualityComparer<(string NodeId, TelemetryMetricKind Metric)>
+    {
+        public bool Equals((string NodeId, TelemetryMetricKind Metric) x, (string NodeId, TelemetryMetricKind Metric) y)
+            => string.Equals(x.NodeId, y.NodeId, StringComparison.OrdinalIgnoreCase) && x.Metric == y.Metric;
+
+        public int GetHashCode((string NodeId, TelemetryMetricKind Metric) obj)
+            => HashCode.Combine(StringComparer.OrdinalIgnoreCase.GetHashCode(obj.NodeId), obj.Metric);
     }
 
     private static string? ResolveSeriesNodeId(

@@ -114,6 +114,7 @@ public sealed class StateQueryService
             },
             Nodes = nodeSnapshots,
             Edges = edgeSeries,
+            EdgeWarnings = BuildEdgeWarnings(context),
             Warnings = BuildWarnings(context, validation.Warnings)
         };
     }
@@ -255,6 +256,7 @@ public sealed class StateQueryService
             TimestampsUtc = timestamps,
             Nodes = seriesList,
             Edges = edgeSeries,
+            EdgeWarnings = BuildEdgeWarnings(context),
             Warnings = BuildWarnings(context, combinedWarnings)
         };
     }
@@ -348,6 +350,17 @@ public sealed class StateQueryService
             var preValidationNodeWarnings = new Dictionary<string, List<ModeValidationWarning>>(StringComparer.OrdinalIgnoreCase);
             var appendedGlobalMissingWarning = false;
 
+            if (manifestMetadata.Mode.Equals("telemetry", StringComparison.OrdinalIgnoreCase))
+            {
+                InspectTelemetrySources(
+                    metadata.Topology.Nodes,
+                    manifestMetadata,
+                    modelDirectory,
+                    preValidationWarnings,
+                    preValidationNodeWarnings,
+                    ref appendedGlobalMissingWarning);
+            }
+
             foreach (var node in metadata.Topology.Nodes)
             {
                 try
@@ -398,18 +411,21 @@ public sealed class StateQueryService
 
                         nodeData[node.Id] = CreateEmptyNodeData(node, metadata.Window.Bins);
 
-                        if (!preValidationNodeWarnings.TryGetValue(node.Id, out var nodeList))
+                        if (!HasNodeWarning(preValidationNodeWarnings, node.Id, "telemetry_sources_unresolved"))
                         {
-                            nodeList = new List<ModeValidationWarning>();
-                            preValidationNodeWarnings[node.Id] = nodeList;
-                        }
+                            if (!preValidationNodeWarnings.TryGetValue(node.Id, out var nodeList))
+                            {
+                                nodeList = new List<ModeValidationWarning>();
+                                preValidationNodeWarnings[node.Id] = nodeList;
+                            }
 
-                        nodeList.Add(new ModeValidationWarning
-                        {
-                            Code = "telemetry_sources_unresolved",
-                            Message = $"Telemetry source '{node.Semantics.Served}' could not be resolved for node '{node.Id}'.",
-                            NodeId = node.Id
-                        });
+                            nodeList.Add(new ModeValidationWarning
+                            {
+                                Code = "telemetry_sources_unresolved",
+                                Message = $"Telemetry source '{node.Semantics.Served}' could not be resolved for node '{node.Id}'.",
+                                NodeId = node.Id
+                            });
+                        }
 
                         if (!appendedGlobalMissingWarning)
                         {
@@ -1633,6 +1649,115 @@ public sealed class StateQueryService
         return separatorIndex >= 0 ? trimmed[..separatorIndex] : trimmed;
     }
 
+    private void InspectTelemetrySources(
+        IEnumerable<Node> nodes,
+        RunManifestMetadata manifestMetadata,
+        string modelDirectory,
+        ICollection<ModeValidationWarning> warnings,
+        IDictionary<string, List<ModeValidationWarning>> nodeWarnings,
+        ref bool appendedGlobalMissingWarning)
+    {
+        if (manifestMetadata.NodeSources.Count == 0 && manifestMetadata.TelemetrySources.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var node in nodes)
+        {
+            var missingSources = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var source in EnumerateTelemetrySources(node, manifestMetadata))
+            {
+                if (string.IsNullOrWhiteSpace(source))
+                {
+                    continue;
+                }
+
+                string resolvedPath;
+                try
+                {
+                    resolvedPath = UriResolver.ResolveFilePath(source, modelDirectory);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Telemetry source could not be resolved for node {NodeId}", node.Id);
+                    missingSources.Add(source);
+                    continue;
+                }
+
+                if (!File.Exists(resolvedPath))
+                {
+                    logger.LogWarning("Telemetry source missing for node {NodeId}: {Source}", node.Id, source);
+                    missingSources.Add(source);
+                }
+            }
+
+            if (missingSources.Count == 0)
+            {
+                continue;
+            }
+
+            foreach (var source in missingSources)
+            {
+                AppendNodeWarning(
+                    nodeWarnings,
+                    node.Id,
+                    "telemetry_sources_unresolved",
+                    $"Telemetry source '{source}' could not be resolved for node '{node.Id}'.");
+            }
+
+            if (!appendedGlobalMissingWarning)
+            {
+                warnings.Add(new ModeValidationWarning
+                {
+                    Code = "telemetry_sources_missing",
+                    Message = "One or more telemetry sources could not be resolved for this run."
+                });
+                appendedGlobalMissingWarning = true;
+            }
+        }
+    }
+
+    private static IEnumerable<string?> EnumerateTelemetrySources(Node node, RunManifestMetadata manifestMetadata)
+    {
+        IEnumerable<string?> series = new[]
+        {
+            node.Semantics.Arrivals,
+            node.Semantics.Served,
+            node.Semantics.Errors,
+            node.Semantics.Attempts,
+            node.Semantics.Failures,
+            node.Semantics.ExhaustedFailures,
+            node.Semantics.RetryEcho,
+            node.Semantics.RetryBudgetRemaining,
+            node.Semantics.ExternalDemand,
+            node.Semantics.QueueDepth,
+            node.Semantics.Capacity,
+            node.Semantics.ProcessingTimeMsSum,
+            node.Semantics.ServedCount
+        };
+
+        foreach (var value in series)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                continue;
+            }
+
+            var identifier = value.Trim();
+            if (manifestMetadata.NodeSources.TryGetValue(identifier, out var source) && !string.IsNullOrWhiteSpace(source))
+            {
+                yield return source;
+                continue;
+            }
+
+            if (identifier.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return identifier;
+            }
+        }
+    }
+
     private static NodeTelemetryInfo BuildTelemetryInfo(Node node, RunManifestMetadata manifestMetadata, IReadOnlyList<ModeValidationWarning> nodeWarnings)
     {
         var sources = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -2191,14 +2316,7 @@ public sealed class StateQueryService
                 builders[edgeToken] = builder;
             }
 
-            if (string.Equals(series.Class, "DEFAULT", StringComparison.OrdinalIgnoreCase))
-            {
-                builder.Series[metric] = slice;
-            }
-            else
-            {
-                builder.AddClassSeries(series.Class, metric, slice);
-            }
+            builder.AddSeries(series.Class, metric, slice);
         }
 
         return builders.Values.Select(builder => builder.Build()).ToList();
@@ -2230,58 +2348,45 @@ public sealed class StateQueryService
             }
 
             var attemptsSeries = ComputeAttemptSeries(sourceData, 0, totalBins, allowDerived: true);
-            var failuresSeries = ComputeFailureSeries(sourceData, 0, totalBins);
-            if (attemptsSeries is null && failuresSeries is null && sourceData.ExhaustedFailures is null)
+            var failuresSeries = string.Equals(field, "exhaustedfailures", StringComparison.OrdinalIgnoreCase)
+                ? ToNullableSeries(sourceData.ExhaustedFailures)
+                : ComputeFailureSeries(sourceData, 0, totalBins);
+            if (attemptsSeries is null && failuresSeries is null)
             {
                 continue;
             }
 
             var lag = Math.Max(0, edge.Lag ?? 0);
             var multiplier = NormalizeMultiplier(edge.Multiplier ?? edge.Weight);
-            var attemptsLoad = new double?[count];
-            var failuresLoad = new double?[count];
+            var attemptsVolume = new double?[count];
+            var failuresVolume = new double?[count];
             var retryRate = new double?[count];
-            double?[]? exhaustedLoad = sourceData.ExhaustedFailures != null ? new double?[count] : null;
 
             for (var i = 0; i < count; i++)
             {
                 var sourceIndex = startBin + i - lag;
                 if (sourceIndex < 0 || sourceIndex >= totalBins)
                 {
-                    attemptsLoad[i] = null;
-                    failuresLoad[i] = null;
+                    attemptsVolume[i] = null;
+                    failuresVolume[i] = null;
                     retryRate[i] = null;
-                    if (exhaustedLoad is not null)
-                    {
-                        exhaustedLoad[i] = null;
-                    }
                     continue;
                 }
 
                 var attempt = Sample(attemptsSeries, sourceIndex);
                 var failure = Sample(failuresSeries, sourceIndex);
-                var exhausted = GetOptionalValue(sourceData.ExhaustedFailures, sourceIndex);
 
-                attemptsLoad[i] = attempt.HasValue ? Normalize(attempt.Value * multiplier) : null;
-                failuresLoad[i] = failure.HasValue ? Normalize(failure.Value * multiplier) : null;
+                attemptsVolume[i] = attempt.HasValue ? Normalize(attempt.Value * multiplier) : null;
+                failuresVolume[i] = failure.HasValue ? Normalize(failure.Value * multiplier) : null;
                 retryRate[i] = ComputeRetryRate(attempt, failure);
-                if (exhaustedLoad is not null)
-                {
-                    exhaustedLoad[i] = exhausted.HasValue ? Normalize(exhausted.Value * multiplier) : null;
-                }
             }
 
             var series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
             {
-                ["attemptsLoad"] = attemptsLoad,
-                ["failuresLoad"] = failuresLoad,
+                ["attemptsVolume"] = attemptsVolume,
+                ["failuresVolume"] = failuresVolume,
                 ["retryRate"] = retryRate
             };
-
-            if (exhaustedLoad is not null)
-            {
-                series["exhaustedFailuresLoad"] = exhaustedLoad;
-            }
 
             var edgeId = string.IsNullOrWhiteSpace(edge.Id)
                 ? $"{edge.Source}->{edge.Target}:{(string.IsNullOrWhiteSpace(edge.Field) ? "attempts" : edge.Field)}"
@@ -2446,6 +2551,17 @@ public sealed class StateQueryService
 
         public IDictionary<string, double?[]> Series { get; } = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
         public IDictionary<string, IDictionary<string, double?[]>>? ByClass { get; private set; }
+
+        public void AddSeries(string classId, string metric, double?[] values)
+        {
+            if (string.IsNullOrWhiteSpace(classId) || string.Equals(classId, "DEFAULT", StringComparison.OrdinalIgnoreCase))
+            {
+                Series[metric] = values;
+                return;
+            }
+
+            AddClassSeries(classId, metric, values);
+        }
 
         public void AddClassSeries(string classId, string metric, double?[] values)
         {
@@ -3039,6 +3155,15 @@ public sealed class StateQueryService
         });
     }
 
+    private static bool HasNodeWarning(
+        IDictionary<string, List<ModeValidationWarning>> warnings,
+        string nodeId,
+        string code)
+    {
+        return warnings.TryGetValue(nodeId, out var list) &&
+            list.Any(w => string.Equals(w.Code, code, StringComparison.OrdinalIgnoreCase));
+    }
+
     private static bool IsComputedKind(string? kind)
     {
         if (string.IsNullOrWhiteSpace(kind))
@@ -3369,6 +3494,11 @@ public sealed class StateQueryService
             return computed;
         }
 
+        if (computedRank == 0 && manifestRank > 0)
+        {
+            return manifest;
+        }
+
         return computedRank <= manifestRank ? computed : manifest;
     }
 
@@ -3414,7 +3544,7 @@ public sealed class StateQueryService
 
         var edgeTokens = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var edgeClassCoverage = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
-        var hasFlowTotal = false;
+        var hasFlowVolume = false;
 
         foreach (var series in edgeSeriesEntries)
         {
@@ -3423,12 +3553,12 @@ public sealed class StateQueryService
                 continue;
             }
 
-            if (!string.Equals(metric, "flowTotal", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(metric, "flowVolume", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            hasFlowTotal = true;
+            hasFlowVolume = true;
             edgeTokens.Add(edgeToken);
 
             if (string.IsNullOrWhiteSpace(series.Class) ||
@@ -3446,7 +3576,7 @@ public sealed class StateQueryService
             classes.Add(series.Class.Trim());
         }
 
-        if (!hasFlowTotal)
+        if (!hasFlowVolume)
         {
             return "missing";
         }
@@ -3581,13 +3711,7 @@ public sealed class StateQueryService
         {
             foreach (var warning in context.Manifest.Warnings)
             {
-                warnings.Add(new StateWarning
-                {
-                    Code = warning.Code,
-                    Message = warning.Message,
-                    NodeId = warning.NodeId,
-                    Severity = string.IsNullOrWhiteSpace(warning.Severity) ? "warning" : warning.Severity
-                });
+                warnings.Add(BuildStateWarning(warning));
             }
         }
 
@@ -3608,6 +3732,61 @@ public sealed class StateQueryService
         }
 
         return warnings.Count == 0 ? Array.Empty<StateWarning>() : warnings;
+    }
+
+    private static IReadOnlyDictionary<string, IReadOnlyList<StateWarning>> BuildEdgeWarnings(StateRunContext context)
+    {
+        if (context.Manifest.Warnings is not { Length: > 0 })
+        {
+            return new Dictionary<string, IReadOnlyList<StateWarning>>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var warningsByEdge = new Dictionary<string, List<StateWarning>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var warning in context.Manifest.Warnings)
+        {
+            if (warning.EdgeIds is not { Length: > 0 })
+            {
+                continue;
+            }
+
+            var stateWarning = BuildStateWarning(warning);
+            foreach (var edgeId in warning.EdgeIds)
+            {
+                if (string.IsNullOrWhiteSpace(edgeId))
+                {
+                    continue;
+                }
+
+                if (!warningsByEdge.TryGetValue(edgeId, out var entries))
+                {
+                    entries = new List<StateWarning>();
+                    warningsByEdge[edgeId] = entries;
+                }
+
+                entries.Add(stateWarning);
+            }
+        }
+
+        if (warningsByEdge.Count == 0)
+        {
+            return new Dictionary<string, IReadOnlyList<StateWarning>>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        return warningsByEdge.ToDictionary(
+            entry => entry.Key,
+            entry => (IReadOnlyList<StateWarning>)entry.Value,
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static StateWarning BuildStateWarning(RunWarning warning)
+    {
+        return new StateWarning
+        {
+            Code = warning.Code,
+            Message = warning.Message,
+            NodeId = warning.NodeId,
+            Severity = string.IsNullOrWhiteSpace(warning.Severity) ? "warning" : warning.Severity
+        };
     }
 
     private static DateTimeOffset? ToOffset(DateTime? timestamp)
@@ -3866,6 +4045,22 @@ public sealed class StateQueryService
         }
 
         return Normalize(source[index]);
+    }
+
+    private static double?[]? ToNullableSeries(double[]? source)
+    {
+        if (source is null)
+        {
+            return null;
+        }
+
+        var result = new double?[source.Length];
+        for (var i = 0; i < source.Length; i++)
+        {
+            result[i] = Normalize(source[i]);
+        }
+
+        return result;
     }
 
     private static double? Normalize(double value)

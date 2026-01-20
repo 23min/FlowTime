@@ -87,7 +87,8 @@ public static class InvariantAnalyzer
                     $"Edge '{edgeId}' applies a lag of {lag} bin(s). Model transit as an explicit node instead of edge behavior.",
                     Array.Empty<int>(),
                     null,
-                    "warning"));
+                    "warning",
+                    new[] { edgeId }));
             }
         }
 
@@ -474,7 +475,7 @@ public static class InvariantAnalyzer
 
             foreach (var series in inputs)
             {
-                if (!string.Equals(series.Metric, "flowTotal", StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(series.Metric, "flowVolume", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
@@ -506,7 +507,7 @@ public static class InvariantAnalyzer
 
             foreach (var series in inputs)
             {
-                if (!string.Equals(series.Metric, "flowTotal", StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(series.Metric, "flowVolume", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
@@ -898,12 +899,14 @@ public static class InvariantAnalyzer
 
             if (binCount > 0)
             {
+                var edgeIds = ResolveEdgeIds(edges);
                 warnings.Add(new InvariantWarning(
                     nodeId,
                     code,
                     BuildEdgeWarningMessage(message, edges),
                     bins[..binCount].ToArray(),
-                    double.IsFinite(worstDiff) ? worstDiff : null));
+                    double.IsFinite(worstDiff) ? worstDiff : null,
+                    EdgeIds: edgeIds.Count > 0 ? edgeIds : null));
             }
         }
 
@@ -980,13 +983,15 @@ public static class InvariantAnalyzer
             {
                 detail = $"{detail} Missing classes: {missingList}.";
             }
+            var edgeIds = ResolveEdgeIds(edges);
             warnings.Add(new InvariantWarning(
                 nodeId,
                 warningCode,
                 BuildEdgeWarningMessage(detail, edges),
                 binCount > 0 ? bins[..binCount].ToArray() : Array.Empty<int>(),
                 double.IsFinite(worstDiff) ? worstDiff : null,
-                "warning"));
+                "warning",
+                edgeIds.Count > 0 ? edgeIds : null));
         }
 
         void ValidateDlqConnectivity(string nodeId)
@@ -1115,6 +1120,20 @@ public static class InvariantAnalyzer
             var source = string.IsNullOrWhiteSpace(edge.Source) ? "?" : edge.Source;
             var target = string.IsNullOrWhiteSpace(edge.Target) ? "?" : edge.Target;
             return $"{source}->{target}";
+        }
+
+        static IReadOnlyList<string> ResolveEdgeIds(IReadOnlyList<TopologyEdgeDefinition> edges)
+        {
+            if (edges.Count == 0)
+            {
+                return Array.Empty<string>();
+            }
+
+            return edges
+                .Select(GetEdgeLabel)
+                .Where(label => !string.IsNullOrWhiteSpace(label))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
         }
 
         static string BuildEdgeWarningMessage(string message, IReadOnlyList<TopologyEdgeDefinition> edges)
@@ -1618,6 +1637,7 @@ public sealed record InvariantWarning(
     string Message,
     IReadOnlyList<int> Bins,
     double? Value,
-    string Severity = "warning");
+    string Severity = "warning",
+    IReadOnlyList<string>? EdgeIds = null);
 
 public sealed record InvariantAnalysisResult(IReadOnlyList<InvariantWarning> Warnings);

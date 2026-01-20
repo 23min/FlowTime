@@ -96,19 +96,75 @@ public class StateResponseSchemaTests : IClassFixture<TestWebApplicationFactory>
                 ["to"] = "SupportQueue",
                 ["series"] = new JsonObject
                 {
-                    ["flowTotal"] = new JsonArray(1, 2, 3, 4)
+                    ["flowVolume"] = new JsonArray(1, 2, 3, 4)
                 },
                 ["byClass"] = new JsonObject
                 {
                     ["vip"] = new JsonObject
                     {
-                        ["flowTotal"] = new JsonArray(1, 1, 2, 2)
+                        ["flowVolume"] = new JsonArray(1, 1, 2, 2)
                     }
                 }
             }
         };
 
         Assert.True(IsSchemaValid(payload), "Expected edges to be allowed on /state responses.");
+    }
+
+    [Fact]
+    public async Task State_Response_AllowsEdgeWarnings()
+    {
+        var runId = EnsureSchemaRun();
+        var response = await client.GetAsync($"/v1/runs/{runId}/state?binIndex=1");
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync();
+        var node = JsonNode.Parse(json);
+
+        Assert.NotNull(node);
+        var payload = node!.AsObject();
+        payload["edgeWarnings"] = new JsonObject
+        {
+            ["edge_order_support"] = new JsonArray
+            {
+                new JsonObject
+                {
+                    ["code"] = "edge_flow_mismatch",
+                    ["message"] = "Edge volume does not match expected served volume.",
+                    ["severity"] = "warning"
+                }
+            }
+        };
+
+        Assert.True(IsSchemaValid(payload), "Expected edgeWarnings to be allowed on /state responses.");
+    }
+
+    [Fact]
+    public async Task StateWindow_Response_AllowsEdgeWarnings()
+    {
+        var runId = EnsureSchemaRun();
+        var response = await client.GetAsync($"/v1/runs/{runId}/state_window?startBin=0&endBin=3");
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync();
+        var node = JsonNode.Parse(json);
+
+        Assert.NotNull(node);
+        var payload = node!.AsObject();
+        payload["edgeWarnings"] = new JsonObject
+        {
+            ["edge_order_support"] = new JsonArray
+            {
+                new JsonObject
+                {
+                    ["code"] = "edge_flow_mismatch",
+                    ["message"] = "Edge volume does not match expected served volume.",
+                    ["severity"] = "warning"
+                }
+            }
+        };
+
+        Assert.True(IsSchemaValid(payload), "Expected edgeWarnings to be allowed on /state_window responses.");
     }
 
     [Fact]

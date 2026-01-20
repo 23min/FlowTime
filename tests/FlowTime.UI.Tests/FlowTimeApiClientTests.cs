@@ -174,9 +174,8 @@ public class FlowTimeApiClientTests
                   "multiplier": 2,
                   "lag": 1,
                   "series": {
-                    "attemptsLoad": [ null, 2 ],
-                    "failuresLoad": [ null, 1 ],
-                    "exhaustedFailuresLoad": [ null, 1 ],
+                    "attemptsVolume": [ null, 2 ],
+                    "failuresVolume": [ null, 1 ],
                     "retryRate": [ null, 0.5 ]
                   }
                 }
@@ -204,8 +203,8 @@ public class FlowTimeApiClientTests
 
         var edge = Assert.Single(response.Value?.Edges ?? Array.Empty<TimeTravelEdgeSeriesDto>());
         Assert.Equal("edge_a_b_attempts", edge.Id);
-        var attemptsLoad = Assert.Contains("attemptsLoad", edge.Series);
-        Assert.Equal(2, attemptsLoad[1]);
+        var attemptsVolume = Assert.Contains("attemptsVolume", edge.Series);
+        Assert.Equal(2, attemptsVolume[1]);
     }
 
     [Fact]
@@ -237,11 +236,11 @@ public class FlowTimeApiClientTests
                   "from": "A",
                   "to": "B",
                   "series": {
-                    "flowTotal": [ 4, 5 ]
+                    "flowVolume": [ 4, 5 ]
                   },
                   "byClass": {
                     "Priority": {
-                      "flowTotal": [ 2, 3 ]
+                      "flowVolume": [ 2, 3 ]
                     }
                   }
                 }
@@ -270,7 +269,7 @@ public class FlowTimeApiClientTests
         var edge = Assert.Single(response.Value?.Edges ?? Array.Empty<TimeTravelEdgeSeriesDto>());
         Assert.NotNull(edge.ByClass);
         var classSeries = Assert.Contains("Priority", edge.ByClass!);
-        var flowSeries = Assert.Contains("flowTotal", classSeries);
+        var flowSeries = Assert.Contains("flowVolume", classSeries);
         Assert.Equal(3, flowSeries[1]);
     }
 

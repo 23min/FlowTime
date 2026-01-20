@@ -100,6 +100,90 @@ traffic:
     }
 
     [Fact]
+    public void TemplateSchema_Rejects_UnknownEdgeType()
+    {
+        var yaml = """
+schemaVersion: 1
+grid:
+  bins: 1
+  binSize: 1
+  binUnit: hours
+topology:
+  nodes:
+    - id: A
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+    - id: B
+      kind: sink
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges:
+    - id: A_to_B
+      from: A
+      to: B
+      type: magical
+      measure: served
+nodes:
+  - id: arrivals
+    kind: const
+    values: [1]
+  - id: served
+    kind: const
+    values: [1]
+""";
+
+        var result = ModelSchemaValidator.Validate(yaml);
+
+        Assert.False(result.IsValid);
+        Assert.Contains("edges", string.Join("; ", result.Errors), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void TemplateSchema_Rejects_UnknownEdgeMeasure()
+    {
+        var yaml = """
+schemaVersion: 1
+grid:
+  bins: 1
+  binSize: 1
+  binUnit: hours
+topology:
+  nodes:
+    - id: A
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+    - id: B
+      kind: sink
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges:
+    - id: A_to_B
+      from: A
+      to: B
+      type: throughput
+      measure: mystery
+nodes:
+  - id: arrivals
+    kind: const
+    values: [1]
+  - id: served
+    kind: const
+    values: [1]
+""";
+
+        var result = ModelSchemaValidator.Validate(yaml);
+
+        Assert.False(result.IsValid);
+        Assert.Contains("edges", string.Join("; ", result.Errors), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void TemplateSchema_Allows_RouterDefinitions()
     {
         var yaml = """

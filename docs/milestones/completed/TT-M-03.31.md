@@ -21,7 +21,7 @@ Close out the “Retry + Service Time” epic with production‑quality fixtures
 2. `dotnet test FlowTime.sln` — PASS (perf baseline skips still present). API `StateEndpointTests.GetStateWindow_IncludesRetryEdgesWhenRequested` validates golden; schema tests validate edges slice. UI tests confirm `CanvasRenderRequest.EdgeSeries`.
 3. Demo checklist (operator view):
    - Load topology page with run `run_state_edges`.
-   - Toggle Retry overlay; verify legends/labels match golden values (`attemptsLoad[1]=20`, `retryRate[1]=0.1`).
+   - Toggle Retry overlay; verify legends/labels match golden values (`attemptsVolume[1]=20`, `retryRate[1]=0.1`).
    - Switch node color basis to Service Time and inspect TTL in inspector.
 
 ## What’s Next
@@ -76,8 +76,8 @@ edges: [
     multiplier: number?,    // from model (default 1)
     lag: number?,           // bins (default 0)
     series: {
-      attemptsLoad?: number?[], // upstream attempts shifted by lag and scaled by multiplier
-      failuresLoad?: number?[], // upstream failures shifted by lag and scaled by multiplier (or errors)
+      attemptsVolume?: number?[], // upstream attempts shifted by lag and scaled by multiplier
+      failuresVolume?: number?[], // upstream failures shifted by lag and scaled by multiplier (or errors)
       retryRate?: number?[]     // failures/attempts at (bin−lag); null on divide‑by‑zero
     }
   }
@@ -95,7 +95,7 @@ Notes
   - `failures`: prefer `data.Failures`; otherwise use `data.Errors`.
 - Transform per edge:
   - Apply integer lag L: sample source at `index = bin − L` (out‑of‑range ⇒ null).
-  - Apply multiplier M: scale `attemptsLoad = attempts × M`, `failuresLoad = failures × M` (M defaults to 1 when omitted).
+  - Apply multiplier M: scale `attemptsVolume = attempts × M`, `failuresVolume = failures × M` (M defaults to 1 when omitted).
   - Compute `retryRate = failures / attempts` at the lagged index; when attempts ≤ 0 ⇒ null.
 
 ### Implementation Plan (API)
@@ -128,7 +128,7 @@ Notes
 
 ### Acceptance Criteria (Edges Slice)
 - AC‑Edges‑1: `/state_window` always includes an `edges` collection (empty array when no retry dependencies exist).
-- AC‑Edges‑2: For retry‑enabled fixtures, `edges[].series.retryRate` matches `failures/attempts` (with guards), and `attemptsLoad` reflects multiplier/lag.
+- AC‑Edges‑2: For retry‑enabled fixtures, `edges[].series.retryRate` matches `failures/attempts` (with guards), and `attemptsVolume` reflects multiplier/lag.
 - AC‑Edges‑3: Schema validation passes for both response shapes.
 - AC‑Edges‑4: UI overlays consume server `edges` and client-side retry derivation is removed after parity validation.
 

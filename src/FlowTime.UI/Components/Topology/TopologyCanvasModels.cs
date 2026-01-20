@@ -36,7 +36,8 @@ internal sealed record CanvasOverlayPayload(
     ViewportSnapshotPayload? SavedViewport,
     bool PreserveViewport,
     string? Title,
-    IReadOnlyList<NodeWarningPayload>? Warnings);
+    IReadOnlyList<NodeWarningPayload>? Warnings,
+    IReadOnlyDictionary<string, IReadOnlyList<EdgeWarningPayload>>? EdgeWarnings);
 
 internal sealed record NodeOverlayInfo(
     string Id,
@@ -54,6 +55,11 @@ public sealed record NodeWarningPayload(
     string Message,
     string Severity = "warning",
     string? NodeId = null);
+
+public sealed record EdgeWarningPayload(
+    string Code,
+    string Message,
+    string Severity = "warning");
 
 internal sealed record NodeSemanticsDto(
     string? Arrivals,

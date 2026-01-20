@@ -258,7 +258,7 @@ public class RunOrchestrationServiceTests
         var outcome = await orchestration.CreateRunAsync(request);
         var result = outcome.Result!;
 
-        var edgePath = Path.Combine(result.RunDirectory, "series", "edge_source_to_sink_flowTotal@EDGE_SOURCE_TO_SINK_FLOWTOTAL@DEFAULT.csv");
+        var edgePath = Path.Combine(result.RunDirectory, "series", "edge_source_to_sink_flowVolume@EDGE_SOURCE_TO_SINK_FLOWVOLUME@DEFAULT.csv");
         Assert.True(File.Exists(edgePath), "Expected edge flow series to be emitted for simulation runs.");
         Assert.Equal(new[] { 4d, 6d }, ReadSeriesValues(edgePath));
     }
@@ -294,8 +294,8 @@ public class RunOrchestrationServiceTests
         var result = outcome.Result!;
 
         var seriesDir = Path.Combine(result.RunDirectory, "series");
-        var alphaPath = Path.Combine(seriesDir, "edge_source_to_sink_flowTotal@EDGE_SOURCE_TO_SINK_FLOWTOTAL@Alpha.csv");
-        var betaPath = Path.Combine(seriesDir, "edge_source_to_sink_flowTotal@EDGE_SOURCE_TO_SINK_FLOWTOTAL@Beta.csv");
+        var alphaPath = Path.Combine(seriesDir, "edge_source_to_sink_flowVolume@EDGE_SOURCE_TO_SINK_FLOWVOLUME@Alpha.csv");
+        var betaPath = Path.Combine(seriesDir, "edge_source_to_sink_flowVolume@EDGE_SOURCE_TO_SINK_FLOWVOLUME@Beta.csv");
 
         Assert.True(File.Exists(alphaPath), "Expected Alpha class edge flow series to be emitted.");
         Assert.True(File.Exists(betaPath), "Expected Beta class edge flow series to be emitted.");

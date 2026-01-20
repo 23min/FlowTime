@@ -65,7 +65,7 @@ public class TelemetryCaptureEndpointsTests : IClassFixture<TestWebApplicationFa
         Assert.True(captureNode["generated"]?.GetValue<bool>() ?? false);
         Assert.False(captureNode["supportsClassMetrics"]?.GetValue<bool>() ?? true);
         Assert.True(captureNode["classes"] is JsonArray { Count: 0 } or null);
-        Assert.True(captureNode["classCoverage"] is null);
+        Assert.Equal("missing", captureNode["classCoverage"]?.GetValue<string>());
 
         Assert.True(Directory.Exists(telemetryDir));
         Assert.True(File.Exists(Path.Combine(telemetryDir, "manifest.json")));

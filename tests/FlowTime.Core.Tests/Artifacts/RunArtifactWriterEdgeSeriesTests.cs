@@ -26,7 +26,7 @@ public sealed class RunArtifactWriterEdgeSeriesTests : IDisposable
             new RunArtifactWriter.EdgeSeriesInput
             {
                 EdgeId = "source_to_sink",
-                Metric = "flowTotal",
+                Metric = "flowVolume",
                 Values = new[] { 5d, 6d }
             }
         };
@@ -52,7 +52,7 @@ public sealed class RunArtifactWriterEdgeSeriesTests : IDisposable
         var indexPath = Path.Combine(result.RunDirectory, "series", "index.json");
         using var doc = JsonDocument.Parse(await File.ReadAllTextAsync(indexPath));
 
-        var expectedId = "edge_source_to_sink_flowTotal@EDGE_SOURCE_TO_SINK_FLOWTOTAL@DEFAULT";
+        var expectedId = "edge_source_to_sink_flowVolume@EDGE_SOURCE_TO_SINK_FLOWVOLUME@DEFAULT";
         var series = doc.RootElement.GetProperty("series");
         Assert.Contains(series.EnumerateArray(), entry =>
             string.Equals(entry.GetProperty("id").GetString(), expectedId, StringComparison.OrdinalIgnoreCase) &&
@@ -68,7 +68,7 @@ public sealed class RunArtifactWriterEdgeSeriesTests : IDisposable
             new RunArtifactWriter.EdgeSeriesInput
             {
                 EdgeId = "source_to_sink",
-                Metric = "flowTotal",
+                Metric = "flowVolume",
                 Values = new[] { 5d, 6d }
             }
         };
@@ -92,7 +92,7 @@ public sealed class RunArtifactWriterEdgeSeriesTests : IDisposable
 
         var result = await RunArtifactWriter.WriteArtifactsAsync(request);
         var seriesDir = Path.Combine(result.RunDirectory, "series");
-        var path = Path.Combine(seriesDir, "edge_source_to_sink_flowTotal@EDGE_SOURCE_TO_SINK_FLOWTOTAL@DEFAULT.csv");
+        var path = Path.Combine(seriesDir, "edge_source_to_sink_flowVolume@EDGE_SOURCE_TO_SINK_FLOWVOLUME@DEFAULT.csv");
 
         Assert.True(File.Exists(path), "Expected edge series CSV to be emitted.");
         Assert.Equal(new[] { 5d, 6d }, ReadSeriesValues(path));

@@ -448,6 +448,7 @@
                                             HasClassSelection="@(selectedClasses.Count > 0)"
                                             EdgeQuality="@windowData?.Metadata.EdgeQuality"
                                             NodeWarnings="nodeWarningsForCanvas"
+                                            EdgeWarnings="edgeWarningsForCanvas"
                                             OverlaySettings="overlaySettings"
                                             ActiveBin="renderBin"
                                             Title="@GetTemplateTitle()"
@@ -997,9 +998,11 @@
     private string selectedTimestampLabel = string.Empty;
     private IReadOnlyList<TimelineTick> timelineTicks = Array.Empty<TimelineTick>();
     private IReadOnlyList<double> timelineMinorTicks = Array.Empty<double>();
-private IReadOnlyList<TimeTravelStateWarningDto> windowWarnings = Array.Empty<TimeTravelStateWarningDto>();
+    private IReadOnlyList<TimeTravelStateWarningDto> windowWarnings = Array.Empty<TimeTravelStateWarningDto>();
     private IReadOnlyDictionary<string, IReadOnlyList<NodeWarningPayload>> nodeWarningsForCanvas = emptyNodeWarnings;
+    private IReadOnlyDictionary<string, IReadOnlyList<EdgeWarningPayload>> edgeWarningsForCanvas = emptyEdgeWarnings;
     private static readonly IReadOnlyDictionary<string, IReadOnlyList<NodeWarningPayload>> emptyNodeWarnings = new Dictionary<string, IReadOnlyList<NodeWarningPayload>>(StringComparer.OrdinalIgnoreCase);
+    private static readonly IReadOnlyDictionary<string, IReadOnlyList<EdgeWarningPayload>> emptyEdgeWarnings = new Dictionary<string, IReadOnlyList<EdgeWarningPayload>>(StringComparer.OrdinalIgnoreCase);
     private static readonly TimeSpan canvasHoverDebounceInterval = TimeSpan.FromMilliseconds(16);
     private bool diagnosticsOverlayEnabled;
     private string? diagnosticsUploadUrl;
@@ -1795,6 +1798,7 @@ private const string pmfExpectationLabel = "Value";
             Logger?.LogInformation("Requesting state window for run {RunId} bins {Start}-{End} (mode={Mode})", runId, sliceStart, sliceEnd, stateMode ?? "operational");
             windowWarnings = Array.Empty<TimeTravelStateWarningDto>();
             UpdateNodeWarningMap();
+            edgeWarningsForCanvas = emptyEdgeWarnings;
             var windowResult = await DataService.GetStateWindowAsync(runId, sliceStart, sliceEnd, stateMode, ct);
             if (!windowResult.Success || windowResult.Value is null)
             {
@@ -1811,6 +1815,7 @@ private const string pmfExpectationLabel = "Value";
             EnsureFallbackClassMetadataFromWindow(windowData);
             windowWarnings = FilterWindowWarnings(windowData.Warnings);
             UpdateNodeWarningMap();
+            UpdateEdgeWarningMap();
             Logger?.LogInformation("State window loaded for run {RunId}: nodeSeries={NodeSeriesCount}, timestamps={TimestampCount}",
                 runId,
                 windowData.Nodes.Count,
@@ -2289,6 +2294,7 @@ private const string pmfExpectationLabel = "Value";
             var fullMode = string.Equals(graphMode, "full", StringComparison.OrdinalIgnoreCase) ? "full" : null;
             windowWarnings = Array.Empty<TimeTravelStateWarningDto>();
             UpdateNodeWarningMap();
+            edgeWarningsForCanvas = emptyEdgeWarnings;
             var windowResult = await DataService.GetStateWindowAsync(currentRunId!, sliceStart, sliceEnd, fullMode, cts.Token);
             if (!windowResult.Success || windowResult.Value is null)
             {
@@ -2298,6 +2304,7 @@ private const string pmfExpectationLabel = "Value";
             windowData = windowResult.Value;
             windowWarnings = FilterWindowWarnings(windowData.Warnings);
             UpdateNodeWarningMap();
+            UpdateEdgeWarningMap();
             timestamps = windowData.TimestampsUtc.ToList();
 
             var clampedSelection = Math.Clamp(selectedBin, sliceStart, sliceEnd);
@@ -6583,6 +6590,7 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
         restoredSelectedBin = null;
         windowWarnings = Array.Empty<TimeTravelStateWarningDto>();
         UpdateNodeWarningMap();
+        edgeWarningsForCanvas = emptyEdgeWarnings;
         saveRunStateDebounceCts?.Cancel();
         saveRunStateDebounceCts?.Dispose();
         saveRunStateDebounceCts = null;
@@ -6661,6 +6669,34 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
 
         nodeWarningsForCanvas = grouped.Count == 0 ? emptyNodeWarnings : grouped;
         Logger?.LogDebug("Node warning map rebuilt: {Count} nodes", nodeWarningsForCanvas.Count);
+    }
+
+    private void UpdateEdgeWarningMap()
+    {
+        if (windowData?.EdgeWarnings is null || windowData.EdgeWarnings.Count == 0)
+        {
+            edgeWarningsForCanvas = emptyEdgeWarnings;
+            return;
+        }
+
+        var grouped = windowData.EdgeWarnings
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Key))
+            .ToDictionary(
+                entry => entry.Key,
+                entry => (IReadOnlyList<EdgeWarningPayload>)entry.Value
+                    .Where(w => w is not null)
+                    .Select(w =>
+                    {
+                        var code = string.IsNullOrWhiteSpace(w.Code) ? "warning" : w.Code.Trim();
+                        var message = string.IsNullOrWhiteSpace(w.Message) ? string.Empty : w.Message.Trim();
+                        var severity = string.IsNullOrWhiteSpace(w.Severity) ? "warning" : w.Severity.Trim().ToLowerInvariant();
+                        return new EdgeWarningPayload(code, message, severity);
+                    })
+                    .ToArray(),
+                StringComparer.OrdinalIgnoreCase);
+
+        edgeWarningsForCanvas = grouped.Count == 0 ? emptyEdgeWarnings : grouped;
+        Logger?.LogDebug("Edge warning map rebuilt: {Count} edges", edgeWarningsForCanvas.Count);
     }
 
     public void Dispose()

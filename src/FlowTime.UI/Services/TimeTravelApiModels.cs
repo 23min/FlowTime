@@ -15,6 +15,10 @@ public sealed record TimeTravelStateSnapshotDto
     [JsonPropertyName("nodes")]
     public IReadOnlyList<TimeTravelNodeSnapshotDto> Nodes { get; init; } = Array.Empty<TimeTravelNodeSnapshotDto>();
 
+    [JsonPropertyName("edgeWarnings")]
+    public IReadOnlyDictionary<string, IReadOnlyList<TimeTravelStateWarningDto>> EdgeWarnings { get; init; }
+        = new Dictionary<string, IReadOnlyList<TimeTravelStateWarningDto>>(StringComparer.OrdinalIgnoreCase);
+
     [JsonPropertyName("warnings")]
     public IReadOnlyList<TimeTravelStateWarningDto> Warnings { get; init; } = Array.Empty<TimeTravelStateWarningDto>();
 }
@@ -35,6 +39,10 @@ public sealed record TimeTravelStateWindowDto
 
     [JsonPropertyName("edges")]
     public IReadOnlyList<TimeTravelEdgeSeriesDto>? Edges { get; init; } = Array.Empty<TimeTravelEdgeSeriesDto>();
+
+    [JsonPropertyName("edgeWarnings")]
+    public IReadOnlyDictionary<string, IReadOnlyList<TimeTravelStateWarningDto>> EdgeWarnings { get; init; }
+        = new Dictionary<string, IReadOnlyList<TimeTravelStateWarningDto>>(StringComparer.OrdinalIgnoreCase);
 
     [JsonPropertyName("warnings")]
     public IReadOnlyList<TimeTravelStateWarningDto> Warnings { get; init; } = Array.Empty<TimeTravelStateWarningDto>();

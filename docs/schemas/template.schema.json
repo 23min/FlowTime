@@ -82,8 +82,18 @@
       "type": "object",
       "required": ["bins", "binSize", "binUnit"],
       "properties": {
-        "bins": { "type": "integer", "minimum": 1 },
-        "binSize": { "type": "integer", "minimum": 1 },
+        "bins": {
+          "anyOf": [
+            { "type": "integer", "minimum": 1 },
+            { "type": "string", "pattern": "^\\$\\{[A-Za-z0-9_]+\\}$" }
+          ]
+        },
+        "binSize": {
+          "anyOf": [
+            { "type": "integer", "minimum": 1 },
+            { "type": "string", "pattern": "^\\$\\{[A-Za-z0-9_]+\\}$" }
+          ]
+        },
         "binUnit": { "type": "string", "enum": ["minutes", "hours", "days"] },
         "start": { "type": "string", "format": "date-time" }
       },
@@ -118,8 +128,18 @@
                 "required": ["kind"],
                 "properties": {
                   "kind": { "type": "string", "enum": ["constant", "poisson"] },
-                  "ratePerBin": { "type": "number" },
-                  "rate": { "type": "number" }
+                  "ratePerBin": {
+                    "anyOf": [
+                      { "type": "number" },
+                      { "type": "string", "pattern": "^\\$\\{[A-Za-z0-9_]+\\}$" }
+                    ]
+                  },
+                  "rate": {
+                    "anyOf": [
+                      { "type": "number" },
+                      { "type": "string", "pattern": "^\\$\\{[A-Za-z0-9_]+\\}$" }
+                    ]
+                  }
                 },
                 "additionalProperties": true
               }
@@ -176,8 +196,18 @@
                 "type": "object",
                 "properties": {
                   "kind": { "type": "string" },
-                  "periodBins": { "type": "integer" },
-                  "phaseOffset": { "type": "integer" },
+                  "periodBins": {
+                    "anyOf": [
+                      { "type": "integer" },
+                      { "type": "string", "pattern": "^\\$\\{[A-Za-z0-9_]+\\}$" }
+                    ]
+                  },
+                  "phaseOffset": {
+                    "anyOf": [
+                      { "type": "integer" },
+                      { "type": "string", "pattern": "^\\$\\{[A-Za-z0-9_]+\\}$" }
+                    ]
+                  },
                   "capacitySeries": { "type": "string" }
                 },
                 "additionalProperties": false
@@ -243,8 +273,18 @@
             "type": "object",
             "properties": {
               "kind": { "type": "string" },
-              "periodBins": { "type": "integer" },
-              "phaseOffset": { "type": "integer" },
+              "periodBins": {
+                "anyOf": [
+                  { "type": "integer" },
+                  { "type": "string", "pattern": "^\\$\\{[A-Za-z0-9_]+\\}$" }
+                ]
+              },
+              "phaseOffset": {
+                "anyOf": [
+                  { "type": "integer" },
+                  { "type": "string", "pattern": "^\\$\\{[A-Za-z0-9_]+\\}$" }
+                ]
+              },
               "capacitySeries": { "type": "string" }
             },
             "additionalProperties": false

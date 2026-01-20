@@ -135,8 +135,12 @@ properties:
             from: { type: string }
             to: { type: string }
             weight: { type: number }
-            type: { type: string }
-            measure: { type: string }
+            type:
+              type: string
+              enum: [throughput, effort, terminal, dependency]
+            measure:
+              type: string
+              enum: [served, attempts, errors, failures, exhaustedFailures, load]
             multiplier: { type: number }
             lag: { type: integer }
           additionalProperties: true

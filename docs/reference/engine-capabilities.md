@@ -45,7 +45,7 @@ This document describes the **shipped** FlowTime Engine surfaces and behaviors a
 - Derived metrics: utilization, latencyMinutes, serviceTimeMs, flowLatencyMs, throughputRatio, retryTax, color (UI aid).
 - SLA descriptors: completion SLA (with dispatch carry-forward for gated releases), backlog age SLA (marked unavailable when telemetry is missing), and schedule-adherence SLA. SLA payloads include kind + status so UIs can surface "No data" without fabricating values.
 - ServiceWithBuffer derivations use the same inputs as service/queue nodes: `latencyMinutes` requires `queueDepth` + `served`, `utilization` requires `capacity` + `served`, and `serviceTimeMs` requires `processingTimeMsSum` + `servedCount`. Missing inputs yield no derived series.
-- Edge series (state_window): retry dependency edges only (`attemptsLoad`, `failuresLoad`, `retryRate`, optional `exhaustedFailuresLoad`) based on node semantics and edge multiplier/lag hints.
+- Edge series (state_window): retry dependency edges only (`attemptsVolume`, `failuresVolume`, `retryRate`) based on node semantics and edge multiplier/lag hints.
 - Warnings: invariants (conservation, queue depth mismatch, missing series, retry kernel policy, telemetry missing), backlog health signals (growth streak, overload ratio, age risk), mode validation, retry kernel adjustments; recorded per-node/global in state responses and `run.json`.
 
 ## Telemetry & time-travel

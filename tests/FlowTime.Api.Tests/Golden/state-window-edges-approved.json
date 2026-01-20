@@ -291,13 +291,13 @@
       "multiplier": 2,
       "lag": 1,
       "series": {
-        "attemptsLoad": [
+        "attemptsVolume": [
           null,
           20,
           14,
           20
         ],
-        "failuresLoad": [
+        "failuresVolume": [
           null,
           2,
           2,
@@ -308,12 +308,6 @@
           0.1,
           0.142857,
           0.1
-        ],
-        "exhaustedFailuresLoad": [
-          null,
-          0,
-          0,
-          2
         ]
       }
     },
@@ -326,13 +320,13 @@
       "multiplier": 0.5,
       "lag": 0,
       "series": {
-        "attemptsLoad": [
+        "attemptsVolume": [
           5,
           3.5,
           5,
           2.5
         ],
-        "failuresLoad": [
+        "failuresVolume": [
           0.5,
           0.5,
           0.5,
@@ -343,15 +337,10 @@
           0.142857,
           0.1,
           0.2
-        ],
-        "exhaustedFailuresLoad": [
-          0,
-          0,
-          0.5,
-          0.5
         ]
       }
     }
   ],
+  "edgeWarnings": {},
   "warnings": []
 }

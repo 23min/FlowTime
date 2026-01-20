@@ -738,7 +738,7 @@ This foundation enables data-driven optimization of retry policies, early detect
 - **Retry Edge Slice (TT‑M‑03.31)**  
   `/v1/runs/{runId}/state_window` emits a server-computed `edges` collection describing each retry-relevant dependency:
   - `id`, `from`, `to`, `edgeType`, `field`, `multiplier`, `lag`.
-  - **Edge metrics** (per edge, per bin) must be explicit: `flowTotal` (throughput), `attemptsLoad` (effort), `failuresLoad` (terminal), and optional `retryRate`.
+  - **Edge metrics** (per edge, per bin) must be explicit: `flowVolume` (throughput), `attemptsVolume` (effort), `failuresVolume` (terminal), and optional `retryRate`.
   - **Edge warnings** should be keyed by `edgeId` so clients never parse warning strings.
-  - Series keys: `attemptsLoad`, `failuresLoad`, `retryRate` (aligned with `window.startBin`).  
+  - Series keys: `attemptsVolume`, `failuresVolume`, `retryRate` (aligned with `window.startBin`).  
   UI surfaces consume those series directly for overlay rendering; clients no longer derive retry metrics from node data.

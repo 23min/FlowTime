@@ -149,16 +149,20 @@ public sealed class TelemetryCapture
             declaredClasses.Add(classId);
         }
 
-        var classes = declaredClasses.ToArray();
-        var hasNonDefault = capturedClasses.Any(c => !string.Equals(c, "DEFAULT", StringComparison.OrdinalIgnoreCase));
-        var classCoverage = classes.Length == 0
+        var declaredNonDefault = declaredClasses
+            .Where(c => !string.Equals(c, "DEFAULT", StringComparison.OrdinalIgnoreCase))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var capturedNonDefault = capturedClasses
+            .Where(c => !string.Equals(c, "DEFAULT", StringComparison.OrdinalIgnoreCase))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var supportsClassMetrics = capturedNonDefault.Count > 0;
+        var classCoverage = capturedNonDefault.Count == 0
             ? "missing"
-            : hasNonDefault ? "full" : "partial";
-        var supportsClassMetrics = hasNonDefault;
+            : declaredNonDefault.Count > 0 && declaredNonDefault.SetEquals(capturedNonDefault) ? "full" : "partial";
         IReadOnlyList<string>? manifestClasses = supportsClassMetrics
-            ? classes.Where(c => !string.Equals(c, "DEFAULT", StringComparison.OrdinalIgnoreCase)).ToArray()
+            ? (declaredNonDefault.Count > 0 ? declaredNonDefault : capturedNonDefault).ToArray()
             : null;
-        var manifestCoverage = supportsClassMetrics ? classCoverage : null;
+        var manifestCoverage = classCoverage;
 
         var manifest = new TelemetryManifest(
             SchemaVersion: 2,
@@ -252,7 +256,7 @@ public sealed class TelemetryCapture
                 throw new InvalidDataException($"Invalid CSV row '{line}' in {filePath}.");
             }
 
-            var rawValue = parts[1].Trim();
+            var rawValue = parts[^1].Trim();
 
             if (rawValue.Length == 0)
             {

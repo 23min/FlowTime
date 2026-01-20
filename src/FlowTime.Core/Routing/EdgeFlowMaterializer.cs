@@ -91,7 +91,7 @@ public static class EdgeFlowMaterializer
                     }
                 }
 
-                AddEdgeSeriesMetric(result, candidate.Edge, "flowTotal", routeTotal, routeClasses);
+                AddEdgeSeriesMetric(result, candidate.Edge, "flowVolume", routeTotal, routeClasses);
                 handledRouterEdges.Add(new EdgeKey(candidate.SourceNodeId, candidate.TargetNodeId));
             }
 
@@ -127,7 +127,7 @@ public static class EdgeFlowMaterializer
                     }
                 }
 
-                AddEdgeSeriesMetric(result, candidate.Edge, "flowTotal", routeTotal, routeClasses);
+                AddEdgeSeriesMetric(result, candidate.Edge, "flowVolume", routeTotal, routeClasses);
                 handledRouterEdges.Add(new EdgeKey(candidate.SourceNodeId, candidate.TargetNodeId));
             }
         }
@@ -198,7 +198,7 @@ public static class EdgeFlowMaterializer
                     }
                 }
 
-                AddEdgeSeriesMetric(result, candidate.Edge, "flowTotal", series, routeClasses);
+                AddEdgeSeriesMetric(result, candidate.Edge, "flowVolume", series, routeClasses);
                 if (hasAttemptsSeries)
                 {
                     var attemptsSeriesScaled = ScaleSeries(attemptsSeries!, fraction);
@@ -212,7 +212,7 @@ public static class EdgeFlowMaterializer
                         }
                     }
 
-                    AddEdgeSeriesMetric(result, candidate.Edge, "attemptsLoad", attemptsSeriesScaled, attemptsClasses);
+                    AddEdgeSeriesMetric(result, candidate.Edge, "attemptsVolume", attemptsSeriesScaled, attemptsClasses);
                 }
             }
         }

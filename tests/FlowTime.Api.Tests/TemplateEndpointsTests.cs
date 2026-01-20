@@ -41,6 +41,7 @@ public sealed class TemplateEndpointsTests : IClassFixture<TestWebApplicationFac
     {
         public Task<IReadOnlyList<Template>> GetAllTemplatesAsync() => Task.FromResult<IReadOnlyList<Template>>(Array.Empty<Template>());
         public Task<Template?> GetTemplateAsync(string templateId) => Task.FromResult<Template?>(null);
+        public Task<string?> GetTemplateSourceAsync(string templateId) => Task.FromResult<string?>(null);
         public Task<string> GenerateEngineModelAsync(string templateId, Dictionary<string, object> parameters, TemplateMode? modeOverride = null) => Task.FromResult(string.Empty);
         public Task<ValidationResult> ValidateParametersAsync(string templateId, Dictionary<string, object> parameters) => Task.FromResult(ValidationResult.Success());
         public Task<int> RefreshAsync() => Task.FromResult(3);
