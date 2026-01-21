@@ -721,4 +721,44 @@ public class InvariantAnalyzerTests
         Assert.Contains(result.Warnings, warning => warning.Code == "class_series_missing_served");
         Assert.DoesNotContain(result.Warnings, warning => warning.Code == "class_series_missing_errors");
     }
+
+    [Fact]
+    public void Analyze_WarnsWhenDependencySignalsMissing()
+    {
+        var model = new ModelDefinition
+        {
+            Grid = new GridDefinition { Bins = 1, BinSize = 1, BinUnit = "hours" },
+            Nodes =
+            {
+                new NodeDefinition { Id = "dep_errors", Kind = "const", Values = new[] { 0d } }
+            },
+            Topology = new TopologyDefinition
+            {
+                Nodes =
+                {
+                    new TopologyNodeDefinition
+                    {
+                        Id = "DependencyDb",
+                        Kind = "dependency",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "dep_arrivals",
+                            Served = "dep_served",
+                            Errors = "dep_errors"
+                        }
+                    }
+                }
+            }
+        };
+
+        var evaluated = new Dictionary<NodeId, double[]>
+        {
+            [new NodeId("dep_errors")] = new[] { 0d }
+        };
+
+        var result = InvariantAnalyzer.Analyze(model, evaluated);
+
+        Assert.Contains(result.Warnings, warning => warning.Code == "missing_dependency_arrivals");
+        Assert.Contains(result.Warnings, warning => warning.Code == "missing_dependency_served");
+    }
 }

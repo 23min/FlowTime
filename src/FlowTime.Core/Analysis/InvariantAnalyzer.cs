@@ -120,6 +120,7 @@ public static class InvariantAnalyzer
             var isQueueKind = nodeKind == "queue";
             var isQueueLikeKind = nodeKind is "queue" or "dlq";
             var isDlqKind = nodeKind == "dlq";
+            var isDependencyKind = nodeKind == "dependency";
             var isTerminalQueue = isQueueKind &&
                                   incomingEdges.TryGetValue(nodeId, out var terminalInbound) &&
                                   terminalInbound.Count > 0 &&
@@ -186,7 +187,7 @@ public static class InvariantAnalyzer
             CheckNonNegative(nodeId, "retry_budget_negative", "Retry budget remaining produced negative values", retryBudgetRemaining);
 
             // Served <= arrivals
-            if (arrivals != null && served != null && !isServiceWithBuffer)
+            if (arrivals != null && served != null && !isServiceWithBuffer && !isDependencyKind)
             {
                 CheckDiff(nodeId, "served_exceeds_arrivals",
                     "Served volume exceeded arrivals",
@@ -354,7 +355,28 @@ public static class InvariantAnalyzer
                     "info"));
             }
 
-            if (expectsServed && served == null)
+            if (isDependencyKind && arrivals == null)
+            {
+                warnings.Add(new InvariantWarning(
+                    nodeId,
+                    "missing_dependency_arrivals",
+                    "Dependency arrivals series was not available; dependency load cannot be computed.",
+                    Array.Empty<int>(),
+                    null,
+                    "info"));
+            }
+
+            if (isDependencyKind && served == null)
+            {
+                warnings.Add(new InvariantWarning(
+                    nodeId,
+                    "missing_dependency_served",
+                    "Dependency served series was not available; dependency utilization cannot be computed.",
+                    Array.Empty<int>(),
+                    null,
+                    "info"));
+            }
+            else if (expectsServed && served == null)
             {
                 warnings.Add(new InvariantWarning(
                     nodeId,

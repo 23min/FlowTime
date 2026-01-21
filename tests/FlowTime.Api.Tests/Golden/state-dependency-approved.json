@@ -1,0 +1,156 @@
+{
+  "metadata": {
+    "runId": "run_state_dependency",
+    "templateId": "order-system",
+    "templateTitle": "Order System Fixture",
+    "templateVersion": "1.0.0",
+    "mode": "telemetry",
+    "provenanceHash": "sha256:run_state_dependency",
+    "telemetrySourcesResolved": true,
+    "schema": {
+      "id": "time-travel/v1",
+      "version": "1",
+      "hash": "sha256:run_state_dependency"
+    },
+    "storage": {
+      "modelPath": "<dynamic>",
+      "metadataPath": "<dynamic>",
+      "provenancePath": "<dynamic>"
+    },
+    "edgeQuality": "missing",
+    "classCoverage": "missing"
+  },
+  "bin": {
+    "index": 1,
+    "startUtc": "2025-01-01T00:05:00+00:00",
+    "endUtc": "2025-01-01T00:10:00+00:00",
+    "durationMinutes": 5
+  },
+  "nodes": [
+    {
+      "id": "OrderService",
+      "kind": "service",
+      "nodeLogicalType": "service",
+      "metrics": {
+        "arrivals": 10,
+        "served": 6,
+        "errors": 1,
+        "attempts": 7,
+        "failures": 1,
+        "exhaustedFailures": 0,
+        "retryEcho": 0.6,
+        "retryBudgetRemaining": 3,
+        "capacity": 7,
+        "maxAttempts": 4
+      },
+      "seriesMetadata": {
+        "serviceTimeMs": {
+          "aggregation": "avg",
+          "origin": "derived"
+        },
+        "flowLatencyMs": {
+          "aggregation": "avg",
+          "origin": "derived"
+        },
+        "utilization": {
+          "aggregation": "unknown",
+          "origin": "derived"
+        },
+        "throughputRatio": {
+          "aggregation": "unknown",
+          "origin": "derived"
+        }
+      },
+      "byClass": {
+        "*": {
+          "arrivals": 10,
+          "served": 6,
+          "errors": 1,
+          "capacity": 7,
+          "processingTimeMsSum": 1800,
+          "servedCount": 6
+        }
+      },
+      "derived": {
+        "utilization": 0.857143,
+        "serviceTimeMs": 300,
+        "flowLatencyMs": 300,
+        "throughputRatio": 0.6,
+        "retryTax": 0.142857,
+        "color": "yellow"
+      },
+      "telemetry": {
+        "sources": [
+          "file:OrderService_arrivals.csv",
+          "file:OrderService_served.csv",
+          "file:OrderService_errors.csv",
+          "file:OrderService_attempts.csv",
+          "file:OrderService_failures.csv",
+          "file:OrderService_exhaustedFailures.csv",
+          "file:OrderService_retryEcho.csv",
+          "file:OrderService_retryBudgetRemaining.csv",
+          "file:OrderService_capacity.csv",
+          "file:OrderService_processingTimeMsSum.csv",
+          "file:OrderService_servedCount.csv"
+        ],
+        "warnings": []
+      },
+      "sla": [
+        {
+          "kind": "completion",
+          "status": "ok",
+          "value": 0.6
+        }
+      ]
+    },
+    {
+      "id": "DependencyDb",
+      "kind": "dependency",
+      "nodeLogicalType": "dependency",
+      "metrics": {
+        "arrivals": 6,
+        "served": 6,
+        "errors": 0
+      },
+      "seriesMetadata": {
+        "flowLatencyMs": {
+          "aggregation": "avg",
+          "origin": "derived"
+        },
+        "throughputRatio": {
+          "aggregation": "unknown",
+          "origin": "derived"
+        }
+      },
+      "byClass": {
+        "*": {
+          "arrivals": 6,
+          "served": 6,
+          "errors": 0
+        }
+      },
+      "derived": {
+        "throughputRatio": 1,
+        "color": "gray"
+      },
+      "telemetry": {
+        "sources": [
+          "file:DependencyDb_arrivals.csv",
+          "file:DependencyDb_served.csv",
+          "file:DependencyDb_errors.csv"
+        ],
+        "warnings": []
+      },
+      "sla": [
+        {
+          "kind": "completion",
+          "status": "ok",
+          "value": 1
+        }
+      ]
+    }
+  ],
+  "edges": [],
+  "edgeWarnings": {},
+  "warnings": []
+}

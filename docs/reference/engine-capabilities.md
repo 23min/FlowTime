@@ -1,15 +1,15 @@
-# FlowTime Engine Capabilities (Authoritative Snapshot — Nov 2025)
+# FlowTime Engine Capabilities (Authoritative Snapshot — Jan 2026)
 
 This document describes the **shipped** FlowTime Engine surfaces and behaviors as of November 24, 2025. It is descriptive, not a roadmap. Everything listed here is implemented in code and covered by current schemas/tests. Explicitly omitted items (classes, edge fact tables, streaming, catalog APIs, export/import registry) are **not** supported today.
 
 ## Execution model
 - **Deterministic, discrete-time DAG** on a fixed grid `{ bins, binSize, binUnit }` (UTC, left-aligned).
-- **Node kinds**: const (inline values), expr (limited expression set), **serviceWithBuffer** nodes that own queue/backlog semantics (`queueDepth`, arrivals/served/errors, optional `loss`, dispatch schedules), routers, and template-derived computed nodes preserved in artifacts. (See [`docs/architecture/service-with-buffer/service-with-buffer-architecture.md`](../architecture/service-with-buffer/service-with-buffer-architecture.md) for the full contract.)
+- **Node kinds**: const (inline values), expr (limited expression set), **serviceWithBuffer** nodes that own queue/backlog semantics (`queueDepth`, arrivals/served/errors, optional `loss`, dispatch schedules), routers, sinks, and **dependency** nodes (arrivals/served/errors only). Template-derived computed nodes are preserved in artifacts. (See [`docs/architecture/service-with-buffer/service-with-buffer-architecture.md`](../architecture/service-with-buffer/service-with-buffer-architecture.md) for the full contract.)
 - **Expression support** (engine evaluator): arithmetic `+ - * /`, functions `SHIFT`, `CONV`, `MIN`, `MAX`, `CLAMP`, `MOD`, `FLOOR`, `CEIL`, `ROUND`, `STEP`, `PULSE`. No IF/EMA/ABS/SQRT/POW/routers/autoscale nodes yet.
 - **Retry/backoff**: Supports attempts/failures/retry echo series; `RetryKernelPolicy` normalizes kernels; derived retry echo and exhaustion warnings recorded when missing.
 - **Backlog/latency**: Queue depth/backlog recurrence with optional initial conditions; derived `latencyMinutes`, `throughputRatio`, `flowLatencyMs` in state responses.
 - **Classes**: Multi-class flows supported. Templates/tagged nodes emit per-class series; artifacts and `/state(_window)` expose `byClass` arrays plus `classCoverage` metadata. `DEFAULT` remains the fallback for totals.
-- **Edges**: Only retry-dependency derived edges in `/state_window` (attempts/failures/retryRate from source semantics). No EdgeTimeBin fact tables.
+- **Edges**: Explicit topology edges support `throughput`, `effort`, and `terminal` types. `/state_window` emits edge series (`flowVolume`, `attemptsVolume`, `failuresVolume`, `retryRate`, plus derived `retryVolume` where applicable) and edge-quality metadata. No path analytics yet.
 
 ## Artifacts & hashing
 - Layout (per run): `spec.yaml`, `model/{model.yaml, metadata.json, provenance.json?}`, `run.json`, `manifest.json`, `series/index.json`, per-series CSVs under `series/`, placeholder `aggregates/` directory.
@@ -45,7 +45,7 @@ This document describes the **shipped** FlowTime Engine surfaces and behaviors a
 - Derived metrics: utilization, latencyMinutes, serviceTimeMs, flowLatencyMs, throughputRatio, retryTax, color (UI aid).
 - SLA descriptors: completion SLA (with dispatch carry-forward for gated releases), backlog age SLA (marked unavailable when telemetry is missing), and schedule-adherence SLA. SLA payloads include kind + status so UIs can surface "No data" without fabricating values.
 - ServiceWithBuffer derivations use the same inputs as service/queue nodes: `latencyMinutes` requires `queueDepth` + `served`, `utilization` requires `capacity` + `served`, and `serviceTimeMs` requires `processingTimeMsSum` + `servedCount`. Missing inputs yield no derived series.
-- Edge series (state_window): retry dependency edges only (`attemptsVolume`, `failuresVolume`, `retryRate`) based on node semantics and edge multiplier/lag hints.
+- Edge series (state_window): `flowVolume` for throughput/effort edges, retry dependency edges (`attemptsVolume`, `failuresVolume`, `retryRate`), plus derived `retryVolume` for retries attributed to incoming edges. Edge quality labels (`exact`, `approx`, `partialClass`, `missing`) are included in metadata.
 - Warnings: invariants (conservation, queue depth mismatch, missing series, retry kernel policy, telemetry missing), backlog health signals (growth streak, overload ratio, age risk), mode validation, retry kernel adjustments; recorded per-node/global in state responses and `run.json`.
 
 ## Telemetry & time-travel

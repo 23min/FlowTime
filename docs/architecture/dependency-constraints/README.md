@@ -26,7 +26,7 @@ A dependency is represented as a **resource constraint** that consumes load and 
 
 Two compatible representations:
 
-### Option A — Dependency as a Node
+### Option A — Dependency as a Node (M-10.01)
 Model the dependency as a node in the graph with arrivals/served:
 
 ```
@@ -35,8 +35,9 @@ Service A -> Dependency DB -> Service A -> Next Hop
 
 - Works well for shared dependencies.
 - Increases graph complexity; best with grouping/overlay UI.
+- **M-10.01 MVP contract:** dependency nodes require `arrivals` + `served` (optional `errors`), no queue, no capacity, no retry semantics.
 
-### Option B — Dependency as a Constraint on a Service
+### Option B — Dependency as a Constraint on a Service (M-10.02)
 Attach dependency constraints to a service node:
 
 - Service capacity is limited by dependency capacity.
@@ -71,6 +72,13 @@ Dependencies rely on explicit **edge semantics**:
 - **Effort edges**: attempt load to dependencies.
 
 This epic depends on the edge semantics contract (M-07.04) so that dependency load is explicit and validated.
+
+## MVP Warnings (M-10.01)
+
+- `missing_dependency_arrivals`: dependency arrivals were not provided.
+- `missing_dependency_served`: dependency served was not provided.
+
+These are emitted as **info** warnings and indicate that dependency load/utilization cannot be computed.
 
 ## UI Expectations
 

@@ -528,6 +528,39 @@ internal static class TemplateValidator
 
         var semantics = topologyNode.Semantics;
         var kind = topologyNode.Kind ?? string.Empty;
+        if (kind.Equals("dependency", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!string.IsNullOrWhiteSpace(semantics.QueueDepth))
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNode.Id}' of kind dependency must not define semantics.queueDepth.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(semantics.Capacity))
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNode.Id}' of kind dependency must not define semantics.capacity.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(semantics.Attempts))
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNode.Id}' of kind dependency must not define semantics.attempts.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(semantics.Failures))
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNode.Id}' of kind dependency must not define semantics.failures.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(semantics.RetryEcho))
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNode.Id}' of kind dependency must not define semantics.retryEcho.");
+            }
+
+            if (semantics.RetryKernel is { Length: > 0 })
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNode.Id}' of kind dependency must not define semantics.retryKernel.");
+            }
+        }
+
         if (kind.Equals("sink", StringComparison.OrdinalIgnoreCase))
         {
             if (!string.IsNullOrWhiteSpace(semantics.QueueDepth))
@@ -622,6 +655,21 @@ internal static class TemplateValidator
 
         if (mode == TemplateMode.Simulation)
         {
+            if (kind.Equals("dependency", StringComparison.OrdinalIgnoreCase))
+            {
+                if (string.IsNullOrWhiteSpace(semantics.Arrivals))
+                {
+                    throw new TemplateValidationException($"Topology node '{topologyNode.Id}' must define semantics.arrivals in simulation mode.");
+                }
+
+                if (string.IsNullOrWhiteSpace(semantics.Served))
+                {
+                    throw new TemplateValidationException($"Topology node '{topologyNode.Id}' must define semantics.served in simulation mode.");
+                }
+
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(semantics.Arrivals))
             {
                 throw new TemplateValidationException($"Topology node '{topologyNode.Id}' must define semantics.arrivals in simulation mode.");

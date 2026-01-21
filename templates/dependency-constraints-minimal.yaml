@@ -1,0 +1,112 @@
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: 'dependency-constraints-minimal'
+  title: 'Dependency Constraints Minimal'
+  description: 'Minimal dependency node example with arrivals and served signals.'
+  narrative: 'Producer feeds a shared dependency that gates downstream throughput.'
+  version: 1.0.0
+  tags: [dependency, constraints, minimal]
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
+
+grid:
+  bins: 12
+  binSize: 5
+  binUnit: minutes
+
+rng:
+  kind: pcg32
+  seed: 20250105
+
+topology:
+  nodes:
+    - id: Producer
+      kind: service
+      semantics:
+        arrivals: producer_arrivals
+        served: producer_served
+        attempts: producer_attempts
+        processingTimeMsSum: producer_processing_time_ms_sum
+        servedCount: producer_served
+        aliases:
+          arrivals: 'Incoming work'
+          served: 'Work accepted'
+          attempts: 'Dependency call attempts'
+    - id: DependencyDb
+      kind: dependency
+      semantics:
+        arrivals: dependency_arrivals
+        served: dependency_served
+        errors: dependency_errors
+        aliases:
+          arrivals: 'DB calls'
+          served: 'DB responses'
+          errors: 'DB errors'
+    - id: Consumer
+      kind: service
+      semantics:
+        arrivals: consumer_arrivals
+        served: consumer_served
+        processingTimeMsSum: consumer_processing_time_ms_sum
+        servedCount: consumer_served
+        aliases:
+          served: 'Downstream completions'
+  edges:
+    - id: producer_to_dependency
+      from: Producer:out
+      to: DependencyDb:in
+      type: effort
+      measure: attempts
+    - id: dependency_to_consumer
+      from: DependencyDb:out
+      to: Consumer:in
+      type: throughput
+      measure: served
+
+nodes:
+  - id: producer_arrivals
+    kind: expr
+    expr: "40"
+  - id: producer_served
+    kind: expr
+    expr: "producer_arrivals"
+  - id: producer_attempts
+    kind: expr
+    expr: "producer_served"
+  - id: producer_processing_time_ms_sum
+    kind: expr
+    expr: "producer_served * 180000"
+
+  - id: dependency_arrivals
+    kind: expr
+    expr: "producer_served"
+  - id: dependency_served
+    kind: expr
+    expr: "dependency_arrivals * 0.85"
+  - id: dependency_errors
+    kind: expr
+    expr: "dependency_arrivals - dependency_served"
+
+  - id: consumer_arrivals
+    kind: expr
+    expr: "dependency_served"
+  - id: consumer_served
+    kind: expr
+    expr: "consumer_arrivals"
+  - id: consumer_processing_time_ms_sum
+    kind: expr
+    expr: "consumer_served * 120000"
+
+outputs:
+  - series: producer_arrivals
+    as: producer_arrivals.csv
+  - series: producer_served
+    as: producer_served.csv
+  - series: dependency_arrivals
+    as: dependency_arrivals.csv
+  - series: dependency_served
+    as: dependency_served.csv
+  - series: consumer_served
+    as: consumer_served.csv
