@@ -200,6 +200,7 @@ public sealed class TelemetryStateGoldenTests
             0,
             definition.Bins - 1,
             GraphQueryMode.Operational,
+            null,
             CancellationToken.None);
         var orderSeries = window.Nodes.Single(n => n.Id == "OrderService");
         Assert.Contains(orderSeries.Telemetry.Warnings, w => w.Code == "telemetry_sources_unresolved");

@@ -103,6 +103,9 @@ Set the following to enable integration tests:
 - `MCP_TEST_TEMPLATE_ID` (optional; enables run_template test)
 - `MCP_TEST_RNG_SEED` (optional; required for templates with rng blocks)
 - `MCP_TEST_DRAFT_SIM_API_URL` (optional; enables draft validation/run tests)
+- `MCP_TEST_RUN_ID` (optional; enables get_state_window edge metadata test)
+- `MCP_TEST_START_BIN` (optional; used with `MCP_TEST_RUN_ID`)
+- `MCP_TEST_END_BIN` (optional; used with `MCP_TEST_RUN_ID`)
 
 Run tests:
 

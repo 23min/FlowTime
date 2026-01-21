@@ -1000,9 +1000,18 @@ v1.MapGet("/runs/{runId}/state_window", async (string runId, HttpContext context
         return Results.BadRequest(new { error = modeError });
     }
 
+    var edgeIds = ParseCsv(context.Request.Query, "edgeIds");
+    var edgeMetrics = ParseCsv(context.Request.Query, "edgeMetrics");
+    var classIds = ParseCsv(context.Request.Query, "classIds");
+    EdgeQueryFilter? edgeFilter = null;
+    if (edgeIds is not null || edgeMetrics is not null || classIds is not null)
+    {
+        edgeFilter = new EdgeQueryFilter(edgeIds, edgeMetrics, classIds);
+    }
+
     try
     {
-        var response = await stateQueryService.GetStateWindowAsync(runId, startBin, endBin, mode, context.RequestAborted);
+        var response = await stateQueryService.GetStateWindowAsync(runId, startBin, endBin, mode, edgeFilter, context.RequestAborted);
         return Results.Ok(response);
     }
     catch (StateQueryException ex)

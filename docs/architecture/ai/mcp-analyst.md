@@ -258,12 +258,12 @@ A practical v1 MCP server for FlowTime could be built around a small set of tool
 
 - Purpose: Get per-node/per-class series over a time window.
 - Inputs:
-  - `start`, `end` (timestamps or bin indices).
-  - Optional filters: `runId`, `nodeIds[]`, `classIds[]`, `metrics[]`.
+  - `startBin`, `endBin` (bin indices).
+  - Optional filters: `runId`, `classIds[]`, `edgeIds[]`, `edgeMetrics[]`, `mode`.
 - Outputs:
   - For each node (and optionally class): aligned arrays for metrics such as:
     - `arrivals[]`, `served[]`, `errors[]`, `backlog[]`, `latency[]`, `capacity[]`, etc.
-- Planned (M-08.05): when edge metrics are available, return `edgeSeries` with `edgeId`, optional `classId`, and aligned metric arrays (e.g., `flowVolume[]`, `retries[]`, `attemptsVolume[]`), plus edge quality signals.
+- M-08.05: when edge metrics are available, return `edgeSeries` with `edgeId`, optional `classId`, and aligned metric arrays (e.g., `flowVolume[]`, `retryVolume[]`, `totalVolume[]`), plus `metadata.edgeQuality` and `edgeWarnings`.
 - Backed by: FlowTime's `/state_window` (or a variant better aligned with MCP).
 
 ### 5.3 `detect_outages`

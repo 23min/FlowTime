@@ -34,6 +34,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private const string edgeFlowApproxRunId = "run_state_edge_flow_approx";
     private const string edgeFlowPartialRunId = "run_state_edge_flow_partial";
     private const string edgeFlowRouterSubsetRunId = "run_state_edge_flow_router_subset";
+    private const string edgeWarningsRunId = "run_state_edge_warnings";
     private const string classRunId = "run_state_classes";
     private const string queueClassRunId = "run_state_classes_queue";
     private const string serviceWithBufferDerivedRunId = "run_state_servicewithbuffer_derived";
@@ -85,6 +86,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateEdgeFlowApproxRun();
         CreateEdgeFlowPartialRun();
         CreateEdgeFlowRouterSubsetRun();
+        CreateEdgeWarningsRun();
         CreateClassRun();
         CreateServiceWithBufferClassRun();
         CreateServiceWithBufferDerivedRun();
@@ -1077,6 +1079,65 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     }
 
     [Fact]
+    public async Task GetStateWindow_EdgeFilters_LimitEdgesAndMetrics()
+    {
+        var response = await client.GetAsync(
+            $"/v1/runs/{edgeFlowRunId}/state_window?startBin=0&endBin=3&edgeIds=order_to_support&edgeMetrics=flowVolume");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = JsonNode.Parse(await response.Content.ReadAsStringAsync());
+        Assert.NotNull(payload);
+
+        var edges = payload!["edges"] as JsonArray;
+        Assert.NotNull(edges);
+        Assert.Single(edges!);
+
+        var edge = edges!.FirstOrDefault(entry => string.Equals(entry?["id"]?.ToString(), "order_to_support", StringComparison.OrdinalIgnoreCase));
+        Assert.NotNull(edge);
+
+        var series = edge!["series"] as JsonObject;
+        Assert.NotNull(series);
+        Assert.Single(series!);
+        Assert.NotNull(series!["flowVolume"]);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_EdgeFilters_LimitByClassAndMetrics()
+    {
+        var response = await client.GetAsync(
+            $"/v1/runs/{edgeFlowRouterSubsetRunId}/state_window?startBin=0&endBin=3&edgeMetrics=flowVolume&classIds=vip");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = JsonNode.Parse(await response.Content.ReadAsStringAsync());
+        Assert.NotNull(payload);
+
+        var edges = payload!["edges"] as JsonArray;
+        Assert.NotNull(edges);
+        Assert.Single(edges!);
+
+        var edge = edges!.Single();
+        Assert.Equal("router_to_a", edge?["id"]?.ToString());
+
+        var byClass = edge?["byClass"] as JsonObject;
+        Assert.NotNull(byClass);
+        Assert.True(byClass!.ContainsKey("vip"));
+        Assert.False(byClass.ContainsKey("standard"));
+
+        var metrics = byClass["vip"] as JsonObject;
+        Assert.NotNull(metrics);
+        Assert.Single(metrics!);
+        Assert.NotNull(metrics!["flowVolume"]);
+    }
+
+    [Fact]
     public async Task GetStateWindow_IncludesEdgeWarningsById()
     {
         var response = await client.GetAsync($"/v1/runs/{edgeFlowRunId}/state_window?startBin=0&endBin=3");
@@ -1091,6 +1152,27 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
 
         var edgeWarnings = payload!["edgeWarnings"] as JsonObject;
         Assert.NotNull(edgeWarnings);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_EdgeWarnings_FilteredByEdgeIds()
+    {
+        var response = await client.GetAsync(
+            $"/v1/runs/{edgeWarningsRunId}/state_window?startBin=0&endBin=3&edgeIds=order_to_support");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = JsonNode.Parse(await response.Content.ReadAsStringAsync());
+        Assert.NotNull(payload);
+
+        var edgeWarnings = payload!["edgeWarnings"] as JsonObject;
+        Assert.NotNull(edgeWarnings);
+        Assert.Single(edgeWarnings!);
+        Assert.True(edgeWarnings!.ContainsKey("order_to_support"));
+        Assert.False(edgeWarnings.ContainsKey("other_edge"));
     }
 
     [Fact]
@@ -1113,6 +1195,24 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         var edgeWarnings = payload["edgeWarnings"] as JsonObject;
         Assert.NotNull(edgeWarnings);
         Assert.Empty(edgeWarnings!);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_NoEdges_ReportsMissingEdgeQuality()
+    {
+        var response = await client.GetAsync($"/v1/runs/{runId}/state_window?startBin=0&endBin=1");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = JsonNode.Parse(await response.Content.ReadAsStringAsync());
+        Assert.NotNull(payload);
+
+        var metadata = payload!["metadata"] as JsonObject;
+        Assert.NotNull(metadata);
+        Assert.Equal("missing", metadata!["edgeQuality"]?.ToString());
     }
 
     [Fact]
@@ -1490,6 +1590,32 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
             classIds: new[] { "vip", "standard" });
     }
 
+    private void CreateEdgeWarningsRun()
+    {
+        var edgeSeries = new Dictionary<string, double[]>
+        {
+            ["edge_order_to_support_flowVolume@EDGE_ORDER_TO_SUPPORT_FLOWVOLUME@DEFAULT.csv"] = new[] { 9d, 6d, 9d, 4d }
+        };
+
+        var manifestSeries = edgeSeries.Keys
+            .Select(fileName => (id: Path.GetFileNameWithoutExtension(fileName), path: $"series/{fileName}", unit: "entities/bin"))
+            .ToArray();
+
+        var warnings = new object[]
+        {
+            new { code = "edge_flow_mismatch", message = "Order/support flow mismatch", edgeIds = new[] { "order_to_support" } },
+            new { code = "edge_flow_mismatch", message = "Other edge mismatch", edgeIds = new[] { "other_edge" } }
+        };
+
+        CreateRun(
+            edgeWarningsRunId,
+            BuildEdgeFlowModelYaml(),
+            mode: "telemetry",
+            seriesOutputs: edgeSeries,
+            manifestSeries: manifestSeries,
+            warnings: warnings);
+    }
+
     private void CreateClassRun()
     {
         var overrides = new Dictionary<string, double[]>
@@ -1798,7 +1924,8 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Dictionary<string, double[]>? overrides = null,
         Dictionary<string, double[]>? seriesOutputs = null,
         IReadOnlyCollection<(string id, string path, string unit)>? manifestSeries = null,
-        IReadOnlyCollection<string>? classIds = null)
+        IReadOnlyCollection<string>? classIds = null,
+        IReadOnlyCollection<object>? warnings = null)
     {
         var runDir = Path.Combine(artifactsRoot, runIdentifier);
         var modelDir = Path.Combine(runDir, "model");
@@ -1824,7 +1951,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         File.WriteAllText(Path.Combine(modelDir, "model.yaml"), modelYaml, System.Text.Encoding.UTF8);
         WriteMetadata(modelDir, runIdentifier, mode);
         WriteSeriesIndex(seriesDir, manifestSeries, classIds);
-        File.WriteAllText(Path.Combine(runDir, "run.json"), BuildRunJson(runIdentifier, mode, manifestSeries), System.Text.Encoding.UTF8);
+        File.WriteAllText(Path.Combine(runDir, "run.json"), BuildRunJson(runIdentifier, mode, manifestSeries, warnings), System.Text.Encoding.UTF8);
     }
 
     private static void WriteBaseSeries(string modelDir)
@@ -2265,7 +2392,11 @@ private static void WriteSeries(string directory, string fileName, IReadOnlyList
         File.WriteAllText(Path.Combine(modelDirectory, "provenance.json"), provenanceJson, System.Text.Encoding.UTF8);
     }
 
-    private static string BuildRunJson(string runIdentifier, string mode, IReadOnlyCollection<(string id, string path, string unit)>? seriesEntries)
+    private static string BuildRunJson(
+        string runIdentifier,
+        string mode,
+        IReadOnlyCollection<(string id, string path, string unit)>? seriesEntries,
+        IReadOnlyCollection<object>? warnings)
     {
         var grid = new
         {
@@ -2287,7 +2418,7 @@ private static void WriteSeries(string directory, string fileName, IReadOnlyList
             modelHash = $"sha256:{runIdentifier}",
             scenarioHash = "sha256:test",
             createdUtc = startTimeUtc.ToString("o", CultureInfo.InvariantCulture),
-            warnings = Array.Empty<string>(),
+            warnings = warnings ?? Array.Empty<object>(),
             series = (seriesEntries ?? Array.Empty<(string id, string path, string unit)>())
                 .Select(entry => new
                 {

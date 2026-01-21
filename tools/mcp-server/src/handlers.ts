@@ -282,6 +282,15 @@ const getStateWindow = async (config: ServerConfig, args: StateWindowArgs): Prom
   if (args.mode) {
     params.set('mode', args.mode);
   }
+  if (args.edgeIds && args.edgeIds.length > 0) {
+    params.set('edgeIds', args.edgeIds.join(','));
+  }
+  if (args.edgeMetrics && args.edgeMetrics.length > 0) {
+    params.set('edgeMetrics', args.edgeMetrics.join(','));
+  }
+  if (args.classIds && args.classIds.length > 0) {
+    params.set('classIds', args.classIds.join(','));
+  }
 
   const stateWindow = await fetchJson<unknown>(
     `${config.engineApiUrl}/runs/${args.runId}/state_window?${params.toString()}`,

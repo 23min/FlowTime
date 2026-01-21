@@ -17,6 +17,11 @@ using System.Text.RegularExpressions;
 
 namespace FlowTime.API.Services;
 
+public sealed record EdgeQueryFilter(
+    IReadOnlyCollection<string>? EdgeIds,
+    IReadOnlyCollection<string>? EdgeMetrics,
+    IReadOnlyCollection<string>? ClassIds);
+
 public sealed class StateQueryService
 {
     private const int maxWindowBins = 500;
@@ -124,6 +129,7 @@ public sealed class StateQueryService
         int startBin,
         int endBin,
         GraphQueryMode mode = GraphQueryMode.Operational,
+        EdgeQueryFilter? edgeFilter = null,
         CancellationToken cancellationToken = default)
     {
         var includeComputed = mode == GraphQueryMode.Full;
@@ -229,7 +235,8 @@ public sealed class StateQueryService
             }
         }
 
-        var edgeSeries = BuildEdgeSeries(context, startBin, count);
+        var edgeSeries = ApplyEdgeFilters(BuildEdgeSeries(context, startBin, count), edgeFilter);
+        var edgeWarnings = ApplyEdgeWarningFilter(BuildEdgeWarnings(context), edgeFilter);
         var backlogWarnings = BuildBacklogWarnings(context, topologyNodes, startBin, count);
         var combinedWarnings = MergeWarnings(validation.Warnings, backlogWarnings);
 
@@ -256,7 +263,7 @@ public sealed class StateQueryService
             TimestampsUtc = timestamps,
             Nodes = seriesList,
             Edges = edgeSeries,
-            EdgeWarnings = BuildEdgeWarnings(context),
+            EdgeWarnings = edgeWarnings,
             Warnings = BuildWarnings(context, combinedWarnings)
         };
     }
@@ -2376,6 +2383,109 @@ public sealed class StateQueryService
         var edges = merged.Values.ToList();
         AddRetryVolumeToThroughputEdges(context, edges, startBin, count);
         return edges;
+    }
+
+    private static IReadOnlyList<EdgeSeries> ApplyEdgeFilters(
+        IReadOnlyList<EdgeSeries> edges,
+        EdgeQueryFilter? filter)
+    {
+        if (filter is null || edges.Count == 0)
+        {
+            return edges;
+        }
+
+        var edgeIds = filter.EdgeIds is { Count: > 0 }
+            ? new HashSet<string>(filter.EdgeIds, StringComparer.OrdinalIgnoreCase)
+            : null;
+        var edgeMetrics = filter.EdgeMetrics is { Count: > 0 }
+            ? new HashSet<string>(filter.EdgeMetrics, StringComparer.OrdinalIgnoreCase)
+            : null;
+        var classIds = filter.ClassIds is { Count: > 0 }
+            ? new HashSet<string>(filter.ClassIds, StringComparer.OrdinalIgnoreCase)
+            : null;
+
+        var filtered = new List<EdgeSeries>(edges.Count);
+        foreach (var edge in edges)
+        {
+            if (edgeIds is not null && !edgeIds.Contains(edge.Id))
+            {
+                continue;
+            }
+
+            var series = edge.Series;
+            if (edgeMetrics is not null)
+            {
+                series = series
+                    .Where(kvp => edgeMetrics.Contains(kvp.Key))
+                    .ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
+            }
+
+            IDictionary<string, IDictionary<string, double?[]>>? byClass = edge.ByClass;
+            if (classIds is not null && byClass is not null)
+            {
+                byClass = byClass
+                    .Where(kvp => classIds.Contains(kvp.Key))
+                    .ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
+            }
+
+            if (edgeMetrics is not null && byClass is not null)
+            {
+                var filteredByClass = new Dictionary<string, IDictionary<string, double?[]>>(StringComparer.OrdinalIgnoreCase);
+                foreach (var (classId, metrics) in byClass)
+                {
+                    var filteredMetrics = metrics
+                        .Where(kvp => edgeMetrics.Contains(kvp.Key))
+                        .ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
+
+                    if (filteredMetrics.Count > 0)
+                    {
+                        filteredByClass[classId] = filteredMetrics;
+                    }
+                }
+
+                byClass = filteredByClass.Count == 0 ? null : filteredByClass;
+            }
+
+            if (byClass is not null && byClass.Count == 0)
+            {
+                byClass = null;
+            }
+
+            if (series.Count == 0 && byClass is null)
+            {
+                continue;
+            }
+
+            filtered.Add(new EdgeSeries
+            {
+                Id = edge.Id,
+                From = edge.From,
+                To = edge.To,
+                EdgeType = edge.EdgeType,
+                Field = edge.Field,
+                Multiplier = edge.Multiplier,
+                Lag = edge.Lag,
+                Series = series,
+                ByClass = byClass
+            });
+        }
+
+        return filtered;
+    }
+
+    private static IReadOnlyDictionary<string, IReadOnlyList<StateWarning>> ApplyEdgeWarningFilter(
+        IReadOnlyDictionary<string, IReadOnlyList<StateWarning>> edgeWarnings,
+        EdgeQueryFilter? filter)
+    {
+        if (filter?.EdgeIds is not { Count: > 0 } || edgeWarnings.Count == 0)
+        {
+            return edgeWarnings;
+        }
+
+        var edgeIds = new HashSet<string>(filter.EdgeIds, StringComparer.OrdinalIgnoreCase);
+        return edgeWarnings
+            .Where(kvp => edgeIds.Contains(kvp.Key))
+            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
     }
 
     private static IReadOnlyList<EdgeSeries> BuildArtifactEdgeSeries(StateRunContext context, int startBin, int count)

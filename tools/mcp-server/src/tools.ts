@@ -60,6 +60,9 @@ export type StateWindowArgs = {
   startBin: number;
   endBin: number;
   mode?: 'compact' | 'full';
+  edgeIds?: string[];
+  edgeMetrics?: string[];
+  classIds?: string[];
 };
 
 export type DraftIdArgs = {
@@ -247,7 +250,10 @@ export const registerTools = (server: McpServer, handlers: ToolHandlers): void =
         runId: z.string().min(1),
         startBin: z.number().int(),
         endBin: z.number().int(),
-        mode: z.enum(['compact', 'full']).optional()
+        mode: z.enum(['compact', 'full']).optional(),
+        edgeIds: z.array(z.string().min(1)).min(1).optional(),
+        edgeMetrics: z.array(z.string().min(1)).min(1).optional(),
+        classIds: z.array(z.string().min(1)).min(1).optional()
       }
     },
     async (args) => handlers.getStateWindow(args)

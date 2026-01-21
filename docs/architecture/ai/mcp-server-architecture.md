@@ -70,19 +70,24 @@ Where:
 
 **Inputs**:
 
-- `start: string` — start timestamp or bin index.
-- `end: string` — end timestamp or bin index.
+- `runId: string`
+- `startBin: number`
+- `endBin: number`
 - Optional filters:
-  - `runId: string`
-  - `nodeIds: string[]`
-  - `classIds: string[]`
-  - `metrics: string[]` — subset of metrics to return (e.g., `['backlog', 'capacity', 'served']`).
+  - `mode: 'compact' | 'full'`
+  - `classIds: string[]` — limit node + edge class series.
+  - `edgeIds: string[]` — limit edges by ID.
+  - `edgeMetrics: string[]` — limit edge series keys.
 
 **Outputs**:
 
-- `window: { start: string; end: string; binSize: string; }`
-- `series: NodeSeries[]`
-  - **Planned (M-08.05):** include `edgeSeries: EdgeSeries[]` when edge metrics are available.
+- `metadata: { ... edgeQuality, ... }`
+- `window: { startBin: number; endBin: number; binCount: number }`
+- `nodes: NodeSeries[]`
+- `edges: EdgeSeries[]` (when available)
+- `edgeWarnings: EdgeWarning[]` (when available)
+
+Node series may include derived latency series (for example `pathLatencyMs`) when emitted by the engine; MCP passes these through without modification.
 
 Where `NodeSeries` might look like:
 
@@ -92,13 +97,15 @@ Where `NodeSeries` might look like:
 
 Each array in `metrics` is aligned with the bins defined by `window`.
 
-**Planned Edge Series (M-08.05):**
+**Edge Series (M-08.05):**
 - `edgeId: string`
 - `classId?: string`
 - `metrics: { [metricName: string]: number[] }`
-- `quality?: 'exact' | 'approx' | 'missing'`
+- `quality?: 'exact' | 'approx' | 'missing' | 'partialClass'`
 
-**Backed by**: FlowTime's `/state_window` (or a close variant).
+**Backed by**: FlowTime's `/state_window`.
+
+**Dependency note:** Edge series, edge warnings, and edge quality are only present for runs that include edge-time-bin output. MCP treats them as optional and does not infer missing edge data.
 
 ---
 
@@ -210,7 +217,7 @@ This section sketches how FlowTime's existing or planned APIs map onto the MCP t
 | FlowTime API          | MCP Tool            | Notes                                      |
 |-----------------------|--------------------|--------------------------------------------|
 | `/graph`              | `get_graph`        | Possibly extended with filters.            |
-| `/state_window`       | `get_state_window` | Direct mapping; may need filter support.   |
+| `/state_window`       | `get_state_window` | Direct mapping; supports edge filters.     |
 | `/state`              | *(not required)*   | Can be covered by a 1-bin window.          |
 | `/runs` (planned)     | `get_runs`         | Enumerate baseline + scenarios.            |
 | `/run` or `/scenario` | `run_scenario`     | For controlled what-if, if enabled.        |
