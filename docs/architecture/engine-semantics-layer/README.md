@@ -70,6 +70,13 @@ Engine outputs are stable, versioned contracts:
 
 These responses must remain compatible across data sources (simulation, telemetry, synthetic capture).
 
+## Semantics Catalog
+
+The authoritative series and warning semantics are documented here:
+- `docs/architecture/engine-semantics-layer/semantics-catalog.md`
+
+This catalog defines each node/edge series (units, origin, aggregation, gating) and the warning families emitted by the engine. Consumers must treat these outputs as authoritative and avoid client-side derivation.
+
 ## Validation and Semantics
 
 - Invariant warnings are first-class outputs (persisted in `run.json` and state responses).

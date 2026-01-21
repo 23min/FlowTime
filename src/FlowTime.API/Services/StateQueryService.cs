@@ -628,6 +628,8 @@ public sealed class StateQueryService
             hasLatency: IsQueueLikeKind(kind) && data.QueueDepth is not null && data.Served is not null,
             hasServiceTime: isServiceKind && data.ProcessingTimeMsSum is not null && data.ServedCount is not null,
             hasFlowLatency: flowLatencyForNode is not null,
+            hasUtilization: utilization.HasValue,
+            hasThroughputRatio: throughputRatio.HasValue,
             queueOrigin: queueOrigin);
 
         return new NodeSnapshot
@@ -1405,10 +1407,11 @@ public sealed class StateQueryService
             series["servedCount"] = ExtractSlice(data.ServedCount, startBin, count);
         }
 
+        double?[]? utilizationSeries = null;
         if (data.Capacity != null)
         {
             series["capacity"] = ExtractSlice(data.Capacity, startBin, count);
-            var utilizationSeries = ComputeUtilizationSeries(data, node.Semantics, startBin, count);
+            utilizationSeries = ComputeUtilizationSeries(data, node.Semantics, startBin, count);
             if (utilizationSeries != null)
             {
                 series["utilization"] = utilizationSeries;
@@ -1476,6 +1479,8 @@ public sealed class StateQueryService
             hasLatency: latencySeries is not null,
             hasServiceTime: serviceTimeSeries is not null,
             hasFlowLatency: flowLatencySlice is not null,
+            hasUtilization: utilizationSeries is not null,
+            hasThroughputRatio: throughputSeries is not null,
             queueOrigin: queueOrigin);
 
         return new NodeSeries
@@ -1564,6 +1569,8 @@ public sealed class StateQueryService
         bool hasLatency,
         bool hasServiceTime,
         bool hasFlowLatency,
+        bool hasUtilization,
+        bool hasThroughputRatio,
         string? queueOrigin)
     {
         Dictionary<string, SeriesSemanticsMetadata>? metadata = null;
@@ -1598,6 +1605,26 @@ public sealed class StateQueryService
             };
         }
 
+        if (hasUtilization)
+        {
+            metadata ??= new Dictionary<string, SeriesSemanticsMetadata>(StringComparer.OrdinalIgnoreCase);
+            metadata["utilization"] = new SeriesSemanticsMetadata
+            {
+                Aggregation = "unknown",
+                Origin = "derived"
+            };
+        }
+
+        if (hasThroughputRatio)
+        {
+            metadata ??= new Dictionary<string, SeriesSemanticsMetadata>(StringComparer.OrdinalIgnoreCase);
+            metadata["throughputRatio"] = new SeriesSemanticsMetadata
+            {
+                Aggregation = "unknown",
+                Origin = "derived"
+            };
+        }
+
         if (!string.IsNullOrWhiteSpace(queueOrigin))
         {
             metadata ??= new Dictionary<string, SeriesSemanticsMetadata>(StringComparer.OrdinalIgnoreCase);
@@ -1608,6 +1635,43 @@ public sealed class StateQueryService
         }
 
         return metadata;
+    }
+
+    private static SeriesSemanticsMetadata? ResolveEdgeSeriesMetadata(string metric, string origin)
+    {
+        if (string.IsNullOrWhiteSpace(metric))
+        {
+            return null;
+        }
+
+        var normalized = metric.Trim();
+        var aggregation = string.Equals(normalized, "retryRate", StringComparison.OrdinalIgnoreCase)
+            ? "unknown"
+            : "sum";
+
+        return normalized.ToLowerInvariant() switch
+        {
+            "flowvolume" => new SeriesSemanticsMetadata { Aggregation = aggregation, Origin = origin },
+            "attemptsvolume" => new SeriesSemanticsMetadata { Aggregation = aggregation, Origin = origin },
+            "failuresvolume" => new SeriesSemanticsMetadata { Aggregation = aggregation, Origin = origin },
+            "retryvolume" => new SeriesSemanticsMetadata { Aggregation = aggregation, Origin = origin },
+            "retryrate" => new SeriesSemanticsMetadata { Aggregation = aggregation, Origin = origin },
+            _ => null
+        };
+    }
+
+    private static void TryAddEdgeSeriesMetadata(
+        Dictionary<string, SeriesSemanticsMetadata> metadata,
+        string metric,
+        string origin)
+    {
+        var entry = ResolveEdgeSeriesMetadata(metric, origin);
+        if (entry is null)
+        {
+            return;
+        }
+
+        metadata[metric] = entry;
     }
 
     private static string? ResolveQueueSeriesOrigin(Node node, StateRunContext context)
@@ -2420,6 +2484,14 @@ public sealed class StateQueryService
                     .ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
             }
 
+            IReadOnlyDictionary<string, SeriesSemanticsMetadata>? seriesMetadata = edge.SeriesMetadata;
+            if (edgeMetrics is not null && seriesMetadata is not null)
+            {
+                seriesMetadata = seriesMetadata
+                    .Where(kvp => edgeMetrics.Contains(kvp.Key))
+                    .ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
+            }
+
             IDictionary<string, IDictionary<string, double?[]>>? byClass = edge.ByClass;
             if (classIds is not null && byClass is not null)
             {
@@ -2466,6 +2538,7 @@ public sealed class StateQueryService
                 Multiplier = edge.Multiplier,
                 Lag = edge.Lag,
                 Series = series,
+                SeriesMetadata = seriesMetadata,
                 ByClass = byClass
             });
         }
@@ -2535,7 +2608,7 @@ public sealed class StateQueryService
                 builders[edgeToken] = builder;
             }
 
-            builder.AddSeries(series.Class, metric, slice);
+            builder.AddSeries(series.Class, metric, slice, "explicit");
         }
 
         return builders.Values.Select(builder => builder.Build()).ToList();
@@ -2621,6 +2694,15 @@ public sealed class StateQueryService
 
                 var retryValues = new double?[count];
                 edge.Series["retryVolume"] = retryValues;
+                var seriesMetadata = edge.SeriesMetadata as Dictionary<string, SeriesSemanticsMetadata>;
+                if (seriesMetadata is null)
+                {
+                    seriesMetadata = edge.SeriesMetadata is null
+                        ? new Dictionary<string, SeriesSemanticsMetadata>(StringComparer.OrdinalIgnoreCase)
+                        : new Dictionary<string, SeriesSemanticsMetadata>(edge.SeriesMetadata, StringComparer.OrdinalIgnoreCase);
+                    edge.SeriesMetadata = seriesMetadata;
+                }
+                TryAddEdgeSeriesMetadata(seriesMetadata, "retryVolume", "derived");
 
                 edgeInfos.Add((
                     edge,
@@ -2752,6 +2834,10 @@ public sealed class StateQueryService
                 ["failuresVolume"] = failuresVolume,
                 ["retryRate"] = retryRate
             };
+            var seriesMetadata = new Dictionary<string, SeriesSemanticsMetadata>(StringComparer.OrdinalIgnoreCase);
+            TryAddEdgeSeriesMetadata(seriesMetadata, "attemptsVolume", "derived");
+            TryAddEdgeSeriesMetadata(seriesMetadata, "failuresVolume", "derived");
+            TryAddEdgeSeriesMetadata(seriesMetadata, "retryRate", "derived");
 
             var edgeId = string.IsNullOrWhiteSpace(edge.Id)
                 ? $"{edge.Source}->{edge.Target}:{(string.IsNullOrWhiteSpace(edge.Field) ? "attempts" : edge.Field)}"
@@ -2766,7 +2852,8 @@ public sealed class StateQueryService
                 Field = field,
                 Multiplier = multiplier,
                 Lag = lag,
-                Series = series
+                Series = series,
+                SeriesMetadata = seriesMetadata.Count == 0 ? null : seriesMetadata
             });
         }
 
@@ -2889,6 +2976,21 @@ public sealed class StateQueryService
             }
         }
 
+        Dictionary<string, SeriesSemanticsMetadata>? mergedMetadata = null;
+        if (target.SeriesMetadata is not null)
+        {
+            mergedMetadata = new Dictionary<string, SeriesSemanticsMetadata>(target.SeriesMetadata, StringComparer.OrdinalIgnoreCase);
+        }
+
+        if (source.SeriesMetadata is not null)
+        {
+            mergedMetadata ??= new Dictionary<string, SeriesSemanticsMetadata>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (metric, metadata) in source.SeriesMetadata)
+            {
+                mergedMetadata[metric] = metadata;
+            }
+        }
+
         return new EdgeSeries
         {
             Id = target.Id,
@@ -2899,6 +3001,7 @@ public sealed class StateQueryService
             Multiplier = target.Multiplier ?? source.Multiplier,
             Lag = target.Lag ?? source.Lag,
             Series = mergedSeries,
+            SeriesMetadata = mergedMetadata,
             ByClass = mergedByClass
         };
     }
@@ -2915,20 +3018,22 @@ public sealed class StateQueryService
         }
 
         public IDictionary<string, double?[]> Series { get; } = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, SeriesSemanticsMetadata>? SeriesMetadata { get; private set; }
         public IDictionary<string, IDictionary<string, double?[]>>? ByClass { get; private set; }
 
-        public void AddSeries(string classId, string metric, double?[] values)
+        public void AddSeries(string classId, string metric, double?[] values, string origin)
         {
             if (string.IsNullOrWhiteSpace(classId) || string.Equals(classId, "DEFAULT", StringComparison.OrdinalIgnoreCase))
             {
                 Series[metric] = values;
+                TryAddSeriesMetadata(metric, origin);
                 return;
             }
 
-            AddClassSeries(classId, metric, values);
+            AddClassSeries(classId, metric, values, origin);
         }
 
-        public void AddClassSeries(string classId, string metric, double?[] values)
+        public void AddClassSeries(string classId, string metric, double?[] values, string origin)
         {
             if (ByClass is null)
             {
@@ -2942,6 +3047,19 @@ public sealed class StateQueryService
             }
 
             metrics[metric] = values;
+            TryAddSeriesMetadata(metric, origin);
+        }
+
+        private void TryAddSeriesMetadata(string metric, string origin)
+        {
+            var metadata = ResolveEdgeSeriesMetadata(metric, origin);
+            if (metadata is null)
+            {
+                return;
+            }
+
+            SeriesMetadata ??= new Dictionary<string, SeriesSemanticsMetadata>(StringComparer.OrdinalIgnoreCase);
+            SeriesMetadata[metric] = metadata;
         }
 
         public EdgeSeries Build()
@@ -2956,6 +3074,7 @@ public sealed class StateQueryService
                 Multiplier = NormalizeMultiplier(definition.Edge.Multiplier ?? definition.Edge.Weight),
                 Lag = definition.Edge.Lag,
                 Series = Series,
+                SeriesMetadata = SeriesMetadata,
                 ByClass = ByClass
             };
         }

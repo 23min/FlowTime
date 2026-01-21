@@ -27,27 +27,27 @@ public class CliApiParityTests : IClassFixture<TestWebApplicationFactory>
 		var root = FindRepoRoot();
         Assert.NotNull(root);
         var cliProj = Path.Combine(root!, "src", "FlowTime.Cli");
+		var cliDll = Path.Combine(root!, "src", "FlowTime.Cli", "bin", "Debug", "net9.0", "FlowTime.Cli.dll");
         var modelPath = Path.Combine(root!, "examples", "hello", "model.yaml");
         Assert.True(File.Exists(modelPath), $"Model file missing: {modelPath}");
 
         var outDir = Path.Combine(Path.GetTempPath(), "flowtime_cli_parity_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(outDir);
 
-        // Run CLI
-        var psi = new ProcessStartInfo
-        {
-            FileName = "dotnet",
-            Arguments = $"run --project \"{cliProj}\" -- run \"{modelPath}\" --out \"{outDir}\"",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-        var proc = Process.Start(psi)!;
-        var stdout = await proc.StandardOutput.ReadToEndAsync();
-        var stderr = await proc.StandardError.ReadToEndAsync();
-        proc.WaitForExit();
-        Assert.Equal(0, proc.ExitCode);
+		await EnsureCliBuiltAsync(cliProj, cliDll);
+
+		// Run CLI
+		var psi = new ProcessStartInfo
+		{
+			FileName = "dotnet",
+			Arguments = $"\"{cliDll}\" run \"{modelPath}\" --out \"{outDir}\"",
+			RedirectStandardOutput = true,
+			RedirectStandardError = true,
+			UseShellExecute = false,
+			CreateNoWindow = true
+		};
+		var (exitCode, stdout, stderr) = await RunProcessAsync(psi, TimeSpan.FromSeconds(60));
+		Assert.Equal(0, exitCode);
 
         // Find the engine artifact directory from CLI output
         // CLI outputs: "Wrote artifacts to {path}"
@@ -92,6 +92,7 @@ public class CliApiParityTests : IClassFixture<TestWebApplicationFactory>
 		var root = FindRepoRoot();
 		Assert.NotNull(root);
 		var cliProj = Path.Combine(root!, "src", "FlowTime.Cli");
+		var cliDll = Path.Combine(root!, "src", "FlowTime.Cli", "bin", "Debug", "net9.0", "FlowTime.Cli.dll");
 
 		var tempRoot = Path.Combine(Path.GetTempPath(), "flowtime_cli_router_" + Guid.NewGuid().ToString("N"));
 		Directory.CreateDirectory(tempRoot);
@@ -102,22 +103,20 @@ public class CliApiParityTests : IClassFixture<TestWebApplicationFactory>
 
 		try
 		{
+			await EnsureCliBuiltAsync(cliProj, cliDll);
 			var psi = new ProcessStartInfo
 			{
 				FileName = "dotnet",
-				Arguments = $"run --project \"{cliProj}\" -- run \"{modelPath}\" --out \"{outDir}\" --deterministic-run-id",
+				Arguments = $"\"{cliDll}\" run \"{modelPath}\" --out \"{outDir}\" --deterministic-run-id",
 				RedirectStandardOutput = true,
 				RedirectStandardError = true,
 				UseShellExecute = false,
 				CreateNoWindow = true
 			};
-			var proc = Process.Start(psi)!;
-			var stdout = await proc.StandardOutput.ReadToEndAsync();
-			var stderr = await proc.StandardError.ReadToEndAsync();
-			await proc.WaitForExitAsync();
-			if (proc.ExitCode != 0)
+			var (exitCode, stdout, stderr) = await RunProcessAsync(psi, TimeSpan.FromSeconds(60));
+			if (exitCode != 0)
 			{
-				throw new Xunit.Sdk.XunitException($"CLI exited with code {proc.ExitCode}: {stdout}\n{stderr}");
+				throw new Xunit.Sdk.XunitException($"CLI exited with code {exitCode}: {stdout}\n{stderr}");
 			}
 
 			var match = System.Text.RegularExpressions.Regex.Match(stdout, @"Wrote artifacts to (.+)");
@@ -179,6 +178,56 @@ public class CliApiParityTests : IClassFixture<TestWebApplicationFactory>
 
         throw new Xunit.Sdk.XunitException($"Series {componentId} with DEFAULT class not found in index.json");
     }
+
+	private static async Task<(int ExitCode, string Stdout, string Stderr)> RunProcessAsync(ProcessStartInfo psi, TimeSpan timeout)
+	{
+		using var proc = Process.Start(psi)!;
+		var stdoutTask = proc.StandardOutput.ReadToEndAsync();
+		var stderrTask = proc.StandardError.ReadToEndAsync();
+		using var cts = new CancellationTokenSource(timeout);
+		try
+		{
+			await proc.WaitForExitAsync(cts.Token);
+		}
+		catch (OperationCanceledException)
+		{
+			try
+			{
+				proc.Kill(entireProcessTree: true);
+			}
+			catch
+			{
+				// ignore kill failures
+			}
+			throw new Xunit.Sdk.XunitException($"CLI timed out after {timeout.TotalSeconds:F0}s.");
+		}
+		var stdout = await stdoutTask;
+		var stderr = await stderrTask;
+		return (proc.ExitCode, stdout, stderr);
+	}
+
+	private static async Task EnsureCliBuiltAsync(string cliProj, string cliDll)
+	{
+		if (File.Exists(cliDll))
+		{
+			return;
+		}
+
+		var buildPsi = new ProcessStartInfo
+		{
+			FileName = "dotnet",
+			Arguments = $"build \"{cliProj}\" --nologo",
+			RedirectStandardOutput = true,
+			RedirectStandardError = true,
+			UseShellExecute = false,
+			CreateNoWindow = true
+		};
+		var (exitCode, stdout, stderr) = await RunProcessAsync(buildPsi, TimeSpan.FromMinutes(2));
+		if (exitCode != 0)
+		{
+			throw new Xunit.Sdk.XunitException($"CLI build failed with code {exitCode}: {stdout}\n{stderr}");
+		}
+	}
 
     private const string routerOverrideModel = """
 schemaVersion: 1

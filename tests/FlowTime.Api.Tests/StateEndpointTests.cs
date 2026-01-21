@@ -675,6 +675,14 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
             Assert.Equal("avg", flowMetadata!.Aggregation);
             Assert.Equal("derived", flowMetadata.Origin);
         }
+
+        Assert.True(node.SeriesMetadata.TryGetValue("utilization", out var utilizationMetadata));
+        Assert.Equal("unknown", utilizationMetadata!.Aggregation);
+        Assert.Equal("derived", utilizationMetadata.Origin);
+
+        Assert.True(node.SeriesMetadata.TryGetValue("throughputRatio", out var throughputMetadata));
+        Assert.Equal("unknown", throughputMetadata!.Aggregation);
+        Assert.Equal("derived", throughputMetadata.Origin);
     }
 
     [Fact]
@@ -1076,6 +1084,31 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         var series = edge!["series"]?["flowVolume"] as JsonArray;
         Assert.NotNull(series);
         Assert.Equal(new[] { 9d, 6d, 9d, 4d }, series!.Select(v => v!.GetValue<double>()).ToArray());
+    }
+
+    [Fact]
+    public async Task GetStateWindow_EmitsEdgeSeriesMetadata()
+    {
+        var response = await client.GetAsync($"/v1/runs/{edgeFlowRunId}/state_window?startBin=0&endBin=3");
+        response.EnsureSuccessStatusCode();
+
+        var payload = JsonNode.Parse(await response.Content.ReadAsStringAsync());
+        Assert.NotNull(payload);
+
+        var edges = payload!["edges"] as JsonArray;
+        Assert.NotNull(edges);
+        Assert.NotEmpty(edges);
+
+        var edge = edges!.FirstOrDefault(entry => string.Equals(entry?["id"]?.ToString(), "order_to_support", StringComparison.OrdinalIgnoreCase));
+        Assert.NotNull(edge);
+
+        var metadata = edge!["seriesMetadata"] as JsonObject;
+        Assert.NotNull(metadata);
+
+        var flowMetadata = metadata!["flowVolume"] as JsonObject;
+        Assert.NotNull(flowMetadata);
+        Assert.Equal("sum", flowMetadata!["aggregation"]?.GetValue<string>());
+        Assert.Equal("explicit", flowMetadata["origin"]?.GetValue<string>());
     }
 
     [Fact]

@@ -144,6 +144,14 @@
         "flowLatencyMs": {
           "aggregation": "avg",
           "origin": "derived"
+        },
+        "utilization": {
+          "aggregation": "unknown",
+          "origin": "derived"
+        },
+        "throughputRatio": {
+          "aggregation": "unknown",
+          "origin": "derived"
         }
       },
       "telemetry": {
@@ -238,6 +246,10 @@
           "aggregation": "avg",
           "origin": "derived"
         },
+        "throughputRatio": {
+          "aggregation": "unknown",
+          "origin": "derived"
+        },
         "queue": {
           "aggregation": null,
           "origin": "explicit"
@@ -309,6 +321,20 @@
           0.142857,
           0.1
         ]
+      },
+      "seriesMetadata": {
+        "attemptsVolume": {
+          "aggregation": "sum",
+          "origin": "derived"
+        },
+        "failuresVolume": {
+          "aggregation": "sum",
+          "origin": "derived"
+        },
+        "retryRate": {
+          "aggregation": "unknown",
+          "origin": "derived"
+        }
       }
     },
     {
@@ -338,6 +364,20 @@
           0.1,
           0.2
         ]
+      },
+      "seriesMetadata": {
+        "attemptsVolume": {
+          "aggregation": "sum",
+          "origin": "derived"
+        },
+        "failuresVolume": {
+          "aggregation": "sum",
+          "origin": "derived"
+        },
+        "retryRate": {
+          "aggregation": "unknown",
+          "origin": "derived"
+        }
       }
     }
   ],

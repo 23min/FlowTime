@@ -203,6 +203,7 @@
                     "minProperties": 1,
                     "additionalProperties": { "$ref": "#/$defs/numericSeries" }
                 },
+                "seriesMetadata": { "$ref": "#/$defs/seriesMetadata" },
                 "byClass": {
                     "type": "object",
                     "additionalProperties": {

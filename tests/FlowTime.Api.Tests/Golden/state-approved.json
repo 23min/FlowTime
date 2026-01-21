@@ -51,6 +51,14 @@
         "flowLatencyMs": {
           "aggregation": "avg",
           "origin": "derived"
+        },
+        "utilization": {
+          "aggregation": "unknown",
+          "origin": "derived"
+        },
+        "throughputRatio": {
+          "aggregation": "unknown",
+          "origin": "derived"
         }
       },
       "byClass": {
@@ -117,6 +125,10 @@
         },
         "flowLatencyMs": {
           "aggregation": "avg",
+          "origin": "derived"
+        },
+        "throughputRatio": {
+          "aggregation": "unknown",
           "origin": "derived"
         },
         "queue": {
