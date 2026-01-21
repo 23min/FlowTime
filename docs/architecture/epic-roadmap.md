@@ -68,8 +68,6 @@ The list below enumerates current epics under `docs/architecture/` in an order t
   - `docs/milestones/completed/M-07.06-transit-node-modeling.md`
 - **Notes:** M-07.01 through M-07.06 are complete; epic closed.
 
-### Near-Term / In-Flight Epics
-
 #### MCP Modeling and Analysis (AI-Assisted Workflow)
 
 - **Folder:** `docs/architecture/ai/`
@@ -80,7 +78,16 @@ The list below enumerates current epics under `docs/architecture/` in an order t
   - `docs/milestones/completed/M-08.03-mcp-data-intake-profile-fitting.md`
   - `docs/milestones/completed/M-08.04-mcp-storage-abstraction.md`
   - `docs/milestones/M-08.05-mcp-edge-metrics-support.md`
-- **Notes:** Epic re-opened for M-08.05 to align MCP analysis with edge metrics.
+- **Notes:** M-08.01 through M-08.05 are complete; epic closed.
+
+### Near-Term / In-Flight Epics
+
+#### Engine Semantics Layer
+
+- **Folder:** `docs/architecture/engine-semantics-layer/`
+- **Goal:** Define the engine as the semantics layer that turns canonical bundles into stable `/state`, `/state_window`, and `/graph` contracts for downstream consumers.
+- **Key Docs:** `docs/architecture/engine-semantics-layer/README.md`
+- **Notes:** Moved into near-term to tighten the contract before telemetry ingestion and demo work.
 
 #### Dependency Constraints & Shared Resources
 
@@ -88,11 +95,11 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 - **Goal:** Model downstream dependencies (databases, caches, external APIs) as resource constraints so shared bottlenecks and coupling are visible while preserving the minimal arrivals/served basis.
 - **Notes:** Depends on explicit edge semantics/metrics (M-07.04) so effort vs throughput load is engine-owned and validated.
 
-#### Path Analysis & Subgraph Queries
+#### Visualizations (Chart Gallery / Demo Lab)
 
-- **Folder:** `docs/architecture/path-analysis/`
-- **Goal:** Define path-level queries and derived metrics (dominant routes, bottlenecks, path pain) for UI and MCP consumption, based on edge time bins.
-- **Notes:** Depends on EdgeTimeBin and Classes as Flows; should expose a server-side contract so clients do not derive path semantics locally.
+- **Folder:** `docs/architecture/visualizations/`
+- **Goal:** Provide a dedicated UI space to prototype and compare role-focused charts (exec, SRE, support) using FlowTime-derived metrics, with a clear contrast between FlowTime output and raw telemetry where available.
+- **Notes:** Best scheduled after engine semantics and dependency constraints; can start with synthetic runs and later add raw telemetry comparisons once ingestion is available.
 
 #### Telemetry Ingestion and Canonical Bundles
 
@@ -101,12 +108,11 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 - **Key Docs:** `docs/architecture/telemetry-ingestion/README.md`
 - **Notes:** Not started; depends on stable bundle schemas and series semantics so ingestion outputs align with engine contracts.
 
-#### Engine Semantics Layer
+#### Path Analysis & Subgraph Queries
 
-- **Folder:** `docs/architecture/engine-semantics-layer/`
-- **Goal:** Define the engine as the semantics layer that turns canonical bundles into stable `/state`, `/state_window`, and `/graph` contracts for downstream consumers.
-- **Key Docs:** `docs/architecture/engine-semantics-layer/README.md`
-- **Notes:** Moved into near-term to tighten the contract before telemetry ingestion and demo work.
+- **Folder:** `docs/architecture/path-analysis/`
+- **Goal:** Define path-level queries and derived metrics (dominant routes, bottlenecks, path pain) for UI and MCP consumption, based on edge time bins.
+- **Notes:** Depends on EdgeTimeBin and Classes as Flows; should expose a server-side contract so clients do not derive path semantics locally.
 
 ### Mid-Term / Aspirational Epics
 
