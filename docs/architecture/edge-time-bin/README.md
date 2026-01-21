@@ -142,7 +142,7 @@ EdgeTimeBins are **optional but highly recommended**:
 - **No path-level aggregation (with a bounded exception)**
   - This epic focuses on per-edge, per-bin, per-class flows.
   - Full path-level analytics (multi-edge routes, conformance checks, toxic route analysis) remain deferred to the **Anomaly & Pathology Detection** epic (`docs/architecture/anomaly-detection/`).
-  - **Exception:** A near-term milestone (M-07.05) introduces a *derived sink latency* series using edge flows and node delays. This is a single derived metric, not a full path-mining system.
+- **Exception:** A near-term milestone (M-07.05) introduces a *derived sink/path latency* series using edge flows and node delays. This is a single derived metric, not a full path-mining system.
 
 ---
 
@@ -472,6 +472,18 @@ EdgeTimeBin foundations are planned as 7.x engine milestones:
 - **M-07.03** - UI Edge Overlays (Feature-flagged)
   - Switch overlays to use EdgeTimeBins when available, with fallback indicators.
   - Gradually expand to retries/DLQ and error overlays.
+
+- **M-07.04** - Edge Semantics Contract
+  - Define explicit edge series semantics for flow + retry volumes.
+  - Align edge quality signals and provenance for UI and API consumers.
+
+- **M-07.05** - Edge-Derived Path Latency
+  - Derive sink/path latency from edge flows and node delay contributions.
+  - Surface derived latency with provenance metadata.
+
+- **M-07.06** - Transit Node Modeling (Remove Edge Lag)
+  - Replace edge lag with explicit transit nodes in templates.
+  - Add tests to enforce lag-free first-party templates.
 
 - **Telemetry Ingestion Epic** - Edge telemetry extensions
   - Per-edge telemetry ingestion is handled under `docs/architecture/telemetry-ingestion/`.
