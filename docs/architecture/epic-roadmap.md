@@ -46,17 +46,6 @@ The list below enumerates current epics under `docs/architecture/` in an order t
   - `docs/milestones/completed/SB-M-05.01.md` — Breaking introduction of `kind: serviceWithBuffer` and removal of `kind: backlog` from the public surface.
 - **Notes:** SB-M-05.01 through SB-M-05.04 are marked complete in tracking; epic is closed pending future expansion.
 
-#### MCP Modeling and Analysis (AI-Assisted Workflow)
-
-- **Folder:** `docs/architecture/ai/`
-- **Goal:** Deliver an MCP server that supports both modeling and analysis: draft templates in a working area, validate/generate/run via FlowTime.Sim and FlowTime API, and use analyst tools to inspect graph/state outputs for verification and iteration.
-- **Key Milestones:**
-  - `docs/milestones/completed/M-08.01-mcp-server-poc.md`
-  - `docs/milestones/completed/M-08.02-mcp-modeling-draft-workflow.md`
-  - `docs/milestones/completed/M-08.03-mcp-data-intake-profile-fitting.md`
-  - `docs/milestones/completed/M-08.04-mcp-storage-abstraction.md`
-- **Notes:** MCP modeling + analyst loop is implemented with HTTP-only storage-backed drafts and run bundles; epic closed pending further expansion.
- 
 #### Evaluation Integrity (DAG/Spreadsheet Contract)
 
 - **Folder:** `docs/architecture/evaluation-integrity/`
@@ -81,11 +70,29 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 
 ### Near-Term / In-Flight Epics
 
+#### MCP Modeling and Analysis (AI-Assisted Workflow)
+
+- **Folder:** `docs/architecture/ai/`
+- **Goal:** Deliver an MCP server that supports both modeling and analysis: draft templates in a working area, validate/generate/run via FlowTime.Sim and FlowTime API, and use analyst tools to inspect graph/state outputs for verification and iteration.
+- **Key Milestones:**
+  - `docs/milestones/completed/M-08.01-mcp-server-poc.md`
+  - `docs/milestones/completed/M-08.02-mcp-modeling-draft-workflow.md`
+  - `docs/milestones/completed/M-08.03-mcp-data-intake-profile-fitting.md`
+  - `docs/milestones/completed/M-08.04-mcp-storage-abstraction.md`
+  - `docs/milestones/M-08.05-mcp-edge-metrics-support.md`
+- **Notes:** Epic re-opened for M-08.05 to align MCP analysis with edge metrics.
+
 #### Dependency Constraints & Shared Resources
 
 - **Folder:** `docs/architecture/dependency-constraints/`
 - **Goal:** Model downstream dependencies (databases, caches, external APIs) as resource constraints so shared bottlenecks and coupling are visible while preserving the minimal arrivals/served basis.
 - **Notes:** Depends on explicit edge semantics/metrics (M-07.04) so effort vs throughput load is engine-owned and validated.
+
+#### Path Analysis & Subgraph Queries
+
+- **Folder:** `docs/architecture/path-analysis/`
+- **Goal:** Define path-level queries and derived metrics (dominant routes, bottlenecks, path pain) for UI and MCP consumption, based on edge time bins.
+- **Notes:** Depends on EdgeTimeBin and Classes as Flows; should expose a server-side contract so clients do not derive path semantics locally.
 
 #### Telemetry Ingestion and Canonical Bundles
 
