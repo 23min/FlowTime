@@ -144,6 +144,8 @@ public sealed class EdgeSeries
     public int? Lag { get; init; }
     public IDictionary<string, double?[]> Series { get; init; } = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, SeriesSemanticsMetadata>? SeriesMetadata { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IDictionary<string, IDictionary<string, double?[]>>? ByClass { get; init; }
 }
 

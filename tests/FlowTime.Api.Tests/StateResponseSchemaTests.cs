@@ -220,6 +220,54 @@ public class StateResponseSchemaTests : IClassFixture<TestWebApplicationFactory>
     }
 
     [Fact]
+    public async Task StateWindow_Response_AllowsEdgeSeriesMetadata()
+    {
+        var runId = EnsureSchemaRun();
+        var response = await client.GetAsync($"/v1/runs/{runId}/state_window?startBin=0&endBin=3");
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync();
+        var node = JsonNode.Parse(json);
+
+        Assert.NotNull(node);
+        var payload = node!.AsObject();
+        var edges = payload["edges"] as JsonArray;
+        if (edges is null)
+        {
+            edges = new JsonArray();
+            payload["edges"] = edges;
+        }
+
+        if (edges.Count == 0)
+        {
+            edges.Add(new JsonObject
+            {
+                ["id"] = "edge_order_support",
+                ["from"] = "OrderService",
+                ["to"] = "SupportQueue",
+                ["series"] = new JsonObject
+                {
+                    ["flowVolume"] = new JsonArray(1d)
+                }
+            });
+        }
+
+        var edgeNode = edges.FirstOrDefault()?.AsObject();
+        Assert.NotNull(edgeNode);
+
+        edgeNode!["seriesMetadata"] = new JsonObject
+        {
+            ["flowVolume"] = new JsonObject
+            {
+                ["aggregation"] = "sum",
+                ["origin"] = "explicit"
+            }
+        };
+
+        Assert.True(IsSchemaValid(node!), "Expected edge series metadata to be allowed by schema.");
+    }
+
+    [Fact]
     public async Task StateWindow_Response_RejectsUnknownAggregation()
     {
         var runId = EnsureSchemaRun();
