@@ -55,7 +55,11 @@ public sealed class TemplateSchemaValidationTests
     {
         var root = doc.RootElement;
         var classes = root.TryGetProperty("classes", out var classesElement) && classesElement.ValueKind == JsonValueKind.Array
-            ? classesElement.EnumerateArray().Select(c => c.GetProperty("id").GetString()).Where(id => !string.IsNullOrWhiteSpace(id)).ToHashSet(StringComparer.Ordinal)
+            ? classesElement.EnumerateArray()
+                .Select(c => c.GetProperty("id").GetString())
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => id!)
+                .ToHashSet(StringComparer.Ordinal)
             : new HashSet<string>(StringComparer.Ordinal);
 
         if (root.TryGetProperty("traffic", out var traffic) && traffic.TryGetProperty("arrivals", out var arrivals) && arrivals.ValueKind == JsonValueKind.Array)

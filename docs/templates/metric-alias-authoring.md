@@ -65,7 +65,7 @@ Aliases can be declared for any of the per-node metrics listed below (case-insen
 
 Some downstream work scales with attempts rather than served throughput (analytics, fraud review, audit logging, etc.). Represent those relationships with **effort edges** in your topology:
 
-- Set `type: effort` on the edge and provide a `multiplier` (and optional `lag`) describing how much dependent work each upstream attempt generates.
+- Set `type: effort` on the edge and provide a `multiplier` describing how much dependent work each upstream attempt generates. Model any delay as an explicit transit node rather than edge lag.
 
     ```yaml
     - id: effort_analytics
@@ -74,10 +74,10 @@ Some downstream work scales with attempts rather than served throughput (analyti
       type: effort
       measure: load
       multiplier: 0.4   # 0.4 analytics tasks per intake attempt
-      lag: 1            # optional delay in bins
     ```
 
 - Effort edges **do not carry throughput**. They model supporting effort that is proportional to attempts, so keep using standard throughput edges for customer-facing flow between services/queues.
+- If effort work is delayed, insert a transit node (service, no queue) between the upstream service and the effort node to capture the delay in `processingTimeMsSum`.
 - The canvas renders effort edges as dashed blue lines (with multiplier labels when present) so operators can distinguish support workload from throughput.
 
 Document why the template includes each effort edge (“Analytics load scales with ticket attempts,” etc.) so reviewers and operators understand the dependency semantics.

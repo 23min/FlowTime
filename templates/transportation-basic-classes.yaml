@@ -242,7 +242,7 @@ topology:
         failures: airport_retry_failures
         retryEcho: airport_retry_echo
         retryKernel: [0.0, 0.6, 0.3, 0.1]
-        processingTimeMsSum: airport_processing_time_ms_sum
+        processingTimeMsSum: line_airport_processing_time_ms_sum
         servedCount: served_airport
         aliases:
           arrivals: "Airport-bound riders"
@@ -250,6 +250,17 @@ topology:
           attempts: "Airport boarding attempts"
           retryEcho: "Airport retry inflow"
           failures: "Airport failed retries"
+    - id: TransitAirport
+      kind: service
+      semantics:
+        arrivals: served_airport
+        served: served_airport
+        capacity: cap_airport
+        processingTimeMsSum: airport_processing_time_ms_sum
+        servedCount: served_airport
+        aliases:
+          arrivals: "Airport riders in transit"
+          served: "Airport transit completions"
     - id: Airport
       kind: sink
       nodeRole: sink
@@ -290,10 +301,21 @@ topology:
         arrivals: arrivals_downtown
         served: served_downtown
         capacity: cap_downtown
-        processingTimeMsSum: downtown_processing_time_ms_sum
+        processingTimeMsSum: line_downtown_processing_time_ms_sum
         servedCount: served_downtown
         aliases:
           served: "Downtown line departures"
+    - id: TransitDowntown
+      kind: service
+      semantics:
+        arrivals: served_downtown
+        served: served_downtown
+        capacity: cap_downtown
+        processingTimeMsSum: downtown_processing_time_ms_sum
+        servedCount: served_downtown
+        aliases:
+          arrivals: "Downtown riders in transit"
+          served: "Downtown transit completions"
     - id: Downtown
       kind: sink
       nodeRole: sink
@@ -308,10 +330,21 @@ topology:
         arrivals: arrivals_industrial
         served: served_industrial
         capacity: cap_industrial
-        processingTimeMsSum: industrial_processing_time_ms_sum
+        processingTimeMsSum: line_industrial_processing_time_ms_sum
         servedCount: served_industrial
         aliases:
           served: "Industrial line departures"
+    - id: TransitIndustrial
+      kind: service
+      semantics:
+        arrivals: served_industrial
+        served: served_industrial
+        capacity: cap_industrial
+        processingTimeMsSum: industrial_processing_time_ms_sum
+        servedCount: served_industrial
+        aliases:
+          arrivals: "Industrial riders in transit"
+          served: "Industrial transit completions"
     - id: Industrial
       kind: sink
       nodeRole: sink
@@ -376,22 +409,34 @@ topology:
       measure: served
     - id: line_to_airport
       from: LineAirport:out
+      to: TransitAirport:in
+      type: throughput
+      measure: served
+    - id: transit_to_airport
+      from: TransitAirport:out
       to: Airport:in
       type: throughput
       measure: served
-      lag: 5
     - id: line_to_downtown
       from: LineDowntown:out
+      to: TransitDowntown:in
+      type: throughput
+      measure: served
+    - id: transit_to_downtown
+      from: TransitDowntown:out
       to: Downtown:in
       type: throughput
       measure: served
-      lag: 3
     - id: line_to_industrial
       from: LineIndustrial:out
+      to: TransitIndustrial:in
+      type: throughput
+      measure: served
+    - id: transit_to_industrial
+      from: TransitIndustrial:out
       to: Industrial:in
       type: throughput
       measure: served
-      lag: 4
     - id: hub_to_loss
       from: CentralHub:errors
       to: HubLossQueue:arrivals
@@ -661,21 +706,36 @@ nodes:
   - id: arrivals_downtown
     kind: expr
     expr: "downtown_dispatch_queue_served"
+  - id: line_airport_processing_time_ms_sum
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
+  - id: line_downtown_processing_time_ms_sum
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
+  - id: line_industrial_processing_time_ms_sum
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
   - id: arrivals_airport_destination
     kind: expr
-    expr: "SHIFT(served_airport, 5)"
+    expr: "served_airport"
     metadata:
-      description: "Airport arrivals delayed by 25 minutes (5 bins)."
+      description: "Airport arrivals (transit modeled explicitly)."
   - id: arrivals_industrial_destination
     kind: expr
-    expr: "SHIFT(served_industrial, 4)"
+    expr: "served_industrial"
     metadata:
-      description: "Industrial arrivals delayed by 20 minutes (4 bins)."
+      description: "Industrial arrivals (transit modeled explicitly)."
   - id: arrivals_downtown_destination
     kind: expr
-    expr: "SHIFT(served_downtown, 3)"
+    expr: "served_downtown"
     metadata:
-      description: "Downtown arrivals delayed by 15 minutes (3 bins)."
+      description: "Downtown arrivals (transit modeled explicitly)."
 
   - id: airport_retry_rate_spikes
     kind: expr

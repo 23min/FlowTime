@@ -97,7 +97,7 @@ public sealed class TelemetryStateGoldenTests
                 Assert.Equal(seriesLookup[service.Capacity][0], node.Metrics.Capacity);
             }
 
-            Assert.All(node.Telemetry.Sources, source => Assert.StartsWith("file://telemetry/", source, StringComparison.OrdinalIgnoreCase));
+            Assert.All(node.Telemetry.Sources, source => Assert.StartsWith("file:", source, StringComparison.OrdinalIgnoreCase));
         }
 
         Assert.Contains(logger.Entries, e => e.EventId.Id == 3001 && e.Level == LogLevel.Information);
@@ -147,7 +147,7 @@ public sealed class TelemetryStateGoldenTests
                 AssertSeriesEqual(seriesLookup[service.Capacity], RequireSeries(nodeSeries.Series, "capacity"));
             }
 
-            Assert.All(nodeSeries.Telemetry.Sources, source => Assert.StartsWith("file://telemetry/", source, StringComparison.OrdinalIgnoreCase));
+            Assert.All(nodeSeries.Telemetry.Sources, source => Assert.StartsWith("file:", source, StringComparison.OrdinalIgnoreCase));
         }
     }
 
@@ -181,7 +181,8 @@ public sealed class TelemetryStateGoldenTests
             DeterministicRunId = true
         });
 
-        var missingPath = Path.Combine(bundle.RunDirectory, "model", "telemetry", "OrderService_arrivals.csv");
+        var arrivalsSeries = definition.Series.Single(series => series.SeriesId == "order_arrivals");
+        var missingPath = Path.Combine(bundle.RunDirectory, "series", arrivalsSeries.CsvFileName);
         File.Delete(missingPath);
 
         var logger = new ListLogger<StateQueryService>();

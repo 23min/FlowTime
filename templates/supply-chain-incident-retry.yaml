@@ -77,6 +77,16 @@ topology:
           queue: "Open queue depth"
       initialCondition:
         queueDepth: 12
+    - id: AnalyticsDelay
+      kind: service
+      semantics:
+        arrivals: support_analytics_load
+        served: support_analytics_load
+        processingTimeMsSum: analytics_delay_processing_time_ms_sum
+        servedCount: support_analytics_load
+        aliases:
+          arrivals: "Analytics handoff"
+          served: "Analytics handoff complete"
     - id: SupportAnalytics
       kind: service
       semantics:
@@ -134,11 +144,15 @@ topology:
       measure: served
     - id: effort_analytics
       from: IncidentIntake:out
-      to: SupportAnalytics:in
+      to: AnalyticsDelay:in
       type: effort
       measure: load
       multiplier: 0.4
-      lag: 1
+    - id: analytics_delay_to_support
+      from: AnalyticsDelay:out
+      to: SupportAnalytics:in
+      type: throughput
+      measure: served
     - id: throughput_support_desk
       from: IncidentQueue:out
       to: SupportDesk:in
@@ -252,6 +266,12 @@ nodes:
   - id: support_analytics_errors
     kind: expr
     expr: "0"
+
+  - id: analytics_delay_processing_time_ms_sum
+    kind: expr
+    expr: "support_analytics_load * 300000"
+    metadata:
+      description: "Analytics handoff delay (1 bin)."
 
   - id: support_analytics_processing_time_ms_sum
     kind: expr

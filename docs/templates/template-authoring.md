@@ -185,6 +185,14 @@ TT‑M‑03.32 introduced three retry governance fields. When a service node sup
 
 Templates that declare `maxAttempts` **must** provide both `exhaustedFailures` and `retryBudgetRemaining` so analyzers and the UI stay consistent.
 
+### Transit Delays (No Edge Lag)
+
+Edges must remain pure connectivity. If you need to model a delay between two nodes (travel time, batching, handoff, etc.), insert an explicit **transit service** node between them:
+
+- Use `kind: service` with `arrivals`, `served`, `processingTimeMsSum`, and `servedCount`.
+- Do **not** add a queue unless the domain requires one.
+- Keep edge definitions lag-free; time shifts belong in the transit node’s service time series.
+
 ## Refreshing the Template Cache
 
 FlowTime-Sim and FlowTime.API cache template headers/metadata after the first request so listing and generation stay fast. When you edit YAML locally (or deploy updated templates to a shared instance) you no longer need to restart services to pick up the changes:
