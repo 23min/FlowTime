@@ -66,13 +66,20 @@ The list below enumerates current epics under `docs/architecture/` in an order t
   - `docs/milestones/completed/M-06.02-model-compiler.md`
 - **Notes:** M-06.01 and M-06.02 are complete; compile-to-DAG is centralized in `FlowTime.Core` and shared across entry points.
 
-### Near-Term / In-Flight Epics
-
 #### Edge Time Bins / Edge Metrics
 
 - **Folder:** `docs/architecture/edge-time-bin/`
 - **Goal:** Derive or surface per-edge throughput/attempt volumes and related metrics to support edge heat maps, conservation checks, and richer topology overlays.
-- **Notes:** Not started; depends on stable node semantics from Classes and ServiceWithBuffer (now complete).
+- **Key Milestones:**
+  - `docs/milestones/completed/M-07.01-edge-time-bin-foundations.md`
+  - `docs/milestones/completed/M-07.02-edge-time-bin-conservation-quality.md`
+  - `docs/milestones/completed/M-07.03-edge-time-bin-ui-overlays.md`
+  - `docs/milestones/completed/M-07.04-edge-semantics-contract.md`
+  - `docs/milestones/completed/M-07.05-edge-derived-path-latency.md`
+  - `docs/milestones/completed/M-07.06-transit-node-modeling.md`
+- **Notes:** M-07.01 through M-07.06 are complete; epic closed.
+
+### Near-Term / In-Flight Epics
 
 #### Dependency Constraints & Shared Resources
 
