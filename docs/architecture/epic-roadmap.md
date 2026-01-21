@@ -80,14 +80,16 @@ The list below enumerates current epics under `docs/architecture/` in an order t
   - `docs/milestones/M-08.05-mcp-edge-metrics-support.md`
 - **Notes:** M-08.01 through M-08.05 are complete; epic closed.
 
-### Near-Term / In-Flight Epics
-
 #### Engine Semantics Layer
 
 - **Folder:** `docs/architecture/engine-semantics-layer/`
 - **Goal:** Define the engine as the semantics layer that turns canonical bundles into stable `/state`, `/state_window`, and `/graph` contracts for downstream consumers.
 - **Key Docs:** `docs/architecture/engine-semantics-layer/README.md`
-- **Notes:** Moved into near-term to tighten the contract before telemetry ingestion and demo work.
+- **Key Milestones:**
+  - `docs/milestones/M-09.01-engine-semantics-layer.md`
+- **Notes:** M-09.01 is complete; epic closed pending follow-up contract hardening.
+
+### Near-Term / In-Flight Epics
 
 #### Dependency Constraints & Shared Resources
 
