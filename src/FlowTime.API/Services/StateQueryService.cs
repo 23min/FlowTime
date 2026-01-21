@@ -2059,31 +2059,7 @@ public sealed class StateQueryService
     {
         var bins = context.Window.Bins;
         var result = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
-
-        var predecessors = new Dictionary<string, List<(string Pred, double Weight)>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var edge in context.Topology.Edges)
-        {
-            var from = edge.Source?.Split(':')[0];
-            var to = edge.Target?.Split(':')[0];
-            if (string.IsNullOrWhiteSpace(from) || string.IsNullOrWhiteSpace(to))
-            {
-                continue;
-            }
-
-            var weight = edge.Multiplier ?? edge.Weight;
-            if (weight <= 0 || double.IsNaN(weight) || double.IsInfinity(weight))
-            {
-                weight = 1d;
-            }
-
-            if (!predecessors.TryGetValue(to, out var list))
-            {
-                list = new List<(string Pred, double Weight)>();
-                predecessors[to] = list;
-            }
-
-            list.Add((from, weight));
-        }
+        var incomingEdges = BuildIncomingFlowEdges(context);
 
         foreach (var node in context.Topology.Nodes)
         {
@@ -2149,22 +2125,22 @@ public sealed class StateQueryService
             }
 
             double?[]? upstream = null;
-            if (predecessors.TryGetValue(node.Id, out var preds) && preds.Count > 0)
+            if (incomingEdges.TryGetValue(node.Id, out var preds) && preds.Count > 0)
             {
                 upstream = new double?[bins];
                 for (var i = 0; i < bins; i++)
                 {
-                    double? bestLatency = null;
-                    double bestServed = double.NegativeInfinity;
+                    double totalFlow = 0d;
+                    double weightedLatency = 0d;
 
-                    foreach (var (predId, weight) in preds)
+                    foreach (var (predId, flow) in preds)
                     {
                         if (!result.TryGetValue(predId, out var predSeries))
                         {
                             continue;
                         }
 
-                        if (!context.NodeData.TryGetValue(predId, out var predData))
+                        if (i < 0 || i >= predSeries.Length)
                         {
                             continue;
                         }
@@ -2175,22 +2151,25 @@ public sealed class StateQueryService
                             continue;
                         }
 
-                        var servedSeries = predData.Served;
-                        var servedVal = servedSeries != null && i < servedSeries.Length ? servedSeries[i] * weight : 0d;
-
-                        if (!double.IsFinite(servedVal))
+                        if (flow is null || i < 0 || i >= flow.Length)
                         {
                             continue;
                         }
 
-                        if (servedVal > bestServed)
+                        var flowValue = flow[i];
+                        if (!flowValue.HasValue || !double.IsFinite(flowValue.Value) || flowValue.Value <= 0d)
                         {
-                            bestServed = servedVal;
-                            bestLatency = candidateLatency.Value;
+                            continue;
                         }
+
+                        totalFlow += flowValue.Value;
+                        weightedLatency += flowValue.Value * candidateLatency.Value;
                     }
 
-                    upstream[i] = bestLatency;
+                    if (totalFlow > 0d)
+                    {
+                        upstream[i] = Normalize(weightedLatency / totalFlow);
+                    }
                 }
             }
 
@@ -2232,6 +2211,134 @@ public sealed class StateQueryService
         }
 
         return result;
+    }
+
+    private static Dictionary<string, List<(string Pred, double?[] Flow)>> BuildIncomingFlowEdges(StateRunContext context)
+    {
+        var incoming = new Dictionary<string, List<(string Pred, double?[] Flow)>>(StringComparer.OrdinalIgnoreCase);
+        if (context.Topology.Edges is null || context.Topology.Edges.Count == 0)
+        {
+            return incoming;
+        }
+
+        var edgeSeries = BuildEdgeFlowVolumeLookup(context);
+        if (edgeSeries.Count == 0)
+        {
+            return incoming;
+        }
+
+        foreach (var edge in context.Topology.Edges)
+        {
+            var edgeType = string.IsNullOrWhiteSpace(edge.EdgeType)
+                ? "throughput"
+                : NormalizeEdgeType(edge.EdgeType);
+            if (!string.Equals(edgeType, "throughput", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var edgeId = string.IsNullOrWhiteSpace(edge.Id)
+                ? $"{edge.Source}->{edge.Target}"
+                : edge.Id!;
+
+            if (!edgeSeries.TryGetValue(edgeId, out var flow))
+            {
+                continue;
+            }
+
+            var sourceId = ExtractNodeReference(edge.Source);
+            var targetId = ExtractNodeReference(edge.Target);
+            if (string.IsNullOrWhiteSpace(sourceId) || string.IsNullOrWhiteSpace(targetId))
+            {
+                continue;
+            }
+
+            if (!incoming.TryGetValue(targetId, out var list))
+            {
+                list = new List<(string Pred, double?[] Flow)>();
+                incoming[targetId] = list;
+            }
+
+            list.Add((sourceId, flow));
+        }
+
+        return incoming;
+    }
+
+    private static Dictionary<string, double?[]> BuildEdgeFlowVolumeLookup(StateRunContext context)
+    {
+        var lookup = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
+        if (context.Topology.Edges is null || context.Topology.Edges.Count == 0)
+        {
+            return lookup;
+        }
+
+        var edgeDefinitions = BuildEdgeDefinitionLookup(context.Topology.Edges);
+        if (edgeDefinitions.Count == 0)
+        {
+            return lookup;
+        }
+
+        foreach (var series in context.SeriesIndex.Series)
+        {
+            if (!IsEdgeSeriesMetadata(series))
+            {
+                continue;
+            }
+
+            if (!TryParseEdgeSeriesId(series.Id, out var edgeToken, out var metric))
+            {
+                continue;
+            }
+
+            if (!string.Equals(metric, "flowVolume", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!IsDefaultSeriesClass(series.Class))
+            {
+                continue;
+            }
+
+            if (!edgeDefinitions.TryGetValue(edgeToken, out var definition))
+            {
+                continue;
+            }
+
+            if (lookup.ContainsKey(definition.RawId))
+            {
+                continue;
+            }
+
+            var seriesPath = Path.Combine(context.RunDirectory, series.Path);
+            if (!File.Exists(seriesPath))
+            {
+                continue;
+            }
+
+            var values = CsvReader.ReadTimeSeries(seriesPath, context.Window.Bins);
+            var normalized = new double?[values.Length];
+            for (var i = 0; i < values.Length; i++)
+            {
+                normalized[i] = Normalize(values[i]);
+            }
+
+            lookup[definition.RawId] = normalized;
+        }
+
+        return lookup;
+    }
+
+    private static bool IsDefaultSeriesClass(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return true;
+        }
+
+        return string.Equals(value, "default", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "all", StringComparison.OrdinalIgnoreCase);
     }
 
     private static IReadOnlyList<EdgeSeries> BuildEdgeSeries(StateRunContext context, int startBin, int count)

@@ -88,4 +88,21 @@ public sealed class TopologyInspectorSparklineTests : TestContext
         var highlight = cut.Find("circle");
         Assert.NotEqual("#CBD5E1", highlight.GetAttribute("fill"));
     }
+
+    [Fact]
+    public void EmptySeriesRendersNoData()
+    {
+        var values = new double?[] { null, null, null };
+        var sparkline = NodeSparklineData.Create(
+            values,
+            Array.Empty<double?>(),
+            Array.Empty<double?>(),
+            Array.Empty<double?>(),
+            startIndex: 0);
+
+        var cut = RenderComponent<TopologyInspectorSparkline>(parameters => parameters
+            .Add(p => p.Data, sparkline));
+
+        Assert.Contains("No data", cut.Markup);
+    }
 }

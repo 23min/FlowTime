@@ -218,6 +218,34 @@ public sealed class TopologyInspectorTests
     }
 
     [Fact]
+    public void BuildInspectorMetrics_SinkNode_IncludesFlowLatencyWhenPresent()
+    {
+        var topology = new Topology();
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("sink-node", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics(), NodeRole: "sink")
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var sparkline = CreateSparkline(new Dictionary<string, double?[]>
+        {
+            ["successRate"] = new double?[] { 0.9, 0.95 },
+            ["served"] = new double?[] { 10, 11 },
+            ["flowLatencyMs"] = new double?[] { 3000, 3100 }
+        });
+
+        topology.TestSetNodeSparklines(new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["sink-node"] = sparkline
+        });
+
+        var metrics = topology.TestBuildInspectorMetrics("sink-node");
+
+        Assert.Contains(metrics, block => block.Title == "Flow latency");
+    }
+
+    [Fact]
     public void BinDump_UsesClassSelectionAndUnfilteredSeries()
     {
         var topology = new Topology();

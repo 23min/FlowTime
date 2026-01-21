@@ -3133,7 +3133,10 @@
         const hasSparkline = tooltipSparkline !== null;
         const sparklineWidth = hasSparkline ? toDevice(90) : 0;
         const sparklineHeight = hasSparkline ? toDevice(26) : 0;
-        const sparklineMarginTop = hasSparkline ? toDevice(6) : 0;
+        const sparklineLabelFontSize = 10 * ratio;
+        const sparklineLabelGap = toDevice(2);
+        const sparklineLabelHeight = hasSparkline ? (sparklineLabelFontSize + sparklineLabelGap) : 0;
+        const sparklineMarginTop = hasSparkline ? (toDevice(6) + sparklineLabelHeight) : 0;
         const sparklineMarginBottom = hasSparkline ? toDevice(11) : 0;
         const sparklineBlockHeight = hasSparkline ? sparklineHeight + sparklineMarginTop + sparklineMarginBottom : 0;
 
@@ -3263,6 +3266,21 @@
             const defaultSpark = isComputedNode
                 ? '#94A3B8'
                 : (anchorMeta?.fill ?? resolveSparklineColor(overlays.colorBasis ?? 0));
+            try {
+                const seriesBasis = resolveSparklineBasis(anchorMeta, tooltipSparkline, overlays);
+                const label = resolveSparklineLabel(seriesBasis, anchorMeta?.kind ?? anchorMeta?.Kind ?? '');
+                if (label) {
+                    ctx.save();
+                    const sparkLabelColor = isDarkTheme() ? NODE_LABEL_COLOR_DARK : '#64748B';
+                    ctx.fillStyle = sparkLabelColor;
+                    ctx.globalAlpha = 0.9;
+                    ctx.font = `${sparklineLabelFontSize}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'top';
+                    ctx.fillText(label, tooltipX + paddingX, sparkTop - (sparklineLabelFontSize + sparklineLabelGap));
+                    ctx.restore();
+                }
+            } catch { /* tooltip sparkline label is best-effort */ }
             drawSparkline(ctx, anchorMeta, tooltipSparkline, overlays, defaultSpark, {
                 left: tooltipX + paddingX,
                 top: sparkTop,
@@ -4753,18 +4771,7 @@
             // Tiny label positioned directly above the sparkline (left-aligned)
             try {
                 const seriesBasis = resolveSparklineBasis(nodeMeta, spark, overlays);
-                const label = seriesBasis === 3
-                    ? (isDlqKind(nodeKind) ? 'DLQ' : 'Queue')
-                    : (function () {
-                        switch (seriesBasis) {
-                            case 1: return 'Util';
-                            case 2: return 'Errors';
-                            case 4: return 'Svc time';
-                            case 5: return 'Flow lat';
-                            case 6: return 'Arrivals';
-                            default: return 'SLA';
-                        }
-                    })();
+                const label = resolveSparklineLabel(seriesBasis, nodeKind);
 
                 // Recompute sparkline geometry to determine its left edge
                 const mode = overlays.sparklineMode === 'bar' ? 'bar' : 'line';
@@ -4788,7 +4795,9 @@
                 ctx.textAlign = 'left';
                 ctx.textBaseline = 'alphabetic';
                 // place just above the sparkline row, aligned to its left edge
-                ctx.fillText(label, leftEdge, topRowTop - 2);
+                if (label) {
+                    ctx.fillText(label, leftEdge, topRowTop - 2);
+                }
                 ctx.restore();
             } catch { /* draw label is best-effort */ }
         }
@@ -8668,6 +8677,21 @@ function setHoveredEdge(state, edgeId) {
         }
 
         return basis;
+    }
+
+    function resolveSparklineLabel(seriesBasis, nodeKind) {
+        if (seriesBasis === 3) {
+            return isDlqKind(nodeKind) ? 'DLQ' : 'Queue';
+        }
+
+        switch (seriesBasis) {
+            case 1: return 'Util';
+            case 2: return 'Errors';
+            case 4: return 'Svc time';
+            case 5: return 'Flow lat';
+            case 6: return 'Arrivals';
+            default: return 'SLA';
+        }
     }
 
     function selectSeriesForBasis(sparkline, basis) {

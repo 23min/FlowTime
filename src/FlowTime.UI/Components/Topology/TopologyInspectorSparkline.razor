@@ -4,7 +4,7 @@
 
 @if (!hasData)
 {
-    <div class="node-inspector-sparkline empty" />
+    <div class="node-inspector-sparkline empty">No data</div>
 }
 else
 {
@@ -139,6 +139,16 @@ else
 
         var aggregatedSamples = AggregateSamples(Data.Values, desiredPointCount, Data.StartIndex);
         if (aggregatedSamples.Count == 0)
+        {
+            hasData = false;
+            pathSegments = Array.Empty<PathSegment>();
+            barSegments = Array.Empty<BarSegment>();
+            tickPositions = Array.Empty<double>();
+            hasHighlight = false;
+            resolvedAriaLabel = string.IsNullOrWhiteSpace(AriaLabel) ? "Node sparkline preview unavailable" : AriaLabel!;
+            return;
+        }
+        if (aggregatedSamples.All(sample => !sample.HasData))
         {
             hasData = false;
             pathSegments = Array.Empty<PathSegment>();

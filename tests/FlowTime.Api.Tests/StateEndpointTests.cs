@@ -47,6 +47,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private const string backlogWarningsRunId = "run_state_backlog_warnings";
     private const string backlogWarningsParallelismRunId = "run_state_backlog_warnings_parallelism";
     private const string sinkRunId = "run_state_sink";
+    private const string sinkPathLatencyRunId = "run_state_sink_path_latency";
     private const int binCount = 4;
     private const int binSizeMinutes = 5;
     private static readonly DateTime startTimeUtc = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -96,6 +97,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateBacklogWarningsRun();
         CreateBacklogWarningsParallelismRun();
         CreateSinkRun();
+        CreateSinkPathLatencyRun();
 
         logCollector = new TestLogCollector();
         client = factory.WithWebHostBuilder(builder =>
@@ -609,6 +611,35 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(200d, flowLatencySeries[1]!.Value, 5);
         Assert.Null(flowLatencySeries[2]);
         Assert.Equal(200d, flowLatencySeries[3]!.Value, 5);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_DerivesSinkPathLatency_UsesEdgeFlowWeighting()
+    {
+        var response = await client.GetAsync($"/v1/runs/{sinkPathLatencyRunId}/state_window?startBin=0&endBin=3");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        var sink = Assert.Single(payload!.Nodes, n => n.Id == "Sink");
+        Assert.True(sink.Series.TryGetValue("flowLatencyMs", out var flowLatencySeries));
+        Assert.NotNull(flowLatencySeries);
+        Assert.Equal(4, flowLatencySeries!.Length);
+
+        foreach (var value in flowLatencySeries)
+        {
+            Assert.NotNull(value);
+            Assert.Equal(4000d, value!.Value, 5);
+        }
+
+        Assert.NotNull(sink.SeriesMetadata);
+        Assert.True(sink.SeriesMetadata!.TryGetValue("flowLatencyMs", out var flowLatencyMetadata));
+        Assert.Equal("avg", flowLatencyMetadata!.Aggregation);
+        Assert.Equal("derived", flowLatencyMetadata.Origin);
     }
 
     [Fact]
@@ -1699,6 +1730,44 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
             overrides: overrides);
     }
 
+    private void CreateSinkPathLatencyRun()
+    {
+        var overrides = new Dictionary<string, double[]>
+        {
+            ["UpstreamFast_arrivals.csv"] = new[] { 1d, 1d, 1d, 1d },
+            ["UpstreamFast_served.csv"] = new[] { 1d, 1d, 1d, 1d },
+            ["UpstreamFast_errors.csv"] = new[] { 0d, 0d, 0d, 0d },
+            ["UpstreamFast_processingTimeMsSum.csv"] = new[] { 1000d, 1000d, 1000d, 1000d },
+            ["UpstreamFast_servedCount.csv"] = new[] { 1d, 1d, 1d, 1d },
+            ["UpstreamSlow_arrivals.csv"] = new[] { 3d, 3d, 3d, 3d },
+            ["UpstreamSlow_served.csv"] = new[] { 3d, 3d, 3d, 3d },
+            ["UpstreamSlow_errors.csv"] = new[] { 0d, 0d, 0d, 0d },
+            ["UpstreamSlow_processingTimeMsSum.csv"] = new[] { 15000d, 15000d, 15000d, 15000d },
+            ["UpstreamSlow_servedCount.csv"] = new[] { 3d, 3d, 3d, 3d },
+            ["Sink_arrivals.csv"] = new[] { 4d, 4d, 4d, 4d },
+            ["Sink_served.csv"] = new[] { 4d, 4d, 4d, 4d },
+            ["Sink_errors.csv"] = new[] { 0d, 0d, 0d, 0d }
+        };
+
+        var seriesOutputs = new Dictionary<string, double[]>
+        {
+            ["edge_fast_to_sink_flowVolume@EDGE_FAST_TO_SINK_FLOWVOLUME@DEFAULT.csv"] = new[] { 1d, 1d, 1d, 1d },
+            ["edge_slow_to_sink_flowVolume@EDGE_SLOW_TO_SINK_FLOWVOLUME@DEFAULT.csv"] = new[] { 3d, 3d, 3d, 3d }
+        };
+
+        var manifestSeries = seriesOutputs.Keys
+            .Select(fileName => (id: Path.GetFileNameWithoutExtension(fileName), path: $"series/{fileName}", unit: "entities/bin"))
+            .ToArray();
+
+        CreateRun(
+            sinkPathLatencyRunId,
+            BuildSinkPathLatencyModelYaml(),
+            mode: "telemetry",
+            overrides: overrides,
+            seriesOutputs: seriesOutputs,
+            manifestSeries: manifestSeries);
+    }
+
     private void CreateFullModeRun()
     {
         var seriesOutputs = new Dictionary<string, double[]>
@@ -2311,6 +2380,52 @@ topology:
         periodBins: 2
         phaseOffset: 0
   edges: []
+
+""";
+    }
+
+    private static string BuildSinkPathLatencyModelYaml()
+    {
+        return $"""
+schemaVersion: 1
+
+grid:
+  bins: {binCount}
+  binSize: {binSizeMinutes}
+  binUnit: minutes
+  startTimeUtc: "{startTimeUtc:O}"
+
+topology:
+  nodes:
+    - id: "UpstreamFast"
+      kind: "service"
+      semantics:
+        arrivals: "file:UpstreamFast_arrivals.csv"
+        served: "file:UpstreamFast_served.csv"
+        errors: "file:UpstreamFast_errors.csv"
+        processingTimeMsSum: "file:UpstreamFast_processingTimeMsSum.csv"
+        servedCount: "file:UpstreamFast_servedCount.csv"
+    - id: "UpstreamSlow"
+      kind: "service"
+      semantics:
+        arrivals: "file:UpstreamSlow_arrivals.csv"
+        served: "file:UpstreamSlow_served.csv"
+        errors: "file:UpstreamSlow_errors.csv"
+        processingTimeMsSum: "file:UpstreamSlow_processingTimeMsSum.csv"
+        servedCount: "file:UpstreamSlow_servedCount.csv"
+    - id: "Sink"
+      kind: "sink"
+      semantics:
+        arrivals: "file:Sink_arrivals.csv"
+        served: "file:Sink_served.csv"
+        errors: "file:Sink_errors.csv"
+  edges:
+    - id: "fast_to_sink"
+      from: "UpstreamFast:out"
+      to: "Sink:in"
+    - id: "slow_to_sink"
+      from: "UpstreamSlow:out"
+      to: "Sink:in"
 
 """;
     }

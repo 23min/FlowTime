@@ -194,6 +194,32 @@ public class StateResponseSchemaTests : IClassFixture<TestWebApplicationFactory>
     }
 
     [Fact]
+    public async Task StateWindow_Response_AllowsFlowLatencyMetadata()
+    {
+        var runId = EnsureSchemaRun();
+        var response = await client.GetAsync($"/v1/runs/{runId}/state_window?startBin=0&endBin=3");
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync();
+        var node = JsonNode.Parse(json);
+
+        Assert.NotNull(node);
+        var seriesNode = node!.AsObject()["nodes"]?.AsArray().FirstOrDefault()?.AsObject();
+        Assert.NotNull(seriesNode);
+
+        seriesNode!["seriesMetadata"] = new JsonObject
+        {
+            ["flowLatencyMs"] = new JsonObject
+            {
+                ["aggregation"] = "avg",
+                ["origin"] = "derived"
+            }
+        };
+
+        Assert.True(IsSchemaValid(node!), "Expected flowLatencyMs metadata to be allowed by schema.");
+    }
+
+    [Fact]
     public async Task StateWindow_Response_RejectsUnknownAggregation()
     {
         var runId = EnsureSchemaRun();

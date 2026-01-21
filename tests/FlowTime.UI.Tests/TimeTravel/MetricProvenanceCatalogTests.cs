@@ -64,4 +64,13 @@ public sealed class MetricProvenanceCatalogTests
 
         Assert.Contains("capacity", evaluation.MissingInputs);
     }
+
+    [Fact]
+    public void MetricProvenanceCatalog_FlowLatencyMentionsDerived()
+    {
+        var definition = MetricProvenanceCatalog.GetForNodeKind("service")["flowLatencyMs"];
+
+        Assert.NotNull(definition.Meaning);
+        Assert.Contains("derived", definition.Meaning!, StringComparison.OrdinalIgnoreCase);
+    }
 }

@@ -41,7 +41,6 @@ public sealed class TelemetryBundleBuilder
 
         var modelYaml = await File.ReadAllTextAsync(modelPath, cancellationToken).ConfigureAwait(false);
         var normalizedYaml = NormalizeTelemetrySources(modelYaml, captureDir, captureFiles);
-        var rewrittenYaml = RewriteTelemetrySemanticsToSources(normalizedYaml, captureFiles.Values);
         var canonicalModel = ModelService.ParseAndConvert(normalizedYaml);
         var telemetrySeries = await LoadTelemetrySeriesAsync(captureDir, telemetryManifest, canonicalModel, cancellationToken).ConfigureAwait(false);
         var coverageWarnings = ValidateClassSeries(telemetryManifest, telemetrySeries);
@@ -79,7 +78,7 @@ public sealed class TelemetryBundleBuilder
                     kvp => (IReadOnlyDictionary<string, double[]>)new Dictionary<string, double[]>(kvp.Value, StringComparer.OrdinalIgnoreCase),
                     new NodeIdComparer()),
             ClassCoverageOverride = telemetryManifest.ClassCoverage,
-            SpecText = rewrittenYaml,
+            SpecText = normalizedYaml,
             RngSeed = null,
             StartTimeBias = null,
             DeterministicRunId = options.DeterministicRunId,

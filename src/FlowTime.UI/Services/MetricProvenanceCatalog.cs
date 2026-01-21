@@ -210,7 +210,7 @@ public static class MetricProvenanceCatalog
                 {
                     new MetricFormulaOption("flowLatency = flowLatencyMs series", new[] { "flowLatencyMs" })
                 },
-                "Average end-to-end latency for completed items."),
+                "Average end-to-end latency for completed items, derived from upstream flow and node delays."),
             ["errorRate"] = CreateDefinition(
                 "errorRate",
                 "Error rate",

@@ -27,7 +27,7 @@ Guardrails:
 1) Follow /workspaces/flowtime-vnext/.github/copilot-instructions.md
 2) Always TDD (RED -> GREEN -> REFACTOR). List tests first in tracking.
 3) Copy TEMPLATE-tracking.md to the milestone tracking file before coding.
-4) Run dotnet build + dotnet test --nologo before handoff.
+4) Run dotnet build + dotnet test --nologo before handoff. If the full suite times out, run per-project tests instead and record results (this satisfies the test requirement).
 5) Use rg/fd for searches; avoid destructive git.
 6) Keep docs/schemas/templates aligned when touching contracts.
 7) Keep telemetry artifacts aligned with schema/registry expectations.
@@ -46,7 +46,7 @@ Kick off implementation when ready, starting with the tracking doc creation.
 - Keep the milestone ID dynamic in session prompts; do not hardcode a specific ID.
 - If the milestone is already in progress, use the tracking doc to resume.
 - When the epic completes, archive the milestone specs together.
-- Prefer running tests per project to avoid long-running full-suite timeouts. Use `--blame-hang` with a short timeout to catch hangs quickly.
+- Prefer running tests per project to avoid long-running full-suite timeouts. Use `--blame-hang` with a short timeout to catch hangs quickly; this can replace a single full-suite `dotnet test --nologo` run.
 - Recommended per-project test order (each with `--blame-hang --blame-hang-timeout 60s`):
   - `tests/FlowTime.Expressions.Tests/FlowTime.Expressions.Tests.csproj`
   - `tests/FlowTime.Core.Tests/FlowTime.Core.Tests.csproj`

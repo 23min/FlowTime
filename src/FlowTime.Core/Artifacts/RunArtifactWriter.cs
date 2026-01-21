@@ -182,6 +182,26 @@ public static class RunArtifactWriter
                 classSeries[entry.Key] = entry.Value;
             }
         }
+        if (hasClassOverrides)
+        {
+            foreach (var (nodeId, perClass) in request.ClassSeriesOverride!)
+            {
+                if (perClass is null || perClass.Count == 0)
+                {
+                    continue;
+                }
+
+                if (classSeries.ContainsKey(nodeId))
+                {
+                    continue;
+                }
+
+                classSeries[nodeId] = perClass.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => (double[])kvp.Value.Clone(),
+                    StringComparer.OrdinalIgnoreCase);
+            }
+        }
         var capturedClasses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var descriptor in seriesDescriptorList)

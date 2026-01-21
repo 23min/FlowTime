@@ -973,6 +973,35 @@ public sealed class TopologyCanvasRenderTests : TestContext
     }
 
     [Fact]
+    public void RenderScene_IncludesSinkFlowLatencySparklineSeries()
+    {
+        var nodes = new[]
+        {
+            new TopologyNode("terminal", "sink", "sink", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+        };
+        var graph = new TopologyGraph(nodes, Array.Empty<TopologyEdge>());
+
+        var sparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["terminal"] = CreateConflictingSparkline()
+        };
+
+        var sceneCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true);
+        sceneCall.SetVoidResult();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true).SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeSparklines, sparklines));
+
+        var payload = Assert.IsType<CanvasScenePayload>(sceneCall.Invocations.Single().Arguments[1]);
+        var terminal = Assert.Single(payload.Nodes, node => node.Id == "terminal");
+
+        Assert.NotNull(terminal.Sparkline);
+        Assert.True(terminal.Sparkline!.Series.ContainsKey("flowLatencyMs"));
+    }
+
+    [Fact]
     public void SinkOverlayMetrics_SuppressQueueAndUtilization()
     {
         var nodes = new[]
