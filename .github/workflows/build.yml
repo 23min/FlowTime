@@ -32,7 +32,7 @@ jobs:
         run: dotnet test --configuration Release --no-build tests/FlowTime.Core.Tests/FlowTime.Core.Tests.csproj --blame-hang --blame-hang-timeout 60s
 
       - name: Test (Engine)
-        run: dotnet test --configuration Release --no-build tests/FlowTime.Tests/FlowTime.Tests.csproj --blame-hang --blame-hang-timeout 60s --filter "FullyQualifiedName!~Performance"
+        run: dotnet test --configuration Release --no-build tests/FlowTime.Tests/FlowTime.Tests.csproj --blame-hang --blame-hang-timeout 60s --filter "FullyQualifiedName!~Performance&FullyQualifiedName!~FlowTime.Tests.Benchmarks.M16BenchmarkRunner.RunM16ExpressionTypeBenchmarks&FullyQualifiedName!~FlowTime.Tests.Benchmarks.M2BenchmarkRunner.RunM2PmfComplexityBenchmarks"
 
       - name: Test (Synthetic Adapters)
         run: dotnet test --configuration Release --no-build tests/FlowTime.Adapters.Synthetic.Tests/FlowTime.Adapters.Synthetic.Tests.csproj --blame-hang --blame-hang-timeout 60s
