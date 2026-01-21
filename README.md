@@ -119,6 +119,7 @@ dotnet test tests/FlowTime.Sim.Tests/FlowTime.Sim.Tests.csproj
 ## Documentation
 
 - Engine + shared docs: `docs/` (roadmap, architecture, schemas, onboarding).
+- MCP (AI tooling): `docs/guides/MCP.md`.
 - Planning & epics: `docs/ROADMAP.md` (current and future work, including time-travel and upcoming epics).
 - Architecture docs: `docs/architecture/` (time-travel, expression extensions, classes, edge time bins, engine semantics layer, overlays).
 

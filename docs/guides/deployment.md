@@ -1,5 +1,11 @@
 # Deployment Guide: FlowTime Services
 
+## MCP Server (AI tooling)
+
+The MCP server lives in `tools/mcp-server` and currently runs as a **stdio subprocess** (spawned by an MCP-capable client), not as a long-running HTTP service.
+
+For local setup, VS Code tasks, and future hosted deployment notes, see `docs/guides/MCP.md`.
+
 ## **Production Port Recommendations**
 
 For production deployments, use these port assignments to ensure compatibility with standard practices:
