@@ -168,6 +168,7 @@ Guardrails are required because this MCP surface is run-capable:
 - **Parameter fences** for any scenario mutations or overrides.
 - **Audit trail**: record which changes the AI made, which tools were invoked, and the run IDs generated.
 - **Capability profiles**: analysis-only vs full modeling; deploy separately if stricter isolation is required.
+- **Strict validation in MCP**: treat engine/info warnings for dependency contracts and edge semantics as **hard errors** during MCP model generation (engine warnings remain info-level for legacy templates).
 
 These guardrails should be enforced in the MCP server, not left to the model.
 

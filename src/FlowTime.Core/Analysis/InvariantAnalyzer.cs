@@ -37,6 +37,9 @@ public static class InvariantAnalyzer
         var queueSeeds = BuildQueueInitials(model.Topology.Nodes);
         var incomingEdges = new Dictionary<string, List<TopologyEdgeDefinition>>(StringComparer.OrdinalIgnoreCase);
         var outgoingEdges = new Dictionary<string, List<TopologyEdgeDefinition>>(StringComparer.OrdinalIgnoreCase);
+        var topologyNodeLookup = model.Topology.Nodes
+            .Where(n => !string.IsNullOrWhiteSpace(n.Id))
+            .ToDictionary(n => n.Id!, n => n, StringComparer.OrdinalIgnoreCase);
 
         if (model.Topology.Edges is { Count: > 0 })
         {
@@ -385,6 +388,52 @@ public static class InvariantAnalyzer
                     Array.Empty<int>(),
                     null,
                     "info"));
+            }
+
+            if (isDependencyKind)
+            {
+                var hasIncomingEffort = incomingEdges.TryGetValue(nodeId, out var dependencyIncoming) &&
+                    dependencyIncoming.Any(edge => IsEffortEdge(edge));
+                if (!hasIncomingEffort)
+                {
+                    warnings.Add(new InvariantWarning(
+                        nodeId,
+                        "dependency_missing_effort_edges",
+                        "Dependency has no incoming effort edges; attempt pressure cannot be represented.",
+                        Array.Empty<int>(),
+                        null,
+                        "info"));
+                }
+
+                if (!string.IsNullOrWhiteSpace(semantics.Errors) && hasIncomingEffort)
+                {
+                    var hasAttempts = dependencyIncoming!.Any(edge =>
+                    {
+                        var sourceId = ExtractNodeId(edge.Source);
+                        if (string.IsNullOrWhiteSpace(sourceId))
+                        {
+                            return false;
+                        }
+
+                        if (!topologyNodeLookup.TryGetValue(sourceId, out var sourceNode) || sourceNode.Semantics is null)
+                        {
+                            return false;
+                        }
+
+                        return !string.IsNullOrWhiteSpace(sourceNode.Semantics.Attempts);
+                    });
+
+                    if (!hasAttempts)
+                    {
+                        warnings.Add(new InvariantWarning(
+                            nodeId,
+                            "dependency_retry_pressure_missing",
+                            "Dependency errors are defined but upstream attempt series are missing; retry pressure will be invisible.",
+                            Array.Empty<int>(),
+                            null,
+                            "info"));
+                    }
+                }
             }
 
             if (expectsQueue && queueDepth == null)
@@ -1131,6 +1180,18 @@ public static class InvariantAnalyzer
         static bool IsTerminalEdge(TopologyEdgeDefinition edge) =>
             !string.IsNullOrWhiteSpace(edge.Type) &&
             edge.Type.Trim().Equals("terminal", StringComparison.OrdinalIgnoreCase);
+
+        static bool IsEffortEdge(TopologyEdgeDefinition edge)
+        {
+            if (string.IsNullOrWhiteSpace(edge.Type))
+            {
+                return false;
+            }
+
+            var normalized = edge.Type.Trim();
+            return normalized.Equals("effort", StringComparison.OrdinalIgnoreCase) ||
+                normalized.Equals("dependency", StringComparison.OrdinalIgnoreCase);
+        }
 
         static string GetEdgeLabel(TopologyEdgeDefinition edge)
         {

@@ -4411,6 +4411,15 @@ internal sealed record InspectorMetricBlock(
         var isServiceWithBuffer = IsServiceWithBufferKind(nodeKind) || IsServiceWithBufferKind(logicalKind);
         var isRouterKind = IsRouterKind(nodeKind) || IsRouterKind(logicalKind);
         var isSinkNode = IsSinkRole(topoNode?.NodeRole);
+        var isDependencyNode = IsDependencyKind(nodeKind) || IsDependencyKind(logicalKind);
+
+        if (isDependencyNode)
+        {
+            AddRequired(Label("Arrivals", "arrivals"), "arrivals", 0d, seriesKeyOverride: "arrivals");
+            AddRequired(Label("Served", "served"), "served", 0d, seriesKeyOverride: "served");
+            AddRequired(Label("Errors", "errors"), "errors", 0d, seriesKeyOverride: "errors");
+            return blocks;
+        }
         var servedAlreadyAdded = false;
 
         if (isQueueKind || isServiceWithBuffer)
@@ -4816,6 +4825,10 @@ internal sealed record InspectorMetricBlock(
             || IsSinkKind(seriesNode?.Kind)
             || IsSinkKind(seriesNode?.LogicalType)
             || IsSinkRole(topoNode?.NodeRole);
+        var isDependency = IsDependencyKind(metrics?.NodeKind)
+            || IsDependencyKind(seriesNode?.Kind)
+            || IsDependencyKind(seriesNode?.LogicalType)
+            || IsDependencyKind(nodeKind);
         var isRouter = IsRouterKind(metrics?.NodeKind)
             || IsRouterKind(seriesNode?.Kind)
             || IsRouterKind(seriesNode?.LogicalType);
@@ -4937,6 +4950,11 @@ internal sealed record InspectorMetricBlock(
 
         if (metrics is null)
         {
+            if (isDependency)
+            {
+                return rows;
+            }
+
             if (isSink && hasSchedule)
             {
                 rows.Add(CreateRow(
@@ -4960,6 +4978,13 @@ internal sealed record InspectorMetricBlock(
         }
 
         var safeMetrics = metrics;
+        if (isDependency)
+        {
+            AddRaw("Arrivals", "arrivals");
+            AddRaw("Served", "served");
+            AddRaw("Errors", "errors");
+            return rows;
+        }
         AddRaw("Arrivals", "arrivals");
         AddRaw("Served", "served");
         AddRaw("Errors", "errors");
@@ -5266,6 +5291,10 @@ internal sealed record InspectorMetricBlock(
     private static bool IsRouterKind(string? kind) =>
         !string.IsNullOrWhiteSpace(kind) &&
         string.Equals(kind, "router", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsDependencyKind(string? kind) =>
+        !string.IsNullOrWhiteSpace(kind) &&
+        string.Equals(kind.Trim(), "dependency", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsSinkKind(string? kind) =>
         !string.IsNullOrWhiteSpace(kind) &&

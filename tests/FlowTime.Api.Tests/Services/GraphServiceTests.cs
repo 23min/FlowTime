@@ -176,6 +176,46 @@ topology:
     }
 
     [Fact]
+    public async Task GetGraphAsync_IncludesDependencyKind_InOperationalAndFullModes()
+    {
+        const string runId = "run_graph_dependency_kind";
+        CreateRun(runId, """
+schemaVersion: 1
+
+grid:
+  bins: 2
+  binSize: 5
+  binUnit: minutes
+
+topology:
+  nodes:
+    - id: ServiceA
+      kind: service
+      semantics:
+        arrivals: series:arrivals
+        served: series:served
+        errors: series:errors
+    - id: DependencyDb
+      kind: dependency
+      semantics:
+        arrivals: series:dep_arrivals
+        served: series:dep_served
+        errors: series:dep_errors
+  edges:
+    - id: to_dependency
+      from: ServiceA:out
+      to: DependencyDb:in
+""");
+
+        var operational = await service.GetGraphAsync(runId);
+        Assert.Contains(operational.Nodes, node => string.Equals(node.Id, "DependencyDb", StringComparison.OrdinalIgnoreCase));
+
+        var full = await service.GetGraphAsync(runId, new GraphQueryOptions { Mode = GraphQueryMode.Full });
+        var dependency = Assert.Single(full.Nodes, node => string.Equals(node.Id, "DependencyDb", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal("dependency", dependency.Kind);
+    }
+
+    [Fact]
     public async Task GetGraphAsync_IncludesRetrySemanticsAndEdgeTypes()
     {
         const string runId = "run_graph_retry";

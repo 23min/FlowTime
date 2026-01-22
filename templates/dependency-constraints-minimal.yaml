@@ -12,7 +12,7 @@ window:
   timezone: UTC
 
 grid:
-  bins: 12
+  bins: 288
   binSize: 5
   binUnit: minutes
 
@@ -22,17 +22,40 @@ rng:
 
 topology:
   nodes:
-    - id: Producer
-      kind: service
+    - id: Router
+      kind: router
       semantics:
-        arrivals: producer_arrivals
-        served: producer_served
-        attempts: producer_attempts
-        processingTimeMsSum: producer_processing_time_ms_sum
-        servedCount: producer_served
+        arrivals: router_arrivals
+        served: router_served
+        capacity: router_capacity
+        processingTimeMsSum: router_processing_time_ms_sum
+        servedCount: router_served
         aliases:
           arrivals: 'Incoming work'
-          served: 'Work accepted'
+          served: 'Dispatched work'
+    - id: ProducerA
+      kind: service
+      semantics:
+        arrivals: producer_a_arrivals
+        served: producer_a_served
+        capacity: producer_a_capacity
+        processingTimeMsSum: producer_a_processing_time_ms_sum
+        servedCount: producer_a_served
+        aliases:
+          arrivals: 'Producer A work'
+          served: 'Producer A served'
+    - id: ProducerB
+      kind: service
+      semantics:
+        arrivals: producer_b_arrivals
+        served: producer_b_served
+        attempts: producer_b_attempts
+        capacity: producer_b_capacity
+        processingTimeMsSum: producer_b_processing_time_ms_sum
+        servedCount: producer_b_served
+        aliases:
+          arrivals: 'Producer B work'
+          served: 'Producer B served'
           attempts: 'Dependency call attempts'
     - id: DependencyDb
       kind: dependency
@@ -49,13 +72,29 @@ topology:
       semantics:
         arrivals: consumer_arrivals
         served: consumer_served
+        capacity: consumer_capacity
         processingTimeMsSum: consumer_processing_time_ms_sum
         servedCount: consumer_served
         aliases:
           served: 'Downstream completions'
   edges:
-    - id: producer_to_dependency
-      from: Producer:out
+    - id: router_to_producer_a
+      from: Router:out
+      to: ProducerA:in
+      type: throughput
+      measure: served
+    - id: router_to_producer_b
+      from: Router:out
+      to: ProducerB:in
+      type: throughput
+      measure: served
+    - id: producer_a_to_dependency
+      from: ProducerA:out
+      to: DependencyDb:in
+      type: effort
+      measure: attempts
+    - id: producer_b_to_dependency
+      from: ProducerB:out
       to: DependencyDb:in
       type: effort
       measure: attempts
@@ -66,28 +105,73 @@ topology:
       measure: served
 
 nodes:
-  - id: producer_arrivals
+  - id: router_arrivals
+    kind: pmf
+    pmf:
+      values: [20, 35, 50, 70, 90, 100]
+      probabilities: [0.08, 0.16, 0.24, 0.24, 0.18, 0.1]
+    profile:
+      kind: builtin
+      name: hub-rush-hour
+  - id: router_served
     kind: expr
-    expr: "40"
-  - id: producer_served
+    expr: "router_arrivals"
+  - id: router_capacity
     kind: expr
-    expr: "producer_arrivals"
-  - id: producer_attempts
+    expr: "router_served"
+  - id: router_processing_time_ms_sum
     kind: expr
-    expr: "producer_served"
-  - id: producer_processing_time_ms_sum
+    expr: "router_served * 30000"
+  - id: producer_a_arrivals
     kind: expr
-    expr: "producer_served * 180000"
+    expr: "router_served * 0.5"
+  - id: producer_a_served
+    kind: expr
+    expr: "producer_a_arrivals"
+  - id: producer_a_capacity
+    kind: expr
+    expr: "producer_a_served"
+  - id: producer_a_processing_time_ms_sum
+    kind: expr
+    expr: "producer_a_served * 180000"
+
+  - id: producer_b_arrivals
+    kind: expr
+    expr: "router_served * 0.5"
+  - id: producer_b_served
+    kind: expr
+    expr: "producer_b_arrivals"
+  - id: producer_b_retry_attempts
+    kind: expr
+    expr: "CONV(dependency_errors, [0.0, 0.6, 0.3, 0.1])"
+  - id: producer_b_attempts
+    kind: expr
+    expr: "producer_b_served + producer_b_retry_attempts"
+  - id: producer_b_capacity
+    kind: expr
+    expr: "producer_b_served"
+  - id: producer_b_processing_time_ms_sum
+    kind: expr
+    expr: "(producer_b_served + producer_b_retry_attempts) * 180000"
 
   - id: dependency_arrivals
     kind: expr
-    expr: "producer_served"
+    expr: "producer_a_served + producer_b_served"
+  - id: dependency_base_success
+    kind: expr
+    expr: "dependency_arrivals * 0.9"
+  - id: dependency_incident_success
+    kind: expr
+    expr: "dependency_arrivals * 0.35"
+  - id: dependency_incident_mask
+    kind: expr
+    expr: "CONV(PULSE(96, 24, 1) + PULSE(192, 18, 0.8), [0.0, 0.5, 0.3, 0.2])"
   - id: dependency_served
     kind: expr
-    expr: "dependency_arrivals * 0.85"
+    expr: "dependency_base_success - dependency_incident_mask * (dependency_base_success - dependency_incident_success)"
   - id: dependency_errors
     kind: expr
-    expr: "dependency_arrivals - dependency_served"
+    expr: "MAX(0, dependency_arrivals - dependency_served)"
 
   - id: consumer_arrivals
     kind: expr
@@ -95,15 +179,24 @@ nodes:
   - id: consumer_served
     kind: expr
     expr: "consumer_arrivals"
+  - id: consumer_capacity
+    kind: expr
+    expr: "consumer_served"
   - id: consumer_processing_time_ms_sum
     kind: expr
     expr: "consumer_served * 120000"
 
 outputs:
-  - series: producer_arrivals
-    as: producer_arrivals.csv
-  - series: producer_served
-    as: producer_served.csv
+  - series: router_arrivals
+    as: router_arrivals.csv
+  - series: router_served
+    as: router_served.csv
+  - series: producer_a_served
+    as: producer_a_served.csv
+  - series: producer_b_served
+    as: producer_b_served.csv
+  - series: producer_b_attempts
+    as: producer_b_attempts.csv
   - series: dependency_arrivals
     as: dependency_arrivals.csv
   - series: dependency_served

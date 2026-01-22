@@ -19,6 +19,7 @@ Without dependency modeling, FlowTime can explain *what* slowed down but not *wh
 - **Effective capacity:** Capture limiting factors (dependency capacity) even when internal queues are not directly observable.
 - **Earned complexity:** Start with minimal signals; add inference only when needed.
 - **Make wrongness visible:** Derived/inferred signals must be labeled and warnings surfaced.
+- **Minimal basis, explicit mechanisms:** Arrivals/served/queue depth show *where* pressure accumulates; explicit mechanism models explain *why* it accumulates (e.g., retries, throttling, batching).
 
 ## Core Concept
 
@@ -36,6 +37,11 @@ Service A -> Dependency DB -> Service A -> Next Hop
 - Works well for shared dependencies.
 - Increases graph complexity; best with grouping/overlay UI.
 - **M-10.01 MVP contract:** dependency nodes require `arrivals` + `served` (optional `errors`), no queue, no capacity, no retry semantics.
+- **Option A canonical pattern (enforced):**
+  - Dependency node represents **external call outcomes** only (arrivals/served/errors).
+  - Upstream retry pressure is represented on **effort edges** and caller attempts.
+  - Flow latency can propagate across effort edges **only when flow volume is present**.
+  - Dependency latency is modeled explicitly (if needed) via its own processing-time series.
 
 ### Option B — Dependency as a Constraint on a Service (M-10.02)
 Attach dependency constraints to a service node:
@@ -45,6 +51,28 @@ Attach dependency constraints to a service node:
 - Still supports shared constraints via a shared resource object.
 
 Both options can coexist; the engine should support both.
+
+## MCP Pattern Helpers (Option A)
+
+To avoid ambiguous modeling, MCP should expose **pattern helpers** that emit the canonical Option A structure:
+
+```
+CreateDependencyNodeSeries(
+  callerNode: "ProducerB",
+  dependencyNode: "DependencyDb",
+  callDurationMs: 180000,
+  errorSeriesId: "dependency_errors",
+  retryKernel: [0.6, 0.3, 0.1]   // optional, to derive retry pressure
+)
+```
+
+This helper must:
+- create the dependency node and effort edge
+- derive caller attempts and processing time inflation
+- keep the model acyclic
+- tag derived series as `origin: derived`
+
+If callers want more advanced behavior (shared allocation, feedback loops), that is **out of scope** for Option A and should be deferred to future milestones.
 
 ## Signal Model (Minimal Basis)
 

@@ -8,6 +8,7 @@
     const EdgeTypeEffort = 'effort';
     const EdgeTypeTerminal = 'terminal';
     const EDGE_BADGE_DEFAULT = '#2563EB';
+    const EDGE_BADGE_EFFORT = '#7C3AED';
     const EDGE_OVERLAY_BASE_COLORS = {
         success: '#009E73',
         warning: '#E69F00',
@@ -1926,7 +1927,7 @@
             }
 
             const baseStrokeColor = isEffortEdge
-                ? '#1D4ED8'
+                ? '#2563EB'
                 : isThroughputEdge
                     ? '#2563EB'
                     : '#9AA1AC';
@@ -1941,7 +1942,8 @@
                 overlaySample,
                 flowSample,
                 flowContext,
-                isDependency);
+                isDependency,
+                isEffortEdge);
             let lineWidth = overlayStyle.lineWidth;
             let strokeColor = overlayStyle.strokeColor;
 
@@ -2085,11 +2087,21 @@
 
             let labelBounds = null;
             const warningStyle = resolveEdgeWarningStyle(state.edgeWarningsById, edgeId, fromId, toId);
-            const badgeColor = EDGE_BADGE_DEFAULT;
+            const badgeColor = isEffortEdge ? EDGE_BADGE_EFFORT : EDGE_BADGE_DEFAULT;
             if (!isFailureField && overlaySample && overlaySettings.showEdgeOverlayLabels !== false) {
                 labelBounds = drawEdgeOverlayLabel(ctx, pathPoints, overlaySample.text, badgeColor, warningStyle);
             } else if (!isFailureField && flowSample && overlaySettings.showEdgeOverlayLabels !== false) {
                 labelBounds = drawEdgeOverlayLabel(ctx, pathPoints, flowSample.text, badgeColor, warningStyle);
+            } else if (isEffortEdge && overlaySettings.showEdgeOverlayLabels !== false) {
+                const selectedBin = Number(overlaySettings.selectedBin ?? -1);
+                const startIndex = Number.isFinite(edgeSeriesStartIndex) ? edgeSeriesStartIndex : 0;
+                const efforts = Number.isFinite(flowSample?.attempts)
+                    ? flowSample.attempts
+                    : sampleEdgeMetricValue(edgeSeriesEntry, 'attemptsVolume', overlaySettings, selectedBin, startIndex);
+                const attemptsLabel = Number.isFinite(efforts) ? formatMetricValue(efforts) : null;
+                if (attemptsLabel) {
+                    labelBounds = drawEdgeOverlayLabel(ctx, pathPoints, attemptsLabel, badgeColor, warningStyle);
+                }
             } else if (isThroughputEdge && overlaySettings.showEdgeOverlayLabels !== false) {
                 const throughputValue = sampleThroughputValue(fromNode, overlaySettings);
                 if (throughputValue !== null && throughputValue !== undefined) {
@@ -2245,7 +2257,7 @@
                 drawServiceWithBufferBadge(ctx, nodeMeta);
             }
 
-            if (kind === 'service' || logicalType === 'servicewithbuffer' || kind === 'queue' || kind === 'router' || dlqNode || isSinkNode) {
+            if (kind === 'service' || logicalType === 'servicewithbuffer' || kind === 'queue' || kind === 'router' || kind === 'dependency' || logicalType === 'dependency' || dlqNode || isSinkNode) {
                 drawServiceDecorations(ctx, nodeMeta, overlaySettings, state);
             } else if (kind === 'pmf') {
                 const hasSparkline = overlaySettings.showSparklines && nodeMeta?.sparkline;
@@ -2914,13 +2926,15 @@
         const fieldKey = String(field ?? '').trim().toLowerCase();
         const isFailureField = fieldKey === 'errors' || fieldKey === 'failures' || fieldKey === 'exhaustedfailures';
         const failureMetric = 'failuresVolume';
-        const edgeType = seriesEntry.edgeType ?? seriesEntry.EdgeType ?? '';
+        const edgeType = resolveEdgeType(seriesEntry);
         const title = fromId && toId ? `${fromId} -> ${toId}` : (fromId || toId || 'Edge');
-        const subtitle = field
-            ? `Field: ${field}`
-            : (edgeType ? `Type: ${edgeType}` : '');
+        const edgeKindLabel = formatEdgeKindLabel(edgeType);
+        const subtitle = edgeKindLabel ? `Kind: ${edgeKindLabel}` : '';
 
         const lines = [];
+        if (field) {
+            lines.push(`Field: ${field}`);
+        }
         const flowValue = sampleEdgeMetricValue(seriesEntry, 'flowVolume', overlays, selectedBin, startIndex);
         const retryValue = sampleEdgeMetricValue(seriesEntry, 'retryVolume', overlays, selectedBin, startIndex);
         const attemptsValue = sampleEdgeMetricValue(seriesEntry, 'attemptsVolume', overlays, selectedBin, startIndex);
@@ -2936,10 +2950,10 @@
             if (Number.isFinite(retryValue)) {
                 addMetricLine(lines, 'Retries', retryValue, formatMetricValue);
                 if (Number.isFinite(flowValue)) {
-                    addMetricLine(lines, 'Total volume', flowValue + retryValue, formatMetricValue);
+                    addMetricLine(lines, 'Total (pressure)', flowValue + retryValue, formatMetricValue);
                 }
             } else if (!Number.isFinite(flowValue) && Number.isFinite(attemptsValue)) {
-                addMetricLine(lines, 'Effort load', attemptsValue, formatMetricValue);
+                addMetricLine(lines, 'Attempts', attemptsValue, formatMetricValue);
             }
             addMetricLine(lines, 'Retry rate', sampleEdgeSeriesValue(seriesEntry.series, 'retryRate', selectedBin, startIndex), formatPercent);
             addRetryLoadDeltaLine(lines, retryValue, flowValue, overlays);
@@ -2968,9 +2982,14 @@
         const fromId = edgeMeta?.from ?? edgeMeta?.From ?? '';
         const toId = edgeMeta?.to ?? edgeMeta?.To ?? '';
         const field = edgeMeta?.field ?? edgeMeta?.Field ?? '';
+        const edgeType = resolveEdgeType(edgeMeta);
         const title = fromId && toId ? `${fromId} -> ${toId}` : (fromId || toId || 'Edge');
-        const subtitle = field ? `Field: ${field}` : '';
+        const edgeKindLabel = formatEdgeKindLabel(edgeType);
+        const subtitle = edgeKindLabel ? `Kind: ${edgeKindLabel}` : '';
         const lines = ['No edge series available'];
+        if (field) {
+            lines.push(`Field: ${field}`);
+        }
         addEdgeLagLine(lines, edgeMeta?.lag ?? edgeMeta?.Lag ?? null);
         addEdgeQualityLine(lines, overlays?.edgeQuality ?? null);
 
@@ -3084,6 +3103,28 @@
         }
 
         return normalized;
+    }
+
+    function formatEdgeKindLabel(edgeType) {
+        const normalized = String(edgeType ?? '').trim().toLowerCase();
+        if (!normalized) {
+            return null;
+        }
+
+        switch (normalized) {
+            case EdgeTypeThroughput:
+                return 'Throughput';
+            case EdgeTypeEffort:
+                return 'Effort';
+            case EdgeTypeTerminal:
+                return 'Terminal';
+            case EdgeTypeDependency:
+                return 'Dependency';
+            case EdgeTypeTopology:
+                return 'Throughput';
+            default:
+                return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+        }
     }
 
     function tryDrawTooltip(ctx, nodeMap, anchorCandidate, legacyTooltip, state) {
@@ -4583,10 +4624,11 @@
         const hasSemantics = Object.values(semantics).some(value => value);
         const hasSpark = spark !== null;
         const shouldDrawSparkline = overlays.showSparklines && spark;
-        const hasRetrySemantics = Boolean(semantics.attempts || semantics.failures || semantics.retry);
-        const showRetryMetrics = overlays.showRetryMetrics !== false && hasRetrySemantics;
         const nodeKind = String(nodeMeta.kind ?? nodeMeta.Kind ?? '').trim().toLowerCase();
         const nodeLogicalType = String(nodeMeta.logicalType ?? nodeMeta.LogicalType ?? '').trim().toLowerCase();
+        const hasRetrySemantics = Boolean(semantics.attempts || semantics.failures || semantics.retry);
+        const isDependencyNode = nodeKind === 'dependency' || nodeLogicalType === 'dependency';
+        const showRetryMetrics = !isDependencyNode && overlays.showRetryMetrics !== false && hasRetrySemantics;
         const nodeRole = String(nodeMeta.nodeRole ?? nodeMeta.NodeRole ?? '').trim().toLowerCase();
         const isSinkNode = nodeKind === 'sink' || nodeLogicalType === 'sink' || nodeRole === 'sink';
         const isServiceNode = nodeKind === 'service' || nodeLogicalType === 'servicewithbuffer';
@@ -4900,6 +4942,25 @@
             topLeft += dims.width + gap;
         }
 
+        if (isDependencyNode) {
+            const darkMode = isDarkTheme();
+            const depFill = darkMode ? 'rgba(88, 28, 135, 0.35)' : '#F3E8FF';
+            const depStroke = darkMode ? '#C084FC' : '#A855F7';
+            const depText = darkMode ? '#F3E8FF' : '#2E1065';
+            const dims = drawChip(ctx, topLeft, topRowTop + chipH, 'Dependency', depStroke, depText, paddingX, chipH, 'bottom', depFill, null, '600');
+            registerChipHitbox(state, {
+                nodeId: nodeMeta.id ?? null,
+                metric: 'dependency',
+                placement: 'top',
+                tooltip: 'Dependency node',
+                x: topLeft,
+                y: dims.top,
+                width: dims.width,
+                height: dims.height
+            });
+            topLeft += dims.width + gap;
+        }
+
         if (isSinkNode && scheduleInfo) {
             const cadence = scheduleInfo.period === 1 ? 'Every bin' : `Every ${scheduleInfo.period} bins`;
             const summary = `${cadence} (phase ${scheduleInfo.phase})`;
@@ -4922,7 +4983,7 @@
             });
         }
 
-        if (isServiceWithBuffer) {
+        if (!isDependencyNode && isServiceWithBuffer) {
             const queueValue = sampleValueFor('queue', semantics.queue, ['queueDepth']);
             if (queueValue !== null) {
                 if (queueWarningText) {
@@ -5183,7 +5244,7 @@
             }
         }
 
-        if (overlays.showCapacityDependencies !== false) {
+        if (!isDependencyNode && overlays.showCapacityDependencies !== false) {
             const parallelismValue = sampleValueFor('parallelism', semantics.parallelism, ['instances', 'instance', 'workers']);
             if (parallelismValue !== null && parallelismValue > 1) {
                 const parallelismLabel = formatMetricValue(parallelismValue);
@@ -5235,7 +5296,7 @@
         let pendingQueueChip = null;
         let queueTooltip = null;
 
-        if (overlays.showQueueDependencies !== false) {
+        if (!isDependencyNode && overlays.showQueueDependencies !== false) {
             const nodeKind = String(nodeMeta.kind ?? nodeMeta.Kind ?? '').trim().toLowerCase();
             const nodeLogicalType = String(nodeMeta.logicalType ?? nodeMeta.LogicalType ?? '').trim().toLowerCase();
             const isQueueNode = isQueueLikeKind(nodeKind, nodeLogicalType);
@@ -7415,7 +7476,7 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
         const width = Math.ceil(measured.width) + paddingX * 2;
         const height = 14;
         const x = anchor.x - width / 2;
-        const y = anchor.y - height - 4;
+        const y = anchor.y - (height / 2);
 
         ctx.fillStyle = background;
         ctx.strokeStyle = border;
@@ -7624,6 +7685,7 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
                 from: entry.from ?? entry.From ?? '',
                 to: entry.to ?? entry.To ?? '',
                 field: typeof entry?.field === 'string' ? entry.field.toLowerCase() : (typeof entry?.Field === 'string' ? entry.Field.toLowerCase() : ''),
+                edgeType: entry.edgeType ?? entry.EdgeType ?? null,
                 series: entry.series ?? entry.Series ?? {},
                 byClass: entry.byClass ?? entry.ByClass ?? null,
                 multiplier: entry.multiplier ?? entry.Multiplier,
@@ -8009,21 +8071,21 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
         };
     }
 
-    function computeEdgeOverlayStyle(baseStrokeColor, baseLineWidth, overlaySample, flowSample, flowContext, isDependency) {
+    function computeEdgeOverlayStyle(baseStrokeColor, baseLineWidth, overlaySample, flowSample, flowContext, isDependency, isEffortEdge) {
         let strokeColor = baseStrokeColor;
         let lineWidth = baseLineWidth;
 
-        if (overlaySample && !isDependency) {
+        if (overlaySample && !isDependency && !isEffortEdge) {
             lineWidth *= 2;
         }
 
-        if (overlaySample?.color) {
+        if (overlaySample?.color && !isDependency && !isEffortEdge) {
             strokeColor = overlaySample.color;
-        } else if (flowSample?.color) {
+        } else if (flowSample?.color && !isDependency && !isEffortEdge) {
             strokeColor = flowSample.color;
         }
 
-        if (flowSample && !isDependency) {
+        if (flowSample && !isDependency && !isEffortEdge) {
             const maxValue = flowContext?.maxValue ?? 0;
             const ratio = maxValue > 0 ? Math.min(flowSample.value / maxValue, 1) : 0;
             lineWidth += ratio * 2.6;

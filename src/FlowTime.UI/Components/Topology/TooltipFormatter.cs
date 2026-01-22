@@ -49,7 +49,13 @@ internal static class TooltipFormatter
             lines.Add($"Kind: {decoratedKind}");
 
             var nodeKind = metrics.NodeKind;
-            if (IsSinkKind(nodeKind))
+            if (IsDependencyKind(nodeKind))
+            {
+                lines.Add($"Arrivals {FormatNumber(TryGetRawMetric(metrics.RawMetrics, "arrivals"))}");
+                lines.Add($"Served {FormatNumber(TryGetRawMetric(metrics.RawMetrics, "served"))}");
+                lines.Add($"Errors {FormatNumber(TryGetRawMetric(metrics.RawMetrics, "errors"))}");
+            }
+            else if (IsSinkKind(nodeKind))
             {
                 var hasSchedule = HasRawMetric(metrics.RawMetrics, "scheduleAdherence");
                 var slaLabel = FormatPercent(metrics.SuccessRate);
@@ -210,6 +216,11 @@ internal static class TooltipFormatter
     private static bool IsRouterKind(string? kind)
     {
         return string.Equals(kind, "router", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsDependencyKind(string? kind)
+    {
+        return string.Equals(kind, "dependency", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string FormatLatency(double? latencyMs)

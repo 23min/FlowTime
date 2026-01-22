@@ -2303,7 +2303,9 @@ public sealed class StateQueryService
             var edgeType = string.IsNullOrWhiteSpace(edge.EdgeType)
                 ? "throughput"
                 : NormalizeEdgeType(edge.EdgeType);
-            if (!string.Equals(edgeType, "throughput", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(edgeType, "throughput", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(edgeType, "effort", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(edgeType, "dependency", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
@@ -2446,7 +2448,64 @@ public sealed class StateQueryService
 
         var edges = merged.Values.ToList();
         AddRetryVolumeToThroughputEdges(context, edges, startBin, count);
+        AddRetryVolumeToEffortEdges(edges, count);
         return edges;
+    }
+
+    private static void AddRetryVolumeToEffortEdges(List<EdgeSeries> edges, int count)
+    {
+        if (edges.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var edge in edges)
+        {
+            var edgeType = edge.EdgeType?.Trim();
+            if (!string.Equals(edgeType, "effort", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(edgeType, "dependency", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (edge.Series.ContainsKey("retryVolume"))
+            {
+                continue;
+            }
+
+            if (!edge.Series.TryGetValue("attemptsVolume", out var attempts) ||
+                !edge.Series.TryGetValue("flowVolume", out var flow))
+            {
+                continue;
+            }
+
+            var retryValues = new double?[count];
+            for (var i = 0; i < count; i++)
+            {
+                var attempt = attempts[i];
+                var baseFlow = flow[i];
+                if (!attempt.HasValue || !double.IsFinite(attempt.Value) ||
+                    !baseFlow.HasValue || !double.IsFinite(baseFlow.Value))
+                {
+                    retryValues[i] = null;
+                    continue;
+                }
+
+                var delta = attempt.Value - baseFlow.Value;
+                retryValues[i] = delta > 0 ? Normalize(delta) : 0d;
+            }
+
+            edge.Series["retryVolume"] = retryValues;
+            var seriesMetadata = edge.SeriesMetadata as Dictionary<string, SeriesSemanticsMetadata>;
+            if (seriesMetadata is null)
+            {
+                seriesMetadata = edge.SeriesMetadata is null
+                    ? new Dictionary<string, SeriesSemanticsMetadata>(StringComparer.OrdinalIgnoreCase)
+                    : new Dictionary<string, SeriesSemanticsMetadata>(edge.SeriesMetadata, StringComparer.OrdinalIgnoreCase);
+                edge.SeriesMetadata = seriesMetadata;
+            }
+            TryAddEdgeSeriesMetadata(seriesMetadata, "retryVolume", "derived");
+        }
     }
 
     private static IReadOnlyList<EdgeSeries> ApplyEdgeFilters(
