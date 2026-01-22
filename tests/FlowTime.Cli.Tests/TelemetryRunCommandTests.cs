@@ -297,6 +297,7 @@ outputs:
             DataDir: Environment.GetEnvironmentVariable("FLOWTIME_SIM_DATA_DIR"),
             TemplatesDir: Environment.GetEnvironmentVariable("FLOWTIME_SIM_TEMPLATES_DIR"),
             CliTemplatesDir: Environment.GetEnvironmentVariable("FLOWTIME_TEMPLATES_DIR"),
+            StorageRoot: Environment.GetEnvironmentVariable("Storage__Root"),
             ApiBaseUrl: Environment.GetEnvironmentVariable("FLOWTIME_SIM_API_BASE_URL"));
 
         var simDataDir = Path.Combine(temp.Path, "sim-data");
@@ -308,9 +309,13 @@ outputs:
         var cliTemplatesDir = Path.Combine(temp.Path, "cli-templates");
         Directory.CreateDirectory(cliTemplatesDir);
 
+        var storageRoot = Path.Combine(temp.Path, "sim-storage");
+        Directory.CreateDirectory(storageRoot);
+
         Environment.SetEnvironmentVariable("FLOWTIME_SIM_DATA_DIR", simDataDir);
         Environment.SetEnvironmentVariable("FLOWTIME_SIM_TEMPLATES_DIR", simTemplatesDir);
         Environment.SetEnvironmentVariable("FLOWTIME_TEMPLATES_DIR", cliTemplatesDir);
+        Environment.SetEnvironmentVariable("Storage__Root", storageRoot);
         Environment.SetEnvironmentVariable("FLOWTIME_SIM_API_BASE_URL", null);
 
         return (snapshot, simDataDir, simTemplatesDir);
@@ -321,6 +326,7 @@ outputs:
         Environment.SetEnvironmentVariable("FLOWTIME_SIM_DATA_DIR", snapshot.DataDir);
         Environment.SetEnvironmentVariable("FLOWTIME_SIM_TEMPLATES_DIR", snapshot.TemplatesDir);
         Environment.SetEnvironmentVariable("FLOWTIME_TEMPLATES_DIR", snapshot.CliTemplatesDir);
+        Environment.SetEnvironmentVariable("Storage__Root", snapshot.StorageRoot);
         Environment.SetEnvironmentVariable("FLOWTIME_SIM_API_BASE_URL", snapshot.ApiBaseUrl);
     }
 
@@ -328,5 +334,6 @@ outputs:
         string? DataDir,
         string? TemplatesDir,
         string? CliTemplatesDir,
+        string? StorageRoot,
         string? ApiBaseUrl);
 }
