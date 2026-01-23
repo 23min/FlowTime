@@ -166,3 +166,36 @@ Legend: packages marked **(major)** are major version jumps and should be schedu
 - Net9 target list validated on 2026-01-23 (no `10.x` in targets).
 - Treat **(major)** rows as separate mini-epics: review changelogs, update code/tests, and stage behind patch/minor updates.
 - UI updates are intentionally deferred; handle MudBlazor, WASM runtime packages, and `bunit` together at the end.
+
+## Applied Updates
+
+### Phase 2 (Core Libraries) — 2026-01-23
+
+- `FlowTime.Contracts`: Microsoft.* `9.0.0` → `9.0.12`, `YamlDotNet` `16.1.3` → `16.3.0`
+- `FlowTime.Core`: `YamlDotNet` `15.1.6` → `15.3.0`
+- `FlowTime.Sim.Core`: `Microsoft.Extensions.Logging.Abstractions` `9.0.0` → `9.0.12`, `YamlDotNet` `16.1.3` → `16.3.0`
+
+### Phase 3 (Services + CLI) — 2026-01-23
+
+- `FlowTime.API`: `Microsoft.AspNetCore.OpenApi` `9.0.7` → `9.0.12`, `Parquet.Net` `5.2.0` → `5.4.0`
+- `FlowTime.Cli`: `Microsoft.Extensions.*` `9.0.0` → `9.0.12`
+
+### Phase 4 (Tests, Non-UI) — 2026-01-23
+
+- `FlowTime.Tests`: `BenchmarkDotNet` `0.15.2` → `0.15.8`, `coverlet.collector` `6.0.2` → `6.0.4`, `Microsoft.NET.Test.Sdk` `17.12.0` → `17.14.1`, `Microsoft.Extensions.Configuration` `9.0.0` → `9.0.12`, `xunit` `2.9.2` → `2.9.3`
+- `FlowTime.Expressions.Tests`: `Microsoft.NET.Test.Sdk` `17.12.0` → `17.14.1`, `xunit` `2.9.2` → `2.9.3`, `coverlet.collector` `6.0.2` → `6.0.4`
+- `FlowTime.Api.Tests`: `coverlet.collector` `6.0.2` → `6.0.4`, `Microsoft.NET.Test.Sdk` `17.12.0` → `17.14.1`, `xunit` `2.9.2` → `2.9.3`, `Microsoft.AspNetCore.Mvc.Testing` `9.0.7` → `9.0.12`
+- `FlowTime.Core.Tests`: `coverlet.collector` `6.0.2` → `6.0.4`, `Microsoft.NET.Test.Sdk` `17.12.0` → `17.14.1`, `xunit` `2.9.2` → `2.9.3`
+- `FlowTime.Adapters.Synthetic.Tests`: `Microsoft.NET.Test.Sdk` `17.11.1` → `17.14.1`, `xunit` `2.9.0` → `2.9.3`
+- `FlowTime.Sim.Tests`: `xunit` `2.9.2` → `2.9.3`, `Microsoft.NET.Test.Sdk` `17.11.1` → `17.14.1`, `coverlet.collector` `6.0.2` → `6.0.4`, `Microsoft.AspNetCore.Mvc.Testing` `9.0.0` → `9.0.12`
+- `FlowTime.Cli.Tests`: `coverlet.collector` `6.0.2` → `6.0.4`, `Microsoft.NET.Test.Sdk` `17.12.0` → `17.14.1`, `Microsoft.AspNetCore.Mvc.Testing` `9.0.0` → `9.0.12`, `xunit` `2.9.2` → `2.9.3`
+- `FlowTime.Integration.Tests`: `coverlet.collector` `6.0.2` → `6.0.4`, `Microsoft.NET.Test.Sdk` `17.12.0` → `17.14.1`, `xunit` `2.9.2` → `2.9.3`
+
+### Phase 5 (UI, Non-MudBlazor) — 2026-01-23
+
+- `FlowTime.UI`: `Microsoft.AspNetCore.Components.WebAssembly` `9.0.7` → `9.0.12`, `Microsoft.AspNetCore.Components.WebAssembly.DevServer` `9.0.7` → `9.0.12`, `Microsoft.Extensions.Http` `9.0.7` → `9.0.12`, `YamlDotNet` `16.1.3` → `16.3.0`
+- `FlowTime.UI.Tests`: `Microsoft.NET.Test.Sdk` `17.12.0` → `17.14.1`, `xunit` `2.9.2` → `2.9.3`, `xunit.runner.visualstudio` `2.8.2` → `3.1.5`, `bunit` `1.27.17` → `1.40.0`, `YamlDotNet` `16.1.3` → `16.3.0`
+
+### Phase 6 (UI, MudBlazor) — 2026-01-23
+
+- `FlowTime.UI`: `MudBlazor` `8.14.0` → `8.15.0`
