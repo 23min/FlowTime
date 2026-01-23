@@ -49,6 +49,9 @@ Attach dependency constraints to a service node:
 - Service capacity is limited by dependency capacity.
 - Fewer nodes; simpler UI.
 - Still supports shared constraints via a shared resource object.
+- **Allocation rule (M-10.02):** proportional to demand per bin across all constrained nodes.
+- **No retries or latency inflation in Option B:** constraint series are informational only; they do not introduce retry loops or extra queue semantics.
+- Constraints are **not** flow nodes. They are resources that cap served throughput.
 
 Both options can coexist; the engine should support both.
 
@@ -85,6 +88,28 @@ Dependencies still use the minimal basis:
 
 Queue depth is typically inferred or marked as unknown.
 
+## Option B Constraint Registry (Attached Constraints)
+
+Option B introduces a **constraint registry** in the model:
+
+```
+topology:
+  constraints:
+    - id: db_main
+      semantics:
+        arrivals: db_main_arrivals
+        served: db_main_served
+        errors: db_main_errors
+  nodes:
+    - id: ProducerB
+      kind: service
+      constraints: [db_main]
+```
+
+Constraints are **series-backed resources** with their own arrivals/served/errors/latency series.
+The engine allocates capacity per bin across constrained nodes and marks **constraint-limited** status
+when allocation < demand.
+
 ## Inference Levels (Incremental)
 
 **Level 0:** No dependency nodes. Service throughput only.  
@@ -113,6 +138,8 @@ These are emitted as **info** warnings and indicate that dependency load/utiliza
 - Dependencies should be visually distinct (resource layer or node type).
 - Service inspectors should show whether the service is **dependency-limited**.
 - Shared dependencies should show capacity allocation or proportional load.
+- Option B should render a **constraint chip** (e.g., `C | db_main`) and constraint series in the inspector.
+- Constraint chips convey whether the node is limited in the current bin (visual state + tooltip).
 
 ## Telemetry Compatibility
 

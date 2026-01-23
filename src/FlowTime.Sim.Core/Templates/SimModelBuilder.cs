@@ -79,7 +79,8 @@ internal static class SimModelBuilder
         var clone = new TemplateTopology
         {
             Nodes = new List<TemplateTopologyNode>(),
-            Edges = new List<TemplateTopologyEdge>()
+            Edges = new List<TemplateTopologyEdge>(),
+            Constraints = new List<TemplateTopologyConstraint>()
         };
 
         foreach (var node in topology.Nodes)
@@ -90,6 +91,7 @@ internal static class SimModelBuilder
                 Kind = node.Kind,
                 NodeRole = node.NodeRole,
                 Group = node.Group,
+                Constraints = node.Constraints is null ? null : new List<string>(node.Constraints),
                 Semantics = node.Semantics == null ? new TemplateNodeSemantics() : CloneSemantics(node.Semantics),
                 InitialCondition = node.InitialCondition == null ? null : new TemplateInitialCondition { QueueDepth = node.InitialCondition.QueueDepth },
                 Ui = node.Ui == null ? null : new TemplateUiHint { X = node.Ui.X, Y = node.Ui.Y },
@@ -110,6 +112,26 @@ internal static class SimModelBuilder
                 Multiplier = edge.Multiplier,
                 Lag = edge.Lag
             });
+        }
+
+        if (topology.Constraints is not null)
+        {
+            foreach (var constraint in topology.Constraints)
+            {
+                clone.Constraints.Add(new TemplateTopologyConstraint
+                {
+                    Id = constraint.Id,
+                    Semantics = constraint.Semantics == null
+                        ? new TemplateConstraintSemantics()
+                        : new TemplateConstraintSemantics
+                        {
+                            Arrivals = constraint.Semantics.Arrivals,
+                            Served = constraint.Semantics.Served,
+                            Errors = constraint.Semantics.Errors,
+                            LatencyMinutes = constraint.Semantics.LatencyMinutes
+                        }
+                });
+            }
         }
 
         return clone;

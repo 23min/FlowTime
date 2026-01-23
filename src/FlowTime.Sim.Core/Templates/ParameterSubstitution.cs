@@ -216,6 +216,19 @@ public static class ParameterSubstitution
                     }
                     topologyNode.Semantics.ExternalDemand = SubstituteInString(topologyNode.Semantics.ExternalDemand, values) ?? topologyNode.Semantics.ExternalDemand;
                 }
+
+                if (topologyNode.Constraints is { Count: > 0 })
+                {
+                    for (var i = 0; i < topologyNode.Constraints.Count; i++)
+                    {
+                        var constraintId = topologyNode.Constraints[i];
+                        if (string.IsNullOrWhiteSpace(constraintId))
+                        {
+                            continue;
+                        }
+                        topologyNode.Constraints[i] = SubstituteInString(constraintId, values) ?? constraintId;
+                    }
+                }
             }
 
             if (template.Topology.Edges != null)
@@ -225,6 +238,21 @@ public static class ParameterSubstitution
                     edge.Id = SubstituteInString(edge.Id, values) ?? edge.Id;
                     edge.From = SubstituteInString(edge.From, values) ?? edge.From;
                     edge.To = SubstituteInString(edge.To, values) ?? edge.To;
+                }
+            }
+
+            if (template.Topology.Constraints is { Count: > 0 })
+            {
+                foreach (var constraint in template.Topology.Constraints)
+                {
+                    constraint.Id = SubstituteInString(constraint.Id, values) ?? constraint.Id;
+                    if (constraint.Semantics != null)
+                    {
+                        constraint.Semantics.Arrivals = SubstituteInString(constraint.Semantics.Arrivals, values) ?? constraint.Semantics.Arrivals;
+                        constraint.Semantics.Served = SubstituteInString(constraint.Semantics.Served, values) ?? constraint.Semantics.Served;
+                        constraint.Semantics.Errors = SubstituteInString(constraint.Semantics.Errors, values) ?? constraint.Semantics.Errors;
+                        constraint.Semantics.LatencyMinutes = SubstituteInString(constraint.Semantics.LatencyMinutes, values) ?? constraint.Semantics.LatencyMinutes;
+                    }
                 }
             }
         }

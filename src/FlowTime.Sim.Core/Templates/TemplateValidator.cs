@@ -482,6 +482,52 @@ internal static class TemplateValidator
             ValidateTopologySemantics(topoNode, nodeIds, mode);
         }
 
+        var constraintIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (template.Topology.Constraints is { Count: > 0 })
+        {
+            foreach (var constraint in template.Topology.Constraints)
+            {
+                ArgumentNullException.ThrowIfNull(constraint);
+                if (string.IsNullOrWhiteSpace(constraint.Id))
+                {
+                    throw new TemplateValidationException("Topology constraints must specify an id.");
+                }
+
+                if (!constraintIds.Add(constraint.Id))
+                {
+                    throw new TemplateValidationException($"Duplicate topology constraint id '{constraint.Id}' detected.");
+                }
+
+                ValidateConstraintSemantics(constraint, nodeIds);
+            }
+        }
+
+        foreach (var topoNode in template.Topology.Nodes)
+        {
+            if (topoNode.Constraints is null || topoNode.Constraints.Count == 0)
+            {
+                continue;
+            }
+
+            if (constraintIds.Count == 0)
+            {
+                throw new TemplateValidationException($"Topology node '{topoNode.Id}' references constraints but none are defined.");
+            }
+
+            foreach (var constraintId in topoNode.Constraints)
+            {
+                if (string.IsNullOrWhiteSpace(constraintId))
+                {
+                    throw new TemplateValidationException($"Topology node '{topoNode.Id}' contains an empty constraint id.");
+                }
+
+                if (!constraintIds.Contains(constraintId))
+                {
+                    throw new TemplateValidationException($"Topology node '{topoNode.Id}' references unknown constraint '{constraintId}'.");
+                }
+            }
+        }
+
         if (template.Topology.Nodes.Count > 1)
         {
             if (template.Topology.Edges == null || template.Topology.Edges.Count == 0)
@@ -517,6 +563,46 @@ internal static class TemplateValidator
         }
 
         EnsureInitialConditions(template.Topology, nodesRequiringInitial);
+    }
+
+    private static void ValidateConstraintSemantics(TemplateTopologyConstraint constraint, HashSet<string> nodeIds)
+    {
+        if (constraint.Semantics == null)
+        {
+            throw new TemplateValidationException($"Topology constraint '{constraint.Id}' must include semantics.");
+        }
+
+        var semantics = constraint.Semantics;
+        if (string.IsNullOrWhiteSpace(semantics.Arrivals))
+        {
+            throw new TemplateValidationException($"Topology constraint '{constraint.Id}' must define semantics.arrivals.");
+        }
+
+        if (string.IsNullOrWhiteSpace(semantics.Served))
+        {
+            throw new TemplateValidationException($"Topology constraint '{constraint.Id}' must define semantics.served.");
+        }
+
+        var mappedSeries = new[]
+        {
+            ("arrivals", semantics.Arrivals),
+            ("served", semantics.Served),
+            ("errors", semantics.Errors),
+            ("latencyMinutes", semantics.LatencyMinutes)
+        };
+
+        foreach (var (name, value) in mappedSeries)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                continue;
+            }
+
+            if (!nodeIds.Contains(value))
+            {
+                throw new TemplateValidationException($"Topology constraint '{constraint.Id}' semantics.{name} references unknown series '{value}'.");
+            }
+        }
     }
 
     private static void ValidateTopologySemantics(TemplateTopologyNode topologyNode, HashSet<string> nodeIds, TemplateMode mode)

@@ -95,7 +95,7 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 
 - **Folder:** `docs/architecture/dependency-constraints/`
 - **Goal:** Model downstream dependencies (databases, caches, external APIs) as resource constraints so shared bottlenecks and coupling are visible while preserving the minimal arrivals/served basis.
-- **Notes:** Depends on explicit edge semantics/metrics (M-07.04) so effort vs throughput load is engine-owned and validated. Future roadmap items (not yet epics) include shared resource pools, compiler expansion of call policies, and delayed feedback semantics (see `docs/architecture/dependencies-future-work.md`).
+- **Notes:** Depends on explicit edge semantics/metrics (M-07.04) so effort vs throughput load is engine-owned and validated. Follow-up milestone M-10.03 enforces dependency pattern selection in MCP modeling. Future roadmap items (not yet epics) include shared resource pools, compiler expansion of call policies, and delayed feedback semantics (see `docs/architecture/dependencies-future-work.md`).
 
 #### Visualizations (Chart Gallery / Demo Lab)
 

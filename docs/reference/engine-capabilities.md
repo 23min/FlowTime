@@ -5,6 +5,7 @@ This document describes the **shipped** FlowTime Engine surfaces and behaviors a
 ## Execution model
 - **Deterministic, discrete-time DAG** on a fixed grid `{ bins, binSize, binUnit }` (UTC, left-aligned).
 - **Node kinds**: const (inline values), expr (limited expression set), **serviceWithBuffer** nodes that own queue/backlog semantics (`queueDepth`, arrivals/served/errors, optional `loss`, dispatch schedules), routers, sinks, and **dependency** nodes (arrivals/served/errors only). Template-derived computed nodes are preserved in artifacts. (See [`docs/architecture/service-with-buffer/service-with-buffer-architecture.md`](../architecture/service-with-buffer/service-with-buffer-architecture.md) for the full contract.)
+- **Dependency constraints (Option B)**: services can reference shared constraints (registry) that cap served throughput per bin using proportional allocation; constraints are **not** flow nodes.
 - **Expression support** (engine evaluator): arithmetic `+ - * /`, functions `SHIFT`, `CONV`, `MIN`, `MAX`, `CLAMP`, `MOD`, `FLOOR`, `CEIL`, `ROUND`, `STEP`, `PULSE`. No IF/EMA/ABS/SQRT/POW/routers/autoscale nodes yet.
 - **Retry/backoff**: Supports attempts/failures/retry echo series; `RetryKernelPolicy` normalizes kernels; derived retry echo and exhaustion warnings recorded when missing.
 - **Backlog/latency**: Queue depth/backlog recurrence with optional initial conditions; derived `latencyMinutes`, `throughputRatio`, `flowLatencyMs` in state responses.
@@ -43,6 +44,7 @@ This document describes the **shipped** FlowTime Engine surfaces and behaviors a
 ## State & metrics
 - Node metrics exposed in state/state_window: arrivals, served, errors, attempts, failures, exhaustedFailures, retryEcho, queue/backlog, capacity, externalDemand, processingTimeMsSum, servedCount, retryBudgetRemaining, maxAttempts.
 - Derived metrics: utilization, latencyMinutes, serviceTimeMs, flowLatencyMs, throughputRatio, retryTax, color (UI aid).
+- **Constraints in state/state_window**: per-node `constraints` series (arrivals/served/errors/latency + derived shortfall) and `constraintStatus` (limited flag per bin). Constraints are series-backed resources, not nodes.
 - SLA descriptors: completion SLA (with dispatch carry-forward for gated releases), backlog age SLA (marked unavailable when telemetry is missing), and schedule-adherence SLA. SLA payloads include kind + status so UIs can surface "No data" without fabricating values.
 - ServiceWithBuffer derivations use the same inputs as service/queue nodes: `latencyMinutes` requires `queueDepth` + `served`, `utilization` requires `capacity` + `served`, and `serviceTimeMs` requires `processingTimeMsSum` + `servedCount`. Missing inputs yield no derived series.
 - Edge series (state_window): `flowVolume` for throughput/effort edges, retry dependency edges (`attemptsVolume`, `failuresVolume`, `retryRate`), plus derived `retryVolume` for retries attributed to incoming edges. Edge quality labels (`exact`, `approx`, `partialClass`, `missing`) are included in metadata.

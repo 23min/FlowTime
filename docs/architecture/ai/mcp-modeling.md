@@ -169,6 +169,7 @@ Guardrails are required because this MCP surface is run-capable:
 - **Audit trail**: record which changes the AI made, which tools were invoked, and the run IDs generated.
 - **Capability profiles**: analysis-only vs full modeling; deploy separately if stricter isolation is required.
 - **Strict validation in MCP**: treat engine/info warnings for dependency contracts and edge semantics as **hard errors** during MCP model generation (engine warnings remain info-level for legacy templates).
+- **Dependency pattern matrix**: MCP must choose a supported dependency pattern based on user intent and engine capabilities, and refuse unsupported behaviors (see below).
 
 These guardrails should be enforced in the MCP server, not left to the model.
 
@@ -185,6 +186,23 @@ Depending on the phase:
 - **Draft phase**: Sim-only runs, fast validation.
 - **Verification phase**: Engine runs for deterministic artifacts.
 - **Regression checks**: compare draft run to baseline or approved template run.
+
+---
+
+## 9.1 Dependency Pattern Matrix (MCP Guidance)
+
+MCP must map user intent to a **supported dependency pattern** and block unsupported behaviors.
+
+| User intent | MCP pattern | Notes | Supported now |
+| --- | --- | --- | --- |
+| “Dependency in series” | **Option A helper** | Dependency node + effort edge; retries as upstream pressure only | ✅ (M‑10.01) |
+| “Dependency as constraint” | **Option B helper** | Constraint registry + limiter; no retry modeling | ✅ (M‑10.02) |
+| “Retries modeled on dependency itself” | **Plan 4** | Compiler expansion of retries/backoff | ❌ (future) |
+| “Feedback loop semantics / lagged retries” | **Plan 5** | Delayed feedback with formal loop semantics | ❌ (future) |
+
+Behavior:
+- If a user requests an unsupported pattern, MCP should explain the limitation and offer the closest supported alternative.
+- MCP helpers should **emit only the canonical pattern** for the selected option.
 
 ---
 

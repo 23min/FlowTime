@@ -91,6 +91,12 @@ Minimal dependency-node example that exercises the M‑10.01 contract. A produce
 
 No parameters; use it as a sanity check for dependency nodes and effort/throughput edges.
 
+## dependency-constraints-attached
+
+Option B dependency-constraint example that attaches a shared constraint (`db_main`) to services without inserting explicit dependency nodes. Use it to validate constraint series + allocation output in `/state_window`.
+
+No parameters; use it as a sanity check for attached constraints and constraint status signals.
+
 ## warehouse-picker-waves
 
 Wave-based warehouse template where orders accumulate in staging and release in picker waves before packing. The template now leans exclusively on `serviceWithBuffer` nodes to illustrate the canonical pattern:
