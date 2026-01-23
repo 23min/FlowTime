@@ -2,6 +2,8 @@
 
 Goal: update dependencies while staying on .NET 9 (no .NET 10 packages). UI updates are deferred to the final phase.
 
+Last refreshed: 2026-01-23 (dotnet 9.0.306); targets unchanged from baseline.
+
 Data source: `dotnet list package --outdated --highest-minor` for safe .NET 9 patch/minor updates, with `dotnet list package --outdated` to surface major-version opportunities.
 
 Legend: packages marked **(major)** are major version jumps and should be scheduled after patch/minor updates and a focused review.
