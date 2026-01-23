@@ -113,6 +113,7 @@ public sealed class TopologyDto
 {
     public List<TopologyNodeDto> Nodes { get; set; } = new();
     public List<TopologyEdgeDto> Edges { get; set; } = new();
+    public List<TopologyConstraintDto> Constraints { get; set; } = new();
 }
 
 public sealed class TopologyNodeDto
@@ -122,6 +123,7 @@ public sealed class TopologyNodeDto
     public string? NodeRole { get; set; }
     public string? Group { get; set; }
     public UiHintsDto? Ui { get; set; }
+    public List<string>? Constraints { get; set; }
     public DispatchScheduleDto? DispatchSchedule { get; set; }
     public TopologySemanticsDto Semantics { get; set; } = new();
     public TopologyInitialConditionDto? InitialCondition { get; set; }
@@ -167,6 +169,20 @@ public sealed class TopologyEdgeDto
     public string? Measure { get; set; }
     public double? Multiplier { get; set; }
     public int? Lag { get; set; }
+}
+
+public sealed class TopologyConstraintDto
+{
+    public string Id { get; set; } = string.Empty;
+    public ConstraintSemanticsDto Semantics { get; set; } = new();
+}
+
+public sealed class ConstraintSemanticsDto
+{
+    public string Arrivals { get; set; } = string.Empty;
+    public string Served { get; set; } = string.Empty;
+    public string? Errors { get; set; }
+    public string? LatencyMinutes { get; set; }
 }
 
 public sealed class UiHintsDto

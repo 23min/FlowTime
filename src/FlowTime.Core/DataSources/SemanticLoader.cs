@@ -95,6 +95,38 @@ public sealed class SemanticLoader
         };
     }
 
+    public ConstraintData LoadConstraintData(Constraint constraint, int bins)
+    {
+        ArgumentNullException.ThrowIfNull(constraint);
+        ArgumentNullException.ThrowIfNull(constraint.Semantics);
+
+        if (bins <= 0)
+            throw new ArgumentOutOfRangeException(nameof(bins), bins, "bins must be positive");
+
+        var semantics = constraint.Semantics;
+        var arrivals = IsFileUri(semantics.Arrivals)
+            ? LoadSeries(semantics.Arrivals!, bins)
+            : CreateConstantSeries(double.NaN, bins);
+        var served = IsFileUri(semantics.Served)
+            ? LoadSeries(semantics.Served!, bins)
+            : CreateConstantSeries(double.NaN, bins);
+        double[]? errors = IsFileUri(semantics.Errors)
+            ? LoadSeries(semantics.Errors!, bins)
+            : null;
+        double[]? latencyMinutes = IsFileUri(semantics.LatencyMinutes)
+            ? LoadSeries(semantics.LatencyMinutes!, bins)
+            : null;
+
+        return new ConstraintData
+        {
+            Id = constraint.Id,
+            Arrivals = arrivals,
+            Served = served,
+            Errors = errors,
+            LatencyMinutes = latencyMinutes
+        };
+    }
+
     private double[]? ResolveParallelism(object? parallelism, int bins)
     {
         if (parallelism is null)

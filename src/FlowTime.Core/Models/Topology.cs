@@ -8,6 +8,7 @@ public sealed record Topology
 {
     public required IReadOnlyList<Node> Nodes { get; init; }
     public required IReadOnlyList<Edge> Edges { get; init; }
+    public IReadOnlyList<Constraint> Constraints { get; init; } = Array.Empty<Constraint>();
 
     public Node GetNode(string nodeId)
     {

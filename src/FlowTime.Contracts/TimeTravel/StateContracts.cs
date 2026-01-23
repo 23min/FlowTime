@@ -87,6 +87,10 @@ public sealed class NodeSnapshot
     public IReadOnlyDictionary<string, SeriesSemanticsMetadata>? SeriesMetadata { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyDictionary<string, ClassMetrics>? ByClass { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, ConstraintMetrics>? Constraints { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, bool>? ConstraintStatus { get; init; }
     public NodeDerivedMetrics Derived { get; init; } = new();
     public NodeTelemetryInfo Telemetry { get; init; } = new();
     public IReadOnlyDictionary<string, string>? Aliases { get; init; }
@@ -107,6 +111,10 @@ public sealed class NodeSeries
     public IReadOnlyDictionary<string, SeriesSemanticsMetadata>? SeriesMetadata { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IDictionary<string, IDictionary<string, double?[]>>? ByClass { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, ConstraintSeries>? Constraints { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, double?[]>? ConstraintStatus { get; init; }
     public NodeTelemetryInfo Telemetry { get; init; } = new();
     public IReadOnlyDictionary<string, string>? Aliases { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -147,6 +155,20 @@ public sealed class EdgeSeries
     public IReadOnlyDictionary<string, SeriesSemanticsMetadata>? SeriesMetadata { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IDictionary<string, IDictionary<string, double?[]>>? ByClass { get; init; }
+}
+
+public sealed class ConstraintMetrics
+{
+    public IDictionary<string, double?> Metrics { get; init; } = new Dictionary<string, double?>(StringComparer.OrdinalIgnoreCase);
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, SeriesSemanticsMetadata>? SeriesMetadata { get; init; }
+}
+
+public sealed class ConstraintSeries
+{
+    public IDictionary<string, double?[]> Series { get; init; } = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, SeriesSemanticsMetadata>? SeriesMetadata { get; init; }
 }
 
 public sealed class NodeMetrics

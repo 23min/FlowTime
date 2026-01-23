@@ -36,6 +36,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private const string edgeFlowRouterSubsetRunId = "run_state_edge_flow_router_subset";
     private const string edgeWarningsRunId = "run_state_edge_warnings";
     private const string dependencyRunId = "run_state_dependency";
+    private const string constraintsAttachedRunId = "run_state_constraints_attached";
     private const string classRunId = "run_state_classes";
     private const string queueClassRunId = "run_state_classes_queue";
     private const string serviceWithBufferDerivedRunId = "run_state_servicewithbuffer_derived";
@@ -89,6 +90,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateEdgeFlowRouterSubsetRun();
         CreateEdgeWarningsRun();
         CreateDependencyRun();
+        CreateConstraintsAttachedRun();
         CreateClassRun();
         CreateServiceWithBufferClassRun();
         CreateServiceWithBufferDerivedRun();
@@ -231,6 +233,25 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
 
         Assert.NotNull(payload);
         AssertGoldenResponse("state-window-dependency-approved.json", payload!);
+    }
+
+    [Fact]
+    public async Task StateWindow_ConstraintsAttached_GoldenSnapshot()
+    {
+        var response = await client.GetAsync($"/v1/runs/{constraintsAttachedRunId}/state_window?startBin=0&endBin=3");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.NotNull(payload);
+        AssertGoldenResponse("state-window-constraints-attached-approved.json", payload!);
     }
 
     [Fact]
@@ -1712,6 +1733,18 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateRun(dependencyRunId, BuildDependencyModelYaml(), mode: "telemetry", overrides: overrides);
     }
 
+    private void CreateConstraintsAttachedRun()
+    {
+        var overrides = new Dictionary<string, double[]>
+        {
+            ["DbMain_arrivals.csv"] = new[] { 9d, 6d, 9d, 4d },
+            ["DbMain_served.csv"] = new[] { 9d, 6d, 8d, 4d },
+            ["DbMain_errors.csv"] = new[] { 0d, 0d, 1d, 0d }
+        };
+
+        CreateRun(constraintsAttachedRunId, BuildConstraintsAttachedModelYaml(), mode: "telemetry", overrides: overrides);
+    }
+
     private void CreateClassRun()
     {
         var overrides = new Dictionary<string, double[]>
@@ -2623,6 +2656,52 @@ topology:
         arrivals: "file:DependencyDb_arrivals.csv"
         served: "file:DependencyDb_served.csv"
         errors: "file:DependencyDb_errors.csv"
+  edges: []
+
+""";
+    }
+
+    private static string BuildConstraintsAttachedModelYaml()
+    {
+        return $"""
+schemaVersion: 1
+
+grid:
+  bins: {binCount}
+  binSize: {binSizeMinutes}
+  binUnit: minutes
+  startTimeUtc: "{startTimeUtc:O}"
+
+topology:
+  nodes:
+    - id: "OrderService"
+      kind: "service"
+      semantics:
+        arrivals: "file:OrderService_arrivals.csv"
+        served: "file:OrderService_served.csv"
+        errors: "file:OrderService_errors.csv"
+        attempts: "file:OrderService_attempts.csv"
+        failures: "file:OrderService_failures.csv"
+        exhaustedFailures: "file:OrderService_exhaustedFailures.csv"
+        retryEcho: "file:OrderService_retryEcho.csv"
+        retryKernel: [0.0, 0.6, 0.3, 0.1]
+        retryBudgetRemaining: "file:OrderService_retryBudgetRemaining.csv"
+        externalDemand: null
+        queueDepth: null
+        capacity: "file:OrderService_capacity.csv"
+        processingTimeMsSum: "file:OrderService_processingTimeMsSum.csv"
+        servedCount: "file:OrderService_servedCount.csv"
+        slaMin: null
+        maxAttempts: 4
+        exhaustedPolicy: "dlq"
+        backoffStrategy: "linear"
+      constraints: ["db_main"]
+  constraints:
+    - id: "db_main"
+      semantics:
+        arrivals: "file:DbMain_arrivals.csv"
+        served: "file:DbMain_served.csv"
+        errors: "file:DbMain_errors.csv"
   edges: []
 
 """;

@@ -40,6 +40,9 @@ public static class InvariantAnalyzer
         var topologyNodeLookup = model.Topology.Nodes
             .Where(n => !string.IsNullOrWhiteSpace(n.Id))
             .ToDictionary(n => n.Id!, n => n, StringComparer.OrdinalIgnoreCase);
+        var constraintLookup = model.Topology.Constraints
+            .Where(constraint => !string.IsNullOrWhiteSpace(constraint.Id))
+            .ToDictionary(constraint => constraint.Id, constraint => constraint, StringComparer.OrdinalIgnoreCase);
 
         if (model.Topology.Edges is { Count: > 0 })
         {
@@ -169,6 +172,42 @@ public static class InvariantAnalyzer
             if (!TryGetSeries(semantics.RetryBudgetRemaining, out var retryBudgetRemaining))
             {
                 retryBudgetRemaining = null;
+            }
+
+            if (topoNode.Constraints is { Count: > 0 } && constraintLookup.Count > 0)
+            {
+                foreach (var constraintId in topoNode.Constraints)
+                {
+                    if (string.IsNullOrWhiteSpace(constraintId))
+                    {
+                        continue;
+                    }
+
+                    if (!constraintLookup.TryGetValue(constraintId, out var constraint))
+                    {
+                        continue;
+                    }
+
+                    if (!TryGetSeries(constraint.Semantics.Arrivals, out _))
+                    {
+                        warnings.Add(new InvariantWarning(
+                            nodeId,
+                            "constraint_missing_arrivals",
+                            $"Constraint '{constraintId}' arrivals series was not available.",
+                            Array.Empty<int>(),
+                            null));
+                    }
+
+                    if (!TryGetSeries(constraint.Semantics.Served, out _))
+                    {
+                        warnings.Add(new InvariantWarning(
+                            nodeId,
+                            "constraint_missing_served",
+                            $"Constraint '{constraintId}' served series was not available.",
+                            Array.Empty<int>(),
+                            null));
+                    }
+                }
             }
 
             var effectiveCapacity = capacity;

@@ -161,6 +161,21 @@ properties:
   topology:
     type: object
     properties:
+      constraints:
+        type: array
+        items:
+          type: object
+          required: [id, semantics]
+          properties:
+            id:
+              type: string
+            semantics:
+              type: object
+              required: [arrivals, served]
+              properties:
+                arrivals: { type: string }
+                served: { type: string }
+                errors: { type: string }
       nodes:
         type: array
         items:
@@ -171,6 +186,10 @@ properties:
               type: string
             kind:
               type: string
+            constraints:
+              type: array
+              items:
+                type: string
             semantics:
               type: object
               properties:
