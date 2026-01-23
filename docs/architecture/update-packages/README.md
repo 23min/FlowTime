@@ -163,5 +163,6 @@ Legend: packages marked **(major)** are major version jumps and should be schedu
 
 - Keep `TargetFramework` at `net9.0` across all projects.
 - For Microsoft packages, stay on `9.0.x` (avoid `10.x`).
+- Net9 target list validated on 2026-01-23 (no `10.x` in targets).
 - Treat **(major)** rows as separate mini-epics: review changelogs, update code/tests, and stage behind patch/minor updates.
 - UI updates are intentionally deferred; handle MudBlazor, WASM runtime packages, and `bunit` together at the end.
