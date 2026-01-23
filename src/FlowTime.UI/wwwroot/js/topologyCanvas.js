@@ -2066,10 +2066,10 @@
             const edgeField = String(edge.field ?? edge.Field ?? '').trim().toLowerCase();
             const isFailureField = edgeField === 'errors' || edgeField === 'failures' || edgeField === 'exhaustedfailures';
             const edgeSeriesEntry = resolveEdgeSeriesEntry(edgeSeries, edgeId, edge);
+            const selectedBin = Number(overlaySettings.selectedBin ?? -1);
+            const startIndex = Number.isFinite(edgeSeriesStartIndex) ? edgeSeriesStartIndex : 0;
             let failureValue = null;
             if (isFailureField) {
-                const selectedBin = Number(overlaySettings.selectedBin ?? -1);
-                const startIndex = Number.isFinite(edgeSeriesStartIndex) ? edgeSeriesStartIndex : 0;
                 const failureMetric = 'failuresVolume';
                 failureValue = sampleEdgeMetricValue(edgeSeriesEntry, failureMetric, overlaySettings, selectedBin, startIndex);
             }
@@ -2078,8 +2078,6 @@
                     if (!edgeSeriesEntry) {
                         return false;
                     }
-                    const selectedBin = Number(overlaySettings.selectedBin ?? -1);
-                    const startIndex = Number.isFinite(edgeSeriesStartIndex) ? edgeSeriesStartIndex : 0;
                     const retryValue = sampleEdgeMetricValue(edgeSeriesEntry, 'retryVolume', overlaySettings, selectedBin, startIndex);
                     return Boolean(Number.isFinite(retryValue) && retryValue > 0.0001);
                 })()
@@ -2093,8 +2091,6 @@
             } else if (!isFailureField && flowSample && overlaySettings.showEdgeOverlayLabels !== false) {
                 labelBounds = drawEdgeOverlayLabel(ctx, pathPoints, flowSample.text, badgeColor, warningStyle);
             } else if (isEffortEdge && overlaySettings.showEdgeOverlayLabels !== false) {
-                const selectedBin = Number(overlaySettings.selectedBin ?? -1);
-                const startIndex = Number.isFinite(edgeSeriesStartIndex) ? edgeSeriesStartIndex : 0;
                 const efforts = Number.isFinite(flowSample?.attempts)
                     ? flowSample.attempts
                     : sampleEdgeMetricValue(edgeSeriesEntry, 'attemptsVolume', overlaySettings, selectedBin, startIndex);
@@ -2186,6 +2182,9 @@
                 nodeMeta.focusLabel = overlayNode.focusLabel ?? overlayNode.FocusLabel ?? nodeMeta.focusLabel ?? '';
                 nodeMeta.metrics = overlayNode.metrics ?? overlayNode.Metrics ?? nodeMeta.metrics ?? null;
                 nodeMeta.tooltip = overlayNode.tooltip ?? overlayNode.Tooltip ?? nodeMeta.tooltip ?? null;
+                if (overlayNode.constraintBadges || overlayNode.ConstraintBadges) {
+                    nodeMeta.constraintBadges = overlayNode.constraintBadges ?? overlayNode.ConstraintBadges;
+                }
                 if (typeof overlayNode.isFocused === 'boolean' || typeof overlayNode.IsFocused === 'boolean') {
                     nodeMeta.isFocused = Boolean(overlayNode.isFocused ?? overlayNode.IsFocused);
                 }
@@ -4593,6 +4592,27 @@
         return normalized;
     }
 
+    function normalizeConstraintBadges(raw) {
+        const input = raw?.constraintBadges ?? raw?.ConstraintBadges ?? null;
+        if (!Array.isArray(input) || input.length === 0) {
+            return [];
+        }
+
+        return input
+            .map(entry => {
+                if (!entry) {
+                    return null;
+                }
+                const id = (entry.id ?? entry.Id ?? '').toString().trim();
+                if (!id) {
+                    return null;
+                }
+                const isLimited = Boolean(entry.isLimited ?? entry.IsLimited);
+                return { id, isLimited };
+            })
+            .filter(Boolean);
+    }
+
     function formatQueueLatencyStatusLabel(status) {
         if (!status) {
             return 'Latency paused';
@@ -4638,6 +4658,7 @@
         const schedule = nodeMeta.dispatchSchedule ?? nodeMeta.DispatchSchedule ?? null;
         const retryTax = isServiceNode ? resolveRetryTaxValue(nodeMeta) : null;
         const hasRetryLoop = showRetryMetrics && isServiceNode && Number.isFinite(retryTax) && retryTax > 0;
+        const constraintBadges = normalizeConstraintBadges(nodeMeta);
         const showRetryBadgeOnNodes = overlays.showRetryBadgeOnNodes === true;
         let warningEntries = normalizeWarningEntries(nodeMeta, state.globalWarningsByNode);
         const warningCodes = new Set(warningEntries.map(entry => (entry.code ?? '').toString().toLowerCase()));
@@ -5074,6 +5095,33 @@
             }
         }
 
+        if (constraintBadges.length > 0) {
+            const limitedIds = constraintBadges.filter(entry => entry.isLimited).map(entry => entry.id);
+            const allIds = constraintBadges.map(entry => entry.id);
+            const isLimited = limitedIds.length > 0;
+            const idsLabel = allIds.length > 1 ? `${allIds.length}` : allIds[0];
+            const label = `C | ${idsLabel}`;
+            const tooltip = isLimited
+                ? `Constraint-limited by ${limitedIds.join(', ')}`
+                : `Constraint resource (dependency): ${allIds.join(', ')}`;
+            const outline = isLimited ? '#DC2626' : '#64748B';
+            const text = isLimited
+                ? (isDarkTheme() ? '#FECACA' : '#B91C1C')
+                : (isDarkTheme() ? '#E2E8F0' : '#1F2937');
+            const dims = drawChip(ctx, topLeft, topRowTop + chipH, label, outline, text, paddingX, chipH, 'bottom', 'rgba(0,0,0,0)', null, '600');
+            registerChipHitbox(state, {
+                nodeId: nodeMeta.id ?? null,
+                metric: 'constraint',
+                placement: 'top',
+                tooltip,
+                x: topLeft,
+                y: dims.top,
+                width: dims.width,
+                height: dims.height
+            });
+            topLeft += dims.width + gap;
+        }
+
         let servedChipDims = null;
         if (!isSinkNode && overlays.showServedDependencies !== false) {
             const servedValue = sampleValueFor('served', semantics.served);
@@ -5382,6 +5430,51 @@
         }
 
         ctx.restore();
+    }
+
+    function drawConstraintResourcePill(ctx, nodeMeta, constraintBadges, state, anchorY, chipHeight) {
+        const ids = constraintBadges.map(entry => entry.id).filter(Boolean);
+        if (ids.length === 0) {
+            return;
+        }
+
+        const limitedIds = constraintBadges.filter(entry => entry.isLimited).map(entry => entry.id);
+        const isLimited = limitedIds.length > 0;
+        const outline = isLimited ? '#DC2626' : '#64748B';
+        const text = '#FFFFFF';
+        const label = ids.length > 1 ? `${ids[0]} +${ids.length - 1}` : ids[0];
+        const tooltip = `Constraint resource (dependency): ${ids.join(', ')}`;
+
+        const x = Number(nodeMeta.x ?? nodeMeta.X ?? 0);
+        const width = Number(nodeMeta.width ?? nodeMeta.Width ?? 54);
+        const pillHeight = chipHeight;
+        const pillGap = 10;
+        const pillLeft = x + (width / 2) + pillGap;
+        const pillAnchor = anchorY - 2;
+
+        const dims = drawChip(ctx, pillLeft, pillAnchor, label, outline, text, 8, pillHeight, 'bottom', null, null, '600');
+
+        ctx.save();
+        ctx.strokeStyle = outline;
+        ctx.lineWidth = 1.25;
+        ctx.setLineDash([4, 3]);
+        const lineY = pillAnchor - (pillHeight / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + (width / 2), lineY);
+        ctx.lineTo(dims.left, lineY);
+        ctx.stroke();
+        ctx.restore();
+
+        registerChipHitbox(state, {
+            nodeId: nodeMeta.id ?? null,
+            metric: 'constraintResource',
+            placement: 'right',
+            tooltip,
+            x: dims.left,
+            y: dims.top,
+            width: dims.width,
+            height: dims.height
+        });
     }
 
     function drawQueueNode(ctx, nodeMeta, overlays) {

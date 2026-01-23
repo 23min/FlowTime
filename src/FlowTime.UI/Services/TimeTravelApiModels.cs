@@ -162,6 +162,12 @@ public sealed record TimeTravelNodeSnapshotDto
     [JsonPropertyName("derived")]
     public TimeTravelNodeDerivedMetricsDto Derived { get; init; } = new();
 
+    [JsonPropertyName("constraints")]
+    public IReadOnlyDictionary<string, TimeTravelConstraintMetricsDto>? Constraints { get; init; }
+
+    [JsonPropertyName("constraintStatus")]
+    public IReadOnlyDictionary<string, bool>? ConstraintStatus { get; init; }
+
     [JsonPropertyName("telemetry")]
     public TimeTravelNodeTelemetryDto Telemetry { get; init; } = new();
 
@@ -194,6 +200,12 @@ public sealed record TimeTravelNodeSeriesDto
 
     [JsonPropertyName("seriesMetadata")]
     public IReadOnlyDictionary<string, TimeTravelSeriesSemanticsDto>? SeriesMetadata { get; init; }
+
+    [JsonPropertyName("constraints")]
+    public IReadOnlyDictionary<string, TimeTravelConstraintSeriesDto>? Constraints { get; init; }
+
+    [JsonPropertyName("constraintStatus")]
+    public IReadOnlyDictionary<string, double?[]>? ConstraintStatus { get; init; }
 
     [JsonPropertyName("byClass")]
     public IReadOnlyDictionary<string, IReadOnlyDictionary<string, double?[]>> ByClass { get; init; } =
@@ -243,6 +255,24 @@ public sealed record TimeTravelSlaSeriesDto
 
     [JsonPropertyName("values")]
     public double?[] Values { get; init; } = Array.Empty<double?>();
+}
+
+public sealed record TimeTravelConstraintMetricsDto
+{
+    [JsonPropertyName("metrics")]
+    public IReadOnlyDictionary<string, double?> Metrics { get; init; } = new Dictionary<string, double?>(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("seriesMetadata")]
+    public IReadOnlyDictionary<string, TimeTravelSeriesSemanticsDto>? SeriesMetadata { get; init; }
+}
+
+public sealed record TimeTravelConstraintSeriesDto
+{
+    [JsonPropertyName("series")]
+    public IReadOnlyDictionary<string, double?[]> Series { get; init; } = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("seriesMetadata")]
+    public IReadOnlyDictionary<string, TimeTravelSeriesSemanticsDto>? SeriesMetadata { get; init; }
 }
 
 public sealed record TimeTravelEdgeSeriesDto

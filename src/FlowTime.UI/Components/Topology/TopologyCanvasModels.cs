@@ -48,7 +48,14 @@ internal sealed record NodeOverlayInfo(
     string? FocusLabel,
     NodeMetricSnapshotDto? Metrics,
     IReadOnlyList<NodeWarningPayload>? Warnings,
-    TooltipPayload Tooltip);
+    TooltipPayload Tooltip)
+{
+    public IReadOnlyList<NodeConstraintBadgeDto>? ConstraintBadges { get; init; }
+}
+
+public sealed record NodeConstraintBadgeDto(
+    string Id,
+    bool IsLimited);
 
 public sealed record NodeWarningPayload(
     string Code,

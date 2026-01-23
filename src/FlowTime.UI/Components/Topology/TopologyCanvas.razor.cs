@@ -59,6 +59,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
     [Parameter] public TopologyGraph? Graph { get; set; }
     [Parameter] public IReadOnlyDictionary<string, NodeBinMetrics>? NodeMetrics { get; set; }
+    [Parameter] public IReadOnlyDictionary<string, IReadOnlyList<NodeConstraintBadgeDto>>? ConstraintBadges { get; set; }
     [Parameter] public TopologyOverlaySettings OverlaySettings { get; set; } = TopologyOverlaySettings.Default;
     [Parameter] public int ActiveBin { get; set; }
     [Parameter] public IReadOnlyDictionary<string, NodeSparklineData>? NodeSparklines { get; set; }
@@ -180,7 +181,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             DimmedNodes,
             HasClassSelection,
             SelectedClasses,
-            EdgeQuality);
+            EdgeQuality,
+            ConstraintBadges);
         if (payloads.SceneSignature != lastSceneSignature)
         {
             pendingScenePayload = payloads.Scene;
@@ -477,7 +479,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             dimmedNodes: DimmedNodes,
             hasClassSelection: HasClassSelection,
             selectedClasses: SelectedClasses,
-            edgeQuality: EdgeQuality);
+            edgeQuality: EdgeQuality,
+            constraintBadges: ConstraintBadges);
         if (payloads.SceneSignature != lastSceneSignature)
         {
             pendingScenePayload = payloads.Scene;
@@ -906,7 +909,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         IReadOnlyCollection<string>? dimmedNodes,
         bool hasClassSelection,
         IReadOnlyCollection<string> selectedClasses,
-        string? edgeQuality)
+        string? edgeQuality,
+        IReadOnlyDictionary<string, IReadOnlyList<NodeConstraintBadgeDto>>? constraintBadges)
     {
         var thresholds = ColorScale.ColorThresholds.FromOverlay(overlays);
         var outgoingGroups = graph.Edges
@@ -1055,6 +1059,14 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 warningDtos = warningsForNode;
             }
 
+            IReadOnlyList<NodeConstraintBadgeDto>? constraintBadgeList = null;
+            if (constraintBadges is not null &&
+                constraintBadges.TryGetValue(node.Id, out var constraintList) &&
+                constraintList.Count > 0)
+            {
+                constraintBadgeList = constraintList;
+            }
+
             overlayNodes.Add(new NodeOverlayInfo(
                 node.Id,
                 fill,
@@ -1064,7 +1076,10 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 focusLabel,
                 metricsDto,
                 warningDtos,
-                tooltipDto));
+                tooltipDto)
+            {
+                ConstraintBadges = constraintBadgeList
+            });
         }
 
         var sceneNodeArray = sceneNodes.ToImmutable();

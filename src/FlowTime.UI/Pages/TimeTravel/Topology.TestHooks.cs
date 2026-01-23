@@ -158,6 +158,7 @@ public partial class Topology
             new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase),
             new Dictionary<string, IReadOnlyList<ClassContribution>>(StringComparer.OrdinalIgnoreCase),
             new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+            new Dictionary<string, IReadOnlyList<NodeConstraintBadgeDto>>(StringComparer.OrdinalIgnoreCase),
             selectedBinValue,
             selectedBinValue.ToString(CultureInfo.InvariantCulture),
             string.Empty,

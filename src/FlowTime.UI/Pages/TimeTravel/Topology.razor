@@ -441,6 +441,7 @@
                             <TopologyCanvas @ref="canvasComponent"
                                             Graph="topologyGraph"
                                             NodeMetrics="activeMetrics"
+                                            ConstraintBadges="constraintBadges"
                                             NodeSparklines="nodeSparklines"
                                             EdgeSeries="windowData?.Edges"
                                             EdgeSeriesStartIndex="@(windowData?.Window.StartBin ?? 0)"
@@ -484,11 +485,15 @@
                         @if (inspectorOpen && inspectorNodeId is not null)
                         {
                             var nodeId = inspectorNodeId;
-        activeMetrics.TryGetValue(nodeId, out var nodeMetricsSnapshot);
-        var binMetrics = BuildInspectorBinMetrics(nodeId, nodeMetricsSnapshot);
-        var metricBlocks = BuildInspectorMetricBlocks(nodeId);
-                            var metricsHaveSeries = metricBlocks.Any(block => !block.IsPlaceholder);
-                            var hasSparklineSeries = metricBlocks.Any(block => !block.IsPlaceholder && block.Sparkline is not null);
+                            activeMetrics.TryGetValue(nodeId, out var nodeMetricsSnapshot);
+                            var binMetrics = BuildInspectorBinMetrics(nodeId, nodeMetricsSnapshot);
+                            var metricBlocks = BuildInspectorMetricBlocks(nodeId);
+                            var seriesNode = windowData?.Nodes.FirstOrDefault(node => string.Equals(node.Id, nodeId, StringComparison.OrdinalIgnoreCase));
+                            var constraintIds = ExtractConstraintIds(seriesNode);
+                            var constraintBlocks = BuildInspectorConstraintBlocks(nodeId, selectedConstraintId);
+                            var allMetricBlocks = metricBlocks.Concat(constraintBlocks).ToList();
+                            var metricsHaveSeries = allMetricBlocks.Any(block => !block.IsPlaceholder);
+                            var hasSparklineSeries = allMetricBlocks.Any(block => !block.IsPlaceholder && block.Sparkline is not null);
                             var topoNodeInfo = FindTopologyNode(nodeId);
                             var nodeKind = topoNodeInfo?.Kind;
                             var nodeRoleLabel = ResolveNodeRoleLabel(topoNodeInfo);
@@ -553,6 +558,30 @@
                                         </MudStack>
                                     }
 
+                                    @if (constraintIds.Count > 0)
+                                    {
+                                        <div class="topology-role-chip-row">
+                                            <MudText Typo="Typo.caption" Class="topology-kind-label">Constraints</MudText>
+                                            <div class="inspector-constraint-selector">
+                                                @foreach (var constraintId in constraintIds)
+                                                {
+                                                    var isSelected = string.Equals(selectedConstraintId, constraintId, StringComparison.OrdinalIgnoreCase);
+                                                    var chipClass = $"constraint-chip{(isSelected ? " constraint-chip--selected" : string.Empty)}";
+                                                    <button type="button"
+                                                            class="@chipClass"
+                                                            @onclick="@(() => SelectConstraint(constraintId))">
+                                                        <span class="constraint-chip-prefix">C</span>
+                                                        <span class="constraint-chip-sep">|</span>
+                                                        <span class="constraint-chip-name">@constraintId</span>
+                                                    </button>
+                                                }
+                                            </div>
+                                        </div>
+                                        <MudText Typo="Typo.caption" Class="constraint-chip-note">
+                                            Constraint limits served; unmet demand is not queued unless upstream has a buffer.
+                                        </MudText>
+                                    }
+
 	                                    <MudTabs @key="nodeId"
 	                                             ActivePanelIndex="@inspectorTabIndex"
 	                                             ActivePanelIndexChanged="index => OnInspectorTabChanged(index, inspectorTabs)"
@@ -573,9 +602,8 @@
                                                 </MudStack>
                                             }
 
-                                            @foreach (var block in metricBlocks)
-                                            {
-                                                <MudStack Spacing="1">
+                                            @{
+                                                RenderFragment<InspectorMetricBlock> renderMetricBlock = block => @<MudStack Spacing="1">
                                                     @if (inspectorMetricsExpanded)
                                                     {
                                                         if (block.Provenance is not null)
@@ -743,15 +771,35 @@
                                                             </div>
                                                         </MudStack>
                                                     }
-                                                </MudStack>
+                                                </MudStack>;
+                                            }
+
+                                            @if (constraintBlocks.Count > 0)
+                                            {
+                                                <MudText Typo="Typo.subtitle2" Class="topology-inspector-chart-heading">Constraints</MudText>
+                                                @foreach (var block in constraintBlocks)
+                                                {
+                                                    @renderMetricBlock(block)
+                                                }
+                                            }
+
+                                            @if (metricBlocks.Count > 0)
+                                            {
+                                                <MudText Typo="Typo.subtitle2" Class="topology-inspector-chart-heading topology-inspector-chart-heading--metrics">Node metrics</MudText>
+                                                @foreach (var block in metricBlocks)
+                                                {
+                                                    @renderMetricBlock(block)
+                                                }
                                             }
                                         </MudTabPanel>
                                         <MudTabPanel Text="Props">
                                             @if (binMetrics.Count > 0)
                                             {
-                                                var seriesRows = binMetrics.Where(row => !row.IsDerived).ToList();
-                                                var derivedRows = binMetrics.Where(row => row.IsDerived).ToList();
-                                                var showSeriesHeading = seriesRows.Count > 0 && derivedRows.Count > 0;
+                                                var seriesRows = binMetrics.Where(row => row.Section == InspectorBinMetricSection.Series).ToList();
+                                                var constraintRows = binMetrics.Where(row => row.Section == InspectorBinMetricSection.Constraints).ToList();
+                                                var derivedRows = binMetrics.Where(row => row.Section == InspectorBinMetricSection.Derived).ToList();
+                                                var showSeriesHeading = seriesRows.Count > 0;
+                                                var showConstraintHeading = constraintRows.Count > 0;
                                                 var showDerivedHeading = derivedRows.Count > 0;
 
                                                 <div class="node-inspector-bin-section">
@@ -790,6 +838,46 @@
                                                                     <span class="node-inspector-bin-label">@row.Label</span>
                                                                     <span class="node-inspector-bin-value">@row.Value</span>
                                                                 </div>
+                                                            }
+                                                        }
+
+                                                        @if (showConstraintHeading)
+                                                        {
+                                                            <div class="node-inspector-bin-heading">Constraints</div>
+                                                            <MudText Typo="Typo.caption" Class="node-inspector-bin-note">
+                                                                Constraint limits served; unmet demand is not queued unless upstream has a buffer.
+                                                            </MudText>
+                                                            @foreach (var row in constraintRows)
+                                                            {
+                                                                if (row.Provenance is not null)
+                                                                {
+                                                                    <div class="inspector-provenance-hover">
+                                                                        <div class="node-inspector-bin-row">
+                                                                            <span class="node-inspector-bin-label">@row.Label</span>
+                                                                            <span class="node-inspector-bin-value">@row.Value</span>
+                                                                        </div>
+                                                                        <div class="inspector-provenance-flyout">
+                                                                            <div class="inspector-provenance-tooltip">
+                                                                                <div class="inspector-provenance-tooltip__entries">
+                                                                                    @foreach (var entry in BuildProvenanceTooltipEntries(row.Provenance, row.Alias, row.IncludeAliasInTooltip))
+                                                                                    {
+                                                                                        <div class="inspector-provenance-tooltip__entry">
+                                                                                            <span class="inspector-provenance-tooltip__label">@entry.Label</span>
+                                                                                            <span class="inspector-provenance-tooltip__value">@entry.Value</span>
+                                                                                        </div>
+                                                                                    }
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <div class="node-inspector-bin-row">
+                                                                        <span class="node-inspector-bin-label">@row.Label</span>
+                                                                        <span class="node-inspector-bin-value">@row.Value</span>
+                                                                    </div>
+                                                                }
                                                             }
                                                         }
 
@@ -964,6 +1052,7 @@
     private string? inspectorNodeId;
     private string? lastInspectorNodeId;
     private string? selectedNodeId;
+    private string? selectedConstraintId;
     private bool inspectorOpen;
     private bool inspectorPinned;
     private bool inspectorMetricsExpanded;
@@ -981,6 +1070,8 @@
 
     private TopologyGraph? topologyGraph;
     private IReadOnlyDictionary<string, NodeBinMetrics> activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
+    private IReadOnlyDictionary<string, IReadOnlyList<NodeConstraintBadgeDto>> constraintBadges =
+        new Dictionary<string, IReadOnlyList<NodeConstraintBadgeDto>>(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyDictionary<string, NodeSparklineData> nodeSparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);
     private HashSet<string> nodesMissingSparkline = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> loggedMissingExpressionSeries = new(StringComparer.OrdinalIgnoreCase);
@@ -2309,6 +2400,7 @@ private const string pmfExpectationLabel = "Value";
 
             var clampedSelection = Math.Clamp(selectedBin, sliceStart, sliceEnd);
             ApplySelectedBinUi(clampedSelection);
+            SyncConstraintSelection(inspectorNodeId ?? selectedNodeId);
 
             nodeSparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);
             nodesMissingSparkline = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -2444,6 +2536,7 @@ private const string pmfExpectationLabel = "Value";
                 new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase),
                 new Dictionary<string, IReadOnlyList<ClassContribution>>(StringComparer.OrdinalIgnoreCase),
                 classFilteredNodes,
+                new Dictionary<string, IReadOnlyList<NodeConstraintBadgeDto>>(StringComparer.OrdinalIgnoreCase),
                 bin,
                 bin.ToString(CultureInfo.InvariantCulture),
                 string.Empty,
@@ -2458,6 +2551,7 @@ private const string pmfExpectationLabel = "Value";
                 new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase),
                 new Dictionary<string, IReadOnlyList<ClassContribution>>(StringComparer.OrdinalIgnoreCase),
                 classFilteredNodes,
+                new Dictionary<string, IReadOnlyList<NodeConstraintBadgeDto>>(StringComparer.OrdinalIgnoreCase),
                 bin,
                 bin.ToString(CultureInfo.InvariantCulture),
                 string.Empty,
@@ -2465,6 +2559,7 @@ private const string pmfExpectationLabel = "Value";
         }
 
         var metrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
+        var constraintBadgeMap = new Dictionary<string, IReadOnlyList<NodeConstraintBadgeDto>>(StringComparer.OrdinalIgnoreCase);
         var selectionTimestamp = localIndex >= 0 && localIndex < context.Timestamps.Count
             ? context.Timestamps[localIndex]
             : (DateTimeOffset?)null;
@@ -2641,6 +2736,12 @@ private const string pmfExpectationLabel = "Value";
                 {
                     classFilteredNodes.Add(node.Id);
                 }
+            }
+
+            var constraintBadgesForNode = BuildConstraintBadgesSnapshot(node, localIndex);
+            if (constraintBadgesForNode.Count > 0)
+            {
+                constraintBadgeMap[node.Id] = constraintBadgesForNode;
             }
 
             if (context.IncludeClassContributions &&
@@ -2833,10 +2934,110 @@ private const string pmfExpectationLabel = "Value";
             metrics,
             classContributionMap,
             classFilteredNodes,
+            constraintBadgeMap,
             bin,
             bin.ToString(CultureInfo.InvariantCulture),
             headerLabel,
             context.IncludeInspectorDetails);
+    }
+
+    private static IReadOnlyList<NodeConstraintBadgeDto> BuildConstraintBadgesSnapshot(TimeTravelNodeSeriesDto node, int localIndex)
+    {
+        if ((node.Constraints is null || node.Constraints.Count == 0) &&
+            (node.ConstraintStatus is null || node.ConstraintStatus.Count == 0))
+        {
+            return Array.Empty<NodeConstraintBadgeDto>();
+        }
+
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (node.Constraints is not null)
+        {
+            foreach (var id in node.Constraints.Keys)
+            {
+                if (!string.IsNullOrWhiteSpace(id))
+                {
+                    ids.Add(id);
+                }
+            }
+        }
+
+        if (node.ConstraintStatus is not null)
+        {
+            foreach (var id in node.ConstraintStatus.Keys)
+            {
+                if (!string.IsNullOrWhiteSpace(id))
+                {
+                    ids.Add(id);
+                }
+            }
+        }
+
+        if (ids.Count == 0)
+        {
+            return Array.Empty<NodeConstraintBadgeDto>();
+        }
+
+        var badges = new List<NodeConstraintBadgeDto>(ids.Count);
+        foreach (var id in ids)
+        {
+            var isLimited = false;
+            if (node.ConstraintStatus is not null &&
+                node.ConstraintStatus.TryGetValue(id, out var statusSeries))
+            {
+                var value = GetConstraintStatusSnapshot(statusSeries, localIndex);
+                isLimited = value.HasValue && value.Value >= 0.5d;
+            }
+
+            badges.Add(new NodeConstraintBadgeDto(id, isLimited));
+        }
+
+        return badges;
+    }
+
+    private static IReadOnlyList<string> ExtractConstraintIds(TimeTravelNodeSeriesDto? node)
+    {
+        if (node is null)
+        {
+            return Array.Empty<string>();
+        }
+
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (node.Constraints is not null)
+        {
+            foreach (var id in node.Constraints.Keys)
+            {
+                if (!string.IsNullOrWhiteSpace(id))
+                {
+                    ids.Add(id);
+                }
+            }
+        }
+
+        if (node.ConstraintStatus is not null)
+        {
+            foreach (var id in node.ConstraintStatus.Keys)
+            {
+                if (!string.IsNullOrWhiteSpace(id))
+                {
+                    ids.Add(id);
+                }
+            }
+        }
+
+        return ids.Count == 0
+            ? Array.Empty<string>()
+            : ids.OrderBy(id => id, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private static double? GetConstraintStatusSnapshot(double?[]? series, int localIndex)
+    {
+        if (series is null || localIndex < 0 || localIndex >= series.Length)
+        {
+            return null;
+        }
+
+        var value = series[localIndex];
+        return double.IsFinite(value ?? double.NaN) ? value : null;
     }
 
     private static QueueLatencyStatus? ResolveQueueLatencyStatus(TimeTravelNodeSeriesDto node, int localIndex)
@@ -3122,6 +3323,14 @@ private const string pmfExpectationLabel = "Value";
     private double?[]? ResolveFullSeries(TimeTravelNodeSeriesDto node, string? key)
     {
         var k = (key ?? string.Empty).Trim().ToLowerInvariant();
+        if (k.StartsWith("constraint:", StringComparison.OrdinalIgnoreCase))
+        {
+            var parts = k.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (parts.Length >= 3)
+            {
+                return TryGetConstraintSeries(node, parts[1], parts[2]);
+            }
+        }
         switch (k)
         {
             case "successrate":
@@ -3467,6 +3676,7 @@ private const string pmfExpectationLabel = "Value";
         Dictionary<string, NodeBinMetrics> Metrics,
         Dictionary<string, IReadOnlyList<ClassContribution>> ClassContributions,
         HashSet<string> ClassFilteredNodes,
+        Dictionary<string, IReadOnlyList<NodeConstraintBadgeDto>> ConstraintBadges,
         int SelectedBin,
         string SelectedBinLabel,
         string SelectedTimestampLabel,
@@ -3504,6 +3714,7 @@ private const string pmfExpectationLabel = "Value";
     private void ApplyActiveMetricsResult(ActiveMetricsComputationResult result)
     {
         activeMetrics = result.Metrics;
+        constraintBadges = result.ConstraintBadges;
         nodeClassContributions = result.ClassContributions;
         inspectorDataDirty = result.IncludesInspectorDetails ? false : true;
         classFilteredNodes.Clear();
@@ -3559,6 +3770,7 @@ private const string pmfExpectationLabel = "Value";
             inspectorOpen = true;
             inspectorPinned = true;
             EnsureInspectorDataFresh();
+            SyncConstraintSelection(nodeId);
         }
 
         if (!wasOpen && inspectorOpen)
@@ -3575,6 +3787,7 @@ private const string pmfExpectationLabel = "Value";
     private Task OnNodeSelected(string? nodeId)
     {
         selectedNodeId = string.IsNullOrWhiteSpace(nodeId) ? null : nodeId;
+        SyncConstraintSelection(selectedNodeId);
         if (selectedNodeId is null)
         {
             SetFocusViewEnabled(false);
@@ -3583,6 +3796,40 @@ private const string pmfExpectationLabel = "Value";
 
         StateHasChanged();
         return Task.CompletedTask;
+    }
+
+    private void SyncConstraintSelection(string? nodeId)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId) || windowData is null)
+        {
+            selectedConstraintId = null;
+            return;
+        }
+
+        var node = windowData.Nodes.FirstOrDefault(n => string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
+        var ids = ExtractConstraintIds(node);
+        if (ids.Count == 0)
+        {
+            selectedConstraintId = null;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(selectedConstraintId) ||
+            !ids.Contains(selectedConstraintId, StringComparer.OrdinalIgnoreCase))
+        {
+            selectedConstraintId = ids[0];
+        }
+    }
+
+    private void SelectConstraint(string constraintId)
+    {
+        if (string.IsNullOrWhiteSpace(constraintId))
+        {
+            return;
+        }
+
+        selectedConstraintId = constraintId;
+        StateHasChanged();
     }
 
     private void EnsureInspectorVisibility()
@@ -4211,11 +4458,18 @@ internal sealed record InspectorMetricBlock(
             new(title, null, "#CBD5E1", true, message, null, valueFormat, seriesKey, provenance);
     }
 
+    internal enum InspectorBinMetricSection
+    {
+        Series,
+        Constraints,
+        Derived
+    }
+
     internal sealed record InspectorBinMetric(
         string Label,
         string Value,
         MetricProvenanceEvaluation? Provenance,
-        bool IsDerived,
+        InspectorBinMetricSection Section,
         string? Alias,
         bool IncludeAliasInTooltip);
 
@@ -4435,6 +4689,10 @@ internal sealed record InspectorMetricBlock(
                 return blocks;
             }
         }
+        else if (!isRouterKind)
+        {
+            AddRequired(Label("Arrivals", "arrivals"), "arrivals", 0d, seriesKeyOverride: "arrivals");
+        }
 
         var showRetryMetrics = overlaySettings.ShowRetryMetrics;
         var showRetryBudget = overlaySettings.ShowRetryBudget;
@@ -4518,6 +4776,116 @@ internal sealed record InspectorMetricBlock(
         AddOptional(Label("Errors", "errors"), "errors", 0d, ariaLabel: "Errors sparkline");
 
         return blocks;
+    }
+
+    private IReadOnlyList<InspectorMetricBlock> BuildInspectorConstraintBlocks(string? nodeId, string? constraintId)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId) || string.IsNullOrWhiteSpace(constraintId) || windowData is null)
+        {
+            return Array.Empty<InspectorMetricBlock>();
+        }
+
+        var seriesNode = windowData.Nodes.FirstOrDefault(node => string.Equals(node.Id, nodeId, StringComparison.OrdinalIgnoreCase));
+        if (seriesNode?.Constraints is null ||
+            !seriesNode.Constraints.TryGetValue(constraintId, out var constraintSeries) ||
+            constraintSeries.Series.Count == 0)
+        {
+            return Array.Empty<InspectorMetricBlock>();
+        }
+
+        var sparkline = BuildConstraintSparklineData(seriesNode, constraintId);
+        if (sparkline is null)
+        {
+            return Array.Empty<InspectorMetricBlock>();
+        }
+
+        var blocks = new List<InspectorMetricBlock>();
+
+        InspectorMetricBlock CreatePlaceholder(string title, string seriesKey, InspectorValueFormat valueFormat = InspectorValueFormat.Number)
+            => InspectorMetricBlock.CreatePlaceholder(title, InspectorMissingSeriesMessage, valueFormat, seriesKey, ResolveConstraintProvenance(constraintSeries, title, key: seriesKey));
+
+        void AddConstraintSeries(
+            string title,
+            string key,
+            bool required,
+            InspectorValueFormat valueFormat = InspectorValueFormat.Number,
+            double? min = null,
+            double? max = null)
+        {
+            var seriesKey = $"constraint:{constraintId}:{key}";
+            var blockSparkline = BuildInspectorSparkline(sparkline, key, min, max);
+            if (blockSparkline is null)
+            {
+                if (required)
+                {
+                    blocks.Add(CreatePlaceholder(title, seriesKey, valueFormat));
+                }
+                return;
+            }
+
+            var provenance = ResolveConstraintProvenance(constraintSeries, title, seriesKey);
+            blocks.Add(InspectorMetricBlock.FromSparkline(
+                title,
+                blockSparkline,
+                ResolveInspectorSparklineStroke(blockSparkline, seriesKey),
+                ariaLabel: $"{title} sparkline",
+                valueFormat: valueFormat,
+                seriesKey: seriesKey,
+                provenance: provenance));
+        }
+
+        AddConstraintSeries("Arrivals", "arrivals", required: true, min: 0d);
+        AddConstraintSeries("Served", "served", required: true, min: 0d);
+        AddConstraintSeries("Errors", "errors", required: false, min: 0d);
+        AddConstraintSeries("Shortfall", "shortfall", required: false, min: 0d);
+        AddConstraintSeries("Latency", "latencyMinutes", required: false, min: 0d);
+
+        return blocks;
+    }
+
+    private static MetricProvenanceEvaluation? ResolveConstraintProvenance(
+        TimeTravelConstraintSeriesDto constraintSeries,
+        string title,
+        string key)
+    {
+        if (constraintSeries.Series is null)
+        {
+            return null;
+        }
+
+        var metricKey = key.Split(':').LastOrDefault() ?? key;
+        var unit = metricKey.Equals("latencyMinutes", StringComparison.OrdinalIgnoreCase)
+            ? "min"
+            : "count";
+        var meaning = metricKey switch
+        {
+            "arrivals" => "Observed arrivals for the constraint resource.",
+            "served" => "Constraint capacity delivered.",
+            "errors" => "Constraint errors observed.",
+            "shortfall" => "Demand that exceeded constraint capacity.",
+            "latencyMinutes" => "Constraint latency (source-defined).",
+            _ => null
+        };
+
+        var definition = new MetricProvenanceDefinition(
+            metricKey,
+            title,
+            unit,
+            new[]
+            {
+                new MetricFormulaOption($"{title} = {metricKey} series", new[] { metricKey })
+            },
+            Array.Empty<string>(),
+            meaning);
+
+        var available = constraintSeries.Series.Keys as IReadOnlyCollection<string> ?? constraintSeries.Series.Keys.ToList();
+        var evaluation = definition.Evaluate(available);
+        var semantics = constraintSeries.SeriesMetadata is not null &&
+                        constraintSeries.SeriesMetadata.TryGetValue(metricKey, out var metadata)
+            ? metadata
+            : null;
+
+        return evaluation with { SeriesSemantics = semantics };
     }
 
     private static IReadOnlyCollection<string> BuildProvenanceSeriesKeys(TimeTravelNodeSeriesDto? node)
@@ -4784,11 +5152,11 @@ internal sealed record InspectorMetricBlock(
             string label,
             string value,
             string? metricKey = null,
-            bool isDerived = false,
+            InspectorBinMetricSection section = InspectorBinMetricSection.Series,
             string? alias = null,
             bool includeAliasInTooltip = false)
         {
-            return new InspectorBinMetric(label, value, ResolveBinProvenance(metricKey), isDerived, alias, includeAliasInTooltip);
+            return new InspectorBinMetric(label, value, ResolveBinProvenance(metricKey), section, alias, includeAliasInTooltip);
         }
 
         if (!string.IsNullOrWhiteSpace(timestampLabel))
@@ -4837,6 +5205,7 @@ internal sealed record InspectorMetricBlock(
         var hasSchedule = dispatchSchedule is not null
             || scheduleEntry is not null
             || string.Equals(successLabel, "Schedule SLA", StringComparison.OrdinalIgnoreCase);
+        var constraintIds = ExtractConstraintIds(seriesNode);
 
         string? ResolveAlias(params string[] keys) => TryResolveAlias(topoNode, keys);
 
@@ -4856,6 +5225,28 @@ internal sealed record InspectorMetricBlock(
                 "noevents" => "No events",
                 _ => null
             };
+        }
+
+        void AddConstraintStatus(TimeTravelNodeSeriesDto node, string constraintId, int localIndex)
+        {
+            var status = GetConstraintStatusValueSnapshot(node, constraintId, localIndex);
+            var label = $"Limited: {constraintId}";
+            var value = status.HasValue ? (status.Value >= 0.5d ? "Yes" : "No") : "-";
+            rows.Add(CreateRow(label, value, section: InspectorBinMetricSection.Constraints));
+        }
+
+        void AddConstraintMetric(
+            TimeTravelNodeSeriesDto node,
+            string constraintId,
+            string metricKey,
+            string label,
+            int localIndex,
+            InspectorValueFormat format = InspectorValueFormat.Number,
+            string? unit = null)
+        {
+            var value = GetConstraintSeriesValueSnapshot(node, constraintId, metricKey, localIndex);
+            var rowLabel = $"{constraintId}: {label}";
+            rows.Add(CreateRow(rowLabel, FormatBinValue(value, format, unit), section: InspectorBinMetricSection.Constraints));
         }
 
         void AddRaw(
@@ -4879,7 +5270,7 @@ internal sealed record InspectorMetricBlock(
 
             var alias = ResolveAlias(key);
             var label = useAlias ? FormatSemanticLabelWithAlias(fallback, alias) : fallback;
-            rows.Add(CreateRow(label, FormatBinValue(value, format, unit), key, isDerived: false, alias, includeAliasInTooltip));
+            rows.Add(CreateRow(label, FormatBinValue(value, format, unit), key, InspectorBinMetricSection.Series, alias, includeAliasInTooltip));
         }
 
         void AddDerived(
@@ -4901,13 +5292,13 @@ internal sealed record InspectorMetricBlock(
             {
                 if (alwaysShow)
                 {
-                    rows.Add(CreateRow(Label(fallback, aliasKeys), "-", metricKey, isDerived: true));
+                    rows.Add(CreateRow(Label(fallback, aliasKeys), "-", metricKey, InspectorBinMetricSection.Derived));
                 }
 
                 return;
             }
 
-            rows.Add(CreateRow(Label(fallback, aliasKeys), FormatBinValue(value, format, unit), metricKey, isDerived: true));
+            rows.Add(CreateRow(Label(fallback, aliasKeys), FormatBinValue(value, format, unit), metricKey, InspectorBinMetricSection.Derived));
         }
 
         void AddSlaMetric(
@@ -4931,20 +5322,20 @@ internal sealed record InspectorMetricBlock(
 
             if (value.HasValue)
             {
-                rows.Add(CreateRow(label, FormatBinValue(value, format, unit), kind, isDerived: true));
+                rows.Add(CreateRow(label, FormatBinValue(value, format, unit), kind, InspectorBinMetricSection.Derived));
                 return;
             }
 
             var statusLabel = FormatSlaStatus(slaSeries?.Status);
             if (!string.IsNullOrWhiteSpace(statusLabel))
             {
-                rows.Add(CreateRow(label, statusLabel!, kind, isDerived: true));
+                rows.Add(CreateRow(label, statusLabel!, kind, InspectorBinMetricSection.Derived));
                 return;
             }
 
             if (alwaysShow)
             {
-                rows.Add(CreateRow(label, "-", kind, isDerived: true));
+                rows.Add(CreateRow(label, "-", kind, InspectorBinMetricSection.Derived));
             }
         }
 
@@ -4961,17 +5352,17 @@ internal sealed record InspectorMetricBlock(
                     "Arrival schedule",
                     dispatchSchedule is null ? scheduleEntry?.Summary ?? "-" : FormatDispatchSummary(dispatchSchedule),
                     "arrivalSchedule",
-                    isDerived: true));
+                    InspectorBinMetricSection.Derived));
                 rows.Add(CreateRow(
                     "Schedule capacity",
                     dispatchSchedule is null ? scheduleEntry?.CapacityLabel ?? "-" : FormatDispatchCapacity(dispatchSchedule),
                     "scheduleCapacity",
-                    isDerived: true));
+                    InspectorBinMetricSection.Derived));
                 AddSlaMetric(successLabel, "scheduleAdherence", InspectorValueFormat.Percent, alwaysShow: true);
             }
             else if (!isSink && (IsQueueKind(nodeKind) || IsServiceWithBufferKind(nodeKind)))
             {
-                rows.Add(CreateRow("Queue latency", "-", "latencyMinutes", isDerived: true));
+                rows.Add(CreateRow("Queue latency", "-", "latencyMinutes", InspectorBinMetricSection.Derived));
             }
 
             return rows;
@@ -4999,18 +5390,31 @@ internal sealed record InspectorMetricBlock(
         AddDerived("Effective capacity", raw is not null && raw.TryGetValue("effectiveCapacity", out var effectiveCapacity) ? effectiveCapacity : null, gate: !isSink, metricKey: "effectiveCapacity");
         AddRaw("Max attempts", "maxAttempts", gate: !isSink);
 
+        if (constraintIds.Count > 0 && seriesNode is not null)
+        {
+            foreach (var constraintId in constraintIds)
+            {
+                AddConstraintStatus(seriesNode, constraintId, localIndex);
+                AddConstraintMetric(seriesNode, constraintId, "arrivals", "Arrivals", localIndex);
+                AddConstraintMetric(seriesNode, constraintId, "served", "Served", localIndex);
+                AddConstraintMetric(seriesNode, constraintId, "errors", "Errors", localIndex);
+                AddConstraintMetric(seriesNode, constraintId, "shortfall", "Shortfall", localIndex);
+                AddConstraintMetric(seriesNode, constraintId, "latencyMinutes", "Latency", localIndex, unit: "min");
+            }
+        }
+
         if (isSink && hasSchedule)
         {
             rows.Add(CreateRow(
                 "Arrival schedule",
                 dispatchSchedule is null ? scheduleEntry?.Summary ?? "-" : FormatDispatchSummary(dispatchSchedule),
                 "arrivalSchedule",
-                isDerived: true));
+                InspectorBinMetricSection.Derived));
             rows.Add(CreateRow(
                 "Schedule capacity",
                 dispatchSchedule is null ? scheduleEntry?.CapacityLabel ?? "-" : FormatDispatchCapacity(dispatchSchedule),
                 "scheduleCapacity",
-                isDerived: true));
+                InspectorBinMetricSection.Derived));
             AddSlaMetric(successLabel, "scheduleAdherence", InspectorValueFormat.Percent, fallbackValue: safeMetrics.SuccessRate, alwaysShow: true);
         }
         else
@@ -5038,7 +5442,7 @@ internal sealed record InspectorMetricBlock(
 
         if (!isSink && safeMetrics.QueueLatencyStatus is not null)
         {
-            rows.Add(CreateRow("Latency status", FormatQueueLatencyStatusLabel(safeMetrics.QueueLatencyStatus!), "queueLatencyStatus", isDerived: true));
+            rows.Add(CreateRow("Latency status", FormatQueueLatencyStatusLabel(safeMetrics.QueueLatencyStatus!), "queueLatencyStatus", InspectorBinMetricSection.Derived));
         }
 
         return rows;
@@ -5076,6 +5480,62 @@ internal sealed record InspectorMetricBlock(
             slice.StartIndex,
             explicitMin,
             explicitMax,
+            additionalSeries: additional);
+    }
+
+    private NodeSparklineData? BuildConstraintSparklineData(TimeTravelNodeSeriesDto node, string constraintId)
+    {
+        if (windowData is null ||
+            node.Constraints is null ||
+            !node.Constraints.TryGetValue(constraintId, out var constraintSeries) ||
+            constraintSeries.Series.Count == 0)
+        {
+            return null;
+        }
+
+        var startBin = windowData.Window.StartBin;
+        var totalBins = constraintSeries.Series.Values.FirstOrDefault()?.Length ?? 0;
+        if (totalBins <= 0)
+        {
+            return null;
+        }
+
+        var localIndex = Math.Clamp(selectedBin - startBin, 0, totalBins - 1);
+        var primarySeries = constraintSeries.Series.TryGetValue("arrivals", out var arrivalsSeries)
+            ? arrivalsSeries
+            : constraintSeries.Series.TryGetValue("served", out var servedSeries)
+                ? servedSeries
+                : constraintSeries.Series.Values.FirstOrDefault();
+
+        if (primarySeries is null || primarySeries.Length == 0)
+        {
+            return null;
+        }
+
+        var trimmedPrimary = TrimSeriesAt(primarySeries, sparklinePointLimit, localIndex);
+        if (trimmedPrimary.Count == 0)
+        {
+            return null;
+        }
+
+        var primaryStartIndex = startBin + (localIndex + 1 - trimmedPrimary.Count);
+        var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in constraintSeries.Series)
+        {
+            var series = pair.Value ?? Array.Empty<double?>();
+            var trimmed = TrimSeriesAt(series, sparklinePointLimit, localIndex, trimmedPrimary.Count);
+            var startIndex = series.Length == 0
+                ? primaryStartIndex
+                : startBin + (localIndex + 1 - trimmed.Count);
+            additional[pair.Key] = new SparklineSeriesSlice(trimmed, startIndex);
+        }
+
+        return NodeSparklineData.Create(
+            trimmedPrimary,
+            Array.Empty<double?>(),
+            Array.Empty<double?>(),
+            Array.Empty<double?>(),
+            primaryStartIndex,
             additionalSeries: additional);
     }
 
@@ -5604,13 +6064,24 @@ internal sealed record InspectorMetricBlock(
             return null;
         }
 
-        return seriesKey.Trim().ToLowerInvariant() switch
+        var normalized = seriesKey.Trim().ToLowerInvariant();
+        if (normalized.StartsWith("constraint:", StringComparison.OrdinalIgnoreCase))
+        {
+            var parts = normalized.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (parts.Length >= 3)
+            {
+                normalized = parts[^1];
+            }
+        }
+
+        return normalized switch
         {
             "successrate" => TopologyColorBasis.Sla,
             "arrivals" => TopologyColorBasis.Arrivals,
             "utilization" => TopologyColorBasis.Utilization,
             "errorrate" or "errors" => TopologyColorBasis.Errors,
             "queue" or "queuedepth" => TopologyColorBasis.Queue,
+            "shortfall" => TopologyColorBasis.Queue,
             "servicetimems" or "servicetime" => TopologyColorBasis.ServiceTime,
             "flowlatencyms" or "flowlatency" => TopologyColorBasis.FlowLatency,
             _ => null
@@ -5862,6 +6333,19 @@ internal sealed record InspectorMetricBlock(
     private double?[]? TryGetSeries(TimeTravelNodeSeriesDto node, string key) =>
         TryGetSeriesSnapshot(node, key, HasClassSelection, selectedClasses);
 
+    private static double?[]? TryGetConstraintSeries(TimeTravelNodeSeriesDto node, string constraintId, string metricKey)
+    {
+        if (node.Constraints is null ||
+            string.IsNullOrWhiteSpace(constraintId) ||
+            string.IsNullOrWhiteSpace(metricKey) ||
+            !node.Constraints.TryGetValue(constraintId, out var constraint))
+        {
+            return null;
+        }
+
+        return constraint.Series.TryGetValue(metricKey, out var series) ? series : null;
+    }
+
     private static double?[]? TryGetSlaSeriesSnapshot(TimeTravelNodeSeriesDto node, string kind)
     {
         if (node.Sla is null || string.IsNullOrWhiteSpace(kind))
@@ -5994,6 +6478,44 @@ internal sealed record InspectorMetricBlock(
         }
 
         return null;
+    }
+
+    private static double? GetConstraintSeriesValueSnapshot(
+        TimeTravelNodeSeriesDto node,
+        string constraintId,
+        string key,
+        int localIndex)
+    {
+        if (node.Constraints is null ||
+            string.IsNullOrWhiteSpace(constraintId) ||
+            string.IsNullOrWhiteSpace(key) ||
+            !node.Constraints.TryGetValue(constraintId, out var constraint) ||
+            constraint.Series is null ||
+            !constraint.Series.TryGetValue(key, out var series) ||
+            localIndex < 0 ||
+            localIndex >= series.Length)
+        {
+            return null;
+        }
+
+        return series[localIndex];
+    }
+
+    private static double? GetConstraintStatusValueSnapshot(
+        TimeTravelNodeSeriesDto node,
+        string constraintId,
+        int localIndex)
+    {
+        if (node.ConstraintStatus is null ||
+            string.IsNullOrWhiteSpace(constraintId) ||
+            !node.ConstraintStatus.TryGetValue(constraintId, out var series) ||
+            localIndex < 0 ||
+            localIndex >= series.Length)
+        {
+            return null;
+        }
+
+        return series[localIndex];
     }
 
     private static double? GetSlaValueSnapshot(TimeTravelNodeSeriesDto node, string kind, int localIndex)

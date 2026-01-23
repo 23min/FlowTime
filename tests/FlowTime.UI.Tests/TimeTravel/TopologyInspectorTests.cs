@@ -1200,6 +1200,11 @@ public sealed class TopologyInspectorTests
         Assert.Collection(metrics,
             block =>
             {
+                Assert.Equal("Arrivals", block.Title);
+                Assert.True(block.IsPlaceholder);
+            },
+            block =>
+            {
                 Assert.Equal("Attempts", block.Title);
                 Assert.False(block.IsPlaceholder);
             },
@@ -1217,6 +1222,7 @@ public sealed class TopologyInspectorTests
             {
                 Assert.Equal("Retry echo", block.Title);
                 Assert.False(block.IsPlaceholder);
+                Assert.NotNull(block.Sparkline);
             },
             block =>
             {
