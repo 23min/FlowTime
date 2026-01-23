@@ -37,6 +37,12 @@ public static class InvariantAnalyzer
         var queueSeeds = BuildQueueInitials(model.Topology.Nodes);
         var incomingEdges = new Dictionary<string, List<TopologyEdgeDefinition>>(StringComparer.OrdinalIgnoreCase);
         var outgoingEdges = new Dictionary<string, List<TopologyEdgeDefinition>>(StringComparer.OrdinalIgnoreCase);
+        var topologyNodeLookup = model.Topology.Nodes
+            .Where(n => !string.IsNullOrWhiteSpace(n.Id))
+            .ToDictionary(n => n.Id!, n => n, StringComparer.OrdinalIgnoreCase);
+        var constraintLookup = model.Topology.Constraints
+            .Where(constraint => !string.IsNullOrWhiteSpace(constraint.Id))
+            .ToDictionary(constraint => constraint.Id, constraint => constraint, StringComparer.OrdinalIgnoreCase);
 
         if (model.Topology.Edges is { Count: > 0 })
         {
@@ -120,6 +126,7 @@ public static class InvariantAnalyzer
             var isQueueKind = nodeKind == "queue";
             var isQueueLikeKind = nodeKind is "queue" or "dlq";
             var isDlqKind = nodeKind == "dlq";
+            var isDependencyKind = nodeKind == "dependency";
             var isTerminalQueue = isQueueKind &&
                                   incomingEdges.TryGetValue(nodeId, out var terminalInbound) &&
                                   terminalInbound.Count > 0 &&
@@ -167,6 +174,42 @@ public static class InvariantAnalyzer
                 retryBudgetRemaining = null;
             }
 
+            if (topoNode.Constraints is { Count: > 0 } && constraintLookup.Count > 0)
+            {
+                foreach (var constraintId in topoNode.Constraints)
+                {
+                    if (string.IsNullOrWhiteSpace(constraintId))
+                    {
+                        continue;
+                    }
+
+                    if (!constraintLookup.TryGetValue(constraintId, out var constraint))
+                    {
+                        continue;
+                    }
+
+                    if (!TryGetSeries(constraint.Semantics.Arrivals, out _))
+                    {
+                        warnings.Add(new InvariantWarning(
+                            nodeId,
+                            "constraint_missing_arrivals",
+                            $"Constraint '{constraintId}' arrivals series was not available.",
+                            Array.Empty<int>(),
+                            null));
+                    }
+
+                    if (!TryGetSeries(constraint.Semantics.Served, out _))
+                    {
+                        warnings.Add(new InvariantWarning(
+                            nodeId,
+                            "constraint_missing_served",
+                            $"Constraint '{constraintId}' served series was not available.",
+                            Array.Empty<int>(),
+                            null));
+                    }
+                }
+            }
+
             var effectiveCapacity = capacity;
             if (capacity is not null)
             {
@@ -186,7 +229,7 @@ public static class InvariantAnalyzer
             CheckNonNegative(nodeId, "retry_budget_negative", "Retry budget remaining produced negative values", retryBudgetRemaining);
 
             // Served <= arrivals
-            if (arrivals != null && served != null && !isServiceWithBuffer)
+            if (arrivals != null && served != null && !isServiceWithBuffer && !isDependencyKind)
             {
                 CheckDiff(nodeId, "served_exceeds_arrivals",
                     "Served volume exceeded arrivals",
@@ -354,7 +397,28 @@ public static class InvariantAnalyzer
                     "info"));
             }
 
-            if (expectsServed && served == null)
+            if (isDependencyKind && arrivals == null)
+            {
+                warnings.Add(new InvariantWarning(
+                    nodeId,
+                    "missing_dependency_arrivals",
+                    "Dependency arrivals series was not available; dependency load cannot be computed.",
+                    Array.Empty<int>(),
+                    null,
+                    "info"));
+            }
+
+            if (isDependencyKind && served == null)
+            {
+                warnings.Add(new InvariantWarning(
+                    nodeId,
+                    "missing_dependency_served",
+                    "Dependency served series was not available; dependency utilization cannot be computed.",
+                    Array.Empty<int>(),
+                    null,
+                    "info"));
+            }
+            else if (expectsServed && served == null)
             {
                 warnings.Add(new InvariantWarning(
                     nodeId,
@@ -363,6 +427,52 @@ public static class InvariantAnalyzer
                     Array.Empty<int>(),
                     null,
                     "info"));
+            }
+
+            if (isDependencyKind)
+            {
+                var hasIncomingEffort = incomingEdges.TryGetValue(nodeId, out var dependencyIncoming) &&
+                    dependencyIncoming.Any(edge => IsEffortEdge(edge));
+                if (!hasIncomingEffort)
+                {
+                    warnings.Add(new InvariantWarning(
+                        nodeId,
+                        "dependency_missing_effort_edges",
+                        "Dependency has no incoming effort edges; attempt pressure cannot be represented.",
+                        Array.Empty<int>(),
+                        null,
+                        "info"));
+                }
+
+                if (!string.IsNullOrWhiteSpace(semantics.Errors) && hasIncomingEffort)
+                {
+                    var hasAttempts = dependencyIncoming!.Any(edge =>
+                    {
+                        var sourceId = ExtractNodeId(edge.Source);
+                        if (string.IsNullOrWhiteSpace(sourceId))
+                        {
+                            return false;
+                        }
+
+                        if (!topologyNodeLookup.TryGetValue(sourceId, out var sourceNode) || sourceNode.Semantics is null)
+                        {
+                            return false;
+                        }
+
+                        return !string.IsNullOrWhiteSpace(sourceNode.Semantics.Attempts);
+                    });
+
+                    if (!hasAttempts)
+                    {
+                        warnings.Add(new InvariantWarning(
+                            nodeId,
+                            "dependency_retry_pressure_missing",
+                            "Dependency errors are defined but upstream attempt series are missing; retry pressure will be invisible.",
+                            Array.Empty<int>(),
+                            null,
+                            "info"));
+                    }
+                }
             }
 
             if (expectsQueue && queueDepth == null)
@@ -1109,6 +1219,18 @@ public static class InvariantAnalyzer
         static bool IsTerminalEdge(TopologyEdgeDefinition edge) =>
             !string.IsNullOrWhiteSpace(edge.Type) &&
             edge.Type.Trim().Equals("terminal", StringComparison.OrdinalIgnoreCase);
+
+        static bool IsEffortEdge(TopologyEdgeDefinition edge)
+        {
+            if (string.IsNullOrWhiteSpace(edge.Type))
+            {
+                return false;
+            }
+
+            var normalized = edge.Type.Trim();
+            return normalized.Equals("effort", StringComparison.OrdinalIgnoreCase) ||
+                normalized.Equals("dependency", StringComparison.OrdinalIgnoreCase);
+        }
 
         static string GetEdgeLabel(TopologyEdgeDefinition edge)
         {

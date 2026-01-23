@@ -204,6 +204,67 @@ public static class EdgeFlowMaterializer
             }
         }
 
+        foreach (var group in edgeCandidates
+            .Where(candidate => !routerIds.Contains(candidate.SourceNodeId))
+            .Where(candidate => IsEffortEdge(candidate.Edge))
+            .GroupBy(candidate => candidate.SourceNodeId, StringComparer.OrdinalIgnoreCase))
+        {
+            if (!topologyNodes.TryGetValue(group.Key, out var node))
+            {
+                continue;
+            }
+
+            var servedSeriesId = ResolveServedSeriesId(node.Semantics);
+            if (string.IsNullOrWhiteSpace(servedSeriesId))
+            {
+                continue;
+            }
+
+            if (!totals.TryGetValue(new NodeId(servedSeriesId), out var baseSeries))
+            {
+                continue;
+            }
+
+            Dictionary<string, double[]>? classSeriesForServed = null;
+            if (classSeries != null && classSeries.TryGetValue(new NodeId(servedSeriesId), out var byClass))
+            {
+                classSeriesForServed = byClass.ToDictionary(entry => entry.Key, entry => entry.Value.ToArray(), StringComparer.OrdinalIgnoreCase);
+            }
+
+            var edges = group.ToList();
+            var totalWeight = edges.Sum(edge => NormalizeWeight(edge.Edge.Weight));
+            if (totalWeight <= 0)
+            {
+                totalWeight = edges.Count;
+            }
+
+            foreach (var candidate in edges)
+            {
+                var edgeId = GetEdgeId(candidate.Edge);
+                if (flowVolumes.ContainsKey(edgeId))
+                {
+                    continue;
+                }
+
+                var weight = NormalizeWeight(candidate.Edge.Weight);
+                var fraction = totalWeight <= 0 ? 0d : weight / totalWeight;
+                var series = ScaleSeries(baseSeries, fraction);
+
+                Dictionary<string, double[]>? routeClasses = null;
+                if (classSeriesForServed != null)
+                {
+                    routeClasses = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var (classId, classValues) in classSeriesForServed)
+                    {
+                        routeClasses[classId] = ScaleSeries(classValues, fraction);
+                    }
+                }
+
+                flowVolumes[edgeId] = series;
+                AddEdgeSeriesMetric(result, candidate.Edge, "flowVolume", series, routeClasses);
+            }
+        }
+
         foreach (var candidate in edgeCandidates.Where(candidate => IsEffortEdge(candidate.Edge)))
         {
             var port = ExtractPort(candidate.Edge.Source);

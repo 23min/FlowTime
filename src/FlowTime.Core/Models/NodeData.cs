@@ -32,3 +32,12 @@ public sealed record NodeClassData
     public double[]? ProcessingTimeMsSum { get; init; }
     public double[]? ServedCount { get; init; }
 }
+
+public sealed record ConstraintData
+{
+    public required string Id { get; init; }
+    public required double[] Arrivals { get; init; }
+    public required double[] Served { get; init; }
+    public double[]? Errors { get; init; }
+    public double[]? LatencyMinutes { get; init; }
+}

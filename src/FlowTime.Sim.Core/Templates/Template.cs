@@ -103,6 +103,8 @@ public class TemplateTopology
 {
     public List<TemplateTopologyNode> Nodes { get; set; } = new();
     public List<TemplateTopologyEdge> Edges { get; set; } = new();
+    [YamlMember(Alias = "constraints", ApplyNamingConventions = false)]
+    public List<TemplateTopologyConstraint> Constraints { get; set; } = new();
 }
 
 /// <summary>
@@ -146,10 +148,26 @@ public class TemplateTopologyNode
     public string Kind { get; set; } = string.Empty;
     public string? NodeRole { get; set; }
     public string? Group { get; set; }
+    [YamlMember(Alias = "constraints", ApplyNamingConventions = false)]
+    public List<string>? Constraints { get; set; }
     public TemplateNodeSemantics Semantics { get; set; } = new();
     public TemplateInitialCondition? InitialCondition { get; set; }
     public TemplateUiHint? Ui { get; set; }
     public TemplateDispatchSchedule? DispatchSchedule { get; set; }
+}
+
+public class TemplateTopologyConstraint
+{
+    public string Id { get; set; } = string.Empty;
+    public TemplateConstraintSemantics Semantics { get; set; } = new();
+}
+
+public class TemplateConstraintSemantics
+{
+    public string? Arrivals { get; set; }
+    public string? Served { get; set; }
+    public string? Errors { get; set; }
+    public string? LatencyMinutes { get; set; }
 }
 
 /// <summary>

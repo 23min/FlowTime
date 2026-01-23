@@ -83,7 +83,19 @@ Highlights:
 
 Companion template `transportation-basic-classes` keeps the same topology but declares three rider classes (`Airport`, `Industrial`, `Downtown`). Class arrivals still split upstream demand (`telemetryDemandNorthSource`/`telemetryDemandSouthSource`), but the downstream dispatch queues now consume router-emitted series directly: `HubDispatchRouter` inspects the actual class mix in `HubQueue` and feeds `airport_dispatch_queue_demand`, `downtown_dispatch_queue_demand`, and `industrial_dispatch_queue_demand` without any separate `%` parameters. This guarantees the queue/backlog metrics mirror the real-time router mix and eliminates `router_class_leakage` warnings. Use this template to validate UI selectors without losing the legacy single-class variant.
 
-**New in CL-M-04.03.02:** the downstream dispatch queues now model bus-stop bursts. Each service-with-buffer node declares a `dispatchSchedule` so the backlog only releases on the cadence you expect (Airport every 6 bins, Downtown every 8 bins with a phase offset, Industrial every 10 bins). Analyzer warnings surface if the cadence never fires or if the referenced capacity series is missing.
+**New in CL‑M‑04.03.02:** the downstream dispatch queues now model bus-stop bursts. Each service-with-buffer node declares a `dispatchSchedule` so the backlog only releases on the cadence you expect (Airport every 6 bins, Downtown every 8 bins with a phase offset, Industrial every 10 bins). Analyzer warnings surface if the cadence never fires or if the referenced capacity series is missing.
+
+## dependency-constraints-minimal
+
+Minimal dependency-node example that exercises the M‑10.01 contract. A producer feeds a dependency node (arrivals/served/errors only), which gates downstream throughput.
+
+No parameters; use it as a sanity check for dependency nodes and effort/throughput edges.
+
+## dependency-constraints-attached
+
+Option B dependency-constraint example that attaches a shared constraint (`db_main`) to services without inserting explicit dependency nodes. Use it to validate constraint series + allocation output in `/state_window`.
+
+No parameters; use it as a sanity check for attached constraints and constraint status signals.
 
 ## warehouse-picker-waves
 

@@ -220,6 +220,92 @@ public class StateResponseSchemaTests : IClassFixture<TestWebApplicationFactory>
     }
 
     [Fact]
+    public async Task StateWindow_Response_AllowsDependencyNodeKind()
+    {
+        var runId = EnsureSchemaRun();
+        var response = await client.GetAsync($"/v1/runs/{runId}/state_window?startBin=0&endBin=3");
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync();
+        var node = JsonNode.Parse(json);
+
+        Assert.NotNull(node);
+        var firstNode = node!.AsObject()["nodes"]?.AsArray().FirstOrDefault()?.AsObject();
+        Assert.NotNull(firstNode);
+        firstNode!["kind"] = "dependency";
+
+        Assert.True(IsSchemaValid(node!), "Expected dependency node kind to be allowed by schema.");
+    }
+
+    [Fact]
+    public async Task StateWindow_Response_AllowsConstraints()
+    {
+        var runId = EnsureSchemaRun();
+        var response = await client.GetAsync($"/v1/runs/{runId}/state_window?startBin=0&endBin=3");
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync();
+        var node = JsonNode.Parse(json);
+
+        Assert.NotNull(node);
+        var seriesNode = node!.AsObject()["nodes"]?.AsArray().FirstOrDefault()?.AsObject();
+        Assert.NotNull(seriesNode);
+
+        seriesNode!["constraints"] = new JsonObject
+        {
+            ["db_main"] = new JsonObject
+            {
+                ["series"] = new JsonObject
+                {
+                    ["arrivals"] = new JsonArray(1, 2, 3, 4),
+                    ["served"] = new JsonArray(1, 2, 3, 4)
+                }
+            }
+        };
+
+        seriesNode["constraintStatus"] = new JsonObject
+        {
+            ["db_main"] = new JsonArray(0, 1, 1, 0)
+        };
+
+        Assert.True(IsSchemaValid(node!), "Expected constraint series and status to be allowed by schema.");
+    }
+
+    [Fact]
+    public async Task State_Response_AllowsConstraints()
+    {
+        var runId = EnsureSchemaRun();
+        var response = await client.GetAsync($"/v1/runs/{runId}/state?binIndex=1");
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync();
+        var node = JsonNode.Parse(json);
+
+        Assert.NotNull(node);
+        var seriesNode = node!.AsObject()["nodes"]?.AsArray().FirstOrDefault()?.AsObject();
+        Assert.NotNull(seriesNode);
+
+        seriesNode!["constraints"] = new JsonObject
+        {
+            ["db_main"] = new JsonObject
+            {
+                ["metrics"] = new JsonObject
+                {
+                    ["arrivals"] = 12.0,
+                    ["served"] = 10.0
+                }
+            }
+        };
+
+        seriesNode["constraintStatus"] = new JsonObject
+        {
+            ["db_main"] = true
+        };
+
+        Assert.True(IsSchemaValid(node!), "Expected constraint metrics and status to be allowed by schema.");
+    }
+
+    [Fact]
     public async Task StateWindow_Response_AllowsEdgeSeriesMetadata()
     {
         var runId = EnsureSchemaRun();

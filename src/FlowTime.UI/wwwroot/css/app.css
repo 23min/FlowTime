@@ -625,6 +625,68 @@ code {
     justify-content: flex-start;
 }
 
+.inspector-constraint-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    align-items: center;
+}
+
+.constraint-chip {
+    border: 1px solid rgba(59, 72, 89, 0.35);
+    border-radius: 999px;
+    padding: 0.12rem 0.55rem;
+    background: rgba(148, 163, 184, 0.16);
+    color: var(--mud-palette-text-primary);
+    font-size: 0.7rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.constraint-chip:hover {
+    border-color: rgba(32, 101, 209, 0.6);
+}
+
+.constraint-chip--selected {
+    border-color: rgba(220, 38, 38, 0.7);
+    background: rgba(220, 38, 38, 0.12);
+}
+
+.constraint-chip-prefix {
+    font-weight: 700;
+    color: var(--mud-palette-text-primary);
+}
+
+.constraint-chip-sep {
+    opacity: 0.6;
+    padding: 0 0.15rem;
+}
+
+.constraint-chip-note {
+    margin-top: 0.2rem;
+    font-size: 0.7rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.node-inspector-bin-note {
+    margin-bottom: 0.35rem;
+    font-size: 0.7rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.topology-inspector-chart-heading {
+    margin-top: 0.5rem;
+}
+
+.topology-inspector-chart-heading--metrics {
+    margin-top: 0;
+    padding-top: 20px;
+}
+
 .topology-legend-overlay .legend-item {
     display: inline-flex;
     align-items: center;

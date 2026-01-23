@@ -934,38 +934,59 @@ public static class RunArtifactWriter
             return specText;
         }
 
-        if (!topologyMap.Children.TryGetValue(new YamlScalarNode("nodes"), out var nodesNode) || nodesNode is not YamlSequenceNode nodesSequence)
-        {
-            return specText;
-        }
-
         var semanticsKey = new YamlScalarNode("semantics");
         var idKey = new YamlScalarNode("id");
         var modified = false;
 
-        foreach (var node in nodesSequence.Children.OfType<YamlMappingNode>())
+        if (topologyMap.Children.TryGetValue(new YamlScalarNode("nodes"), out var nodesNode) && nodesNode is YamlSequenceNode nodesSequence)
         {
-            if (!node.Children.TryGetValue(idKey, out var idNode) || idNode is not YamlScalarNode idScalar || string.IsNullOrWhiteSpace(idScalar.Value))
+            foreach (var node in nodesSequence.Children.OfType<YamlMappingNode>())
             {
-                continue;
+                if (!node.Children.TryGetValue(idKey, out var idNode) || idNode is not YamlScalarNode idScalar || string.IsNullOrWhiteSpace(idScalar.Value))
+                {
+                    continue;
+                }
+
+                var nodeId = idScalar.Value.Trim();
+
+                if (!node.Children.TryGetValue(semanticsKey, out var semanticsNode) || semanticsNode is not YamlMappingNode semanticsMap)
+                {
+                    throw new InvalidOperationException($"Topology node '{nodeId}' must include semantics.");
+                }
+
+                modified |= NormalizeSemanticsField(semanticsMap, nodeId, "arrivals", required: true, descriptorMap, descriptorList, context);
+                modified |= NormalizeSemanticsField(semanticsMap, nodeId, "served", required: true, descriptorMap, descriptorList, context);
+                modified |= NormalizeSemanticsField(semanticsMap, nodeId, "errors", required: false, descriptorMap, descriptorList, context);
+                modified |= NormalizeSemanticsField(semanticsMap, nodeId, "externalDemand", required: false, descriptorMap, descriptorList, context);
+                modified |= NormalizeSemanticsField(semanticsMap, nodeId, "queueDepth", required: false, descriptorMap, descriptorList, context);
+                modified |= NormalizeSemanticsField(semanticsMap, nodeId, "capacity", required: false, descriptorMap, descriptorList, context);
+                modified |= NormalizeSemanticsField(semanticsMap, nodeId, "attempts", required: false, descriptorMap, descriptorList, context);
+                modified |= NormalizeSemanticsField(semanticsMap, nodeId, "failures", required: false, descriptorMap, descriptorList, context);
+                modified |= NormalizeSemanticsField(semanticsMap, nodeId, "retryEcho", required: false, descriptorMap, descriptorList, context);
             }
+        }
 
-            var nodeId = idScalar.Value.Trim();
-
-            if (!node.Children.TryGetValue(semanticsKey, out var semanticsNode) || semanticsNode is not YamlMappingNode semanticsMap)
+        if (topologyMap.Children.TryGetValue(new YamlScalarNode("constraints"), out var constraintsNode) && constraintsNode is YamlSequenceNode constraintsSequence)
+        {
+            foreach (var constraint in constraintsSequence.Children.OfType<YamlMappingNode>())
             {
-                throw new InvalidOperationException($"Topology node '{nodeId}' must include semantics.");
-            }
+                if (!constraint.Children.TryGetValue(idKey, out var idNode) || idNode is not YamlScalarNode idScalar || string.IsNullOrWhiteSpace(idScalar.Value))
+                {
+                    continue;
+                }
 
-            modified |= NormalizeSemanticsField(semanticsMap, nodeId, "arrivals", required: true, descriptorMap, descriptorList, context);
-            modified |= NormalizeSemanticsField(semanticsMap, nodeId, "served", required: true, descriptorMap, descriptorList, context);
-            modified |= NormalizeSemanticsField(semanticsMap, nodeId, "errors", required: false, descriptorMap, descriptorList, context);
-            modified |= NormalizeSemanticsField(semanticsMap, nodeId, "externalDemand", required: false, descriptorMap, descriptorList, context);
-            modified |= NormalizeSemanticsField(semanticsMap, nodeId, "queueDepth", required: false, descriptorMap, descriptorList, context);
-            modified |= NormalizeSemanticsField(semanticsMap, nodeId, "capacity", required: false, descriptorMap, descriptorList, context);
-            modified |= NormalizeSemanticsField(semanticsMap, nodeId, "attempts", required: false, descriptorMap, descriptorList, context);
-            modified |= NormalizeSemanticsField(semanticsMap, nodeId, "failures", required: false, descriptorMap, descriptorList, context);
-            modified |= NormalizeSemanticsField(semanticsMap, nodeId, "retryEcho", required: false, descriptorMap, descriptorList, context);
+                var constraintId = idScalar.Value.Trim();
+
+                if (!constraint.Children.TryGetValue(semanticsKey, out var semanticsNode) || semanticsNode is not YamlMappingNode semanticsMap)
+                {
+                    throw new InvalidOperationException($"Topology constraint '{constraintId}' must include semantics.");
+                }
+
+                modified |= NormalizeSemanticsField(semanticsMap, constraintId, "arrivals", required: true, descriptorMap, descriptorList, context);
+                modified |= NormalizeSemanticsField(semanticsMap, constraintId, "served", required: true, descriptorMap, descriptorList, context);
+                modified |= NormalizeSemanticsField(semanticsMap, constraintId, "errors", required: false, descriptorMap, descriptorList, context);
+                modified |= NormalizeSemanticsField(semanticsMap, constraintId, "latencyMinutes", required: false, descriptorMap, descriptorList, context);
+            }
         }
 
         if (!modified)

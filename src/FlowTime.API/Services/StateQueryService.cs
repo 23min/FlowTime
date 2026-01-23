@@ -6,6 +6,7 @@ using System.Linq;
 using FlowTime.Adapters.Synthetic;
 using FlowTime.Contracts.Services;
 using FlowTime.Contracts.TimeTravel;
+using FlowTime.Core.Constraints;
 using FlowTime.Core.Dispatching;
 using FlowTime.Core.DataSources;
 using FlowTime.Core.Metrics;
@@ -452,6 +453,30 @@ public sealed class StateQueryService
                 }
             }
 
+            var constraintData = new Dictionary<string, ConstraintData>(StringComparer.OrdinalIgnoreCase);
+            if (metadata.Topology?.Constraints is { Count: > 0 })
+            {
+                foreach (var constraint in metadata.Topology.Constraints)
+                {
+                    try
+                    {
+                        var data = loader.LoadConstraintData(constraint, bins);
+                        data = AugmentConstraintDataFromManifest(
+                            constraint,
+                            data,
+                            runDirectory,
+                            bins,
+                            valueSeriesLookup);
+                        constraintData[constraint.Id] = data;
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "Failed to load constraint series for {ConstraintId} in run {RunId}", constraint.Id, runId);
+                        throw new StateQueryException(500, $"Failed to load data for constraint '{constraint.Id}' in run '{runId}': {ex.Message}");
+                    }
+                }
+            }
+
             if (loadComputedValues)
             {
                 foreach (var nodeDef in modelNodeDefinitions.Values)
@@ -523,6 +548,9 @@ public sealed class StateQueryService
                     string.Join(", ", warningSummary));
             }
 
+            var constraintAssignments = BuildConstraintAssignments(metadata.Topology!.Nodes);
+            var constraintAllocations = AllocateConstraintCapacity(constraintData, constraintAssignments, nodeData, metadata.Window.Bins);
+
             return new StateRunContext(
                 manifest,
                 manifestMetadata,
@@ -533,7 +561,10 @@ public sealed class StateQueryService
                 readonlyNodeWarnings,
                 new ReadOnlyDictionary<string, NodeDefinition>(modelNodeDefinitions),
                 seriesIndex,
-                runDirectory);
+                runDirectory,
+                constraintData,
+                constraintAssignments,
+                constraintAllocations);
         }
         catch (StateQueryException)
         {
@@ -565,6 +596,11 @@ public sealed class StateQueryService
         var dispatchSchedule = ResolveDispatchSchedule(node, context, serviceWithBufferDefinition);
         var arrivals = GetValue(data.Arrivals, binIndex);
         var served = GetValue(data.Served, binIndex);
+        var constrainedServed = ApplyConstraintAllocationToServedValue(node, data, context, binIndex, served);
+        if (constrainedServed.HasValue)
+        {
+            served = constrainedServed;
+        }
         var errors = GetOptionalValue(data.Errors, binIndex);
         var externalDemand = GetOptionalValue(data.ExternalDemand, binIndex);
         var queue = GetOptionalValue(data.QueueDepth, binIndex);
@@ -632,6 +668,9 @@ public sealed class StateQueryService
             hasThroughputRatio: throughputRatio.HasValue,
             queueOrigin: queueOrigin);
 
+        var constraintMetrics = BuildConstraintMetrics(node, data, context, binIndex);
+        var constraintStatus = BuildConstraintStatusFlags(node, data, context, binIndex);
+
         return new NodeSnapshot
         {
             Id = node.Id,
@@ -656,6 +695,8 @@ public sealed class StateQueryService
             },
             SeriesMetadata = seriesMetadata,
             ByClass = ConvertClassMetrics(classAggregation.ByClass),
+            Constraints = constraintMetrics,
+            ConstraintStatus = constraintStatus,
             Derived = new NodeDerivedMetrics
             {
                 Utilization = utilization,
@@ -1332,6 +1373,12 @@ public sealed class StateQueryService
         var dispatchSchedule = ResolveDispatchSchedule(node, context, serviceWithBufferDefinition);
         var arrivalsSlice = ExtractSlice(data.Arrivals, startBin, count);
         var servedSlice = ExtractSlice(data.Served, startBin, count);
+        var servedWasConstrained = false;
+        var constrainedServedSlice = ApplyConstraintAllocationToServedSeries(node, data, context, servedSlice, startBin, out servedWasConstrained);
+        if (servedWasConstrained)
+        {
+            servedSlice = constrainedServedSlice;
+        }
         var errorsSlice = data.Errors != null ? ExtractSlice(data.Errors, startBin, count) : null;
 
         var series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
@@ -1411,7 +1458,9 @@ public sealed class StateQueryService
         if (data.Capacity != null)
         {
             series["capacity"] = ExtractSlice(data.Capacity, startBin, count);
-            utilizationSeries = ComputeUtilizationSeries(data, node.Semantics, startBin, count);
+            utilizationSeries = servedWasConstrained
+                ? ComputeUtilizationSeries(node.Semantics, data, startBin, servedSlice)
+                : ComputeUtilizationSeries(data, node.Semantics, startBin, count);
             if (utilizationSeries != null)
             {
                 series["utilization"] = utilizationSeries;
@@ -1442,7 +1491,9 @@ public sealed class StateQueryService
                 count);
         }
 
-        var throughputSeries = ComputeThroughputSeries(data, startBin, count);
+        var throughputSeries = servedWasConstrained
+            ? ComputeThroughputSeries(arrivalsSlice, servedSlice)
+            : ComputeThroughputSeries(data, startBin, count);
         if (throughputSeries != null)
         {
             series["throughputRatio"] = throughputSeries;
@@ -1482,6 +1533,21 @@ public sealed class StateQueryService
             hasUtilization: utilizationSeries is not null,
             hasThroughputRatio: throughputSeries is not null,
             queueOrigin: queueOrigin);
+        if (servedWasConstrained)
+        {
+            var mutableMetadata = seriesMetadata is null
+                ? new Dictionary<string, SeriesSemanticsMetadata>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, SeriesSemanticsMetadata>(seriesMetadata, StringComparer.OrdinalIgnoreCase);
+            mutableMetadata["served"] = new SeriesSemanticsMetadata
+            {
+                Aggregation = "sum",
+                Origin = "derived"
+            };
+            seriesMetadata = mutableMetadata;
+        }
+
+        var constraintSeries = BuildConstraintSeries(node, data, context, startBin, count);
+        var constraintStatus = BuildConstraintStatusSeries(node, data, context, startBin, count);
 
         return new NodeSeries
         {
@@ -1491,6 +1557,8 @@ public sealed class StateQueryService
             Series = series,
             SeriesMetadata = seriesMetadata,
             ByClass = BuildClassSeries(data, startBin, count),
+            Constraints = constraintSeries,
+            ConstraintStatus = constraintStatus,
             Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, nodeWarnings),
             Aliases = node.Semantics?.Aliases,
             DispatchSchedule = dispatchSchedule,
@@ -1632,6 +1700,413 @@ public sealed class StateQueryService
             {
                 Origin = queueOrigin
             };
+        }
+
+        return metadata;
+    }
+
+    private static IReadOnlyDictionary<string, ConstraintSeries>? BuildConstraintSeries(
+        Node node,
+        NodeData data,
+        StateRunContext context,
+        int startBin,
+        int count)
+    {
+        if (node.Constraints is null || node.Constraints.Count == 0)
+        {
+            return null;
+        }
+
+        Dictionary<string, ConstraintSeries>? constraints = null;
+        foreach (var constraintId in node.Constraints)
+        {
+            if (string.IsNullOrWhiteSpace(constraintId))
+            {
+                continue;
+            }
+
+            if (!context.ConstraintData.TryGetValue(constraintId, out var constraintData))
+            {
+                continue;
+            }
+
+            var series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["arrivals"] = ExtractSlice(constraintData.Arrivals, startBin, count),
+                ["served"] = ExtractSlice(constraintData.Served, startBin, count)
+            };
+
+            if (constraintData.Errors is not null)
+            {
+                series["errors"] = ExtractSlice(constraintData.Errors, startBin, count);
+            }
+
+            if (constraintData.LatencyMinutes is not null)
+            {
+                series["latencyMinutes"] = ExtractSlice(constraintData.LatencyMinutes, startBin, count);
+            }
+
+            var metadata = BuildConstraintSeriesMetadata(constraintData);
+            var shortfall = new double?[count];
+            var arrivalsSeries = series["arrivals"];
+            var servedSeries = series["served"];
+            for (var i = 0; i < count; i++)
+            {
+                var arrivals = arrivalsSeries[i];
+                var served = servedSeries[i];
+                if (arrivals.HasValue && served.HasValue && double.IsFinite(arrivals.Value) && double.IsFinite(served.Value))
+                {
+                    shortfall[i] = Normalize(Math.Max(0d, arrivals.Value - served.Value));
+                }
+                else
+                {
+                    shortfall[i] = null;
+                }
+            }
+            series["shortfall"] = shortfall;
+            var metadataMap = metadata is null
+                ? new Dictionary<string, SeriesSemanticsMetadata>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, SeriesSemanticsMetadata>(metadata, StringComparer.OrdinalIgnoreCase);
+            metadataMap["shortfall"] = new SeriesSemanticsMetadata
+            {
+                Aggregation = "sum",
+                Origin = "derived"
+            };
+
+            constraints ??= new Dictionary<string, ConstraintSeries>(StringComparer.OrdinalIgnoreCase);
+            constraints[constraintId] = new ConstraintSeries
+            {
+                Series = series,
+                SeriesMetadata = metadataMap
+            };
+        }
+
+        return constraints;
+    }
+
+    private static IReadOnlyDictionary<string, double?[]>? BuildConstraintStatusSeries(
+        Node node,
+        NodeData data,
+        StateRunContext context,
+        int startBin,
+        int count)
+    {
+        if (node.Constraints is null || node.Constraints.Count == 0)
+        {
+            return null;
+        }
+
+        Dictionary<string, double?[]>? statusByConstraint = null;
+        foreach (var constraintId in node.Constraints)
+        {
+            if (string.IsNullOrWhiteSpace(constraintId))
+            {
+                continue;
+            }
+
+            if (!context.ConstraintAllocations.TryGetValue(constraintId, out var allocationsByNode))
+            {
+                continue;
+            }
+
+            if (!allocationsByNode.TryGetValue(node.Id, out var allocationSeries))
+            {
+                continue;
+            }
+
+            var status = new double?[count];
+            for (var i = 0; i < count; i++)
+            {
+                var binIndex = startBin + i;
+                if (binIndex < 0 || binIndex >= data.Arrivals.Length || binIndex >= allocationSeries.Length)
+                {
+                    status[i] = null;
+                    continue;
+                }
+
+                var demand = data.Arrivals[binIndex];
+                var allocation = allocationSeries[binIndex];
+                if (!double.IsFinite(demand) || !allocation.HasValue || !double.IsFinite(allocation.Value))
+                {
+                    status[i] = null;
+                    continue;
+                }
+
+                if (demand <= 0)
+                {
+                    status[i] = 0d;
+                    continue;
+                }
+
+                status[i] = allocation.Value + 1e-6 < demand ? 1d : 0d;
+            }
+
+            statusByConstraint ??= new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
+            statusByConstraint[constraintId] = status;
+        }
+
+        return statusByConstraint;
+    }
+
+    private static IReadOnlyDictionary<string, ConstraintMetrics>? BuildConstraintMetrics(
+        Node node,
+        NodeData data,
+        StateRunContext context,
+        int binIndex)
+    {
+        if (node.Constraints is null || node.Constraints.Count == 0)
+        {
+            return null;
+        }
+
+        Dictionary<string, ConstraintMetrics>? metricsByConstraint = null;
+        foreach (var constraintId in node.Constraints)
+        {
+            if (string.IsNullOrWhiteSpace(constraintId))
+            {
+                continue;
+            }
+
+            if (!context.ConstraintData.TryGetValue(constraintId, out var constraintData))
+            {
+                continue;
+            }
+
+            var metrics = new Dictionary<string, double?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["arrivals"] = GetValue(constraintData.Arrivals, binIndex),
+                ["served"] = GetValue(constraintData.Served, binIndex)
+            };
+
+            if (constraintData.Errors is not null)
+            {
+                metrics["errors"] = GetOptionalValue(constraintData.Errors, binIndex);
+            }
+
+            if (constraintData.LatencyMinutes is not null)
+            {
+                metrics["latencyMinutes"] = GetOptionalValue(constraintData.LatencyMinutes, binIndex);
+            }
+
+            var metadata = BuildConstraintSeriesMetadata(constraintData);
+            if (metrics.TryGetValue("arrivals", out var arrivalsValue) &&
+                metrics.TryGetValue("served", out var servedValue) &&
+                arrivalsValue.HasValue &&
+                servedValue.HasValue &&
+                double.IsFinite(arrivalsValue.Value) &&
+                double.IsFinite(servedValue.Value))
+            {
+                metrics["shortfall"] = Normalize(Math.Max(0d, arrivalsValue.Value - servedValue.Value));
+            }
+            else
+            {
+                metrics["shortfall"] = null;
+            }
+            var metadataMap = metadata is null
+                ? new Dictionary<string, SeriesSemanticsMetadata>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, SeriesSemanticsMetadata>(metadata, StringComparer.OrdinalIgnoreCase);
+            metadataMap["shortfall"] = new SeriesSemanticsMetadata
+            {
+                Aggregation = "sum",
+                Origin = "derived"
+            };
+
+            metricsByConstraint ??= new Dictionary<string, ConstraintMetrics>(StringComparer.OrdinalIgnoreCase);
+            metricsByConstraint[constraintId] = new ConstraintMetrics
+            {
+                Metrics = metrics,
+                SeriesMetadata = metadataMap
+            };
+        }
+
+        return metricsByConstraint;
+    }
+
+    private static IReadOnlyDictionary<string, bool>? BuildConstraintStatusFlags(
+        Node node,
+        NodeData data,
+        StateRunContext context,
+        int binIndex)
+    {
+        if (node.Constraints is null || node.Constraints.Count == 0)
+        {
+            return null;
+        }
+
+        Dictionary<string, bool>? status = null;
+        foreach (var constraintId in node.Constraints)
+        {
+            if (string.IsNullOrWhiteSpace(constraintId))
+            {
+                continue;
+            }
+
+            if (!context.ConstraintAllocations.TryGetValue(constraintId, out var allocationsByNode))
+            {
+                continue;
+            }
+
+            if (!allocationsByNode.TryGetValue(node.Id, out var allocationSeries))
+            {
+                continue;
+            }
+
+            if (binIndex < 0 || binIndex >= data.Arrivals.Length || binIndex >= allocationSeries.Length)
+            {
+                continue;
+            }
+
+            var demand = data.Arrivals[binIndex];
+            var allocation = allocationSeries[binIndex];
+            if (!double.IsFinite(demand) || !allocation.HasValue || !double.IsFinite(allocation.Value))
+            {
+                continue;
+            }
+
+            if (demand <= 0)
+            {
+                continue;
+            }
+
+            var isLimited = allocation.Value + 1e-6 < demand;
+            status ??= new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            status[constraintId] = isLimited;
+        }
+
+        return status;
+    }
+
+    private static double? ApplyConstraintAllocationToServedValue(
+        Node node,
+        NodeData data,
+        StateRunContext context,
+        int binIndex,
+        double? servedValue)
+    {
+        if (!servedValue.HasValue || node.Constraints is null || node.Constraints.Count == 0)
+        {
+            return null;
+        }
+
+        if (binIndex < 0 || binIndex >= data.Arrivals.Length)
+        {
+            return null;
+        }
+
+        var allocation = GetConstraintAllocationForNode(node, context, binIndex);
+        if (!allocation.HasValue || !double.IsFinite(allocation.Value))
+        {
+            return null;
+        }
+
+        if (allocation.Value + 1e-6 < servedValue.Value)
+        {
+            return allocation.Value;
+        }
+
+        return null;
+    }
+
+    private static double?[] ApplyConstraintAllocationToServedSeries(
+        Node node,
+        NodeData data,
+        StateRunContext context,
+        double?[] servedSlice,
+        int startBin,
+        out bool modified)
+    {
+        modified = false;
+        if (node.Constraints is null || node.Constraints.Count == 0)
+        {
+            return servedSlice;
+        }
+
+        var constrained = new double?[servedSlice.Length];
+        for (var i = 0; i < servedSlice.Length; i++)
+        {
+            var served = servedSlice[i];
+            if (!served.HasValue || !double.IsFinite(served.Value))
+            {
+                constrained[i] = served;
+                continue;
+            }
+
+            var binIndex = startBin + i;
+            var allocation = GetConstraintAllocationForNode(node, context, binIndex);
+            if (allocation.HasValue && double.IsFinite(allocation.Value) && allocation.Value + 1e-6 < served.Value)
+            {
+                constrained[i] = allocation.Value;
+                modified = true;
+            }
+            else
+            {
+                constrained[i] = served;
+            }
+        }
+
+        return constrained;
+    }
+
+    private static double? GetConstraintAllocationForNode(Node node, StateRunContext context, int binIndex)
+    {
+        if (node.Constraints is null || node.Constraints.Count == 0)
+        {
+            return null;
+        }
+
+        double? allocation = null;
+        foreach (var constraintId in node.Constraints)
+        {
+            if (string.IsNullOrWhiteSpace(constraintId))
+            {
+                continue;
+            }
+
+            if (!context.ConstraintAllocations.TryGetValue(constraintId, out var allocationsByNode))
+            {
+                continue;
+            }
+
+            if (!allocationsByNode.TryGetValue(node.Id, out var allocationSeries))
+            {
+                continue;
+            }
+
+            if (binIndex < 0 || binIndex >= allocationSeries.Length)
+            {
+                continue;
+            }
+
+            var value = allocationSeries[binIndex];
+            if (!value.HasValue || !double.IsFinite(value.Value))
+            {
+                continue;
+            }
+
+            allocation = allocation.HasValue
+                ? Math.Min(allocation.Value, value.Value)
+                : value.Value;
+        }
+
+        return allocation;
+    }
+
+    private static IReadOnlyDictionary<string, SeriesSemanticsMetadata>? BuildConstraintSeriesMetadata(ConstraintData data)
+    {
+        Dictionary<string, SeriesSemanticsMetadata>? metadata = null;
+
+        metadata ??= new Dictionary<string, SeriesSemanticsMetadata>(StringComparer.OrdinalIgnoreCase);
+        metadata["arrivals"] = new SeriesSemanticsMetadata { Aggregation = "sum", Origin = "explicit" };
+        metadata["served"] = new SeriesSemanticsMetadata { Aggregation = "sum", Origin = "explicit" };
+
+        if (data.Errors is not null)
+        {
+            metadata["errors"] = new SeriesSemanticsMetadata { Aggregation = "sum", Origin = "explicit" };
+        }
+
+        if (data.LatencyMinutes is not null)
+        {
+            metadata["latencyMinutes"] = new SeriesSemanticsMetadata { Aggregation = "avg", Origin = "explicit" };
         }
 
         return metadata;
@@ -1941,6 +2416,35 @@ public sealed class StateQueryService
             var effectiveCapacity = GetEffectiveCapacity(semantics, data, start + i, capacity);
             var raw = UtilizationComputer.Calculate(served, effectiveCapacity);
             result[i] = raw.HasValue ? Normalize(raw.Value) : null;
+        }
+
+        return result;
+    }
+
+    private static double?[]? ComputeUtilizationSeries(NodeSemantics semantics, NodeData data, int start, double?[] servedSlice)
+    {
+        if (data.Capacity == null)
+        {
+            return null;
+        }
+
+        var count = servedSlice.Length;
+        var result = new double?[count];
+        for (var i = 0; i < count; i++)
+        {
+            var served = servedSlice[i];
+            var index = start + i;
+            var capacity = index >= 0 && index < data.Capacity.Length ? (double?)data.Capacity[index] : null;
+            var effectiveCapacity = GetEffectiveCapacity(semantics, data, index, capacity);
+            if (served.HasValue && double.IsFinite(served.Value))
+            {
+                var raw = UtilizationComputer.Calculate(served.Value, effectiveCapacity);
+                result[i] = raw.HasValue ? Normalize(raw.Value) : null;
+            }
+            else
+            {
+                result[i] = null;
+            }
         }
 
         return result;
@@ -2303,7 +2807,9 @@ public sealed class StateQueryService
             var edgeType = string.IsNullOrWhiteSpace(edge.EdgeType)
                 ? "throughput"
                 : NormalizeEdgeType(edge.EdgeType);
-            if (!string.Equals(edgeType, "throughput", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(edgeType, "throughput", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(edgeType, "effort", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(edgeType, "dependency", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
@@ -2445,8 +2951,224 @@ public sealed class StateQueryService
         }
 
         var edges = merged.Values.ToList();
+        ApplyConstraintAllocationsToThroughputEdges(context, edges, startBin, count);
         AddRetryVolumeToThroughputEdges(context, edges, startBin, count);
+        AddRetryVolumeToEffortEdges(edges, count);
         return edges;
+    }
+
+    private static void ApplyConstraintAllocationsToThroughputEdges(
+        StateRunContext context,
+        List<EdgeSeries> edges,
+        int startBin,
+        int count)
+    {
+        if (edges.Count == 0 || context.Topology.Edges is null || context.Topology.Edges.Count == 0)
+        {
+            return;
+        }
+
+        var nodeLookup = context.Topology.Nodes
+            .Where(node => !string.IsNullOrWhiteSpace(node.Id))
+            .ToDictionary(node => node.Id!, StringComparer.OrdinalIgnoreCase);
+        var constrainedServedByNode = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
+        var rawServedByNode = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var edge in edges)
+        {
+            var edgeType = edge.EdgeType?.Trim();
+            if (!string.Equals(edgeType, "throughput", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var field = string.IsNullOrWhiteSpace(edge.Field) ? "served" : edge.Field.Trim();
+            if (!string.Equals(field, "served", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!edge.Series.TryGetValue("flowVolume", out var flowSeries))
+            {
+                continue;
+            }
+
+            var sourceId = ExtractNodeReference(edge.From);
+            if (string.IsNullOrWhiteSpace(sourceId))
+            {
+                continue;
+            }
+
+            if (!nodeLookup.TryGetValue(sourceId, out var node))
+            {
+                continue;
+            }
+
+            if (node.Constraints is null || node.Constraints.Count == 0)
+            {
+                continue;
+            }
+
+            if (!context.NodeData.TryGetValue(sourceId, out var nodeData))
+            {
+                continue;
+            }
+
+            if (!rawServedByNode.TryGetValue(sourceId, out var rawServedSlice))
+            {
+                rawServedSlice = ExtractSlice(nodeData.Served, startBin, count);
+                rawServedByNode[sourceId] = rawServedSlice;
+            }
+
+            if (!constrainedServedByNode.TryGetValue(sourceId, out var constrainedSlice))
+            {
+                constrainedSlice = ApplyConstraintAllocationToServedSeries(node, nodeData, context, rawServedSlice, startBin, out var modified);
+                if (!modified)
+                {
+                    continue;
+                }
+                constrainedServedByNode[sourceId] = constrainedSlice;
+            }
+
+            var modifiedFlow = false;
+            for (var i = 0; i < count; i++)
+            {
+                var rawServed = rawServedSlice[i];
+                var constrainedServed = constrainedSlice[i];
+                var flowValue = flowSeries[i];
+                if (!rawServed.HasValue || !constrainedServed.HasValue || !flowValue.HasValue)
+                {
+                    continue;
+                }
+
+                if (!double.IsFinite(rawServed.Value) || rawServed.Value <= 0d)
+                {
+                    continue;
+                }
+
+                var ratio = constrainedServed.Value / rawServed.Value;
+                if (!double.IsFinite(ratio))
+                {
+                    continue;
+                }
+
+                if (ratio + 1e-6 < 1d)
+                {
+                    flowSeries[i] = Normalize(flowValue.Value * ratio);
+                    modifiedFlow = true;
+                }
+            }
+
+            if (!modifiedFlow)
+            {
+                continue;
+            }
+
+            if (edge.ByClass is not null && edge.ByClass.Count > 0)
+            {
+                foreach (var metrics in edge.ByClass.Values)
+                {
+                    if (!metrics.TryGetValue("flowVolume", out var classFlow))
+                    {
+                        continue;
+                    }
+
+                    for (var i = 0; i < count; i++)
+                    {
+                        var rawServed = rawServedSlice[i];
+                        var constrainedServed = constrainedSlice[i];
+                        var classValue = classFlow[i];
+                        if (!rawServed.HasValue || !constrainedServed.HasValue || !classValue.HasValue)
+                        {
+                            continue;
+                        }
+
+                        if (!double.IsFinite(rawServed.Value) || rawServed.Value <= 0d)
+                        {
+                            continue;
+                        }
+
+                        var ratio = constrainedServed.Value / rawServed.Value;
+                        if (!double.IsFinite(ratio))
+                        {
+                            continue;
+                        }
+
+                        if (ratio + 1e-6 < 1d)
+                        {
+                            classFlow[i] = Normalize(classValue.Value * ratio);
+                        }
+                    }
+                }
+            }
+
+            var metadata = edge.SeriesMetadata as Dictionary<string, SeriesSemanticsMetadata>;
+            if (metadata is null)
+            {
+                metadata = edge.SeriesMetadata is null
+                    ? new Dictionary<string, SeriesSemanticsMetadata>(StringComparer.OrdinalIgnoreCase)
+                    : new Dictionary<string, SeriesSemanticsMetadata>(edge.SeriesMetadata, StringComparer.OrdinalIgnoreCase);
+                edge.SeriesMetadata = metadata;
+            }
+
+            TryAddEdgeSeriesMetadata(metadata, "flowVolume", "derived");
+        }
+    }
+
+    private static void AddRetryVolumeToEffortEdges(List<EdgeSeries> edges, int count)
+    {
+        if (edges.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var edge in edges)
+        {
+            var edgeType = edge.EdgeType?.Trim();
+            if (!string.Equals(edgeType, "effort", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(edgeType, "dependency", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (edge.Series.ContainsKey("retryVolume"))
+            {
+                continue;
+            }
+
+            if (!edge.Series.TryGetValue("attemptsVolume", out var attempts) ||
+                !edge.Series.TryGetValue("flowVolume", out var flow))
+            {
+                continue;
+            }
+
+            var retryValues = new double?[count];
+            for (var i = 0; i < count; i++)
+            {
+                var attempt = attempts[i];
+                var baseFlow = flow[i];
+                if (!attempt.HasValue || !double.IsFinite(attempt.Value) ||
+                    !baseFlow.HasValue || !double.IsFinite(baseFlow.Value))
+                {
+                    retryValues[i] = null;
+                    continue;
+                }
+
+                var delta = attempt.Value - baseFlow.Value;
+                retryValues[i] = delta > 0 ? Normalize(delta) : 0d;
+            }
+
+            edge.Series["retryVolume"] = retryValues;
+            var seriesMetadata = edge.SeriesMetadata as Dictionary<string, SeriesSemanticsMetadata>;
+            if (seriesMetadata is null)
+            {
+                seriesMetadata = edge.SeriesMetadata is null
+                    ? new Dictionary<string, SeriesSemanticsMetadata>(StringComparer.OrdinalIgnoreCase)
+                    : new Dictionary<string, SeriesSemanticsMetadata>(edge.SeriesMetadata, StringComparer.OrdinalIgnoreCase);
+                edge.SeriesMetadata = seriesMetadata;
+            }
+            TryAddEdgeSeriesMetadata(seriesMetadata, "retryVolume", "derived");
+        }
     }
 
     private static IReadOnlyList<EdgeSeries> ApplyEdgeFilters(
@@ -3093,6 +3815,24 @@ public sealed class StateQueryService
             var arrivals = data.Arrivals[start + i];
             var served = data.Served[start + i];
             var ratio = ComputeThroughputRatio(arrivals, served);
+            result[i] = ratio.HasValue ? Normalize(ratio.Value) : null;
+        }
+
+        return result;
+    }
+
+    private static double?[]? ComputeThroughputSeries(double?[] arrivalsSlice, double?[] servedSlice)
+    {
+        if (arrivalsSlice.Length == 0 || servedSlice.Length == 0)
+        {
+            return null;
+        }
+
+        var count = Math.Min(arrivalsSlice.Length, servedSlice.Length);
+        var result = new double?[count];
+        for (var i = 0; i < count; i++)
+        {
+            var ratio = ComputeThroughputRatio(arrivalsSlice[i], servedSlice[i]);
             result[i] = ratio.HasValue ? Normalize(ratio.Value) : null;
         }
 
@@ -3780,6 +4520,55 @@ public sealed class StateQueryService
             var literal = ParseParallelismScalar(value);
             return literal.HasValue ? CreateConstantSeries(literal.Value, bins) : null;
         }
+    }
+
+    private static ConstraintData AugmentConstraintDataFromManifest(
+        Constraint constraint,
+        ConstraintData data,
+        string runDirectory,
+        int bins,
+        IReadOnlyDictionary<string, SeriesReference> seriesLookup)
+    {
+        double[]? Resolve(string? id, double[]? current)
+        {
+            if (current is not null && current.Any(double.IsFinite))
+            {
+                return current;
+            }
+
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                return null;
+            }
+
+            if (!seriesLookup.TryGetValue(id, out var reference) || string.IsNullOrWhiteSpace(reference.Path))
+            {
+                return null;
+            }
+
+            var relative = reference.Path.Replace('/', Path.DirectorySeparatorChar);
+            var path = Path.Combine(runDirectory, relative);
+            if (!File.Exists(path))
+            {
+                return null;
+            }
+
+            return CsvReader.ReadTimeSeries(path, bins);
+        }
+
+        var semantics = constraint.Semantics;
+        var arrivals = Resolve(semantics.Arrivals, data.Arrivals);
+        var served = Resolve(semantics.Served, data.Served);
+        var errors = Resolve(semantics.Errors, data.Errors);
+        var latencyMinutes = Resolve(semantics.LatencyMinutes, data.LatencyMinutes);
+
+        return data with
+        {
+            Arrivals = arrivals ?? data.Arrivals,
+            Served = served ?? data.Served,
+            Errors = errors ?? data.Errors,
+            LatencyMinutes = latencyMinutes ?? data.LatencyMinutes
+        };
     }
 
     private static IReadOnlyDictionary<string, NodeClassData>? ResolveClassData(
@@ -4569,6 +5358,100 @@ public sealed class StateQueryService
         return rounded;
     }
 
+    private static IReadOnlyDictionary<string, IReadOnlyList<string>> BuildConstraintAssignments(IReadOnlyList<Node> nodes)
+    {
+        var assignments = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var node in nodes)
+        {
+            if (node.Constraints is null || node.Constraints.Count == 0)
+            {
+                continue;
+            }
+
+            foreach (var constraintId in node.Constraints)
+            {
+                if (string.IsNullOrWhiteSpace(constraintId))
+                {
+                    continue;
+                }
+
+                if (!assignments.TryGetValue(constraintId, out var list))
+                {
+                    list = new List<string>();
+                    assignments[constraintId] = list;
+                }
+
+                if (!list.Contains(node.Id, StringComparer.OrdinalIgnoreCase))
+                {
+                    list.Add(node.Id);
+                }
+            }
+        }
+
+        return assignments.ToDictionary(
+            kvp => kvp.Key,
+            kvp => (IReadOnlyList<string>)kvp.Value,
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static IReadOnlyDictionary<string, IReadOnlyDictionary<string, double?[]>> AllocateConstraintCapacity(
+        IReadOnlyDictionary<string, ConstraintData> constraintData,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> constraintAssignments,
+        IReadOnlyDictionary<string, NodeData> nodeData,
+        int bins)
+    {
+        var allocations = new Dictionary<string, IReadOnlyDictionary<string, double?[]>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (constraintId, nodeIds) in constraintAssignments)
+        {
+            if (!constraintData.TryGetValue(constraintId, out var constraintSeries))
+            {
+                continue;
+            }
+
+            var perNodeAllocations = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
+            foreach (var nodeId in nodeIds)
+            {
+                perNodeAllocations[nodeId] = new double?[bins];
+            }
+
+            for (var bin = 0; bin < bins; bin++)
+            {
+                var demandByNode = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+                foreach (var nodeId in nodeIds)
+                {
+                    if (!nodeData.TryGetValue(nodeId, out var nodeSeries))
+                    {
+                        demandByNode[nodeId] = 0d;
+                        continue;
+                    }
+
+                    if (bin < 0 || bin >= nodeSeries.Arrivals.Length)
+                    {
+                        demandByNode[nodeId] = 0d;
+                        continue;
+                    }
+
+                    demandByNode[nodeId] = nodeSeries.Arrivals[bin];
+                }
+
+                var capacity = bin >= 0 && bin < constraintSeries.Served.Length
+                    ? constraintSeries.Served[bin]
+                    : 0d;
+
+                var allocated = ConstraintAllocator.AllocateProportional(demandByNode, capacity);
+                foreach (var (nodeId, allocation) in allocated)
+                {
+                    perNodeAllocations[nodeId][bin] = allocation;
+                }
+            }
+
+            allocations[constraintId] = perNodeAllocations;
+        }
+
+        return allocations;
+    }
+
     private sealed record StateRunContext(
         RunManifest Manifest,
         RunManifestMetadata ManifestMetadata,
@@ -4579,7 +5462,10 @@ public sealed class StateQueryService
         IReadOnlyDictionary<string, IReadOnlyList<ModeValidationWarning>> InitialNodeWarnings,
         IReadOnlyDictionary<string, NodeDefinition> ModelNodes,
         SeriesIndex SeriesIndex,
-        string RunDirectory)
+        string RunDirectory,
+        IReadOnlyDictionary<string, ConstraintData> ConstraintData,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> ConstraintAssignments,
+        IReadOnlyDictionary<string, IReadOnlyDictionary<string, double?[]>> ConstraintAllocations)
     {
         public double BinMinutes => Window.BinDuration.TotalMinutes;
     }

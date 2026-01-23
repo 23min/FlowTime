@@ -134,6 +134,14 @@
                     "type": "object",
                     "additionalProperties": { "$ref": "#/$defs/classMetrics" }
                 },
+                "constraints": {
+                    "type": "object",
+                    "additionalProperties": { "$ref": "#/$defs/constraintMetrics" }
+                },
+                "constraintStatus": {
+                    "type": "object",
+                    "additionalProperties": { "type": "boolean" }
+                },
                 "derived": { "$ref": "#/$defs/nodeDerivedMetrics" },
                 "telemetry": { "$ref": "#/$defs/nodeTelemetryInfo" },
                 "aliases": { "$ref": "#/$defs/aliasDictionary" },
@@ -170,6 +178,14 @@
                         "type": "object",
                         "additionalProperties": { "$ref": "#/$defs/numericSeries" }
                     }
+                },
+                "constraints": {
+                    "type": "object",
+                    "additionalProperties": { "$ref": "#/$defs/constraintSeries" }
+                },
+                "constraintStatus": {
+                    "type": "object",
+                    "additionalProperties": { "$ref": "#/$defs/numericSeries" }
                 },
                 "telemetry": { "$ref": "#/$defs/nodeTelemetryInfo" },
                 "aliases": { "$ref": "#/$defs/aliasDictionary" },
@@ -211,6 +227,32 @@
                         "additionalProperties": { "$ref": "#/$defs/numericSeries" }
                     }
                 }
+            }
+        },
+        "constraintMetrics": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["metrics"],
+            "properties": {
+                "metrics": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "additionalProperties": { "$ref": "#/$defs/nullableNumber" }
+                },
+                "seriesMetadata": { "$ref": "#/$defs/seriesMetadata" }
+            }
+        },
+        "constraintSeries": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["series"],
+            "properties": {
+                "series": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "additionalProperties": { "$ref": "#/$defs/numericSeries" }
+                },
+                "seriesMetadata": { "$ref": "#/$defs/seriesMetadata" }
             }
         },
         "nodeMetrics": {

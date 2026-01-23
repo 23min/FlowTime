@@ -66,10 +66,12 @@ public static class ModelParser
         {
             var nodeList = model.Topology.Nodes.Select(ConvertNode).ToList();
             var edgeList = model.Topology.Edges.Select(ConvertEdge).ToList();
+            var constraintList = model.Topology.Constraints.Select(ConvertConstraint).ToList();
             topology = new Topology
             {
                 Nodes = nodeList,
-                Edges = edgeList
+                Edges = edgeList,
+                Constraints = constraintList
             };
         }
 
@@ -94,6 +96,7 @@ public static class ModelParser
                 NodeRole = string.IsNullOrWhiteSpace(definition.NodeRole) ? null : definition.NodeRole,
                 Group = definition.Group,
                 Ui = definition.Ui != null ? new UiHints { X = definition.Ui.X, Y = definition.Ui.Y } : null,
+                Constraints = definition.Constraints,
                 DispatchSchedule = definition.DispatchSchedule,
                 Semantics = new NodeSemantics
                 {
@@ -140,6 +143,31 @@ public static class ModelParser
                 Field = definition.Measure,
                 Multiplier = definition.Multiplier,
                 Lag = definition.Lag
+            };
+        }
+
+        Constraint ConvertConstraint(ConstraintDefinition definition)
+        {
+            if (string.IsNullOrWhiteSpace(definition.Id))
+            {
+                throw new ModelParseException("Topology constraints must specify an id");
+            }
+
+            if (definition.Semantics == null)
+            {
+                throw new ModelParseException($"Topology constraint '{definition.Id}' must include semantics");
+            }
+
+            return new Constraint
+            {
+                Id = definition.Id,
+                Semantics = new ConstraintSemantics
+                {
+                    Arrivals = RequireSemantic(definition.Semantics.Arrivals, definition.Id, "arrivals"),
+                    Served = RequireSemantic(definition.Semantics.Served, definition.Id, "served"),
+                    Errors = OptionalSemantic(definition.Semantics.Errors),
+                    LatencyMinutes = OptionalSemantic(definition.Semantics.LatencyMinutes)
+                }
             };
         }
 
@@ -568,6 +596,7 @@ public class TopologyDefinition
 {
     public List<TopologyNodeDefinition> Nodes { get; set; } = new();
     public List<TopologyEdgeDefinition> Edges { get; set; } = new();
+    public List<ConstraintDefinition> Constraints { get; set; } = new();
 }
 
 public class TopologyNodeDefinition
@@ -577,6 +606,7 @@ public class TopologyNodeDefinition
             public string? NodeRole { get; set; }
             public string? Group { get; set; }
             public UiHintsDefinition? Ui { get; set; }
+            public List<string>? Constraints { get; set; }
             public TopologyNodeSemanticsDefinition Semantics { get; set; } = new();
             public InitialConditionDefinition? InitialCondition { get; set; }
             public DispatchScheduleDefinition? DispatchSchedule { get; set; }
@@ -605,6 +635,20 @@ public class TopologyNodeSemanticsDefinition
     public string? ExhaustedPolicy { get; set; }
     public Dictionary<string, string>? Aliases { get; set; }
     public Dictionary<string, string>? Metadata { get; set; }
+}
+
+public class ConstraintDefinition
+{
+    public string Id { get; set; } = string.Empty;
+    public ConstraintSemanticsDefinition Semantics { get; set; } = new();
+}
+
+public class ConstraintSemanticsDefinition
+{
+    public string Arrivals { get; set; } = string.Empty;
+    public string Served { get; set; } = string.Empty;
+    public string? Errors { get; set; }
+    public string? LatencyMinutes { get; set; }
 }
 
 public class TopologyEdgeDefinition

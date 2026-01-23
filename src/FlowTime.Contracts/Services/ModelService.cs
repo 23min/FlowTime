@@ -126,6 +126,7 @@ public static class ModelService
                     NodeRole = node.NodeRole,
                     Group = node.Group,
                     Ui = node.Ui != null ? new UiHintsDefinition { X = node.Ui.X, Y = node.Ui.Y } : null,
+                    Constraints = node.Constraints,
                     DispatchSchedule = node.DispatchSchedule == null
                         ? null
                         : new DispatchScheduleDefinition
@@ -172,6 +173,18 @@ public static class ModelService
                     Measure = edge.Measure,
                     Multiplier = edge.Multiplier,
                     Lag = edge.Lag
+                }).ToList()
+                ,
+                Constraints = model.Topology.Constraints.Select(constraint => new ConstraintDefinition
+                {
+                    Id = constraint.Id,
+                    Semantics = new ConstraintSemanticsDefinition
+                    {
+                        Arrivals = constraint.Semantics.Arrivals,
+                        Served = constraint.Semantics.Served,
+                        Errors = constraint.Semantics.Errors,
+                        LatencyMinutes = constraint.Semantics.LatencyMinutes
+                    }
                 }).ToList()
             };
         }

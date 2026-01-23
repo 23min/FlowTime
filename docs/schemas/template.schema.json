@@ -162,6 +162,10 @@
               "id": { "type": "string", "minLength": 1 },
               "kind": { "type": "string" },
               "nodeRole": { "type": "string", "enum": ["sink"] },
+              "constraints": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
+              },
               "semantics": {
                 "type": "object",
                 "properties": {
@@ -229,6 +233,28 @@
               "measure": { "type": "string" },
               "multiplier": { "type": "number" },
               "lag": { "type": "integer" }
+            },
+            "additionalProperties": true
+          }
+        }
+        ,
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "semantics"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "semantics": {
+                "type": "object",
+                "properties": {
+                  "arrivals": { "type": "string" },
+                  "served": { "type": "string" },
+                  "errors": { "type": "string" },
+                  "latencyMinutes": { "type": "string" }
+                },
+                "additionalProperties": true
+              }
             },
             "additionalProperties": true
           }
