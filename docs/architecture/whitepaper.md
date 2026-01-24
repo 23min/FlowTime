@@ -1,6 +1,6 @@
 # FlowTime Engineering Whitepaper
 
-> **Charter Update Note:** This whitepaper was updated after the FlowTime Charter v1.0 to focus exclusively on FlowTime Engine capabilities. FlowTime-Sim content has been moved to the FlowTime-Sim repository documentation. For the complete FlowTime ecosystem including simulation capabilities, see the [FlowTime Charter](../CHARTER.md).
+> **Charter Update Note:** This whitepaper focuses on FlowTime Engine capabilities and architectural foundations. For the full ecosystem scope (Engine + Sim + UI + MCP), see [`docs/flowtime-charter.md`](../flowtime-charter.md). For shipped behavior, see [`docs/reference/engine-capabilities.md`](../reference/engine-capabilities.md).
 
 **Version:** 1.0 (Baseline)
 **Audience:** Architects, engineers, telemetry specialists, SREs.

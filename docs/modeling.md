@@ -6,6 +6,17 @@ FlowTime’s documentation is split by **intent**, not by feature area. Use this
 
 ---
 
+## 0. Charters (`docs/`)
+
+High-level scope and non-goals:
+
+- `docs/flowtime-charter.md` — product-level purpose and near-term focus.
+- `docs/flowtime-engine-charter.md` — engine-specific remit and constraints.
+
+Use Charters when you need the “big picture” before diving into architecture or milestones.
+
+---
+
 ## 1. Concepts (`docs/concepts/`)
 
 Defines the **core modeling abstractions**:
@@ -27,7 +38,11 @@ Describes **why the engine and UI look the way they do**:
 - Epic folders (e.g., `service-with-buffer/`, `classes/`, `ptolemy/`).
 - Deeper comparisons to other systems and non-goals/guardrails.
 
-Architecture docs assume the reader knows the basic concepts and want to see rationale, trade-offs, and epic-level change plans.
+Architecture docs assume the reader knows the basic concepts and want to see rationale, trade-offs, and epic-level change plans. Relevant folders include:
+
+- `docs/architecture/edge-time-bin/` (edge metrics and overlays)
+- `docs/architecture/dependency-constraints/` (Option A/B dependency modeling)
+- `docs/architecture/ai/` (MCP modeling and analysis contracts)
 
 ---
 
@@ -75,5 +90,3 @@ Notes are allowed to be essay-like. When a Note becomes stable and broadly appli
 - `docs/milestones/` – Concrete implementation slices (e.g., CL-M-04.03.02, SB-M-01) that move Architecture forward.
 - `docs/ROADMAP.md` – High-level roadmap view.
 - `docs/architecture/epic-roadmap.md` – Architecture-focused epic index.
-
-When a milestone lands, ensure that Concepts, Architecture, Reference, Guides, and relevant Notes are updated or linked, so modeling guidance remains coherent.

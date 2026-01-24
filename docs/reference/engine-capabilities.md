@@ -1,6 +1,6 @@
 # FlowTime Engine Capabilities (Authoritative Snapshot — Jan 2026)
 
-This document describes the **shipped** FlowTime Engine surfaces and behaviors as of November 24, 2025. It is descriptive, not a roadmap. Everything listed here is implemented in code and covered by current schemas/tests. Explicitly omitted items (classes, edge fact tables, streaming, catalog APIs, export/import registry) are **not** supported today.
+This document describes the **shipped** FlowTime Engine surfaces and behaviors as of January 24, 2026. It is descriptive, not a roadmap. Everything listed here is implemented in code and covered by current schemas/tests. Items listed under **Out of scope** are not supported today.
 
 ## Execution model
 - **Deterministic, discrete-time DAG** on a fixed grid `{ bins, binSize, binUnit }` (UTC, left-aligned).
@@ -57,10 +57,10 @@ This document describes the **shipped** FlowTime Engine surfaces and behaviors a
 
 ## Out of scope / not implemented
 - Streaming delivery.
-- Per-class filters in API query parameters (UI consumes the per-class data already exposed).
-- Edge fact tables (EdgeTimeBin) or path analytics.
+- Server-side path analysis / path queries.
 - Catalog APIs and registry/export/import loop.
-- Advanced expressions (IF/EMA/ABS/SQRT/POW), routers, autoscale nodes.
+- Advanced expressions (IF/EMA/ABS/SQRT/POW), autoscale nodes.
+- Node-level per-class filtering via query parameters (clients use `byClass`; edge filters support `classIds`).
 
 ## Validation & analyzers
 - Engine invariants run during artifact writing; warnings persist in `run.json`.

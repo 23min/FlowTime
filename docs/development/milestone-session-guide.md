@@ -57,3 +57,17 @@ Kick off implementation when ready, starting with the tracking doc creation.
   - `tests/FlowTime.Api.Tests/FlowTime.Api.Tests.csproj`
   - `tests/FlowTime.Integration.Tests/FlowTime.Integration.Tests.csproj`
   - `tests/FlowTime.Cli.Tests/FlowTime.Cli.Tests.csproj`
+
+### Wrap Checklist (Docs to Update)
+
+When wrapping a **milestone** or **epic**, verify these docs stay in sync:
+
+- Milestone status + tracking doc (`docs/milestones/` and `docs/milestones/tracking/`).
+- Release note for the milestone (`docs/releases/`).
+- `docs/architecture/epic-roadmap.md` (status + ordering).
+- `docs/ROADMAP.md` (high-level view).
+- `docs/reference/engine-capabilities.md` (if shipped behavior changed).
+- Charters: `docs/flowtime-charter.md` and `docs/flowtime-engine-charter.md`.
+- Any affected concept/architecture/guide docs listed in `docs/modeling.md`.
+
+If an epic wraps, also move milestone specs to `docs/milestones/completed/` as a batch.

@@ -1,472 +1,217 @@
-# Data Formats Reference
+# Data Formats Reference (Authoritative — Jan 2026)
 
-> **📋 Charter Context**: Data format standards described here support the [FlowTime-Engine Charter](../flowtime-engine-charter.md) artifacts-centric workflow. Format selection patterns enable effective organization and processing within the charter paradigm: [Models] → [Runs] → [Artifacts] → [Learn].
-
-**Version:** 1.0  
-**Date:** September 19, 2025  
-**Status:** Active Reference (Charter Aligned)
+**Status:** Active reference  
+**Scope:** Canonical run artifacts, telemetry bundles, and export formats used by FlowTime Engine and FlowTime.Sim.  
+**Note:** This document describes **shipped** formats. If something is future work, it is explicitly labeled as such.
 
 ---
 
-## Overview
+## 1) Canonical Run Artifact Layout
 
-FlowTime uses different data formats for different purposes, following a consistent pattern based on **authorship, audience, and processing requirements**. This document defines when to use JSON vs YAML vs other formats across the FlowTime Engine+Sim ecosystem.
+Every run produces a deterministic artifact bundle:
 
-## Format Selection Matrix
-
-| **Use Case** | **Format** | **Rationale** | **Examples** |
-|--------------|------------|---------------|--------------|
-| **Human-authored configuration** | **YAML** | Readable, editable, version control friendly | System catalogs, model specs, templates |
-| **Machine-generated metadata** | **JSON** | Precise, structured, web standard | Artifact catalogs, API responses |
-| **Tabular data** | **CSV/Parquet** | Analytics tools, efficient storage | Time series, telemetry exports |
-| **Event streams** | **NDJSON** | Line-by-line processing | Event logs, streaming data |
-| **Binary artifacts** | **Native** | Tool-specific optimization | SVG diagrams, compressed archives |
-
-## YAML Usage
-
-### **When to Use YAML**
-- Files that humans read, write, and maintain
-- Configuration files and templates  
-- Version-controlled system definitions
-- Multi-line content and documentation
-
-### **YAML File Types**
-```yaml
-# System Catalog (docs/examples/catalogs/)
-version: 1
-metadata:
-  id: "checkout-system" 
-  title: "E-commerce Checkout System"
-  description: |
-    Customer checkout and payment processing system
-    with inventory validation and fraud detection.
-components:
-  - id: CHECKOUT_SVC
-    label: "Checkout Service"
-    description: "Manages shopping cart and checkout flow"
-    type: "service"
-
-# Model Specification (user-authored)
-nodes:
-  - id: user_requests
-    kind: pmf
-    pmf: { "100": 0.3, "150": 0.5, "200": 0.2 }
-  - id: auth_service  
-    kind: expr
-    expr: "user_requests * 0.95"
-
-# Template Definition (docs/examples/templates/)
-template: e-commerce
-description: Standard e-commerce checkout flow
-parameters:
-  peak_factor: 
-    default: 1.5
-    description: "Peak load multiplier for traffic spikes"
-  base_capacity:
-    default: 100
-    description: "Base processing capacity (requests/minute)"
-
-# CLI Configuration (~/.flowtime/config.yaml)
-api:
-  base_url: "http://localhost:8080"
-  version: "v1"
-  timeout: 30s
-artifacts:
-  root: "/home/user/flowtime/artifacts"
-  auto_cleanup: true
-  retention_days: 30
+```
+run_<timestamp>_<slug>/
+├── spec.yaml            # submitted model (verbatim, normalized line endings)
+├── model/
+│   ├── model.yaml       # canonicalized model
+│   ├── metadata.json    # template/title/version, mode, hashes
+│   └── provenance.json  # optional (when provided)
+├── run.json             # summary + warnings + series list
+├── manifest.json        # hashes + RNG + provenance
+├── series/
+│   ├── index.json
+│   └── *.csv            # seriesId CSVs
+└── aggregates/          # export outputs (CSV/NDJSON/Parquet); may be empty until POST /export
 ```
 
-### **YAML Content-Type**
-```http
-POST /v1/catalogs
-Content-Type: application/yaml
-Accept: application/json
+### Required JSON files
+- `run.json` — `docs/schemas/run.schema.json`
+- `manifest.json` — `docs/schemas/manifest.schema.json`
+- `series/index.json` — `docs/schemas/series-index.schema.json`
 
-# Request body is YAML, response is JSON
+**Schema drift note (current):**
+- Engine emits `kind: "edge"` in `series/index.json`, but the schema enum does not yet include `edge`.
+- `run.json` may include `inputHash`, which is not yet declared in the run schema.
+
+These are known schema mismatches that should be reconciled in a schema update.
+
+### Required CSV files
+Per‑series CSVs live under `series/` and are referenced by `series/index.json`.
+
+**Series CSV format (required):**
+```
+t,value
+0,10.0
+1,12.3
+2,11.8
 ```
 
-## JSON Usage
+- `t` is the **bin index** (0‑based).
+- `value` is a float (InvariantCulture).
 
-### **When to Use JSON**
-- Machine-generated metadata and artifacts
-- API requests and responses  
-- Structured data with precise types
-- Content that requires hashing for integrity
+---
 
-### **JSON File Types**
-```json
-// Artifact Catalog (machine-generated)
-{
-  "kind": "model",
-  "id": "checkout-baseline_a1b2",
-  "name": "checkout-baseline",
-  "created_utc": "2025-09-19T10:22:30Z",
-  "schema_version": "treehouse.binned.v0",
-  "system_catalog": {
-    "catalog_id": "checkout-system",
-    "catalog_version": "v1.2"
-  },
-  "topology": {
-    "nodes": [
-      {
-        "id": "CHECKOUT_SVC",
-        "label": "Checkout Service", 
-        "type": "service"
-      }
-    ],
-    "edges": []
-  },
-  "behavior": {
-    "template_id": "e-commerce",
-    "parameters": {
-      "peak_factor": 1.5,
-      "base_capacity": 100
-    }
-  },
-  "capabilities": ["counts", "flows"],
-  "tags": ["e-commerce", "checkout", "baseline"],
-  "inputs_hash": "sha256:c4f2a8d1e5f6...",
-  "owner": "user@domain.com",
-  "visibility": "private"
-}
+## 2) Series IDs and Index Metadata
 
-// API Response (machine-generated)
-{
-  "artifacts": [
-    {
-      "id": "run_2025-09-19T10:22Z_c3d4",
-      "kind": "run",
-      "name": "checkout-baseline-run",
-      "created_utc": "2025-09-19T11:30:00Z",
-      "model_id": "checkout-baseline_a1b2",
-      "tags": ["execution", "validated"]
-    }
-  ],
-  "pagination": {
-    "total": 156,
-    "page": 1,
-    "size": 20,
-    "has_next": true
-  }
-}
+Series IDs follow the canonical pattern:
 
-// Schema Definition (docs/schemas/)
-{
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "type": "object",
-  "title": "FlowTime Artifact Catalog",
-  "required": ["kind", "id", "created_utc"],
-  "properties": {
-    "kind": {
-      "type": "string",
-      "enum": ["model", "run", "telemetry"]
-    },
-    "id": {
-      "type": "string",
-      "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$"
-    }
-  }
-}
+```
+<measure>@<COMPONENT_ID>@<CLASS_ID>
 ```
 
-### **JSON Content-Type**
-```http
-GET /v1/artifacts
-Accept: application/json
-Content-Type: application/json
+Examples:
+- `arrivals_hub@ARRIVALS_HUB@DEFAULT`
+- `flow_latency_ms@FLOW_LATENCY_MS@DEFAULT`
+- `edge_queue_to_airport_flowVolume@EDGE_QUEUE_TO_AIRPORT_FLOWVOLUME@DEFAULT`
 
-POST /v1/runs
-Content-Type: application/json
+Edge series IDs are normalized to:
+```
+edge_<edgeId>_<metric>@EDGE_<EDGEID>_<METRIC>@<CLASS_ID>
 ```
 
-## Data Formats
+The **index** (`series/index.json`) records:
+- `id`
+- `kind` (`flow`, `state`, `derived`, or `edge`)
+- `path` (relative `series/*.csv`)
+- `unit` (e.g., `entities/bin`, `minutes`, `ms`)
+- `componentId`
+- `class`
+- `hash` (sha256)
 
-### **CSV: Time Series and Exports**
-```csv
-# Gold Standard Format (export/import)
+**Note:** Edge series are emitted into the same `series/` folder and appear in `series/index.json` as `kind: "edge"`.
+
+---
+
+## 3) run.json (summary + warnings)
+
+`run.json` includes:
+- `grid { bins, binSize, binUnit, timezone, align }`
+- `series[] { id, path, unit }`
+- `warnings[]` with codes + optional nodeId/bins/edgeIds
+- `classCoverage` (when class data is present)
+
+Schema: `docs/schemas/run.schema.json`
+
+---
+
+## 4) manifest.json (hashes + provenance)
+
+`manifest.json` includes:
+- `seriesHashes` (sha256 per seriesId)
+- `rng { kind, seed }`
+- `scenarioHash`, optional `modelHash`
+- `provenance { modelId, templateId, inputHash }` when available
+- Optional `classes[]` block
+
+Schema: `docs/schemas/manifest.schema.json`
+
+---
+
+## 5) Edge Series (EdgeTimeBin)
+
+Edge time‑bin metrics are emitted as series with `kind: "edge"`:
+
+**Throughput edges**
+- `flowVolume`
+
+**Effort edges**
+- `flowVolume`
+- `attemptsVolume`
+- `failuresVolume`
+- `retryVolume` (derived)
+- `retryRate` (derived)
+
+All edge series are optional and only emitted when edge metrics exist in the run.
+
+---
+
+## 6) Constraint Series (Option B Dependencies)
+
+Constraint resources are **not nodes**; they are series‑backed resources attached to services.
+
+When present, the engine emits per‑constraint series in state responses:
+- `arrivals`, `served`, `errors`, `latencyMinutes`, and derived `shortfall`.
+
+These are returned through `/state` and `/state_window` (not as separate CSV files today).
+
+---
+
+## 7) Telemetry Capture Bundles (v2)
+
+Telemetry capture bundles are defined by:
+`docs/schemas/telemetry-manifest.schema.json`
+
+Required fields:
+- `schemaVersion: 2`
+- `grid { bins, binSize, binUnit }`
+- `supportsClassMetrics` (boolean)
+- `files[]` entries:
+  - `nodeId`
+  - `metric` (Arrivals/Served/Errors/ExternalDemand/QueueDepth/Capacity)
+  - `path` (CSV)
+  - `hash` (sha256)
+  - `points` (int)
+  - `classId` **required** when `supportsClassMetrics: true`
+
+When `supportsClassMetrics: true`, include:
+- `classes[]`
+- `classCoverage` (`full`, `partial`, `missing`)
+
+---
+
+## 8) Exports (Aggregates)
+
+Exports are **optional** outputs written under `aggregates/` and served by:
+`GET /v1/runs/{runId}/export/{format}`
+
+Supported formats:
+- `csv` (aggregates)
+- `ndjson`
+- `parquet`
+
+**Note:** The aggregates directory is populated on demand via `POST /v1/runs/{runId}/export`.  
+The `series/index.json` advertises an `aggregatesTable` path (default `aggregates/node_time_bin.parquet`), but this file may not exist unless an export was generated.
+
+### CSV / NDJSON export schema
+These exports use a **flattened “aggregates” format**:
+
+```
 time_bin,component_id,measure,value
-2025-09-19T10:00:00Z,CHECKOUT_SVC,count,150
-2025-09-19T10:00:00Z,CHECKOUT_SVC,utilization,0.75
-2025-09-19T10:00:00Z,PAYMENT_SVC,count,142
-2025-09-19T10:00:00Z,PAYMENT_SVC,latency_p50,45.2
-
-# Series Export (per-component files)
-time_bin,value
-2025-09-19T10:00:00Z,150
-2025-09-19T10:01:00Z,165
-2025-09-19T10:02:00Z,148
 ```
 
-### **NDJSON: Event Streams**
-```ndjson
-{"timestamp":"2025-09-19T10:00:00Z","component":"CHECKOUT_SVC","event":"request_start","request_id":"req_001"}
-{"timestamp":"2025-09-19T10:00:01Z","component":"PAYMENT_SVC","event":"payment_initiated","request_id":"req_001","amount":49.99}
-{"timestamp":"2025-09-19T10:00:03Z","component":"PAYMENT_SVC","event":"payment_completed","request_id":"req_001","status":"success"}
-{"timestamp":"2025-09-19T10:00:04Z","component":"CHECKOUT_SVC","event":"request_complete","request_id":"req_001","duration_ms":4250}
-```
+This is a convenience export for BI tools and is **not** the canonical run artifact.
 
-### **Parquet: Analytics Data**
-```bash
-# Efficient columnar storage for large datasets
-flowtime export --run checkout_baseline_run --format parquet --out analysis.parquet
-
-# Optimized for analytics tools
-import pandas as pd
-df = pd.read_parquet('analysis.parquet')
-df.groupby('component_id')['value'].agg(['mean', 'max', 'std'])
-```
-
-## Conversion and Processing
-
-### **YAML → JSON Processing**
-```typescript
-// Runtime conversion for API processing
-import yaml from 'js-yaml';
-
-// Load YAML configuration
-const yamlContent = fs.readFileSync('system-catalog.yaml', 'utf8');
-const systemCatalog = yaml.load(yamlContent);
-
-// Generate JSON artifact catalog
-const artifactCatalog = {
-  kind: 'model',
-  created_utc: new Date().toISOString(),
-  system_catalog: {
-    catalog_id: systemCatalog.metadata.id,
-    catalog_version: systemCatalog.version
-  },
-  topology: {
-    nodes: systemCatalog.components,
-    edges: systemCatalog.connections
-  },
-  source: 'sim',
-  inputs_hash: generateHash(yamlContent)
-};
-
-// Save as JSON
-fs.writeFileSync('catalog.json', JSON.stringify(artifactCatalog, null, 2));
-```
-
-### **Schema Validation**
-```typescript
-// Validate both YAML-sourced and JSON data with same schema
-import Ajv from 'ajv';
-
-const schema = {
-  type: 'object',
-  required: ['kind', 'id', 'created_utc'],
-  properties: {
-    kind: { enum: ['model', 'run', 'telemetry'] },
-    id: { type: 'string' },
-    created_utc: { type: 'string', format: 'date-time' }
-  }
-};
-
-const ajv = new Ajv();
-const validate = ajv.compile(schema);
-
-// Validate YAML-parsed data
-const yamlData = yaml.load(yamlContent);
-if (!validate(yamlData)) {
-  console.error('YAML validation failed:', validate.errors);
-}
-
-// Validate JSON artifact  
-if (!validate(jsonArtifact)) {
-  console.error('JSON validation failed:', validate.errors);
-}
-```
-
-## File Naming Conventions
-
-### **Extension Guidelines**
-```bash
-# YAML files - human-authored
-system-catalog.yaml           # System definitions
-model-specification.yaml      # Model configs  
-template-definition.yaml      # Templates
-cli-config.yaml              # User configuration
-
-# JSON files - machine-generated  
-catalog.json                 # Artifact metadata
-run-manifest.json            # Execution metadata
-api-response.json            # API data
-schema.json                  # Schema definitions
-
-# Data files
-time-series.csv              # Tabular time series
-export-data.parquet          # Analytics export
-event-stream.ndjson          # Event logs
-system-diagram.svg           # Generated visualizations
-
-# Archives and bundles
-model-bundle.zip             # Complete artifact packages
-backup-2025-09-19.tar.gz     # Compressed backups
-```
-
-### **Directory Structure**
-```
-/artifacts/
-  models/                    # Model artifacts
-    model_id/v1/
-      model.yaml            # YAML: Human-readable model spec
-      catalog.json          # JSON: Machine-generated metadata
-      preview.svg           # SVG: Generated diagram
-  runs/
-    run_id/  
-      binned_v0.csv         # CSV: Time series data
-      catalog.json          # JSON: Execution metadata
-      events.ndjson         # NDJSON: Event stream (optional)
-  telemetry/
-    telemetry_id/
-      imported_data.parquet # Parquet: Large dataset
-      catalog.json          # JSON: Import metadata
-
-  # Telemetry bundles captured via CLI/loader
-  captures/
-    bundle_id/
-      manifest.json        # JSON: `docs/schemas/telemetry-manifest.schema.json` (v2)
-      files/               # CSV payloads referenced by manifest entries
-        *.csv
-
-/catalogs/                   # System catalog registry
-  system_id/v1/
-    catalog.yaml            # YAML: System definition
-    metadata.json           # JSON: Version/lineage info
-```
-
-## API Integration
-
-### **Request/Response Patterns**
-```http
-# YAML input, JSON response
-POST /v1/catalogs
-Content-Type: application/yaml
-Accept: application/json
-
-version: 1
-metadata:
-  id: new-system
-# YAML body...
-
-HTTP/1.1 201 Created
-Content-Type: application/json
-{
-  "catalog_id": "new-system",
-  "version": "v1", 
-  "status": "created"
-}
-
-# JSON throughout
-GET /v1/artifacts?kind=model
-Accept: application/json
-
-HTTP/1.1 200 OK  
-Content-Type: application/json
-{
-  "artifacts": [...],
-  "pagination": {...}
-}
-
-# Binary data download
-GET /v1/runs/run_123/export/parquet
-Accept: application/octet-stream
-
-HTTP/1.1 200 OK
-Content-Type: application/octet-stream
-Content-Disposition: attachment; filename="run_123.parquet"
-```
-
-## Best Practices
-
-### **1. Format Consistency**
-- **Human authoring** → YAML (configs, templates, system definitions)
-- **Machine generation** → JSON (metadata, API responses, artifacts)  
-- **Tabular data** → CSV/Parquet (time series, analytics)
-- **Event streams** → NDJSON (logs, real-time data)
-
-### **Telemetry manifest (schema v2)**
-- Always set `supportsClassMetrics` so loaders know whether per-class CSVs exist.
-- When `supportsClassMetrics: true`, include `classes[]`, `classCoverage`, and give every `files[]` row a `classId` alongside `measure`/`componentId` metadata.
-- Legacy/aggregated-only bundles set `supportsClassMetrics: false` and omit the class blocks; loaders fall back to totals-only ingestion.
-
-### **2. Content-Type Headers**
-Always specify correct Content-Type headers for HTTP requests:
-```http
-Content-Type: application/yaml      # YAML uploads
-Content-Type: application/json      # JSON APIs
-Content-Type: text/csv              # CSV exports  
-Content-Type: application/x-ndjson  # NDJSON streams
-```
-
-### **3. Schema Validation**
-- Use JSON Schema for validation regardless of source format
-- Validate YAML-parsed data with same schemas as JSON
-- Provide clear error messages for validation failures
-
-### **4. File Size Considerations**
-- **YAML**: Optimize for readability over size
-- **JSON**: Balance readability with processing efficiency  
-- **CSV**: Use for medium datasets (< 100MB)
-- **Parquet**: Use for large datasets (> 100MB)
-
-### **5. Version Control**
-- **YAML files**: Commit to git, diff-friendly
-- **JSON artifacts**: Generally exclude from git (generated)
-- **Data files**: Use git-lfs for large files
-- **Schemas**: Version control JSON schema definitions
-
-## Common Pitfalls
-
-### **1. Format Mixing**
-```bash
-# ❌ Wrong: Using JSON for human-authored config
-{
-  "template": "e-commerce",
-  "parameters": {
-    "peak_factor": 1.5
-  }
-}
-
-# ✅ Correct: Use YAML for human config  
-template: e-commerce
-parameters:
-  peak_factor: 1.5
-```
-
-### **2. Precision Loss**
-```yaml
-# ❌ Wrong: YAML number precision issues
-probability: 0.333333333333333333
-
-# ✅ Correct: Explicit precision in JSON context
-pmf: { "100": 0.333, "200": 0.667 }
-```
-
-### **3. Content-Type Mismatch**  
-```http
-# ❌ Wrong: Sending YAML with JSON Content-Type
-POST /v1/catalogs
-Content-Type: application/json
-# YAML body causes parsing errors
-
-# ✅ Correct: Match Content-Type to body format
-POST /v1/catalogs  
-Content-Type: application/yaml
-```
+Export file names:
+- `aggregates/export.csv`
+- `aggregates/export.ndjson`
+- `aggregates/export.parquet`
 
 ---
 
-## Related Documentation
+## 9) Format Selection (Guidance)
 
-- [Catalog Architecture](../architecture/catalog-architecture.md) - Overall catalog system design
-- [Schema Specifications](../schemas/) - JSON schema definitions  
-- [API Contracts](./contracts.md) - HTTP API specifications
-- [Configuration Reference](./configuration.md) - System configuration options
+- **Human-authored**: YAML (templates, model specs)
+- **Machine-generated**: JSON (run.json, manifest.json, index.json)
+- **Time series**: CSV per series (canonical)
+- **Aggregates/BI**: CSV/NDJSON/Parquet (exports only)
 
-## Revision History
+---
 
-| Date | Version | Changes | Author |
-|------|---------|---------|--------|
-| 2025-09-19 | 1.0 | Initial data formats reference | Assistant |
+## 10) Out of Scope / Future Formats
+
+These are **not** shipped yet:
+- Streaming formats
+- Path‑level analytics tables
+- Separate edge fact tables outside of per‑series CSVs
+
+---
+
+## References
+
+- `docs/reference/engine-capabilities.md`
+- `docs/reference/contracts.md`
+- `docs/schemas/run.schema.json`
+- `docs/schemas/manifest.schema.json`
+- `docs/schemas/series-index.schema.json`
+- `docs/schemas/telemetry-manifest.schema.json`
