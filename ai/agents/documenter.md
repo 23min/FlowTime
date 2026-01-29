@@ -11,3 +11,4 @@ Typical skills:
 - milestone-draft
 - milestone-wrap
 - release
+- gap-triage

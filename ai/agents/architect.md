@@ -14,3 +14,4 @@ Typical skills:
 - milestone-draft
 - branching (for epic integration)
 - roadmap
+- gap-triage

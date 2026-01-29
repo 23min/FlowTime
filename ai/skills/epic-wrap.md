@@ -1,6 +1,6 @@
 # Skill: epic-wrap
 
-Purpose: close out an epic and bring documentation into sync before release.
+Purpose: close out an epic, sync docs, and decide PR vs direct merge.
 
 Use when:
 - All milestones in the epic are complete.
@@ -12,7 +12,8 @@ Process:
    - docs/architecture/epic-roadmap.md
    - docs/ROADMAP.md
    - docs/flowtime-charter.md and docs/flowtime-engine-charter.md (if impacted)
-4) Ensure release ceremony steps are ready or completed.
+4) Ask whether the epic should merge via PR or directly to main.
+5) Ensure release ceremony steps are ready or completed.
 
 Outputs:
 - Epic docs and roadmap updated.

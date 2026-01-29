@@ -1,22 +1,38 @@
 # Skill: milestone-draft
 
-Purpose: draft milestone specification documents after epic-refine is complete.
+**Trigger phrases:** "create milestone spec", "draft milestone", "plan milestone", "write milestone document"
 
-Use when:
-- The epic is refined and you are ready to create milestone specs.
-- The milestone does not yet exist, or needs a full rewrite to align with the guide.
+## Purpose
 
-Inputs:
+Draft milestone specification documents after epic-refine is complete. The milestone spec is the authoritative plan for implementation—it must be clear, complete, and actionable.
+
+## Use When
+- The epic is refined and you're ready to create milestone specs
+- A milestone doesn't exist yet
+- An existing milestone needs complete rewrite for clarity
+
+## Inputs
 - Epic slug and context
 - Milestone ID and title
-- Dependencies and target statement
-- Any decisions or constraints captured during epic-refine
+- Dependencies (what must complete first)
+- Target statement (one-sentence goal)
+- Decisions or constraints from epic-refine
 
-Guardrails:
-- Follow docs/development/milestone-documentation-guide.md.
-- Follow docs/development/milestone-rules-quick-ref.md.
-- No time estimates.
-- Diagrams must use Mermaid.
+## Guardrails
+
+**ALWAYS:**
+- ✅ Write testable acceptance criteria
+- ✅ Define clear scope boundaries (in/out)
+- ✅ Use Mermaid for diagrams
+- ✅ Include comprehensive test plan
+- ✅ Make it implementation-ready
+
+**NEVER:**
+- ❌ Include time or effort estimates
+- ❌ Use vague requirements
+- ❌ Skip test plan
+- ❌ Use ASCII art for diagrams
+- ❌ Leave scope ambiguous
 
 Process:
 1) Ensure epic context exists. If missing, run epic-refine first.

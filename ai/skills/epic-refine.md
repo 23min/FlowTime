@@ -1,26 +1,39 @@
 # Skill: epic-refine
 
-Purpose: run a human-in-the-loop preflight to confirm epic scope, decisions, and constraints before any milestone specs are drafted.
+**Trigger phrases:** "refine the epic", "clarify epic scope", "what are we building?", "define epic boundaries", "epic planning session"
 
-Use when:
-- A new epic is starting and we need shared context and decisions up front.
-- The epic is specified but still ambiguous or has open questions.
+## Purpose
 
-Inputs:
-- Epic name and slug (maps to docs/architecture/<epic-slug>/)
+Run a human-in-the-loop preflight to confirm epic scope, decisions, and constraints before any milestone specs are drafted. This is the critical first step that prevents scope creep and misalignment.
+
+## Use When
+- A new epic is starting and you need shared context and decisions up front
+- The epic is specified but still ambiguous or has open questions
+- Stakeholders need to align on goals and boundaries
+- You're unsure what to build or why
+
+## Inputs
+- Epic name and slug (short identifier, e.g., "classes", "ui-perf", "service-buffer")
 - High-level goal or problem statement
-- Known constraints (time, data, platform, teams)
-- Known dependencies (milestones, systems, external services)
+- Known constraints (platform, data, dependencies, teams)
+- Known dependencies (other epics, milestones, external systems)
 
-Process:
-1) Locate or create the epic folder under docs/architecture/<epic-slug>/.
-2) Review existing epic docs and roadmap entries (if any):
-   - docs/architecture/<epic-slug>/README.md
-   - docs/architecture/epic-roadmap.md
-   - docs/ROADMAP.md
-3) Run a structured Q&A and capture decisions in a short notes block.
-4) Produce an initial milestone outline for the epic.
-5) Confirm open questions and owners; do not proceed to drafting milestones until resolved or explicitly deferred.
+## Process
+
+### 1. Create Epic Structure
+- Create epic folder: `docs/architecture/<epic-slug>/`
+- Initialize `README.md` in the epic folder
+- Add entry to roadmap document
+
+### 2. Review Existing Context
+Check if related documentation exists:
+- Epic folder and README
+- Roadmap entries
+- Related architecture docs
+- Existing milestones or features
+
+### 3. Run Structured Q&A
+Capture answers to all questions below. Don't skip any—they prevent costly rework later.
 
 Structured Q&A (capture answers verbatim):
 - Goal: what is the epic trying to enable or fix?
