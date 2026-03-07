@@ -1,4 +1,4 @@
-# FlowTime Roadmap — Updated 2026-01-19
+# FlowTime Roadmap — Updated 2026-01-24
 
 This roadmap supersedes the previous legacy plan (now archived under `docs/archive/ROADMAP-2025-06-legacy.md`). It reflects the current state of FlowTime Engine + Sim, acknowledges what the time-travel epic delivered, and outlines the next waves of work. Use this document as the high-level planning guide; architecture **epics** and milestone docs provide the implementation detail (see `docs/architecture/epic-roadmap.md` and `docs/development/epics-and-milestones.md`).
 
@@ -7,41 +7,28 @@ This roadmap supersedes the previous legacy plan (now archived under `docs/archi
 - FlowTime.Sim owns template authoring, stochastic inputs, and template catalog endpoints.
 - Time-travel V1 (TT‑M‑03.32.1) is feature-complete: DLQs first-class, template retrofits done, `/state` + `/state_window` live (see `docs/architecture/time-travel/status-2025-11-23.md`).
 - The roadmap below captures cross-epic gaps plus future aspirations called out in the whitepaper (`docs/architecture/whitepaper.md`).
+- Product-level scope is summarized in `docs/flowtime-charter.md`.
 
 ## Recently Delivered
-- Time-travel APIs (`/runs/{id}/state`, `/state_window`), telemetry capture/bundle pipeline, CLI orchestration.
-- DLQ and backlog retrofits across canonical templates; analyzers enforce DLQ semantics.
-- Updated docs: DLQ lens, template authoring/testing guides, expression extensions roadmap.
-- Topology focus view for provenance drilldown (focus toggle, upstream filtering, compact relayout, state preservation).
-- MCP modeling + analysis via an MCP server (drafts, data intake, profile fitting, run/import/inspect loop, storage-backed drafts/bundles).
+- Time-travel APIs (`/runs/{id}/state`, `/state_window`) plus telemetry capture/bundles and CLI orchestration.
+- Evaluation integrity (compile-to-DAG) and centralized model compiler.
+- Edge time bins, conservation checks, and edge overlays in the UI.
+- MCP modeling + analysis server (drafts, data intake, profile fitting, run/import/inspect loop, storage-backed drafts/bundles).
+- Engine semantics layer contract hardening (M‑09.01).
+- Dependency constraints Option A + Option B foundations (with follow-up enforcement in-flight).
 
-## Near-Term Focus (Next Epic Candidates)
-1. **EdgeTimeBin / Edge Metrics (name TBD)**  
-   - Goal: derive or surface per-edge throughput/attempt volumes for heat maps, conservation checks, and future edge overlays.  
-   - Work: define schema (likely derived from node series), update `/state_window` or companion API, extend UI to consume.  
-   - Status: not analyzed yet; needs dedicated design session.
-2. **Telemetry Ingestion & Canonical Bundles**  
-   - Architecture docs still assume an ADX/KQL loader feeding Engine; today we rely on CLI capture/bundles. Synthetic telemetry already defines the contract/schema, so any ingestion must emit artifacts that match the canonical bundle format.  
-   - Work: decide whether to implement the loader, replace it with improved CLI workflows, and align ingestion with `docs/architecture/telemetry-ingestion/README.md`.
-3. **Topology Layout Metadata**  
-   - Templates currently omit `topology.ui` hints; UI uses heuristics.  
-   - Work: either formalize deterministic layout rules or allow templates to carry optional positions/lane metadata to stabilize DAG rendering.
-4. **Analyzer Cross-Node Checks**  
-   - Need invariant rules that compare queue arrivals to upstream `served` (and similar cross-node relationships) to catch semantic mistakes early.  
-   - Depends on either edge metrics or explicit topology lookup support in analyzers.
-5. **Classes & Router Solidification / Topology Perf (FT‑M‑05.05 / 05.06)**  
-   - FT‑M‑05.05: Rewire class-enabled templates (transportation, supply chain) to consume router outputs directly instead of legacy percentage splits; eliminates `router_class_leakage` warnings and keeps class chips accurate.  
-   - FT‑M‑05.06: Once routers are solid, throttle topology hover interactions (JS/interop batching, inspector debounce) to reduce WASM load and keep the UI responsive on class-heavy runs.
-6. **Expression Extensions & Conditional Logic / Services With Buffers**  
-   - Track the features itemized in `docs/architecture/expression-extensions-roadmap.md` (ABS/SQRT/POW, EMA/DELAY, IF, router/autoscale helpers).  
-   - Prioritize based on upcoming use cases (e.g., autoscale epic, smooth retry policies, and the ServiceWithBuffer epic under `docs/architecture/service-with-buffer/`).
-6. **Retention / Bundle Promotion Helpers**  
-   - TT‑M‑03.17 deferred run retention policy and CLI helpers for promoting local bundles to shared libraries.  
-   - Scope policy + tooling to avoid artifact sprawl.
+## Near-Term Focus (Next Epics)
+1. **Dependency Constraints & Shared Resources (follow-up)**  
+   - Complete pattern enforcement and MCP guidance (M‑10.03).  
+   - Keep Option A/Option B aligned with engine semantics and surface constraint status clearly in the UI.
+2. **Visualizations (Chart Gallery / Demo Lab)**  
+   - Dedicated UI space to prototype role-focused charts using FlowTime-derived metrics and raw telemetry comparisons.
+3. **Telemetry Ingestion + Canonical Bundles**  
+   - Implement ingestion services or hardened CLI workflows that emit canonical bundles aligned with engine schemas.
+4. **Path Analysis & Subgraph Queries**  
+   - Path-level queries and derived metrics based on edge time bins for UI and MCP use.
 
 ## Mid-Term / Aspirational
-**Engine Semantics Layer** – Treat the engine as the semantics layer between canonical bundles and downstream UIs/BI tools; see `docs/architecture/engine-semantics-layer/README.md` for the detailed proposal.  
-
 **Telemetry Loop & Parity** – Ensure synthetic runs and telemetry replays match within defined tolerances; see `docs/architecture/telemetry-loop-parity/README.md`.  
 
 **Scenario Overlays & What-If Runs** – Derived overlay runs for capacity, parallelism, and arrivals experiments with deterministic provenance; see `docs/architecture/overlays/overlays.md`.  

@@ -1,202 +1,103 @@
-# FlowTime-Engine Charter (v1.0) — To Be Reviewed Post-M-3
+# FlowTime Engine Charter (v2.0)
 
-> **Note:** This charter predates the M-3 delivery scope. We will review and update it after the M-3 milestones to define future direction. For current M-3 planning, rely on the time-travel architecture/planning docs.
-
-**Date:** 2025-09-20
-**Audience:** Engineers, architects, UI developers, and contributors
-
-## Current Implementation Status
-
-### ✅ Implemented
-* **Deterministic execution**: DAG evaluation on canonical time grid
-* **Telemetry generation**: Binned CSV/NDJSON/Parquet exports with catalog.json
-* **API-first runtime**: REST endpoints (`/v1/run`, `/v1/graph`, `/v1/artifacts`)
-* **Artifacts registry**: Persistent storage and discovery of runs and models
-* **Export system**: Multiple format support (M-02.06)
-* **Registry integration**: Enhanced API with query capabilities (M-02.07, M-02.08)
-
-### 🔄 In Progress
-* **Schema evolution**: binSize/binUnit time specifications, provenance tracking (M-02.09)
-
-### 📋 Planned
-* **Backlog & Latency primitives**: Single-queue backlog tracking, Little's Law calculations (M-03.00)
-* **Telemetry import (Replay Mode)**: Hydrate runs from Gold telemetry
-* **Scenario execution (Overlay)**: Apply overlays to baseline runs
-* **Compare workflow**: Side-by-side comparison of runs and models (Deferred)
-
-### 🔮 Future Directions
-* **Extended primitives**: DLQ, multi-class fairness, advanced retries
-* **Calibration**: Fit parameters from telemetry
-* **Uncertainty modeling**: Monte Carlo runs with percentile bands
-* **Performance scaling**: Larger DAGs, distributed execution
-* **WASM runtime**: In-browser Engine for interactive demos
+**Date:** 2026-01-24  
+**Audience:** Engine, API, UI, and integration engineers
 
 ---
 
-## Architecture Principles (KISS)
+## Purpose
 
-* **Single Registry**: Engine owns the single source of truth for all artifacts (models + runs + telemetry)
-* **No Direct Communication**: Sim and Engine do NOT talk directly; UI orchestrates all workflows
-* **Temporary vs Permanent**: Sim provides temporary storage; Engine provides permanent artifact storage
-* **UI as Orchestrator**: UI coordinates Sim ↔ Engine workflows, fetching from Sim and posting to Engine
+FlowTime Engine is the **deterministic execution and semantics layer** for FlowTime. It evaluates models on a canonical time grid, produces run artifacts, and exposes stable `/state`, `/state_window`, and `/graph` contracts that downstream UIs and agents can trust.
 
----
-
-## Summary
-
-* FlowTime-Engine = **executor + telemetry generator**
-* FlowTime-Sim = **model authoring + stochastic input generator**
-* **Telemetry artifacts** are the lingua franca: all runs, replays, and comparisons flow through them
-* **Artifacts registry** is the persistent backbone: no forgetting, everything discoverable
-* **UI orchestrates** all cross-service workflows
-
-For current development roadmap and milestone details, see [`ROADMAP.md`](ROADMAP.md).**Status:** Active scope definition.
+The engine is not a UI, not a template editor, and not a telemetry warehouse. It is the **source of truth** for FlowTime’s time‑binned semantics.
 
 ---
 
-## Purpose (one-liner)
+## Scope (What the engine does)
 
-FlowTime-Engine is the **execution core** of FlowTime. It evaluates models deterministically, computes flows across services and queues, and produces telemetry artifacts for analysis and comparison. It is the **sole generator of telemetry** in the FlowTime ecosystem.
+### Deterministic evaluation
+- Compile models to a strict DAG and evaluate in topological order.
+- Preserve provenance and derived‑metric semantics (origin + aggregation).
 
----
+### Canonical run artifacts
+- Emit `run.json`, `manifest.json`, `series/index.json`, and per‑series CSVs.
+- Enforce consistency checks and emit warnings as first‑class artifacts.
 
-## Scope (what FlowTime-Engine *will* do)
+### Stable state APIs
+- `/state` for single‑bin snapshots.
+- `/state_window` for windowed series and edge metrics.
+- `/graph` for compiled topology and node/edge semantics.
 
-* **Deterministic execution**
-
-  * Evaluate DAGs of nodes and edges on the canonical time grid.
-  * Support stateful primitives: backlog, latency, retries, autoscaling, routing, fan-out.
-
-* **Telemetry generation**
-
-  * Export run outputs as standardized telemetry artifacts (Treehouse-compatible “Binned v0”: CSV/Parquet + `catalog.json`).
-  * Include latency histograms where possible, so downstream quantiles can be recomputed.
-  * Guarantee determinism: same model + seed → same telemetry.
-
-* **Telemetry import (Replay Mode)**
-
-  * Hydrate a run directly from Gold telemetry (CSV/Parquet + catalog).
-  * Replay results faithfully (bit-for-bit identical).
-
-* **Telemetry as input (Constrained Mode, later milestone)**
-
-  * Allow telemetry to anchor **source nodes** while the engine computes downstream behavior.
-  * Useful for “what-if” overlays on top of real arrivals.
-
-* **Scenario execution (Overlay)**
-
-  * Apply overlays to adjust arrivals, capacities, routing, outages.
-  * Compute a comparison run (baseline vs scenario).
-  * Produce quantitative comparison metrics (MAE, SMAPE, correlation, %Δ).
-
-* **API-first runtime**
-
-  * All features exposed via REST endpoints (`/run`, `/graph`, `/export`, `/compare`).
-  * CLI and UI are thin layers over the same API surface.
-  * Artifact determinism and schema validation at API boundaries.
-
-* **Artifacts registry integration**
-
-  * Every run produces a **Run artifact** with telemetry + catalog.
-  * Artifacts are persisted and discoverable in the UI registry.
-  * Artifacts are first-class citizens: runs, models, and telemetry can all be compared or replayed.
+### Core node/edge semantics
+- Node kinds: service, serviceWithBuffer, router, sink, const, expr, dependency.
+- Edge time bins: throughput, effort, terminal edges with conservation checks.
+- Retry series (attempts/failures/retry echo), plus edge‑level retry metrics.
+- Dependency constraints:
+  - **Option A**: dependency nodes in the topology (flow nodes).
+  - **Option B**: constraint registry attached to services (resource constraints).
 
 ---
 
-## Non-Scope (what FlowTime-Engine *will not* do)
+## Non‑Goals (What the engine does not do)
 
-* **No stochastic modeling templates**
+- **No template authoring** (owned by FlowTime.Sim).
+- **No UI‑level interpretation** or client‑side derivations.
+- **No streaming runtime** or live ingestion loop (telemetry ingestion is a separate epic).
+- **No ad‑hoc schema changes** without versioned contracts.
 
-  * Engine does not generate stochastic arrivals, retry kernels, or templates.
-  * That is FlowTime-Sim’s role.
+---
 
-* **No telemetry contract ownership drift**
+## Architecture Principles
 
-  * Engine does not invent its own telemetry formats.
-  * Telemetry contracts evolve in a versioned, additive way (v0, v0.1, v1).
+1. **Deterministic by default**  
+   Same model + seed = same artifacts.
 
-* **No free-form UI modeling**
+2. **Semantics are server‑side**  
+   UI and agents consume semantics; they do not invent them.
 
-  * Engine executes runs; it does not provide modeling editors.
-  * YAML editing and template creation live in FlowTime-Sim and UI.
+3. **Derived metrics are explicit**  
+   Every derived series is labeled with provenance (origin + aggregation).
 
-* **No long-term storage responsibility**
-
-  * Engine emits artifacts; storage/indexing is handled by the artifacts registry service.
+4. **Make wrongness visible**  
+   Invariants and diagnostics are persisted and surfaced.
 
 ---
 
 ## Interfaces
 
-* **Input ← FlowTime-Sim / UI**
+### Inputs
+- Model artifacts from FlowTime.Sim or MCP modeling.
+- Optional telemetry bundles (ingestion epic in progress).
 
-  * Model artifacts: `model.yaml`, `catalog.json`.
-  * Overlay artifacts: `overlay.yaml`.
-  * Telemetry artifacts: Gold CSV/Parquet + catalog.
-
-* **Output → FlowTime UI / external tools**
-
-  * Telemetry artifacts: binned telemetry (`binned_v0.csv`/Parquet) + `catalog.json`.
-  * Overlay comparison results: `diff.json`.
-  * Graph inspection: `/graph` endpoint (nodes + edges).
-
-* **UI flows**
-
-  * **Runs wizard**:
-
-    1. Select Input (Model or Telemetry)
-    2. Configure Run (grid, overlay, checkbox for telemetry export)
-    3. Compute
-    4. Results (DAG view, metrics, artifacts)
-  * **Compare button** on results:
-
-    * Prompt for a second input (Model or Telemetry).
-    * Engine runs/replays both and produces side-by-side results.
+### Outputs
+- Canonical run artifacts (series + manifests).
+- Stable API contracts for `/state` and `/state_window`.
 
 ---
 
-## Value
+## Current State (Jan 2026)
 
-* Provides a **single source of truth** for all FlowTime computations.
-* Ensures telemetry is **consistent, reproducible, and externally consumable**.
-* Bridges stochastic modeling (Sim) with real-world observability (Treehouse pipeline).
-* Supports both **what-if scenarios** and **analysis of real telemetry**.
-* Serves as the **contract enforcer** for all telemetry artifacts.
-
----
-
-## Future Directions
-
-* **Extended primitives**: DLQ, multi-class fairness, advanced retries.
-* **Calibration**: fit parameters (capacity, routing, retry kernels) from telemetry.
-* **Uncertainty modeling**: Monte Carlo runs with percentile bands.
-* **Performance scaling**: larger DAGs, distributed execution.
-* **WASM runtime**: run Engine in-browser for interactive demos.
+Shipped and stable:
+- Compile‑to‑DAG evaluator (evaluation integrity).
+- Edge time bins + conservation warnings.
+- Class‑aware series and UI filters.
+- Dependency constraints (Option A and Option B).
+- Engine semantics layer and MCP‑facing contracts.
 
 ---
 
-## UI & Workflow Implications
+## Near‑Term Engine Work
 
-* **Artifacts Registry**: UI always persists runs, models, and telemetry as artifacts with catalogs.
-* **No “forgetting”**: every artifact is discoverable, searchable, and reusable.
-* **Telemetry import** is just another input option in Runs (no separate menu).
-* **Compare** is contextual: launched from a run result or artifact card.
-* **Wizard pattern** ensures step-by-step configuration (input → configure → compute → results).
-* **Check-box toggle**: users explicitly choose whether to generate/export telemetry artifacts.
+- Telemetry ingestion services (canonical bundle loader).
+- Overlay/what‑if execution as deterministic variants.
+- Path analysis and subgraph queries (server‑side).
 
 ---
 
-## Summary
+## References
 
-* FlowTime-Engine = **executor + telemetry generator**.
-* FlowTime-Sim = **model authoring + stochastic input generator**.
-* **Telemetry artifacts** are the lingua franca: all runs, replays, and comparisons flow through them.
-* **UI flows** are centered on Runs + Compare, with the artifacts registry as the persistent backbone.
-
-This charter is explicit enough to **anchor milestones**:
-
-* M-02.05: close the loop (model → run → export → import → compare).
-* M-4: overlays and scenario runs.
-* M-7: backlog + latency primitives.
-* M-9: telemetry import & fitting.
-* M-14: calibration & drift detection.
+- `docs/reference/engine-capabilities.md` — Shipped capabilities.
+- `docs/architecture/epic-roadmap.md` — Epic ordering and status.
+- `docs/architecture/engine-semantics-layer/README.md` — Semantics layer goal.
+- `docs/architecture/edge-time-bin/README.md` — Edge time bin contract.
+- `docs/architecture/dependency-constraints/README.md` — Dependency options.

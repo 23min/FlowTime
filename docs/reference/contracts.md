@@ -96,8 +96,8 @@ Run identifiers are opaque. Engine generates `run_<utc timestamp>_<8-char slug>`
 - Levels (`entities`): `backlog`, `queueDepth`.
 - Latency (`minutes`):
   - Engine: `latency = (backlog / max(1e-9, served)) * binSize (in minutes)`.
-  - Retry/edge overlays are derived; edge fact tables are not emitted yet (EdgeTimeBin is future work).
-- Classes: single `DEFAULT` class today; the schema carries `class` for forward compatibility.
+  - Edge time bins are emitted as per‑series CSVs (`kind: "edge"`) with metrics such as `flowVolume`, `attemptsVolume`, `failuresVolume`, `retryVolume`, and derived `retryRate`.
+- Classes: multiple classes supported. Each class is materialized as its own series ID (`measure@component@class`). `DEFAULT` remains the fallback when no classes are declared.
 
 ## Service/API surfaces (engine)
 - `POST /v1/runs` → create a run, write artifacts.
@@ -120,5 +120,5 @@ Sim Service exposes template/catalog endpoints for model generation and uses the
 
 ## Out of scope / future (not implemented)
 - Streaming contracts.
-- Edge fact tables (EdgeTimeBin) and per-edge series.
+- Server‑side path analysis / path queries.
 - Catalog APIs or catalog.v1 schema (no catalog endpoints are shipped).

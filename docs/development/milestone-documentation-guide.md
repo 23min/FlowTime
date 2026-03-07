@@ -37,6 +37,8 @@ Milestones evolve through these states:
 
 **Session prompts:** Use `docs/development/milestone-session-guide.md` for the parameterized prompt and guardrails when starting or continuing a milestone.
 
+**Wrap checklist:** When a milestone or epic is wrapped, use the documentation checklist in `docs/development/milestone-session-guide.md` to keep roadmaps, charters, and reference docs in sync.
+
 ---
 
 ## Required Structure
