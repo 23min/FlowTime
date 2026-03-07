@@ -17,8 +17,17 @@ This roadmap supersedes the previous legacy plan (now archived under `docs/archi
 - Engine semantics layer contract hardening (M‑09.01).
 - Dependency constraints Option A + Option B foundations (with follow-up enforcement in-flight).
 
+## Immediate — Documentation & Code Hygiene
+
+Before new feature work, address the findings from the engine & schema review (`docs/architecture/engine-review-findings.md`):
+
+1. **Documentation Accuracy** — Update expression design doc with all 11 shipped functions; downgrade constraint claims to "foundations laid"; clarify time-travel scope as artifact query.
+2. **Engine Code Fixes** — Cache topological order in `Graph`; define NaN/Infinity/div-by-zero policy; fix `Pcg32.NextInt` modulo bias; add router convergence guard.
+3. **Schema Gaps** — Locate or create missing `model.schema.yaml`; standardize JSON Schema meta-version.
+4. **Test Coverage** — Add end-to-end determinism test; add tests for MOD/FLOOR/CEIL/ROUND/STEP/PULSE expression functions.
+
 ## Near-Term Focus (Next Epics)
-1. **Dependency Constraints & Shared Resources (follow-up)**  
+1. **Dependency Constraints & Shared Resources (follow-up)**
    - Complete pattern enforcement and MCP guidance (M‑10.03).  
    - Keep Option A/Option B aligned with engine semantics and surface constraint status clearly in the UI.
 2. **Visualizations (Chart Gallery / Demo Lab)**  
@@ -38,7 +47,8 @@ This roadmap supersedes the previous legacy plan (now archived under `docs/archi
 **Ptolemy-Inspired Semantics & Directors** – Keep time/coordination semantics explicit (e.g., a DiscreteTime director seam) and selectively borrow ideas like modal models, typed ports, and determinacy contracts to future-proof FlowTime’s engine while staying DT-first; see `docs/architecture/ptolemy/README.md`.  
 
 ## References
-- `docs/architecture/time-travel/status-2025-11-23.md` — Latest epic + global gap status.  
+- `docs/architecture/engine-review-findings.md` — Engine & schema review findings (2026-03-07).
+- `docs/architecture/time-travel/status-2025-11-23.md` — Latest epic + global gap status.
 - `docs/architecture/whitepaper.md` — Engine vision + future primitives.  
 - `docs/architecture/expression-extensions-roadmap.md` — Justification for advanced operators.  
 - `docs/architecture/epic-roadmap.md` — Architecture epics, their ordering, and links to detailed docs.  
