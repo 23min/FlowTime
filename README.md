@@ -1,7 +1,7 @@
 # FlowTime
 
 [![Build](https://github.com/23min/FlowTime/actions/workflows/build.yml/badge.svg)](https://github.com/23min/FlowTime/actions/workflows/build.yml)
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
 
 FlowTime is a unified platform for modelling, simulating, and exploring service flows. It combines:
 
@@ -58,13 +58,20 @@ flowtime-vnext/
 │  ├─ FlowTime.Sim.Cli/          # Simulation CLI utilities
 │  └─ FlowTime.UI/               # Blazor WebAssembly UI (:5219)
 ├─ tests/                        # Engine + Sim test projects
-├─ docs/                         # Engine + shared documentation (roadmap, architecture, schemas)
+├─ docs/                        # Architecture reference docs, guides, schemas
+├─ work/                        # AI framework: epics, milestones, tracking, gaps, decisions
+│  ├─ epics/                    # Active + completed epic specs
+│  ├─ milestones/               # Active + completed milestone specs + tracking
+│  └─ gaps.md, decisions.md     # Deferred work and decision log
 ├─ templates/                    # Simulation templates
 ├─ examples/                     # Example models
 ├─ catalogs/                     # Scenario catalogs and sample systems
 ├─ fixtures/                     # HTTP/microservices/time-travel fixtures
+├─ .ai/                         # AI-assisted development framework (submodule)
+├─ .ai-repo/                    # Project-specific AI rules and skills
 ├─ .devcontainer/                # Unified dev container setup
-├─ .github/                      # CI workflows and Copilot instructions
+├─ .github/                      # CI workflows and Copilot agents/skills
+├─ ROADMAP.md                    # High-level roadmap
 └─ FlowTime.sln                  # Unified solution file
 ```
 
@@ -118,16 +125,17 @@ dotnet test tests/FlowTime.Sim.Tests/FlowTime.Sim.Tests.csproj
 
 ## Documentation
 
-- Engine + shared docs: `docs/` (roadmap, architecture, schemas, onboarding).
-- MCP (AI tooling): `docs/guides/MCP.md`.
-- Planning & epics: `docs/ROADMAP.md` (current and future work, including time-travel and upcoming epics).
-- Architecture docs: `docs/architecture/` (time-travel, expression extensions, classes, edge time bins, engine semantics layer, overlays).
+- **Roadmap:** `ROADMAP.md` (priorities, dependency graph, current and future work).
+- **Epics & milestones:** `work/epics/` and `work/milestones/` (specs, tracking docs, completed archive).
+- **Architecture reference:** `docs/architecture/` (whitepaper, expression language, dependency ideas, engine reviews).
+- **Guides:** `docs/guides/` (CLI, MCP/AI tooling).
+- **Schemas:** `docs/schemas/` (template, manifest, run artifact JSON schemas).
 
 ---
 
 ## Contributing
 
-FlowTime is AI-first. Code changes and milestone specs are authored by AI workflows and must follow `docs/development/` and `.github/copilot-instructions.md`.
+FlowTime is AI-first. Code changes and milestone specs are authored by AI workflows using the framework in `.ai/` (agents, skills, rules) and must follow `docs/development/`.
 
 - Humans may contribute by writing or improving documentation.
 - For code changes, open a discussion or issue describing the desired behavior; AI will author the milestone spec and implementation.
@@ -137,4 +145,4 @@ FlowTime is AI-first. Code changes and milestone specs are authored by AI workfl
 
 ## License
 
-MIT. See [`LICENSE`](LICENSE).
+Apache License 2.0. See [`LICENSE`](LICENSE).
