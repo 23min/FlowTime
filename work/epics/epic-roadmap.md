@@ -61,11 +61,12 @@ These depend on the analytical primitives from Phase 3 (except Telemetry Ingesti
 - **Depends on:** Phase 3.1 (bottleneck ID), Phase 3.2 (cycle time decomposition)
 - **Related:** `work/gaps.md` (Path Analysis section)
 
-#### Telemetry Ingestion & Canonical Bundles
+#### Telemetry Ingestion, Topology Inference & Canonical Bundles
 
 - **Folder:** `work/epics/telemetry-ingestion/`
-- **Goal:** Transform raw telemetry into canonical FlowTime bundles with validated manifests.
-- **Depends on:** Stable bundle schemas (already in place). Independent of Phase 3.
+- **Goal:** Build the pipeline from real-world data (event logs, traces, sensor feeds) to FlowTime topology + Gold-format series. Includes Gold Builder, Graph Builder (topology inference with confidence scoring), and bundle assembly.
+- **Depends on:** Stable bundle schemas (already in place). Independent of Phase 3 for basic ingestion; Phase 3 makes ingested data interesting.
+- **Validation datasets identified:** BPI Challenge 2012 (process mining), Road Traffic Fines, PeMS + OSM (road traffic), MTA + GTFS (transit). See `docs/architecture/dataset-fitness-and-ingestion-research.md`.
 - **Note:** Should preserve variability (Cv) if Phase 3.4 ships, so ingestion format should be designed with this in mind.
 
 #### Visualizations / Chart Gallery

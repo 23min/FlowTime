@@ -64,8 +64,8 @@ These depend on Phase 3 analytical primitives (except Telemetry Ingestion which 
 2. **Path Analysis & Subgraph Queries** (`work/epics/path-analysis/`)
    - Path-level queries, bottleneck attribution, dominant routes, path pain (depends on Phase 3.1, 3.2).
 
-3. **Telemetry Ingestion + Canonical Bundles** (`work/epics/telemetry-ingestion/`)
-   - Transform raw telemetry into canonical bundles. Independent of Phase 3; can proceed in parallel.
+3. **Telemetry Ingestion, Topology Inference + Canonical Bundles** (`work/epics/telemetry-ingestion/`)
+   - Gold Builder (raw data → binned facts) + Graph Builder (data → topology) + bundle assembly. Independent of Phase 3; can proceed in parallel. Process mining event logs (BPI Challenge) identified as first validation dataset. See `docs/architecture/dataset-fitness-and-ingestion-research.md`.
 
 4. **Visualizations / Chart Gallery** (`work/epics/visualizations/`)
    - Role-focused charts with cycle time distributions, flow efficiency, bottleneck heat maps (depends on Phase 3.1, 3.2, 3.3). dag-map spike informs rendering approach.
