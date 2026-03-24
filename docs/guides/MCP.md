@@ -5,12 +5,12 @@ This repo includes a **local MCP server** that exposes a subset of FlowTime Engi
 Today, the MCP server is designed to run as a **stdio subprocess** (spawned by a chat client / agent / VS Code extension). It is **not** yet a long-running HTTP service.
 
 Related architecture background:
-- `docs/architecture/ai/mcp-server-architecture.md`
-- `docs/architecture/ai/mcp-modeling.md`
-- `docs/architecture/ai/mcp-modeling-tools.md`
+- `work/epics/completed/ai/mcp-server-architecture.md`
+- `work/epics/completed/ai/mcp-modeling.md`
+- `work/epics/completed/ai/mcp-modeling-tools.md`
 
 Tracking (Epic 8):
-- `docs/milestones/tracking/M-08.01-tracking.md` through `M-08.05-tracking.md`
+- `work/milestones/tracking/M-08.01-tracking.md` through `M-08.05-tracking.md`
 
 ---
 

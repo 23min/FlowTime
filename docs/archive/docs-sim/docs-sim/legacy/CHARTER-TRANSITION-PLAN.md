@@ -224,7 +224,7 @@ This provides **continuity** while avoiding charter violations.
 - [FlowTime-Sim Charter v1.0](flowtime-sim-charter.md)
 - [FlowTime-Engine Charter](../../flowtime-vnext/docs/flowtime-engine-charter.md)
 - [SIM-M2.6 Milestone Documentation](milestones/SIM-M2.6.md)
-- [Charter Roadmap](../../flowtime-vnext/docs/milestones/CHARTER-ROADMAP.md)
+- [Charter Roadmap](../../flowtime-vnext/work/milestones/CHARTER-ROADMAP.md)
 
 ---
 

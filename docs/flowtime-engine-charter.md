@@ -97,7 +97,7 @@ Shipped and stable:
 ## References
 
 - `docs/reference/engine-capabilities.md` — Shipped capabilities.
-- `docs/architecture/epic-roadmap.md` — Epic ordering and status.
-- `docs/architecture/engine-semantics-layer/README.md` — Semantics layer goal.
-- `docs/architecture/edge-time-bin/README.md` — Edge time bin contract.
-- `docs/architecture/dependency-constraints/README.md` — Dependency options.
+- `work/epics/epic-roadmap.md` — Epic ordering and status.
+- `work/epics/completed/engine-semantics-layer/spec.md` — Semantics layer goal.
+- `work/epics/completed/edge-time-bin/spec.md` — Edge time bin contract.
+- `work/epics/dependency-constraints/spec.md` — Dependency options.

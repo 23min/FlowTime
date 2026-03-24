@@ -1,1 +1,94 @@
-# Gaps\n\nDiscovered work items deferred for later.\n
+# Architecture Gaps
+
+This document tracks architecture gaps that are surfaced during implementation but not yet captured as epics or milestones.
+It is intentionally short, factual, and forward-looking.
+
+---
+
+## Path Analysis / Path Filters
+
+### Why this is a gap
+FlowTime now emits edge time bins and derived sink/path latency, but there is no formal architecture for **path analysis**:
+
+- Which paths are used (per class, per time window)?
+- How much flow traverses each path?
+- What are the dominant or toxic routes?
+- Can we extract a subgraph that is “active” for a given class/time window?
+
+Today, clients (UI/MCP) can inspect nodes and edges, but cannot ask for **path-level** answers without custom, client-side logic.
+
+### Path filters vs path analysis
+
+- **Path filters** are a *subgraph extraction* feature:
+  - Given a start/end node, class, and time window, return only the nodes/edges that carry flow.
+  - This is a query/selection problem and could be exposed as an API option.
+
+- **Path analysis** is broader and deeper:
+  - Path discovery, path frequency, ranking, and decomposition.
+  - Dominant route identification, path changes over time, and route anomalies.
+  - May require additional aggregation and/or derived outputs beyond edge time bins.
+
+Path filters can be built from edge time bins, but they still need **well-defined query semantics**
+(e.g., thresholds, class handling, time window behavior) that are not yet specified.
+
+### Relationship to Edge-Time-Bin epic
+Edge time bins provide the necessary *inputs* for path analysis, but do not define
+how to aggregate or query paths. A formal epic is needed to standardize this.
+
+### Proposed direction
+Create a dedicated epic, tentatively **Path Analysis & Subgraph Queries**, to cover:
+
+- Server-side path/subgraph query semantics (path filters).
+- Path-level aggregations (counts, shares, dominant routes).
+- Optional derived outputs with provenance (for MCP and UI).
+
+This epic should be coordinated with:
+- `work/epics/completed/edge-time-bin/` (inputs)
+- `work/epics/anomaly-detection/` (pathologies)
+- `work/epics/completed/ai/` (MCP consumption)
+
+### Immediate implications
+- MCP should remain **pass-through** for edge data in M-08.05.
+- Any path filters or summary helpers should be **server-side** (authoritative),
+  and should live in a follow-up epic or milestone.
+
+---
+
+## Summary Helpers (Edge/Path Analytics)
+
+There is no API contract for **summary helpers** such as:
+
+- Edge retry ratios (retryVolume / flowVolume).
+- Conservation deltas at node boundaries.
+- Path or route summaries.
+
+These would be useful for MCP and UI, but require a contract that clearly labels
+values as derived. This gap is best addressed alongside path analysis.
+
+---
+
+## Dependency Constraint Enforcement (Deferred M-10.03)
+
+### What was planned
+M-10.03 scoped MCP-side pattern enforcement: a dependency pattern selector routing user intent to Option A or Option B, rejecting unsupported patterns (feedback loops, retries), and promoting engine warnings to hard errors during MCP model generation.
+
+### Why deferred
+1. The engine review (2026-03) found that `ConstraintAllocator` has **zero callers** in the evaluation pipeline — constraints are declared in models but silently ignored at runtime. MCP-side enforcement alone doesn't fix this.
+2. The sequenced plan recommends wiring `ConstraintAllocator` into `Graph.Evaluate()` (Phase 3.5) before MCP enforcement adds value.
+3. Near-term priority is correctness bugs and analytical primitives (Phases 0–3 of the sequenced plan).
+
+### When to revisit
+After Phase 3.5 (runtime constraint enforcement) is complete. At that point, M-10.03 should be re-scoped to include both runtime enforcement and MCP guardrails.
+
+### Reference
+- Spec: `work/milestones/completed/M-10.03-dependency-mcp-pattern-enforcement.md`
+- Review: `docs/architecture/reviews/review-sequenced-plan-2026-03.md` (Phase 3.5, Phase 4.1)
+
+---
+
+## Open Questions
+
+- Should path filters be part of the time-travel API or a separate analysis endpoint?
+- What thresholds/semantics define a “path” in time-binned data?
+- Should derived path outputs be stored in run artifacts or computed on demand?
+

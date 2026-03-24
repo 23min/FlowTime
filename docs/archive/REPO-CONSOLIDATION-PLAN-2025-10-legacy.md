@@ -1030,7 +1030,7 @@ cat > docs-migration-summary.md << 'EOF'
 ### 1. ROADMAP.md
 **Decision**: Merged into unified dual-track roadmap
 **Rationale**: Both tracks needed for M3.0 coordination
-**Location**: docs/ROADMAP.md
+**Location**: ROADMAP.md
 
 ### 2. model.schema.yaml
 **Decision**: Engine version is authoritative
@@ -1041,7 +1041,7 @@ cat > docs-migration-summary.md << 'EOF'
 ### 3. Milestone Documentation
 **Decision**: Keep separate with prefixes
 **Rationale**: Different scopes, both valuable
-**Structure**: docs/milestones/{engine,sim,shared}/
+**Structure**: work/milestones/{engine,sim,shared}/
 
 ### 4. Development Guides
 **Decision**: Engine versions authoritative
@@ -1091,7 +1091,7 @@ cat > README-ARCHIVED.md << 'EOF'
 FlowTime-Sim projects and documentation are now in the unified FlowTime repository:
 - Code: `src/FlowTime.Sim.*`
 - Tests: `tests/FlowTime.Sim.Tests`
-- Docs: `docs/architecture/sim/`, `docs/milestones/sim/`
+- Docs: `docs/architecture/sim/`, `work/milestones/sim/`
 
 **Last Active Version**: v0.6.0  
 **Code Consolidation**: v0.7.0 (October 10, 2025)
@@ -1218,7 +1218,7 @@ find docs -name "*.md" -exec markdown-link-check {} \;
 
 # Manual spot-check critical documents:
 # - README.md
-# - docs/ROADMAP.md
+# - ROADMAP.md
 # - docs/development/getting-started.md
 ```
 
@@ -1631,8 +1631,8 @@ Before starting execution:
 - FlowTime Engine Charter: `docs/architecture/engine/flowtime-engine-charter.md`
 - FlowTime-Sim Charter: `docs/architecture/sim/flowtime-sim-charter.md`
 - KISS Architecture: `docs/architecture/kiss-principles.md`
-- Current Roadmap (Engine): `/workspaces/flowtime-vnext/docs/ROADMAP.md`
-- Current Roadmap (Sim): `/workspaces/flowtime-sim-vnext/docs/ROADMAP.md`
+- Current Roadmap (Engine): `/workspaces/flowtime-vnext/ROADMAP.md`
+- Current Roadmap (Sim): `/workspaces/flowtime-sim-vnext/ROADMAP.md`
 - Time-Travel Audit: `/workspaces/flowtime-sim-vnext/docs/time-travel-readiness-audit.md`
 
 ---

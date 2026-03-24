@@ -16,7 +16,7 @@ SB‑M‑05.03 completes the queue/DLQ DSL work started in SB‑M‑05.02. Any t
    - Validator guards against mixed implicit/explicit queue definitions.
 2. **Templates & Docs**
    - Supply-chain (base + classes), transportation-basic, transportation-basic-classes, and other canonical templates removed their backlog helper nodes and now rely solely on the implicit DSL. Remaining templates that still reference backlog series in expressions are documented for the router follow-up milestone.
-   - `docs/templates/template-authoring.md` and `docs/architecture/service-with-buffer/…` describe the new synthesizer behavior; template README entries highlight the SB‑M‑05.03 update.
+   - `docs/templates/template-authoring.md` and `work/epics/completed/service-with-buffer/…` describe the new synthesizer behavior; template README entries highlight the SB‑M‑05.03 update.
 3. **Analyzer / CLI / UI**
    - By-class warnings and queue latency badges now look at logical type, so implicitly synthesized queues behave exactly like explicit ones.
    - Retry badge rendering was tightened (chips sit closer to the node, badge appears after the chips), and synthesized helper nodes no longer appear in graph payloads.
@@ -29,7 +29,7 @@ SB‑M‑05.03 completes the queue/DLQ DSL work started in SB‑M‑05.02. Any t
 
 ## Known Gaps / Follow-ups
 
-- Router nodes still require helper series for arrivals/served/capacity. `docs/milestones/completed/SB-M-05.03.md` documents the router follow-up milestone (“SB-M-05.03-router”) which will give routers the same implicit synthesizer treatment.
+- Router nodes still require helper series for arrivals/served/capacity. `work/milestones/completed/SB-M-05.03.md` documents the router follow-up milestone (“SB-M-05.03-router”) which will give routers the same implicit synthesizer treatment.
 - Templates that still reference backlog series in expressions (warehouse picker, IT systems, incident retry, manufacturing, network reliability, transportation classes) will be refactored as part of the router/queue follow-up; for now those aliases remain intentional.
 
 ## Verification

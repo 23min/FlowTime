@@ -166,6 +166,6 @@ Analyzer behavior:
 For full contract details, see `docs/reference/contracts.md` and the template authoring/testing guides under `docs/templates/`.
 
 See also:
-- Roadmap: docs/ROADMAP.md
+- Roadmap: ROADMAP.md
 - Contracts: docs/contracts.md
 - Concepts: docs/concepts/nodes-and-expressions.md

@@ -20,7 +20,7 @@ First working slice of FlowTime‑Sim focused on model‑driven runs. The CLI re
 
 - VS Code tasks: build, test, run examples (localhost or container API).
 - Tests (xUnit): CSV writer, arg parsing defaults/verbose, API error surfacing.
-- Docs: README updated; milestone notes at `docs/milestones/M0.md`.
+- Docs: README updated; milestone notes at `work/milestones/M0.md`.
 
 ## How to try it
 

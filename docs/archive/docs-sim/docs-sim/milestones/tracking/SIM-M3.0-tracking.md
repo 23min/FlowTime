@@ -1,6 +1,6 @@
 # SIM-M3.0 Tracking — Time-Travel Foundations
 
-**Milestone Doc:** `docs/milestones/SIM-M3.0-time-travel-foundations.md`  
+**Milestone Doc:** `work/milestones/SIM-M3.0-time-travel-foundations.md`  
 **Work Branch:** `feature/time-travel-m3`  
 **Status:** 🔄 Active (tracking live progress for SIM-M3.0)
 

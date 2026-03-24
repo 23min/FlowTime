@@ -388,7 +388,7 @@ Engine 0.5.0 + Sim 0.5.0 = ✅ Works (new format)
 - **Target Schema**: `docs/schemas/target-model-schema.md`
 - **Target Schema (YAML)**: `docs/schemas/target-model-schema.yaml`
 - **Analysis**: `docs/schemas/M2.9-ANALYSIS.md`
-- **Engine Milestone**: `docs/milestones/Engine-M2.9.md` (flowtime-vnext)
+- **Engine Milestone**: `work/milestones/Engine-M2.9.md` (flowtime-vnext)
 - **Registry Integration**: `docs/architecture/registry-integration.md`
 
 ---

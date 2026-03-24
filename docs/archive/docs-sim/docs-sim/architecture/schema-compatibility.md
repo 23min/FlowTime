@@ -13,8 +13,8 @@
 > **Status**: Needs comprehensive update after SIM-M2.6.1 implementation completes.  
 > **See Instead**: 
 > - Current architecture: `docs/architecture/registry-integration.md`
-> - Schema evolution: `docs/milestones/SIM-M2.6.1.md`
-> - Provenance integration: `docs/milestones/SIM-M2.7.md`
+> - Schema evolution: `work/milestones/SIM-M2.6.1.md`
+> - Provenance integration: `work/milestones/SIM-M2.7.md`
 
 ---
 

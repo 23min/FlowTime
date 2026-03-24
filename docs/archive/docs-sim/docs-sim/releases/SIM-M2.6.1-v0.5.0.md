@@ -323,7 +323,7 @@ After provenance integration:
 - **Target Schema**: `docs/schemas/target-model-schema.md`
 - **Target Schema (YAML)**: `docs/schemas/target-model-schema.yaml`
 - **Analysis**: `docs/schemas/M2.9-ANALYSIS.md`
-- **Milestone**: `docs/milestones/SIM-M2.6.1.md` marked complete
+- **Milestone**: `work/milestones/SIM-M2.6.1.md` marked complete
 
 ### Engine Coordination
 
@@ -350,5 +350,5 @@ This release required close coordination with FlowTime Engine M2.9 for schema al
 - [SIM-M2.6.1 Milestone](../milestones/SIM-M2.6.1.md)
 - [Target Model Schema](../schemas/target-model-schema.md)
 - [M2.9 Analysis](../schemas/M2.9-ANALYSIS.md)
-- [Engine M2.9 Milestone](../../flowtime-vnext/docs/milestones/Engine-M2.9.md)
+- [Engine M2.9 Milestone](../../flowtime-vnext/work/milestones/Engine-M2.9.md)
 - [Registry Integration Architecture](../architecture/registry-integration.md)

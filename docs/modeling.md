@@ -40,9 +40,9 @@ Describes **why the engine and UI look the way they do**:
 
 Architecture docs assume the reader knows the basic concepts and want to see rationale, trade-offs, and epic-level change plans. Relevant folders include:
 
-- `docs/architecture/edge-time-bin/` (edge metrics and overlays)
-- `docs/architecture/dependency-constraints/` (Option A/B dependency modeling)
-- `docs/architecture/ai/` (MCP modeling and analysis contracts)
+- `work/epics/completed/edge-time-bin/` (edge metrics and overlays)
+- `work/epics/dependency-constraints/` (Option A/B dependency modeling)
+- `work/epics/completed/ai/` (MCP modeling and analysis contracts)
 
 ---
 
@@ -87,6 +87,6 @@ Notes are allowed to be essay-like. When a Note becomes stable and broadly appli
 
 ## 6. Milestones and Roadmap
 
-- `docs/milestones/` – Concrete implementation slices (e.g., CL-M-04.03.02, SB-M-01) that move Architecture forward.
-- `docs/ROADMAP.md` – High-level roadmap view.
-- `docs/architecture/epic-roadmap.md` – Architecture-focused epic index.
+- `work/milestones/` – Concrete implementation slices (e.g., CL-M-04.03.02, SB-M-01) that move Architecture forward.
+- `ROADMAP.md` – High-level roadmap view.
+- `work/epics/epic-roadmap.md` – Architecture-focused epic index.

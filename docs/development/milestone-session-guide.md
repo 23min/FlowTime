@@ -16,8 +16,8 @@ You are Codex working in /workspaces/flowtime-vnext (branch main unless already 
 
 In this prompt, [CURRENT_MILESTONE] refers to <MILESTONE-ID>.
 
-Current milestone: /workspaces/flowtime-vnext/docs/milestones/[CURRENT_MILESTONE].md
-Current milestone status: /workspaces/flowtime-vnext/docs/milestones/tracking/[CURRENT_MILESTONE]-tracking.md
+Current milestone: /workspaces/flowtime-vnext/work/milestones/[CURRENT_MILESTONE].md
+Current milestone status: /workspaces/flowtime-vnext/work/milestones/tracking/[CURRENT_MILESTONE]-tracking.md
 
 When starting a milestone, use the branching guidelines.
 When wrapping a milestone, do not merge to main; stay on the branch.
@@ -35,7 +35,7 @@ Guardrails:
 
 Initial TODO:
 1) Create a new branch per docs/development/branching-strategy.md
-2) Create docs/milestones/tracking/[milestone]-tracking.md from template
+2) Create work/milestones/tracking/[milestone]-tracking.md from template
 3) Populate phases and tasks (tests-first order) and mark status as Planned
 
 Kick off implementation when ready, starting with the tracking doc creation.
@@ -62,12 +62,12 @@ Kick off implementation when ready, starting with the tracking doc creation.
 
 When wrapping a **milestone** or **epic**, verify these docs stay in sync:
 
-- Milestone status + tracking doc (`docs/milestones/` and `docs/milestones/tracking/`).
+- Milestone status + tracking doc (`work/milestones/` and `work/milestones/tracking/`).
 - Release note for the milestone (`docs/releases/`).
-- `docs/architecture/epic-roadmap.md` (status + ordering).
-- `docs/ROADMAP.md` (high-level view).
+- `work/epics/epic-roadmap.md` (status + ordering).
+- `ROADMAP.md` (high-level view).
 - `docs/reference/engine-capabilities.md` (if shipped behavior changed).
 - Charters: `docs/flowtime-charter.md` and `docs/flowtime-engine-charter.md`.
 - Any affected concept/architecture/guide docs listed in `docs/modeling.md`.
 
-If an epic wraps, also move milestone specs to `docs/milestones/completed/` as a batch.
+If an epic wraps, also move milestone specs to `work/milestones/completed/` as a batch.

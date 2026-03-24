@@ -6,18 +6,18 @@ This document describes how we structure larger chunks of work into **epics** an
 
 - An **epic** captures a coherent architectural or product theme (e.g., class-aware routing, services with buffers).
 - Each epic has a dedicated folder under `docs/architecture/`, for example:
-  - `docs/architecture/classes/`
-  - `docs/architecture/service-with-buffer/`
+  - `work/epics/completed/classes/`
+  - `work/epics/completed/service-with-buffer/`
 - An epic folder typically contains:
   - A short `README.md` describing the epic at a high level.
   - One or more detailed architecture / design documents.
-  - Links to the relevant milestones under `docs/milestones/`.
-- Once every milestone in an epic ships, move those milestone specs into `docs/milestones/completed/` and update links (epic docs should continue to point at the archived paths).
+  - Links to the relevant milestones under `work/milestones/`.
+- Once every milestone in an epic ships, move those milestone specs into `work/milestones/completed/` and update links (epic docs should continue to point at the archived paths).
 
 ## Milestones
 
 - Epics are divided into one or more **milestones**.
-- Milestones are specified as individual markdown files under `docs/milestones/`, following the existing guardrails in:
+- Milestones are specified as individual markdown files under `work/milestones/`, following the existing guardrails in:
   - `docs/development/milestones-guardrails.md`
   - `docs/development/milestones-overview.md` (if present)
 - Each milestone:
@@ -27,26 +27,26 @@ This document describes how we structure larger chunks of work into **epics** an
 
 ## Relationship to the Roadmap
 
-- The high-level product and architecture **roadmap** lives in `docs/ROADMAP.md`.
-- `docs/ROADMAP.md` should:
+- The high-level product and architecture **roadmap** lives in `ROADMAP.md`.
+- `ROADMAP.md` should:
   - Call out major epics (by name and folder) and sequence them over time.
   - Link to the **Epic Roadmap** document under `docs/architecture/` for more detail.
-- The **Epic Roadmap** in `docs/architecture` (see `docs/architecture/epic-roadmap.md`) lists:
+- The **Epic Roadmap** in `docs/architecture` (see `work/epics/epic-roadmap.md`) lists:
   - The epic folders under `docs/architecture/`.
   - The intended ordering (what we do first/next/later).
   - A short rationale for each epic.
 
 ## Workflow Summary
 
-1. **Roadmap**: Add or refine high-level items in `docs/ROADMAP.md`.
+1. **Roadmap**: Add or refine high-level items in `ROADMAP.md`.
 2. **Epic**: For a roadmap item that needs deeper design, create an epic folder under `docs/architecture/` and describe its scope and rationale.
-3. **Milestones**: Break the epic into concrete, scoped milestones under `docs/milestones/`, following the milestone guardrails.
+3. **Milestones**: Break the epic into concrete, scoped milestones under `work/milestones/`, following the milestone guardrails.
 
 ## Integration Branches (Recommended)
 
 When `main` is only updated when an epic completes, use a dedicated epic integration branch:
 
-- Create `epic/<epic-slug>` where `<epic-slug>` matches the epic folder name under `docs/architecture/` (for example, `docs/architecture/ui-perf/` maps to `epic/ui-perf`).
+- Create `epic/<epic-slug>` where `<epic-slug>` matches the epic folder name under `docs/architecture/` (for example, `work/epics/completed/ui-perf/` maps to `epic/ui-perf`).
 - Merge completed milestone branches into the epic branch via PRs.
 - Start new milestone work for that epic by branching from the epic branch (not from `main`).
 - Merge `epic/<epic-slug>` into `main` only when the epic is complete.

@@ -1,6 +1,6 @@
 # FT-M-05.07 Playwright Automation Plan
 
-Task 1.2 of FT-M-05.07 requires an automated hover/pan/scrub validation that fails when the topology UI exceeds the latency budgets defined in `docs/architecture/ui-perf/README.md`. This document captures the proposed tooling and scenarios before we add code.
+Task 1.2 of FT-M-05.07 requires an automated hover/pan/scrub validation that fails when the topology UI exceeds the latency budgets defined in `work/epics/completed/ui-perf/spec.md`. This document captures the proposed tooling and scenarios before we add code.
 
 ## Objectives
 

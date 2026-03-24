@@ -450,7 +450,7 @@ sequenceDiagram
 ## Related Documents
 
 - Architecture: docs/architecture/registry-integration.md
-- Schema Evolution: docs/milestones/SIM-M2.6.1.md
+- Schema Evolution: work/milestones/SIM-M2.6.1.md
 
 ---
 

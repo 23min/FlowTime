@@ -14,7 +14,7 @@
 
 ## Quick Links
 
-- **Milestone Document:** [`docs/milestones/[MILESTONE-ID].md`](../milestones/[MILESTONE-ID].md)
+- **Milestone Document:** [`work/milestones/[MILESTONE-ID].md`](../milestones/[MILESTONE-ID].md)
 - **Related Analysis:** [Link to any analysis documents]
 - **Milestone Guide:** [`docs/development/milestone-documentation-guide.md`](milestone-documentation-guide.md)
 
@@ -254,7 +254,7 @@
    - First commit on work branch should include this tracking doc
 
 2. **Setup Phase (First Commit):**
-   - Copy this template to `docs/milestones/tracking/[MILESTONE-ID]-tracking.md`
+   - Copy this template to `work/milestones/tracking/[MILESTONE-ID]-tracking.md`
    - Fill in header (milestone ID, title, date, branch, assignee)
    - Update Quick Links section
    - Customize phase names and task lists from milestone doc

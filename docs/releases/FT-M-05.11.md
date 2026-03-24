@@ -24,7 +24,7 @@ FT-M-05.11 introduces a first-class `kind: sink` node so terminal success has ex
    (`src/FlowTime.UI/Pages/TimeTravel/Topology.razor`, `src/FlowTime.UI/Components/Topology/TopologyCanvas.razor.cs`)
 5. **Template alignment + docs**  
    Transportation sinks now represent terminal destinations, with updated documentation for sink guidance.  
-   (`templates/transportation-*.yaml`, `docs/templates/template-authoring.md`, `docs/architecture/service-with-buffer/sink-node-architecture.md`)
+   (`templates/transportation-*.yaml`, `docs/templates/template-authoring.md`, `work/epics/completed/service-with-buffer/sink-node-architecture.md`)
 
 ## Tests
 

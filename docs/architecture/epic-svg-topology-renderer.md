@@ -3,7 +3,7 @@
 > **Date:** 2026-03-23
 > **Status:** Proposal
 > **Depends on:** UI Layout Motors epic (conceptually); can be done incrementally ahead of it
-> **Related:** `docs/architecture/ui-layout/README.md`, `engine-deep-review-2026-03.md`
+> **Related:** `work/epics/ui-layout/spec.md`, `engine-deep-review-2026-03.md`
 
 ---
 
@@ -285,7 +285,7 @@ This contract is already mostly defined by `TopologyCanvas.razor.cs` parameters.
 
 ## 7. Relationship to UI Layout Motors Epic
 
-The existing `docs/architecture/ui-layout/README.md` epic proposes a pluggable `LayoutInput -> LayoutResult` contract. This SVG epic is a **natural first consumer** of that contract:
+The existing `work/epics/ui-layout/spec.md` epic proposes a pluggable `LayoutInput -> LayoutResult` contract. This SVG epic is a **natural first consumer** of that contract:
 
 - **M-SVG-01** implicitly creates the layout abstraction (dag-map input/output mapping)
 - **UI Layout Motors** can formalize this into a contract that both Canvas and SVG renderers consume

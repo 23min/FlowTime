@@ -135,7 +135,7 @@ FlowTime transforms from simulation demo tool to **model authoring platform** wi
 
 **Dependencies:** M-02.07 (Artifacts Registry), SIM-M-02.07+SIM-M-02.08+SIM-M-02.09 (Sim preparation milestones)  
 **Enables:** Complete ecosystem model authoring to analysis flow  
-**Implementation:** See [SIM-M-03.00 in FlowTime-Sim repository](../../flowtime-sim-vnext/docs/milestones/completed/SIM-M-03.00.md)
+**Implementation:** See [SIM-M-03.00 in FlowTime-Sim repository](../../flowtime-sim-vnext/work/milestones/completed/SIM-M-03.00.md)
 
 ---
 

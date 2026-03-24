@@ -228,7 +228,7 @@ flowchart TD
 ## File Impact Summary
 
 ### Files to Create
-- `docs/milestones/tracking/SIM-M3.0-tracking.md` — Activated when work starts.
+- `work/milestones/tracking/SIM-M3.0-tracking.md` — Activated when work starts.
 - `tests/FlowTime.Sim.Tests/Templates/Fixtures/time_travel_topology_template.yaml` — Fixture for CLI and snapshot tests.
 
 ### Files to Modify (Major)
@@ -245,7 +245,7 @@ flowchart TD
 - `tests/FlowTime.Sim.Tests/Templates/TemplateParserTests.cs`
 - `tests/FlowTime.Sim.Tests/Templates/TemplateValidationTests.cs`
 - `tests/FlowTime.Sim.Tests/Service/TemplateGenerateProvenanceTests.cs`
-- `docs/ROADMAP.md`
+- `ROADMAP.md`
 
 ### Files to Deprecate/Delete
 - None.

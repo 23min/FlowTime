@@ -23,7 +23,7 @@
 - Self-contained and authoritative
 
 ### 4. Separate Tracking During Implementation 🔄
-- Create `docs/milestones/tracking/[MILESTONE-ID]-tracking.md` when work starts on work branch
+- Create `work/milestones/tracking/[MILESTONE-ID]-tracking.md` when work starts on work branch
 - Update tracking doc with each commit
 - Keep milestone doc stable, tracking doc dynamic
 
@@ -96,7 +96,7 @@
 
 ### Starting Implementation
 1. Create feature/work branch
-2. Create tracking document (`docs/milestones/tracking/[MILESTONE-ID]-tracking.md`)
+2. Create tracking document (`work/milestones/tracking/[MILESTONE-ID]-tracking.md`)
 3. Create TDD plan (as first step in tracking doc)
 4. Write failing tests (TDD)
 
@@ -130,9 +130,9 @@ Before marking milestone as "📋 Planned":
 
 ## Examples
 
-**Good:** `docs/milestones/M2.9.md` (remove time estimate)
-**Good:** `docs/milestones/M2.10.md` (remove "1-2 hours")
-**Updated:** `docs/milestones/UI-M2.9.md` (now follows rules)
+**Good:** `work/milestones/M2.9.md` (remove time estimate)
+**Good:** `work/milestones/M2.10.md` (remove "1-2 hours")
+**Updated:** `work/milestones/UI-M2.9.md` (now follows rules)
 
 ---
 

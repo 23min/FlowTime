@@ -26,8 +26,8 @@ This repository uses a milestone-first workflow that scales from solo work to sm
 
 Prefer a short slug that maps to an epic folder under `docs/architecture/`:
 
-- Epic folder: `docs/architecture/ui-perf/` → branch: `epic/ui-perf`
-- Epic folder: `docs/architecture/classes/` → branch: `epic/classes`
+- Epic folder: `work/epics/completed/ui-perf/` → branch: `epic/ui-perf`
+- Epic folder: `work/epics/completed/classes/` → branch: `epic/classes`
 
 For "catch-up" or cross-epic integration trains, use an explicit integration slug (example: `epic/ft-05-integration`).
 
@@ -85,4 +85,4 @@ Scopes you can use: `api`, `ui`, `cli`, `core`, `repo`, `docs`, `test`, `build`,
 ### Notes
 
 - Tags preserve history; delete feature and milestone branches after merge.
-- Keep `docs/milestones/m0/*` updated alongside code.
+- Keep `work/milestones/m0/*` updated alongside code.

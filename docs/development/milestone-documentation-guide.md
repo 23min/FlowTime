@@ -33,7 +33,7 @@ Milestones evolve through these states:
 - **🔄 In Progress** - Implementation underway, tracking document active
 - **✅ Complete** - Delivered, tracked in release notes
 
-**Archiving policy:** Do not move milestone specs to `docs/milestones/completed/` until the entire epic that owns them is complete. Completed milestones remain in `docs/milestones/` until the epic wrap, then are archived together.
+**Archiving policy:** Do not move milestone specs to `work/milestones/completed/` until the entire epic that owns them is complete. Completed milestones remain in `work/milestones/` until the epic wrap, then are archived together.
 
 **Session prompts:** Use `docs/development/milestone-session-guide.md` for the parameterized prompt and guardrails when starting or continuing a milestone.
 
@@ -365,7 +365,7 @@ graph TD
 ### Separate Tracking Document
 
 **When:** Created when work branch is created (first step of implementation)  
-**Where:** `docs/milestones/tracking/[MILESTONE-ID]-tracking.md`  
+**Where:** `work/milestones/tracking/[MILESTONE-ID]-tracking.md`  
 **Purpose:** Real-time progress log updated with each commit  
 **Created by:** Developer starting the milestone work  
 **Template:** [`docs/development/TEMPLATE-tracking.md`](TEMPLATE-tracking.md)
@@ -422,7 +422,7 @@ All task checklists MUST follow this order:
 
 ## Quick Links
 
-- **Milestone Document:** [`docs/milestones/completed/UI-M-02.09.md`](../UI-M-02.09.md)
+- **Milestone Document:** [`work/milestones/completed/UI-M-02.09.md`](../UI-M-02.09.md)
 - **Related Analysis:** [`docs/ui/UI-CURRENT-STATE-ANALYSIS.md`](../../ui/UI-CURRENT-STATE-ANALYSIS.md)
 
 ---
@@ -486,21 +486,21 @@ All task checklists MUST follow this order:
 ## Examples of Good Milestones
 
 ### Simple Milestone
-See: [`docs/milestones/completed/M-02.10.md`](../milestones/M-02.10.md)
+See: [`work/milestones/completed/M-02.10.md`](../milestones/M-02.10.md)
 - ✅ Clear scope (provenance queries)
 - ✅ Specific API/CLI requirements
 - ✅ Test cases included
 - ⚠️ Remove time estimate (violates rule)
 
 ### Complex Milestone
-See: [`docs/milestones/completed/M-02.09.md`](../milestones/M-02.09.md)
+See: [`work/milestones/completed/M-02.09.md`](../milestones/M-02.09.md)
 - ✅ Multi-phase implementation
 - ✅ TDD approach documented
 - ✅ Comprehensive test plan
 - ✅ Architecture decisions
 
 ### UI Milestone
-See: [`docs/milestones/completed/UI-M-02.09.md`](../milestones/UI-M-02.09.md)
+See: [`work/milestones/completed/UI-M-02.09.md`](../milestones/UI-M-02.09.md)
 - ⚠️ Needs update (outdated schema assumptions)
 - ⚠️ Remove date stamp
 - ⚠️ Remove time estimates
@@ -526,7 +526,7 @@ Before marking a milestone as "📋 Planned":
 When starting implementation:
 
 - [ ] Create feature branch following naming convention
-- [ ] Create tracking document from template [`docs/development/TEMPLATE-tracking.md`](TEMPLATE-tracking.md) → `docs/milestones/tracking/[MILESTONE-ID]-tracking.md` (first commit)
+- [ ] Create tracking document from template [`docs/development/TEMPLATE-tracking.md`](TEMPLATE-tracking.md) → `work/milestones/tracking/[MILESTONE-ID]-tracking.md` (first commit)
   - **IMPORTANT:** Remove all template instructions and placeholders
   - Use actual phase/task names from milestone document
   - NO dates until you actually work on them

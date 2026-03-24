@@ -196,7 +196,7 @@ During Phase 1, FlowTime-Sim maintains:
 ### **Technical Documentation**  
 - [SIM-M2.6 Milestone](milestones/SIM-M2.6.md)
 - [FlowTime-Sim Roadmap](ROADMAP.md)
-- [Engine Charter Roadmap](../../flowtime-vnext/docs/milestones/CHARTER-ROADMAP.md)
+- [Engine Charter Roadmap](../../flowtime-vnext/work/milestones/CHARTER-ROADMAP.md)
 
 ### **Development Resources**
 - [Development Setup](development-setup.md)

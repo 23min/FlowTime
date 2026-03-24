@@ -18,7 +18,7 @@ FT-M-05.15 adds optional series semantics metadata to `/state` and `/state_windo
    (`src/FlowTime.API/Services/StateQueryService.cs`, `src/FlowTime.UI/Services/TimeTravelApiModels.cs`)
 3. **UI provenance surfacing**  
    Inspector provenance tooltips render aggregation semantics when provided.  
-   (`src/FlowTime.UI/Pages/TimeTravel/Topology.razor`, `docs/architecture/ui/metric-provenance.md`)
+   (`src/FlowTime.UI/Pages/TimeTravel/Topology.razor`, `work/epics/ui/metric-provenance.md`)
 4. **Docs + guidance updates**  
    Template/telemetry guidance updated to describe semantics metadata usage.  
    (`docs/templates/template-authoring.md`)

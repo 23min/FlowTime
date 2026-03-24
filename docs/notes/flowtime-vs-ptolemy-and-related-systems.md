@@ -217,4 +217,4 @@ Key conclusions and guardrails, framed as guidance going forward:
      - Telemetry-informed post-processing.
      - First-class but *thin* UI for analysis.
 
-These points can inform the Ptolemy epic in `docs/architecture/ptolemy/` and serve as a reference whenever we’re deciding whether a new idea is aligned with FlowTime’s core identity or risks turning it into “yet another general-purpose simulator."
+These points can inform the Ptolemy epic in `work/epics/ptolemy/` and serve as a reference whenever we’re deciding whether a new idea is aligned with FlowTime’s core identity or risks turning it into “yet another general-purpose simulator."

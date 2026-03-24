@@ -986,8 +986,8 @@ This would enable "model library" use cases where users want to save models befo
 
 ## Related Documents
 
-- **SIM-M2.6.1 Milestone**: `docs/milestones/SIM-M2.6.1.md`
-- **SIM-M2.7 Milestone**: `docs/milestones/SIM-M2.7.md`
+- **SIM-M2.6.1 Milestone**: `work/milestones/SIM-M2.6.1.md`
+- **SIM-M2.7 Milestone**: `work/milestones/SIM-M2.7.md`
 - **KISS Analysis**: `docs/architecture/SIM-M2.7-KISS-ANALYSIS.md`
 - **Engine Registry**: FileSystemArtifactRegistry in flowtime-vnext
-- **Engine M2.7 Milestone**: `docs/milestones/M2.7.md` (flowtime-vnext)
+- **Engine M2.7 Milestone**: `work/milestones/M2.7.md` (flowtime-vnext)

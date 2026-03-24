@@ -24,7 +24,7 @@ FT-M-05.12 adds metric provenance to the time-travel UI so users can understand 
    (`src/FlowTime.UI/Pages/TimeTravel/Topology.razor`)
 5. **Documentation updates**  
    Provenance UX and semantics are documented in the UI architecture notes and the milestone spec.  
-   (`docs/architecture/ui/metric-provenance.md`, `docs/milestones/completed/FT-M-05.12-metric-provenance.md`)
+   (`work/epics/ui/metric-provenance.md`, `work/milestones/completed/FT-M-05.12-metric-provenance.md`)
 
 ## Tests
 

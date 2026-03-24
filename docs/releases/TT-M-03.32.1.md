@@ -14,7 +14,7 @@ Follow-up to TT‑M‑03.32 that finished retry governance. TT‑M‑03.32.1 mad
 2. Topology canvas renders DLQs distinctly (badge + queue depth) with feature-bar toggle; chips/inspector show alias text.
 3. Templates (`it-system-microservices`, `manufacturing-line`, `network-reliability`, `supply-chain-incident-retry`, `transportation-basic`, `supply-chain-multi-tier`) now use backlog-aware queues + operator-owned DLQs/terminal sinks. `templates/` YAMLs updated along with goldens/tests.
 4. Docs: milestone & tracking files, template authoring/testing guides, release notes, and new roadmap entries reflect DLQ lens + remaining gaps.
-5. New status doc (`docs/architecture/time-travel/status-2025-11-23.md`) captures epic closure + future gaps (EdgeTimeBin, TelemetryLoader, expressions, etc.).
+5. New status doc (`work/epics/completed/time-travel/status-2025-11-23.md`) captures epic closure + future gaps (EdgeTimeBin, TelemetryLoader, expressions, etc.).
 
 ## Tests
 | Command | Result |
@@ -27,4 +27,4 @@ Follow-up to TT‑M‑03.32 that finished retry governance. TT‑M‑03.32.1 mad
 ## Notes
 - Analyzer cross-node checks (queue arrivals vs upstream served) deferred to next epic.
 - Template catalog remains on FlowTime.Sim API; Engine focuses on model artifacts.  
-- Expression extension roadmap + deferred TelemetryLoader work captured in `docs/ROADMAP.md` for future planning.
+- Expression extension roadmap + deferred TelemetryLoader work captured in `ROADMAP.md` for future planning.

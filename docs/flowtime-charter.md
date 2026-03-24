@@ -92,7 +92,7 @@ Shipped foundations:
 3. **Telemetry Ingestion + Canonical Bundles**: loader + parity with synthetic runs.  
 4. **Path Analysis**: path‑level queries from edge time bins.
 
-See `docs/architecture/epic-roadmap.md` and `docs/ROADMAP.md`.
+See `work/epics/epic-roadmap.md` and `ROADMAP.md`.
 
 ---
 
@@ -109,6 +109,6 @@ See `docs/architecture/epic-roadmap.md` and `docs/ROADMAP.md`.
 ## References
 
 - `docs/reference/engine-capabilities.md` — What is shipped.
-- `docs/architecture/epic-roadmap.md` — Epic ordering and status.
+- `work/epics/epic-roadmap.md` — Epic ordering and status.
 - `docs/architecture/whitepaper.md` — Vision and foundations.
 - `docs/flowtime-engine-charter.md` — Engine‑specific scope.

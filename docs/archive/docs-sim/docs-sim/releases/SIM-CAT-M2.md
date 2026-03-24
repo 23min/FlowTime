@@ -121,7 +121,7 @@ Or inline catalog:
 ### Modified Files  
 - `src/FlowTime.Sim.Service/Program.cs` - Added catalog endpoints
 - `tests/FlowTime.Sim.Tests/ServiceIntegrationTests.cs` - API integration tests
-- `docs/ROADMAP.md` - Marked SIM-CAT-M2 as complete
+- `ROADMAP.md` - Marked SIM-CAT-M2 as complete
 
 ## API Usage Examples
 

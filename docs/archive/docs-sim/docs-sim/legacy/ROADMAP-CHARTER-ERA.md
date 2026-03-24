@@ -1,6 +1,6 @@
 # FlowTime Sim Roadmap (Legacy - Charter Superseded)
 
-> **🚀 CHARTER NOTICE**: This roadmap has been superseded by the [FlowTime-Engine Charter](../../flowtime-vnext/docs/flowtime-engine-charter.md) and [Charter Roadmap](../../flowtime-vnext/docs/milestones/CHARTER-ROADMAP.md). 
+> **🚀 CHARTER NOTICE**: This roadmap has been superseded by the [FlowTime-Engine Charter](../../flowtime-vnext/docs/flowtime-engine-charter.md) and [Charter Roadmap](../../flowtime-vnext/work/milestones/CHARTER-ROADMAP.md). 
 >
 > **Current Development**: FlowTime-Sim follows **strategic two-phase approach** - Engine charter foundation (Engine M2.7-M2.9) first, then Sim charter alignment (SIM-M2.6 completion). See [Charter Transition Strategic Plan](CHARTER-TRANSITION-PLAN.md) for complete development strategy.
 >

@@ -25,7 +25,7 @@ Queues are now first-class citizens in the Time-Travel stack. The warehouse 1d/5
 - Inspector renders four queue series with horizon overlays; new unit test guarantees Queue/Latency/Arrivals/Served coverage.
 
 ### Docs & Tracking
-- Architecture note: `docs/architecture/time-travel/queues-shift-depth-and-initial-conditions.md` (SHIFT, initial conditions, telemetry guidance).
+- Architecture note: `work/epics/completed/time-travel/queues-shift-depth-and-initial-conditions.md` (SHIFT, initial conditions, telemetry guidance).
 - Milestone/tracking docs updated; roadmap deferrals capture retries, service-time S, oldest_age, edge overlays, and API fallback depth.
 - Per-milestone performance log consolidated in `docs/performance/perf-log.md` (full-suite run recorded).
 

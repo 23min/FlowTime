@@ -288,7 +288,7 @@ This corrective work establishes the proper foundation for charter-aligned model
 
 ### Updated Documentation
 - **README**: Complete rewrite with node-based examples
-- **Milestone**: `docs/milestones/SIM-M2.6-CORRECTIVE.md` complete
+- **Milestone**: `work/milestones/SIM-M2.6-CORRECTIVE.md` complete
 
 ## 🙏 Acknowledgments
 

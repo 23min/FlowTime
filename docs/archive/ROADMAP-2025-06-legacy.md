@@ -202,7 +202,7 @@ sequenceDiagram
 - ❌ Advanced analytics
 - ❌ UI integration
 
-See [`docs/milestones/completed/M-02.10.md`](milestones/M-02.10.md) for detailed requirements.
+See [`work/milestones/completed/M-02.10.md`](milestones/M-02.10.md) for detailed requirements.
 
 ---
 
