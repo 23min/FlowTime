@@ -1,3 +1,6 @@
 [submodule ".ai"]
 	path = .ai
 	url = https://github.com/23min/ai-workflow
+[submodule "lib/dag-map"]
+	path = lib/dag-map
+	url = https://github.com/23min/dag-map.git
