@@ -76,3 +76,4 @@ coverage/
 
 # Azure Functions local
 local.settings.json
+.scratch/
