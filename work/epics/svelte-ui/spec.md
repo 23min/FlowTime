@@ -1,0 +1,247 @@
+# Epic: Svelte UI — Frontend Rewrite
+
+## Goal
+
+Replace the Blazor WebAssembly frontend with a SvelteKit + shadcn-svelte application that delivers a polished, modern UI for demos while keeping the existing .NET backend APIs untouched.
+
+## Context
+
+The current Blazor UI (FlowTime.UI) is functionally complete but visually rough:
+- 213+ `!important` CSS overrides fighting MudBlazor's styling
+- Inconsistent spacing, typography, and elevation — no design system discipline
+- 2,830 lines in a single `app.css` with ad-hoc values
+- Hard-coded colors mixed with theme variables; fragile dark mode
+
+The UI was generated iteratively with AI assistance and has accumulated CSS debt that makes incremental fixes risky — previous attempts to "fix spacing" caused cascading regressions. A visual-layer rewrite is safer than patchwork.
+
+**Why Svelte:** After evaluating MudBlazor v9, Fluent UI Blazor, Radzen, Blazor Blueprint, and Tailwind-for-Blazor, the Svelte + shadcn-svelte stack was chosen for:
+- shadcn-svelte provides the polished, modern aesthetic needed for impressive demos
+- Svelte's compiler approach eliminates framework runtime overhead — ideal for the topology visualization (canvas + SVG)
+- The timeline (HTML/SVG) maps naturally to Svelte's reactive SVG bindings
+- The existing `topologyCanvas.js` (2,000+ LOC) can be reused directly — no IJSRuntime bridge needed
+- Full access to the JS/TS component ecosystem (Tailwind, Radix-like primitives via Bits UI)
+- The Blazor UI is already a standalone API client with no project references to the backend — clean swap
+
+**Design direction:** Left sidebar navigation (similar to Claude, ChatGPT, Azure Portal) with modern spacing, shadows, and transitions. Not the "MudBlazor default look" — a clean, enterprise-grade aesthetic via shadcn-svelte's design tokens and Tailwind.
+
+## Scope
+
+### In Scope
+
+- SvelteKit application in `ui/` directory (alongside existing `src/FlowTime.UI/`)
+- Layout shell: collapsible left sidebar, top bar with breadcrumbs/actions, theme toggle
+- Time-Travel Topology page: timeline (SVG), canvas visualization, inspector, feature bar, overlays
+- Time-Travel Dashboard: SLA metrics per node
+- Time-Travel Artifacts: run list, detail view, file viewer
+- Run Orchestration: model execution page
+- Home page and Health page
+- TypeScript API clients for FlowTime API (:8080) and FlowTime Sim API (:8090)
+- Dark/light theme with system preference detection
+- Reuse of existing JS: `topologyCanvas.js`, `horizonChart.js`, `theme.js` (adapted)
+- DevContainer integration (port 5173 forwarding, dev scripts)
+
+### Out of Scope
+
+- Template Studio (TemplateRunner, gallery, dynamic forms) — deferred
+- Learning Center (8 educational pages) — deferred
+- ApiDemo page, Simulate page — deferred
+- dag-map topology renderer — deferred (WIP in lib/dag-map, integrate last)
+- Backend API changes — zero changes to FlowTime.API or FlowTime.Sim.Service
+- Blazor UI removal — keep FlowTime.UI running in parallel until Svelte UI reaches parity
+- Mobile/responsive layout — desktop-first, responsive is a follow-up
+
+## Constraints
+
+- .NET 9 backend APIs are the source of truth — Svelte UI is a pure consumer
+- Must work in the existing devcontainer (Node 20 already available)
+- Canvas JS (`topologyCanvas.js`) reuse is mandatory — no rewrite of the rendering engine
+- shadcn-svelte + Tailwind CSS v4 as the styling foundation
+- TypeScript required (no plain JS)
+- The Blazor UI must remain functional throughout — no breaking the existing app
+
+## Success Criteria
+
+- [ ] Svelte UI renders the topology page with timeline, canvas, inspector, and feature bar at feature parity with Blazor
+- [ ] Dark/light theme works correctly across all pages
+- [ ] All API integrations work against the existing FlowTime API and Sim API
+- [ ] Demo workflow is smooth: navigate to artifacts, select a run, view topology, scrub timeline, inspect nodes
+- [ ] Visual quality is a clear step up from the Blazor UI — clean spacing, consistent elevation, smooth transitions
+- [ ] Lighthouse performance score >= 90 on the topology page
+- [ ] No changes required to any backend project
+
+## Risks & Open Questions
+
+| Risk / Question | Impact | Mitigation |
+|----------------|--------|------------|
+| topologyCanvas.js integration complexity — canvas callbacks, viewport state | High | M3 is dedicated to this; spike early if needed |
+| shadcn-svelte component gaps (missing something MudBlazor had) | Med | Bits UI primitives allow building custom components; Tailwind fills gaps |
+| Svelte 5 runes learning curve | Med | Start with simple pages (M1-M2) before tackling complex state (M3) |
+| Two UIs running in parallel increases cognitive overhead | Low | Clear folder separation (`ui/` vs `src/FlowTime.UI/`); Blazor UI is frozen, not actively developed |
+| dag-map integration timing unclear | Low | Explicitly deferred; topology canvas works standalone |
+
+## Milestones
+
+| ID | Title | Summary | Status |
+|----|-------|---------|--------|
+| m-svui-01-scaffold | Project scaffold & shell | SvelteKit + shadcn-svelte + Tailwind + layout shell with sidebar | not started |
+| m-svui-02-api-and-pages | API layer & simple pages | TypeScript API clients, stores, Home, Health, Artifacts pages | not started |
+| m-svui-03-topology-canvas | Topology canvas integration | Reuse topologyCanvas.js, viewport, node proxies, canvas ↔ Svelte bridge | not started |
+| m-svui-04-timeline | Timeline & playback | SVG timeline track, bin scrubbing, playback controls, speed/focus chips | not started |
+| m-svui-05-inspector | Inspector & feature bar | Node inspector with sparklines, feature bar overlay settings, legend | not started |
+| m-svui-06-dashboard-and-run | Dashboard & run orchestration | SLA dashboard, class selector, run execution page | not started |
+| m-svui-07-polish | Visual polish & dark mode QA | Transitions, consistent elevation, dark mode audit, accessibility pass | not started |
+
+## ADRs
+
+- ADR-SVUI-01: Chose SvelteKit + shadcn-svelte over Blazor Blueprint, Fluent UI Blazor, and Tailwind-for-Blazor. Rationale: demo-quality visuals, Svelte's SVG/canvas strengths, escape from Blazor component library limitations. See conversation context.
+- ADR-SVUI-02: Reuse existing canvas JS rather than rewriting in Svelte/Canvas API. The 2,000+ LOC topologyCanvas.js is proven and complex (spatial indexing, hover intent, edge routing). Rewrite risk outweighs any integration friction.
+- ADR-SVUI-03: `ui/` at repo root (not inside `src/`) to keep clear separation from the .NET solution structure. The devcontainer already has Node 20.
+
+## Milestone Details
+
+### M1 — Project Scaffold & Shell (m-svui-01-scaffold)
+**Goal:** Standing SvelteKit app with sidebar layout and theme toggle.
+
+Deliverables:
+- SvelteKit project in `ui/` with TypeScript, Tailwind v4, shadcn-svelte initialized
+- Root layout with collapsible left sidebar (nav groups: Time Travel, Tools)
+- Top bar with breadcrumb area and theme toggle (dark/light/system)
+- Empty route stubs for all in-scope pages
+- DevContainer: port 5173 forwarded, `npm run dev` works
+- Design tokens defined: spacing scale (4/8/12/16/24/32/48px), elevation levels, transition durations
+
+Acceptance criteria:
+- `npm run dev` serves the app at localhost:5173
+- Sidebar collapses/expands with smooth transition
+- Theme toggle persists to localStorage and respects system preference
+- All route stubs render without errors
+
+**Estimated effort:** 1 week
+
+### M2 — API Layer & Simple Pages (m-svui-02-api-and-pages)
+**Goal:** Data flows from APIs to UI. Simple pages are functional.
+
+Deliverables:
+- TypeScript API client modules (`lib/api/flowtime.ts`, `lib/api/sim.ts`)
+- Shared types generated from or aligned with existing API contracts
+- Svelte stores for: run list, selected run, health status, theme, feature flags
+- Home page with navigation panels
+- Health page showing both API statuses (green/red indicators)
+- Artifacts list page with run cards, filtering, selection
+- Artifact detail page with metadata display
+- File viewer for artifact contents
+
+Acceptance criteria:
+- Health page shows live status from both APIs (or graceful error when API is down)
+- Artifacts list loads and displays runs from the API
+- Selecting a run navigates to detail view
+- API error states show user-friendly messages
+
+**Estimated effort:** 1.5-2 weeks
+
+### M3 — Topology Canvas Integration (m-svui-03-topology-canvas)
+**Goal:** Canvas renders the topology graph inside a Svelte page.
+
+Deliverables:
+- `TopologyCanvas.svelte` component wrapping `topologyCanvas.js`
+- Canvas scene rendering: nodes, edges, labels, halos
+- Viewport management: pan, zoom, fit-to-view, reset
+- Node proxy buttons (HTML overlay on canvas) for accessibility/interaction
+- Node hover and edge hover callbacks flowing into Svelte state
+- Canvas resize handling
+- Overlay delta updates (metric-driven color/width changes)
+
+Acceptance criteria:
+- Loading a run renders its topology graph on the canvas
+- Pan/zoom with mouse works smoothly
+- Hovering a node highlights it and shows a tooltip
+- Hovering an edge shows throughput info
+- Fit-to-view button works
+- Canvas resizes correctly when sidebar toggles
+
+**Estimated effort:** 2-3 weeks
+
+### M4 — Timeline & Playback (m-svui-04-timeline)
+**Goal:** Scrub through time bins with full playback controls.
+
+Deliverables:
+- `Timeline.svelte` component with SVG track, tick marks, labels
+- Range input for bin scrubbing with pointer indicator
+- Window highlight showing sparkline data range
+- Playback controls: play/pause, next/previous bin, loop toggle
+- Speed selector chips (0.5x, 1x, 2x, 4x)
+- Focus metric chips (Arrivals, SLA, Utilization, etc.)
+- Warning/info chips with tooltip details
+- Bin change triggers canvas overlay update
+
+Acceptance criteria:
+- Dragging the timeline scrubs through bins and updates the canvas
+- Play button auto-advances bins at the selected speed
+- Loop wraps around at the end
+- Warning chips appear when the API reports warnings for the current window
+- Changing focus metric updates the canvas color overlay
+
+**Estimated effort:** 1-1.5 weeks
+
+### M5 — Inspector & Feature Bar (m-svui-05-inspector)
+**Goal:** Node inspection and overlay configuration.
+
+Deliverables:
+- `Inspector.svelte` — slide-in panel showing selected node details
+- Sparkline charts (reuse horizonChart.js or rebuild in SVG)
+- Metric blocks with provenance tooltips
+- Constraint badges and warning indicators
+- Dependency list for selected node
+- `FeatureBar.svelte` — collapsible left panel with overlay settings
+- Metric selection, color basis, edge quality filters
+- Class visibility toggles
+- Color scale configuration
+- Legend overlay component
+
+Acceptance criteria:
+- Clicking a node opens the inspector with its metrics
+- Sparklines show metric history for the selected node
+- Feature bar toggles control what the canvas displays
+- Changing color basis updates canvas overlay in real-time
+- Inspector can be pinned open or dismissed
+
+**Estimated effort:** 1.5-2 weeks
+
+### M6 — Dashboard & Run Orchestration (m-svui-06-dashboard-and-run)
+**Goal:** SLA dashboard and model execution.
+
+Deliverables:
+- Dashboard page with per-node SLA indicators
+- Class selector component (multi-select filter)
+- Run orchestration page: model input (YAML), execution, results
+- RNG seed configuration
+- Run state tracking (pending → running → complete)
+
+Acceptance criteria:
+- Dashboard shows SLA status for all nodes in a run
+- Class filter correctly hides/shows nodes
+- Can execute a model and see results when complete
+- Loading and error states are handled gracefully
+
+**Estimated effort:** 1.5 weeks
+
+### M7 — Visual Polish & Dark Mode QA (m-svui-07-polish)
+**Goal:** Demo-ready visual quality.
+
+Deliverables:
+- Consistent transitions on all interactive elements (150ms/300ms standard)
+- Elevation system audit: panels, overlays, modals at correct shadow levels
+- Dark mode full audit: every page, every component, every overlay
+- Focus-visible states on all interactive elements
+- Loading skeletons for data-heavy pages
+- Empty state illustrations/messages
+- Final spacing audit against the design token scale
+
+Acceptance criteria:
+- Dark mode has no visual glitches on any in-scope page
+- All interactive elements have visible hover and focus states
+- No jarring layout shifts on page load
+- Sidebar collapse/expand is smooth
+- A non-technical stakeholder finds the demo workflow visually polished
+
+**Estimated effort:** 1 week

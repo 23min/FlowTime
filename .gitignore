@@ -40,6 +40,7 @@ apis/
 *.user
 *.suo
 *.userprefs
+.claude/settings.local.json
 
 # Rider/JetBrains
 .idea/

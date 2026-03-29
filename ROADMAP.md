@@ -70,6 +70,14 @@ These depend on Phase 3 analytical primitives (except Telemetry Ingestion which 
 4. **Visualizations / Chart Gallery** (`work/epics/visualizations/`)
    - Role-focused charts with cycle time distributions, flow efficiency, bottleneck heat maps (depends on Phase 3.1, 3.2, 3.3). dag-map spike informs rendering approach.
 
+## Svelte UI — Frontend Rewrite
+
+**Epic:** `work/epics/svelte-ui/spec.md` | **Status:** planning
+
+Replace the Blazor WebAssembly UI with SvelteKit + shadcn-svelte for demo-quality visuals. Independent of engine work — consumes existing APIs with zero backend changes. Initial scope: topology, timeline, dashboard, artifacts, run orchestration. Template Studio and Learning Center deferred. dag-map integration deferred (WIP).
+
+7 milestones, estimated 10-13 weeks. See epic spec for details.
+
 ## Mid-Term / Aspirational
 
 | Epic | Key Dependency | Notes |
@@ -102,6 +110,8 @@ Scenario Overlays (needs 3.3, 3.4)
 Anomaly Detection (needs 3.1, 3.6)
 Telemetry Parity (needs Ingestion)
 UI Layout Motors (needs dag-map spike)
+
+Svelte UI (independent — runs parallel to all engine work)
 ```
 
 ## References
