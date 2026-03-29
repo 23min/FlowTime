@@ -40,7 +40,8 @@
         "openai.chatgpt",
         "anthropic.claude-code",
         "humao.rest-client",
-        "shd101wyy.markdown-preview-enhanced"
+        "shd101wyy.markdown-preview-enhanced",
+        "svelte.svelte-vscode"
       ],
       "mcp": {
         "servers": {
@@ -73,6 +74,7 @@
   },
   "forwardPorts": [
     1455,
+    5173,
     8080,
     8090,
     8091
@@ -80,6 +82,9 @@
   "portsAttributes": {
     "1455": {
       "label": "Codex OAuth callback"
+    },
+    "5173": {
+      "label": "Svelte UI Dev"
     },
     "8080": {
       "label": "FlowTime API",

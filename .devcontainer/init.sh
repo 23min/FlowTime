@@ -30,9 +30,16 @@ dotnet restore >/dev/null
 echo "Checking Razor workloads..."
 dotnet workload restore
 
+# Install Svelte UI dependencies if ui/ exists
+if [ -d "ui" ] && [ -f "ui/package.json" ]; then
+  echo "Installing Svelte UI dependencies..."
+  (cd ui && pnpm install --frozen-lockfile)
+fi
+
 if $post_create; then
   echo "Ready. Try:"
   echo "  dotnet build FlowTime.sln"
   echo "  dotnet test FlowTime.sln"
   echo "  dotnet run --project src/FlowTime.Sim.Service --urls http://0.0.0.0:8090"
+  echo "  cd ui && pnpm dev  # Svelte UI at http://localhost:5173"
 fi

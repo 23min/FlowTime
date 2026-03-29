@@ -203,6 +203,49 @@
         "showReuseMessage": false,
         "clear": true
       }
+    },
+    {
+      "label": "start-svelte-ui",
+      "type": "shell",
+      "command": "pnpm dev --host",
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^.*$",
+          "file": 0,
+          "location": 1,
+          "message": 2
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "VITE",
+          "endsPattern": "ready in"
+        }
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false
+      },
+      "options": {
+        "cwd": "${workspaceFolder}/ui"
+      }
+    },
+    {
+      "label": "stop-svelte-ui",
+      "type": "shell",
+      "command": "pkill -f 'node.*vite' || echo 'No Svelte UI process found'",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": false,
+        "reveal": "silent",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      }
     }
   ]
 }
