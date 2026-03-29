@@ -6,6 +6,20 @@ export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
 	server: {
 		port: 5173,
-		strictPort: true
+		strictPort: true,
+		proxy: {
+			'/api/v1': {
+				target: 'http://localhost:8090',
+				changeOrigin: true
+			},
+			'/v1': {
+				target: 'http://localhost:8080',
+				changeOrigin: true
+			},
+			'/healthz': {
+				target: 'http://localhost:8080',
+				changeOrigin: true
+			}
+		}
 	}
 });

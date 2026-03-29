@@ -27,20 +27,23 @@ class ThemeStore {
 		this.mode === 'system' ? getSystemPreference() : this.mode
 	);
 
-	constructor() {
-		if (browser) {
-			$effect(() => {
-				applyTheme(this.resolved);
-				localStorage.setItem(STORAGE_KEY, this.mode);
-			});
+	#initialized = false;
 
-			const mq = window.matchMedia('(prefers-color-scheme: dark)');
-			mq.addEventListener('change', () => {
-				if (this.mode === 'system') {
-					applyTheme(getSystemPreference());
-				}
-			});
-		}
+	init() {
+		if (this.#initialized || !browser) return;
+		this.#initialized = true;
+
+		$effect(() => {
+			applyTheme(this.resolved);
+			localStorage.setItem(STORAGE_KEY, this.mode);
+		});
+
+		const mq = window.matchMedia('(prefers-color-scheme: dark)');
+		mq.addEventListener('change', () => {
+			if (this.mode === 'system') {
+				applyTheme(getSystemPreference());
+			}
+		});
 	}
 
 	toggle() {
