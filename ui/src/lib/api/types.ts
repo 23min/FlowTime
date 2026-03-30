@@ -122,3 +122,41 @@ export interface ArtifactReference {
 	title: string;
 	relationshipType?: string;
 }
+
+// Graph
+export interface GraphResponse {
+	nodes: GraphNode[];
+	edges: GraphEdge[];
+	order: string[];
+}
+
+export interface GraphNode {
+	id: string;
+	kind: string;
+	[key: string]: unknown;
+}
+
+export interface GraphEdge {
+	id: string;
+	from: string;
+	to: string;
+	[key: string]: unknown;
+}
+
+// State
+export interface StateSnapshotResponse {
+	metadata: StateMetadata;
+	bin: { index: number; startUtc?: string; endUtc?: string; durationMinutes: number };
+	nodes: Record<string, unknown>[];
+	edges: Record<string, unknown>[];
+	warnings: StateWarning[];
+}
+
+export interface StateWindowResponse {
+	metadata: StateMetadata;
+	window: { startBin: number; endBin: number; binCount: number };
+	timestampsUtc: string[];
+	nodes: Record<string, unknown>[];
+	edges: Record<string, unknown>[];
+	warnings: StateWarning[];
+}

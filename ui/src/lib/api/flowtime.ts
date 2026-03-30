@@ -3,9 +3,12 @@ import type {
 	Artifact,
 	ArtifactListResponse,
 	ArtifactRelationships,
+	GraphResponse,
 	RunDetail,
 	RunSummaryResponse,
-	ServiceInfo
+	ServiceInfo,
+	StateSnapshotResponse,
+	StateWindowResponse
 } from './types.js';
 
 const API = '/v1';
@@ -67,6 +70,26 @@ export const flowtime = {
 	async getArtifactFile(id: string, fileName: string) {
 		return getText(
 			`${API}/artifacts/${encodeURIComponent(id)}/files/${encodeURIComponent(fileName)}`
+		);
+	},
+
+	/** Get run dependency graph */
+	async getGraph(runId: string, mode?: string) {
+		const qs = mode ? `?mode=${mode}` : '';
+		return get<GraphResponse>(`${API}/runs/${encodeURIComponent(runId)}/graph${qs}`);
+	},
+
+	/** Get state snapshot at a specific bin */
+	async getState(runId: string, binIndex: number) {
+		return get<StateSnapshotResponse>(
+			`${API}/runs/${encodeURIComponent(runId)}/state?binIndex=${binIndex}`
+		);
+	},
+
+	/** Get state window (range of bins) */
+	async getStateWindow(runId: string, startBin: number, endBin: number) {
+		return get<StateWindowResponse>(
+			`${API}/runs/${encodeURIComponent(runId)}/state_window?startBin=${startBin}&endBin=${endBin}`
 		);
 	}
 };

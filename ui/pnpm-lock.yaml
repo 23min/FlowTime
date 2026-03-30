@@ -20,6 +20,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      dag-map:
+        specifier: link:../lib/dag-map
+        version: link:../lib/dag-map
       tailwind-merge:
         specifier: ^3.5.0
         version: 3.5.0
