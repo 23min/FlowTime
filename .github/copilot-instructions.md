@@ -50,6 +50,7 @@ Each agent below has a dedicated instruction file. You MUST read it and adopt it
 3. Follow the skill's step-by-step workflow
 
 **Available skills:** architect,draft-spec patch,plan-epic plan-milestones,release review-code,start-milestone tdd-cycle,wrap-milestone
+**Project-specific skills:** ui-debug (see `.ai-repo/skills/`)
 **Templates:** epic-spec, milestone-spec, tracking-doc (see `.ai/templates/`)
 ## Intent Routing
 
@@ -99,11 +100,8 @@ This re-grounds context during long sessions or after framework updates (e.g. `s
 - Artifacts gate work, not ceremonies
 - Follow Conventional Commits format
 
-**Project-specific skills:** ui-debug (see `.ai-repo/skills/`)
-
 ## Project-Specific Rules
 
-<!-- from .ai-repo/rules/project.md -->
 # FlowTime Project Rules
 
 Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
@@ -112,8 +110,7 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 
 ## Tooling
 
-- Use structured navigation/edit tools where available (e.g., Serena MCP: `serena__find_symbol`, `serena__read_file`, `serena__insert_after_symbol`); avoid whole-file reads unless necessary.
-- Prefer precise, symbol-level edits; stick to established patterns and avoid broad refactors without context.
+- Prefer precise edits; stick to established patterns and avoid broad refactors without context.
 - Use `rg`/`fd` for searches.
 
 ## Project Layout

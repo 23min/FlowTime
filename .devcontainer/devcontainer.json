@@ -43,17 +43,7 @@
         "shd101wyy.markdown-preview-enhanced",
         "svelte.svelte-vscode"
       ],
-      "mcp": {
-        "servers": {
-          "serena": {
-            "command": "bash",
-            "args": [
-              "-c",
-              "export PATH=\"$HOME/.local/bin:$PATH\" && uvx --from git+https://github.com/oraios/serena serena start-mcp-server --context ide-assistant --project /workspaces/flowtime-vnext"
-            ]
-          }
-        }
-      }
+      "mcp": {}
     }
   },
   "remoteUser": "vscode",

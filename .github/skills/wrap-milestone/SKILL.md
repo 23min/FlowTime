@@ -26,7 +26,14 @@ All acceptance criteria met, tests passing, build green. User says: "Wrap milest
 4. **Note deferred work**
    - [ ] Any deferred items → `work/gaps.md`
 
-5. **Prepare merge**
+5. **Update CLAUDE.md current work section**
+   - [ ] Update the `## Current Work` section in `CLAUDE.md`:
+     - Mark current milestone as complete
+     - If there's a next milestone in the epic, set it as upcoming
+     - If this was the last milestone, note epic as complete
+   - [ ] This ensures the next conversation starts with accurate context
+
+6. **Prepare merge**
    - [ ] Ensure all changes are staged
    - [ ] Show staged diff summary (`git diff --staged --stat`)
    - [ ] Prepare commit message (conventional format)
@@ -34,7 +41,7 @@ All acceptance criteria met, tests passing, build green. User says: "Wrap milest
    - [ ] Say: "Ready to commit and merge. Here's what will be committed: [summary]. Commit message: [message]. Shall I commit?"
    - [ ] **Wait for human to explicitly say "commit" before proceeding.**
 
-6. **After user says "commit"** (NOT "ok", NOT "continue" — must say "commit")
+7. **After user says "commit"** (NOT "ok", NOT "continue" — must say "commit")
    - [ ] Commit with agreed message
    - [ ] 🛑 **STOP — ask: "Push and merge to [branch]?"**
    - [ ] Merge to base branch (or create PR)
@@ -42,7 +49,7 @@ All acceptance criteria met, tests passing, build green. User says: "Wrap milest
    - [ ] Move completed epic folder to `work/epics/completed/<epic-slug>/` (if last milestone)
    - [ ] Update references in `ROADMAP.md` and `work/epics/epic-roadmap.md` to new path
 
-7. **Record learnings** (memory write-back)
+8. **Record learnings** (memory write-back)
    - [ ] Append any new architectural or technical decisions to `work/decisions.md` using this format:
      ```markdown
      ## D-YYYY-MM-DD-NNN: <short title>

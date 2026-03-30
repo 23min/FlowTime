@@ -25,17 +25,24 @@ Approved milestone spec exists. User says: "Start milestone X", "Implement M1"
    - [ ] List all acceptance criteria as unchecked boxes
    - [ ] Note start date and initial context
 
-4. **Plan implementation phases**
+4. **Update CLAUDE.md current work section**
+   - [ ] Update the `## Current Work` section in `CLAUDE.md` with:
+     - Active epic name and spec path
+     - Current milestone ID, title, and status
+     - Current branch name
+   - [ ] If the section doesn't exist, add it at the end of the file
+
+5. **Plan implementation phases**
    - [ ] Group ACs into logical phases (1-4 phases typical)
    - [ ] Identify test strategy for each phase
    - [ ] Note implementation order
 
-5. **Begin implementation** using `tdd-cycle`
+6. **Begin implementation** using `tdd-cycle`
    - [ ] Start with Phase 1
    - [ ] For each AC: write tests → implement → verify
    - [ ] Update tracking doc after each AC is complete
 
-6. **Completion check**
+7. **Completion check**
    - [ ] All ACs checked in tracking doc
    - [ ] All tests passing
    - [ ] Build green
@@ -49,7 +56,7 @@ Approved milestone spec exists. User says: "Start milestone X", "Implement M1"
      - Conventions established (naming, structure decisions)
    - [ ] If any decisions were made during implementation, append to `work/decisions.md`
 
-7. **Commit and merge** (ONLY after human explicitly says "commit")
+8. **Commit and merge** (ONLY after human explicitly says "commit")
    - [ ] 🛑 Verify human said "commit" / "push" / "go ahead and commit" — not just "continue" or "ok"
    - [ ] Commit on milestone branch with descriptive message
    - [ ] 🛑 **STOP — ask before pushing.** "Push to origin?"
