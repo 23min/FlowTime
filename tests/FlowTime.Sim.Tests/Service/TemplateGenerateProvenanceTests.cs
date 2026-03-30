@@ -23,12 +23,16 @@ public class TemplateGenerateProvenanceTests : IClassFixture<WebApplicationFacto
         // Set up test environment BEFORE creating client
         var testDataDir = Path.Combine(Path.GetTempPath(), "flow-sim-provenance-tests", Guid.NewGuid().ToString("N"));
         var templatesDir = Path.Combine(testDataDir, "templates");
+        var storageRoot = Path.Combine(testDataDir, "storage");
         Directory.CreateDirectory(templatesDir);
-        
+        Directory.CreateDirectory(storageRoot);
+
         // Set environment variables BEFORE WebApplicationFactory is configured
         Environment.SetEnvironmentVariable("FLOWTIME_SIM_DATA_DIR", testDataDir);
         Environment.SetEnvironmentVariable("FLOWTIME_SIM_TEMPLATES_DIR", templatesDir);
-        
+        Environment.SetEnvironmentVariable("Storage__Backend", "filesystem");
+        Environment.SetEnvironmentVariable("Storage__Root", storageRoot);
+
         // NOW create the factory and client after environment is configured
         var configuredFactory = webFactory.WithWebHostBuilder(builder => { });
         client = configuredFactory.CreateClient();
