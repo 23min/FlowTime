@@ -1,7 +1,7 @@
 # Milestone: m-svui-01-scaffold — Project Scaffold & Shell
 
 **Epic:** Svelte UI (`work/epics/svelte-ui/spec.md`)
-**Status:** in progress
+**Status:** done
 
 ## Goal
 

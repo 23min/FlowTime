@@ -83,10 +83,10 @@ The UI was generated iteratively with AI assistance and has accumulated CSS debt
 
 | ID | Title | Summary | Status |
 |----|-------|---------|--------|
-| m-svui-01-scaffold | Project scaffold & shell | SvelteKit + shadcn-svelte + Tailwind + layout shell with sidebar | not started |
-| m-svui-02-api-and-pages | API layer & simple pages | TypeScript API clients, stores, Home, Health, Artifacts pages | not started |
-| m-svui-03-topology-canvas | Topology canvas integration | Reuse topologyCanvas.js, viewport, node proxies, canvas ↔ Svelte bridge | not started |
-| m-svui-04-timeline | Timeline & playback | SVG timeline track, bin scrubbing, playback controls, speed/focus chips | not started |
+| m-svui-01-scaffold | Project scaffold & shell | SvelteKit + shadcn-svelte + Tailwind + layout shell with sidebar | **done** |
+| m-svui-02-api-and-pages | API layer & simple pages | TypeScript API clients, stores, Home, Health, Artifacts pages | **done** |
+| m-svui-03-topology | Topology via dag-map | dag-map SVG rendering with dark/light theme, run selector | **done** |
+| m-svui-04-timeline | Timeline & playback | SVG timeline, bin scrubbing, dag-map heatmap mode for metric overlays | not started |
 | m-svui-05-inspector | Inspector & feature bar | Node inspector with sparklines, feature bar overlay settings, legend | not started |
 | m-svui-06-dashboard-and-run | Dashboard & run orchestration | SLA dashboard, class selector, run execution page | not started |
 | m-svui-07-polish | Visual polish & dark mode QA | Transitions, consistent elevation, dark mode audit, accessibility pass | not started |
@@ -94,8 +94,11 @@ The UI was generated iteratively with AI assistance and has accumulated CSS debt
 ## ADRs
 
 - ADR-SVUI-01: Chose SvelteKit + shadcn-svelte over Blazor Blueprint, Fluent UI Blazor, and Tailwind-for-Blazor. Rationale: demo-quality visuals, Svelte's SVG/canvas strengths, escape from Blazor component library limitations. See conversation context.
-- ADR-SVUI-02: Reuse existing canvas JS rather than rewriting in Svelte/Canvas API. The 2,000+ LOC topologyCanvas.js is proven and complex (spatial indexing, hover intent, edge routing). Rewrite risk outweighs any integration friction.
+- ADR-SVUI-02: ~~Reuse existing canvas JS~~ **Superseded.** Use dag-map library for topology rendering instead of topologyCanvas.js. dag-map is our own library with a general-purpose flow visualization roadmap (heatmap, variant explorer, Sankey). topologyCanvas.js stays in Blazor only. Extending dag-map keeps features reusable for non-FlowTime consumers.
 - ADR-SVUI-03: `ui/` at repo root (not inside `src/`) to keep clear separation from the .NET solution structure. The devcontainer already has Node 20.
+- ADR-SVUI-04: Use pnpm (not npm) for `ui/` — aligns with shadcn-svelte conventions, already installed in devcontainer.
+- ADR-SVUI-05: Manual shadcn-svelte init (CLI is interactive-only in non-TTY). Created components.json + utils.ts manually, components added via `yes | pnpm dlx shadcn-svelte add`.
+- ADR-SVUI-06: Pinned bits-ui to 2.15.0 — v2.16.4 has broken dist/types.js exports (missing attributes.js, pin-input references).
 
 ## Milestone Details
 
@@ -139,49 +142,44 @@ Acceptance criteria:
 
 **Estimated effort:** 1.5-2 weeks
 
-### M3 — Topology Canvas Integration (m-svui-03-topology-canvas)
-**Goal:** Canvas renders the topology graph inside a Svelte page.
+### M3 — Topology via dag-map (m-svui-03-topology)
+**Goal:** Topology page renders run graph using the dag-map library.
 
 Deliverables:
-- `TopologyCanvas.svelte` component wrapping `topologyCanvas.js`
-- Canvas scene rendering: nodes, edges, labels, halos
-- Viewport management: pan, zoom, fit-to-view, reset
-- Node proxy buttons (HTML overlay on canvas) for accessibility/interaction
-- Node hover and edge hover callbacks flowing into Svelte state
-- Canvas resize handling
-- Overlay delta updates (metric-driven color/width changes)
+- `DagMapView.svelte` component wrapping dag-map's `dagMap()` function
+- Graph API integration: fetch `/v1/runs/{id}/graph`, strip port-qualified edge IDs
+- Dark/light theme-reactive rendering (transparent paper, shadcn-matched colors)
+- Run selector dropdown on topology page
+- API types for graph, state snapshot, state window (foundation for M4)
 
 Acceptance criteria:
-- Loading a run renders its topology graph on the canvas
-- Pan/zoom with mouse works smoothly
-- Hovering a node highlights it and shows a tooltip
-- Hovering an edge shows throughput info
-- Fit-to-view button works
-- Canvas resizes correctly when sidebar toggles
+- Selecting a run renders its topology as a dag-map SVG
+- Dark/light theme toggle updates the graph colors
+- All route stubs still render without errors
 
-**Estimated effort:** 2-3 weeks
+**Completed:** 2026-03-30
 
 ### M4 — Timeline & Playback (m-svui-04-timeline)
 **Goal:** Scrub through time bins with full playback controls.
 
+**Dependency:** dag-map heatmap mode (per-node/edge metric coloring). Must be implemented in dag-map first — see dag-map ROADMAP.md "Heatmap mode" vision item.
+
 Deliverables:
+- dag-map heatmap mode: `metrics: Map<nodeId, { value, label }>` + color gradient
 - `Timeline.svelte` component with SVG track, tick marks, labels
 - Range input for bin scrubbing with pointer indicator
-- Window highlight showing sparkline data range
 - Playback controls: play/pause, next/previous bin, loop toggle
 - Speed selector chips (0.5x, 1x, 2x, 4x)
 - Focus metric chips (Arrivals, SLA, Utilization, etc.)
-- Warning/info chips with tooltip details
-- Bin change triggers canvas overlay update
+- Bin change fetches state from API, maps metrics to dag-map heatmap
 
 Acceptance criteria:
-- Dragging the timeline scrubs through bins and updates the canvas
+- Dragging the timeline scrubs through bins and updates node colors via dag-map heatmap
 - Play button auto-advances bins at the selected speed
 - Loop wraps around at the end
-- Warning chips appear when the API reports warnings for the current window
-- Changing focus metric updates the canvas color overlay
+- Changing focus metric updates the color overlay
 
-**Estimated effort:** 1-1.5 weeks
+**Estimated effort:** 2-3 weeks (includes dag-map heatmap mode)
 
 ### M5 — Inspector & Feature Bar (m-svui-05-inspector)
 **Goal:** Node inspection and overlay configuration.

@@ -150,4 +150,7 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
-No active milestone. Run `start-milestone` to begin work.to 
+- **Epic:** Svelte UI Rewrite (`work/epics/svelte-ui/spec.md`)
+- **Completed:** m-svui-01 (scaffold), m-svui-02 (API + pages), m-svui-03 (topology)
+- **Next:** m-svui-04 (timeline) — blocked on dag-map heatmap mode
+- **Branch:** `main` (M1-M3 were committed to main; future milestones use branch workflow)

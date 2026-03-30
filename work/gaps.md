@@ -86,6 +86,32 @@ After Phase 3.5 (runtime constraint enforcement) is complete. At that point, M-1
 
 ---
 
+## dag-map Layout Quality (Svelte UI)
+
+### Wiggly trunk in dag-map bezier layout
+The main trunk path in dag-map's `layoutMetro` wobbles vertically when branches push the Y-positions around. Visible on the FlowTime "Transportation Network" model (12 nodes). The trunk should be a straight horizontal line with branches diverging above/below.
+
+### No class differentiation from FlowTime API
+The FlowTime `/v1/runs/{id}/graph` endpoint returns node `kind` (service, queue, dlq) but not flow classes. dag-map's layout engine uses `cls` to assign route colors and lane spread. Without meaningful classes, all nodes land on one route.
+
+### Possible fixes
+- dag-map: improve trunk stability in layoutMetro (prioritize trunk straightness)
+- FlowTime API: expose class-to-node mapping so dag-map can assign routes
+- dag-map: add heatmap mode so coloring comes from metrics, not static classes
+
+---
+
+## dag-map Features Needed for Svelte UI M4/M5
+
+- **Heatmap mode**: per-node/edge metric coloring (M4 blocker for timeline scrubbing)
+- **Click/tap events**: callback with node ID (M5 blocker for inspector)
+- **Hover tooltips**: on stations (M5 blocker for inspector)
+- **Selected node highlighting**: visual state (M5 blocker for inspector)
+
+See dag-map ROADMAP.md "Vision — Heatmap mode" and "Planned" sections.
+
+---
+
 ## Open Questions
 
 - Should path filters be part of the time-travel API or a separate analysis endpoint?

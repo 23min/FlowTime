@@ -9,3 +9,27 @@ Shared decision log for active architectural and technical decisions.
 **Decision:** <what was decided>
 **Consequences:** <what follows from this>
 -->
+
+## D-2026-03-30-001: dag-map for Svelte UI topology rendering
+**Status:** active
+**Context:** M3 originally planned to wrap topologyCanvas.js (10K LOC from Blazor UI). Initial integration worked but was rough — canvas sizing issues, requires overlay payload before draw, and the approach duplicates the Blazor rendering code.
+**Decision:** Use dag-map library instead. dag-map is our own library with a general-purpose flow visualization roadmap. Extend dag-map with features needed by FlowTime (heatmap mode, click events, hover) rather than wrapping the Blazor-specific canvas JS.
+**Consequences:** M4 (timeline) now depends on dag-map heatmap mode being implemented first. dag-map features must remain general-purpose, not FlowTime-specific. topologyCanvas.js stays in Blazor UI only.
+
+## D-2026-03-30-002: pnpm for Svelte UI package management
+**Status:** active
+**Context:** Root repo uses npm (for Playwright tests). The `ui/` project needed a package manager.
+**Decision:** Use pnpm — aligns with shadcn-svelte documentation conventions, already installed in devcontainer (v10.33).
+**Consequences:** `ui/` has pnpm-lock.yaml, not package-lock.json. init.sh runs `pnpm install --frozen-lockfile` for ui/.
+
+## D-2026-03-30-003: Manual shadcn-svelte initialization
+**Status:** active
+**Context:** `shadcn-svelte init` CLI is interactive-only (prompts for preset selection), cannot be run non-interactively in CI or automation.
+**Decision:** Manually create `components.json`, `utils.ts`, and `app.css` theme variables. Add components individually via `yes | pnpm dlx shadcn-svelte add <component>`.
+**Consequences:** Works in non-TTY environments. Must manually keep components.json aligned with shadcn-svelte schema on upgrades.
+
+## D-2026-03-30-004: Pin bits-ui to 2.15.0
+**Status:** active
+**Context:** bits-ui 2.16.4 has broken dist/types.js — references `../bits/pin-input/pin-input.svelte.js` and `./attributes.js` which don't exist in the published package.
+**Decision:** Pin bits-ui to 2.15.0 until the issue is fixed upstream.
+**Consequences:** Check for fix on bits-ui releases periodically. Can unpin when 2.16.5+ ships.
