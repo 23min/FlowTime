@@ -1,4 +1,5 @@
 using FlowTime.Core.Analysis;
+using FlowTime.Core.Compiler;
 using FlowTime.Core.Dispatching;
 using FlowTime.Core.Execution;
 using FlowTime.Core.Models;
@@ -234,5 +235,100 @@ public class Phase0BugTests
         // Should NOT have queue_depth_mismatch warning
         Assert.DoesNotContain(result.Warnings,
             w => w.Code == "queue_depth_mismatch" && w.NodeId == "Buffer");
+    }
+
+    /// <summary>
+    /// End-to-end determinism: same model compiled and evaluated twice produces
+    /// bitwise-identical output series.
+    /// </summary>
+    [Fact]
+    public void Determinism_SameModelProducesIdenticalResults()
+    {
+        var model = new ModelDefinition
+        {
+            Grid = new GridDefinition { Bins = 100, BinSize = 1, BinUnit = "hours" },
+            Topology = new TopologyDefinition
+            {
+                Nodes =
+                {
+                    new TopologyNodeDefinition
+                    {
+                        Id = "Source",
+                        Kind = "service",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "demand",
+                            Served = "served",
+                            Errors = "errors"
+                        }
+                    },
+                    new TopologyNodeDefinition
+                    {
+                        Id = "Queue",
+                        Kind = "serviceWithBuffer",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "served",
+                            Served = "capacity",
+                            QueueDepth = "queue_depth"
+                        }
+                    }
+                },
+                Edges =
+                {
+                    new TopologyEdgeDefinition { Source = "Source", Target = "Queue", Measure = "served" }
+                }
+            },
+            Nodes = new List<NodeDefinition>
+            {
+                new NodeDefinition { Id = "demand", Kind = "const", Values = Enumerable.Range(0, 100).Select(i => 5.0 + Math.Sin(i * 0.1) * 2).ToArray() },
+                new NodeDefinition { Id = "capacity", Kind = "const", Values = Enumerable.Repeat(4.5, 100).ToArray() },
+                new NodeDefinition { Id = "served", Kind = "expr", Expr = "MIN(demand, capacity)" },
+                new NodeDefinition { Id = "errors", Kind = "expr", Expr = "MAX(0, demand - capacity)" },
+                new NodeDefinition
+                {
+                    Id = "queue_depth",
+                    Kind = "serviceWithBuffer",
+                    Inflow = "served",
+                    Outflow = "capacity"
+                }
+            },
+            Outputs = new List<OutputDefinition>
+            {
+                new OutputDefinition { Series = "demand" },
+                new OutputDefinition { Series = "served" },
+                new OutputDefinition { Series = "errors" },
+                new OutputDefinition { Series = "queue_depth" }
+            }
+        };
+
+        // Compile and evaluate twice
+        var compiled1 = ModelCompiler.Compile(model);
+        var compiled2 = ModelCompiler.Compile(model);
+
+        var (grid1, graph1) = ModelParser.ParseModel(compiled1);
+        var (grid2, graph2) = ModelParser.ParseModel(compiled2);
+
+        var results1 = graph1.Evaluate(grid1);
+        var results2 = graph2.Evaluate(grid2);
+
+        // All output nodes must produce identical series
+        foreach (var outputId in new[] { "demand", "served", "errors", "queue_depth" })
+        {
+            var nodeId = new NodeId(outputId);
+            Assert.True(results1.ContainsKey(nodeId), $"Run 1 missing node {outputId}");
+            Assert.True(results2.ContainsKey(nodeId), $"Run 2 missing node {outputId}");
+
+            var arr1 = results1[nodeId].ToArray();
+            var arr2 = results2[nodeId].ToArray();
+
+            Assert.Equal(arr1.Length, arr2.Length);
+            for (int i = 0; i < arr1.Length; i++)
+            {
+                Assert.True(
+                    BitConverter.DoubleToInt64Bits(arr1[i]) == BitConverter.DoubleToInt64Bits(arr2[i]),
+                    $"Node {outputId} bin {i}: {arr1[i]} != {arr2[i]}");
+            }
+        }
     }
 }

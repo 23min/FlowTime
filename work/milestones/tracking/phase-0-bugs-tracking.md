@@ -9,8 +9,8 @@
 - [x] BUG-1: Clone outflow series before dispatch mutation — fix + regression test
 - [x] BUG-2: Include CapacitySeriesId in ServiceWithBufferNode.Inputs — fix + regression test
 - [x] BUG-3: Make InvariantAnalyzer.ValidateQueue dispatch-aware — fix + regression test
-- [ ] End-to-end determinism test (same template + seed = bitwise-identical artifacts)
-- [x] All existing tests still pass (109 total, 0 failures)
+- [x] End-to-end determinism test (bitwise-identical series from two independent compile+evaluate cycles)
+- [x] All existing tests still pass (110 total, 0 failures)
 
 ## TDD Plan
 
