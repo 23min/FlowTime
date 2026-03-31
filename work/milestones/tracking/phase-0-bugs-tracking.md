@@ -2,6 +2,7 @@
 
 **Epic:** Engine Correctness & Analytical Primitives (`work/epics/engine-correctness-and-analytics/spec.md`)
 **Started:** 2026-03-31
+**Completed:** 2026-03-31
 **Branch:** `milestone/phase-0-bugs` (from `epic/engine-correctness`)
 
 ## Acceptance Criteria
