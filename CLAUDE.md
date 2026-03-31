@@ -151,6 +151,6 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
 - **Epic:** Svelte UI Rewrite (`work/epics/svelte-ui/spec.md`)
-- **Completed:** m-svui-01 (scaffold), m-svui-02 (API + pages), m-svui-03 (topology)
-- **Next:** m-svui-04 (timeline) — blocked on dag-map heatmap mode
-- **Branch:** `main` (M1-M3 were committed to main; future milestones use branch workflow)
+- **Completed:** m-svui-01 (scaffold), m-svui-02 (API + pages), m-svui-03 (topology), m-svui-04 (timeline basics)
+- **Next:** Phase 0 engine bugs (BUG-1, BUG-2, BUG-3), then Svelte UI experimentation toggles
+- **Branch:** `main` (M1-M4 were committed to main; future milestones MUST use branch workflow)

@@ -33,3 +33,21 @@ Shared decision log for active architectural and technical decisions.
 **Context:** bits-ui 2.16.4 has broken dist/types.js — references `../bits/pin-input/pin-input.svelte.js` and `./attributes.js` which don't exist in the published package.
 **Decision:** Pin bits-ui to 2.15.0 until the issue is fixed upstream.
 **Consequences:** Check for fix on bits-ui releases periodically. Can unpin when 2.16.5+ ships.
+
+## D-2026-03-30-005: dag-map lineGap default for single-route graphs
+**Status:** active
+**Context:** dag-map's lineGap (parallel line offset at shared nodes) defaults to 5px. For auto-discovered routes, this causes the trunk to wobble even when there's only one visual route.
+**Decision:** Default lineGap to 0 when routes are auto-discovered (not consumer-provided). Only use non-zero lineGap when consumer explicitly provides multiple routes.
+**Consequences:** Single-route graphs render with straight trunks. Multi-route flow layouts still get parallel line separation.
+
+## D-2026-03-30-006: Svelte UI heatmap uses derived.utilization from state API
+**Status:** active
+**Context:** The FlowTime state API returns metrics at multiple levels: `metrics.*` (raw), `derived.*` (computed), `byClass.*` (per-class). Needed to pick the right field for heatmap coloring.
+**Decision:** Use `derived.utilization` as primary heatmap metric, `derived.throughputRatio` as fallback. Other focus metrics (SLA, error rate, queue depth) to be added via a metric selector chip.
+**Consequences:** Heatmap works end-to-end for utilization. Need to add metric selector for other derived fields.
+
+## D-2026-03-31-001: Fix P0 engine bugs before further Svelte UI work
+**Status:** active
+**Context:** Engine deep review found 3 P0 bugs (shared series mutation, missing capacity dependency, dispatch-unaware invariant). Svelte UI shows data from these APIs — incorrect engine data means incorrect visualization.
+**Decision:** Prioritize Phase 0 bug fixes (BUG-1, BUG-2, BUG-3) before continuing Svelte UI M4 completion or M5/M6.
+**Consequences:** Svelte UI work pauses briefly. Engine correctness gates all downstream work.

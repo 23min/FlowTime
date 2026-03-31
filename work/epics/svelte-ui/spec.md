@@ -86,7 +86,7 @@ The UI was generated iteratively with AI assistance and has accumulated CSS debt
 | m-svui-01-scaffold | Project scaffold & shell | SvelteKit + shadcn-svelte + Tailwind + layout shell with sidebar | **done** |
 | m-svui-02-api-and-pages | API layer & simple pages | TypeScript API clients, stores, Home, Health, Artifacts pages | **done** |
 | m-svui-03-topology | Topology via dag-map | dag-map SVG rendering with dark/light theme, run selector | **done** |
-| m-svui-04-timeline | Timeline & playback | SVG timeline, bin scrubbing, dag-map heatmap mode for metric overlays | not started |
+| m-svui-04-timeline | Timeline & playback | SVG timeline, bin scrubbing, dag-map heatmap mode for metric overlays | **in progress** |
 | m-svui-05-inspector | Inspector & feature bar | Node inspector with sparklines, feature bar overlay settings, legend | not started |
 | m-svui-06-dashboard-and-run | Dashboard & run orchestration | SLA dashboard, class selector, run execution page | not started |
 | m-svui-07-polish | Visual polish & dark mode QA | Transitions, consistent elevation, dark mode audit, accessibility pass | not started |

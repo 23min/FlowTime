@@ -101,14 +101,34 @@ The FlowTime `/v1/runs/{id}/graph` endpoint returns node `kind` (service, queue,
 
 ---
 
-## dag-map Features Needed for Svelte UI M4/M5
+## dag-map Features Needed for Svelte UI M5+
 
-- **Heatmap mode**: per-node/edge metric coloring (M4 blocker for timeline scrubbing)
-- **Click/tap events**: callback with node ID (M5 blocker for inspector)
+- ~~**Heatmap mode**: per-node/edge metric coloring~~ **Done** (dag-map `metrics`/`edgeMetrics`/`colorScales`)
+- **Click/tap events**: callback with node ID (M5 blocker for inspector). `data-id` attributes exist; need event delegation in Svelte wrapper or library-level callback.
 - **Hover tooltips**: on stations (M5 blocker for inspector)
 - **Selected node highlighting**: visual state (M5 blocker for inspector)
+- **Node shape differentiation**: custom shapes per node kind (service=rect, queue=diamond, dlq=triangle). Possible via `renderNode` callback.
 
-See dag-map ROADMAP.md "Vision — Heatmap mode" and "Planned" sections.
+See dag-map ROADMAP.md “Planned” sections.
+
+---
+
+## Svelte UI: SVG Performance at Scale
+
+The “all dependencies” non-operational view has ~60-80 nodes and 200+ edges. SVG should handle this (est. ~600 DOM elements), but hasn't been tested. If it struggles:
+- Try DOM-based metric updates (setAttribute) instead of full SVG re-render
+- Consider canvas hybrid (dag-map for layout, canvas for rendering) as last resort
+- Semantic zoom (dot → station → card at zoom levels) could reduce element count
+
+---
+
+## Client-Side Route Derivation for layoutFlow
+
+FlowTime classes are metric dimensions, not graph routes. To use dag-map's `layoutFlow`, we need routes: `{ id, cls, nodes: [nodeIds] }`. The API provides `ByClass` on edges/nodes in state data, but no path-level query.
+
+**Workaround:** Trace edges with non-zero `ByClass[classId].flowVolume` per class to derive approximate routes. Not authoritative — a proper Path Analysis API is needed for production.
+
+**Status:** Not attempted yet. Needs experimentation.
 
 ---
 
@@ -117,4 +137,6 @@ See dag-map ROADMAP.md "Vision — Heatmap mode" and "Planned" sections.
 - Should path filters be part of the time-travel API or a separate analysis endpoint?
 - What thresholds/semantics define a “path” in time-binned data?
 - Should derived path outputs be stored in run artifacts or computed on demand?
+- How should node kind (service/queue/dlq) map to visual differentiation in dag-map?
+- Should the Svelte UI support both operational and full graph views? What layout handles 80+ nodes?
 
