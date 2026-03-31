@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Linq;
 using FlowTime.Core.Artifacts;
+using FlowTime.Core.Dispatching;
 using FlowTime.Core.Execution;
 using FlowTime.Core.Models;
 using FlowTime.Core.Nodes;
@@ -281,13 +282,16 @@ public static class InvariantAnalyzer
                     exhaustedFailures, errors, greaterTolerance: true);
             }
 
+            // Resolve dispatch schedule early — needed for queue validation (BUG-3 fix)
+            var dispatchSchedule = ResolveDispatchSchedule(nodeId, semantics);
+
             // Queue depth validation
             if (queueDepth != null && arrivals != null && served != null)
             {
                 var seed = (semantics.QueueDepth != null && queueSeeds.TryGetValue(semantics.QueueDepth, out var val))
                     ? val
                     : 0d;
-                ValidateQueue(nodeId, queueDepth, arrivals, served, errors, seed);
+                ValidateQueue(nodeId, queueDepth, arrivals, served, errors, seed, dispatchSchedule);
             }
 
             if (edgeFlowSeries.Count > 0)
@@ -486,7 +490,6 @@ public static class InvariantAnalyzer
                     "info"));
             }
 
-            var dispatchSchedule = ResolveDispatchSchedule(nodeId, semantics);
             if (dispatchSchedule is not null)
             {
                 ValidateDispatchSchedule(nodeId, dispatchSchedule, arrivals, served);
@@ -806,11 +809,25 @@ public static class InvariantAnalyzer
             }
         }
 
-        void ValidateQueue(string nodeId, double[] queueDepth, double[] inflow, double[] outflow, double[]? loss, double seed)
+        void ValidateQueue(string nodeId, double[] queueDepth, double[] inflow, double[] outflow, double[]? loss, double seed, DispatchScheduleDefinition? dispatchSchedule)
         {
             if (inflow.Length != outflow.Length || queueDepth.Length != inflow.Length)
             {
                 return;
+            }
+
+            // Apply dispatch schedule to outflow copy (BUG-3 fix).
+            // ServiceWithBufferNode zeros outflow on non-dispatch bins; the invariant
+            // check must replicate this to avoid false positive queue_depth_mismatch.
+            var effectiveOutflow = outflow;
+            if (dispatchSchedule is not null && dispatchSchedule.PeriodBins > 0)
+            {
+                effectiveOutflow = (double[])outflow.Clone();
+                DispatchScheduleProcessor.ApplySchedule(
+                    dispatchSchedule.PeriodBins,
+                    dispatchSchedule.PhaseOffset ?? 0,
+                    effectiveOutflow,
+                    capacityOverride: null);
             }
 
             Span<int> bins = stackalloc int[5];
@@ -818,7 +835,7 @@ public static class InvariantAnalyzer
             double expected = seed;
             for (var i = 0; i < queueDepth.Length; i++)
             {
-                expected = Math.Max(0, expected + inflow[i] - outflow[i] - (loss?[i] ?? 0));
+                expected = Math.Max(0, expected + inflow[i] - effectiveOutflow[i] - (loss?[i] ?? 0));
                 var diff = Math.Abs(queueDepth[i] - expected);
                 if (diff > tolerance)
                 {
