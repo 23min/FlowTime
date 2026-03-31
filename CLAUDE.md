@@ -150,8 +150,9 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
-- **Epic:** Svelte UI Rewrite (`work/epics/svelte-ui/spec.md`)
-- **Completed:** m-svui-01 (scaffold), m-svui-02 (API + pages), m-svui-03 (topology), m-svui-04 (timeline basics)
-- **Completed:** m-svui-01 through m-svui-04, Phase 0 engine bugs (BUG-1, BUG-2, BUG-3 + determinism test)
-- **Next:** Phase 1+2 (engineering + docs), Svelte UI experimentation toggles, path analysis discussion
-- **Branch:** merge `milestone/phase-0-bugs` → `epic/engine-correctness` → `main`
+- **Epic:** Engine Correctness & Analytical Primitives (`work/epics/engine-correctness-and-analytics/spec.md`)
+- **Completed:** Phase 0 (BUG-1, BUG-2, BUG-3 + determinism test, 110 tests)
+- **Next:** Phase 1 (engineering foundation) — cache topo order, NaN policy, Series immutability, PCG32 bias
+- **Branch:** `epic/engine-correctness` (Phase 0 merged, do NOT merge to main until epic complete)
+- **Also done:** Svelte UI m-svui-01 through m-svui-04 (on main), dag-map heatmap mode
+- **Pending discussion:** path analysis approach, Svelte UI experimentation toggles
