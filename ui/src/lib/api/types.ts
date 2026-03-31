@@ -123,6 +123,15 @@ export interface ArtifactReference {
 	relationshipType?: string;
 }
 
+// Run Index
+export interface RunIndex {
+	schemaVersion: number;
+	grid: { bins: number; binSize: number; binUnit: string; timezone?: string };
+	series: { id: string; kind: string; path: string; unit: string; componentId: string }[];
+	classes?: { id: string; displayName?: string }[];
+	classCoverage?: string;
+}
+
 // Graph
 export interface GraphResponse {
 	nodes: GraphNode[];

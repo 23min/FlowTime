@@ -1,13 +1,21 @@
 <script lang="ts">
-	import { dagMap } from 'dag-map';
+	import { dagMap, renderSVG, layoutMetro, colorScales } from 'dag-map';
 	import type { GraphResponse } from '$lib/api/types.js';
 	import { theme as appTheme } from '$lib/stores/theme.svelte.js';
 
-	interface Props {
-		graph: GraphResponse;
+	interface NodeMetric {
+		value: number;
+		label?: string;
 	}
 
-	let { graph }: Props = $props();
+	interface Props {
+		graph: GraphResponse;
+		metrics?: Map<string, NodeMetric>;
+		edgeMetrics?: Map<string, NodeMetric>;
+		colorScale?: (t: number) => string;
+	}
+
+	let { graph, metrics, edgeMetrics, colorScale }: Props = $props();
 
 	// FlowTime edges use port-qualified IDs like "NodeA:out" → "NodeB:in"
 	function stripPort(id: string): string {
@@ -43,11 +51,8 @@
 		}
 	};
 
-	const svg = $derived.by(() => {
-		// Read resolved theme to make this reactive
-		const isDark = appTheme.resolved === 'dark';
-		const dagTheme = isDark ? darkTheme : lightTheme;
-
+	// Compute DAG and layout from graph (recomputes only when graph changes)
+	const dagData = $derived.by(() => {
 		const nodeIds = new Set(graph.nodes.map((n) => n.id));
 		const edgeSet = new Set<string>();
 		const edges: [string, string][] = [];
@@ -61,8 +66,7 @@
 				edges.push([from, to]);
 			}
 		}
-
-		const dag = {
+		return {
 			nodes: graph.nodes.map((n) => ({
 				id: n.id,
 				label: n.id,
@@ -70,17 +74,31 @@
 			})),
 			edges
 		};
+	});
 
-		const result = dagMap(dag, {
+	const layout = $derived.by(() => {
+		const isDark = appTheme.resolved === 'dark';
+		const dagTheme = isDark ? darkTheme : lightTheme;
+		return layoutMetro(dagData, {
 			theme: dagTheme,
 			routing: 'bezier',
+			scale: 1.5
+		});
+	});
+
+	// Render with current metrics (fast — no layout recompute when only metrics change)
+	const svg = $derived.by(() => {
+		const isDark = appTheme.resolved === 'dark';
+		const dagTheme = isDark ? darkTheme : lightTheme;
+		return renderSVG(dagData, layout, {
+			theme: dagTheme,
 			showLegend: false,
 			title: ' ',
 			subtitle: null,
-			scale: 1.5
+			metrics,
+			edgeMetrics,
+			colorScale
 		});
-
-		return result.svg;
 	});
 </script>
 

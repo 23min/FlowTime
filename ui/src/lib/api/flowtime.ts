@@ -5,6 +5,7 @@ import type {
 	ArtifactRelationships,
 	GraphResponse,
 	RunDetail,
+	RunIndex,
 	RunSummaryResponse,
 	ServiceInfo,
 	StateSnapshotResponse,
@@ -84,6 +85,11 @@ export const flowtime = {
 		return get<StateSnapshotResponse>(
 			`${API}/runs/${encodeURIComponent(runId)}/state?binIndex=${binIndex}`
 		);
+	},
+
+	/** Get run series index (bin count, grid info) */
+	async getRunIndex(runId: string) {
+		return get<RunIndex>(`${API}/runs/${encodeURIComponent(runId)}/index`);
 	},
 
 	/** Get state window (range of bins) */
