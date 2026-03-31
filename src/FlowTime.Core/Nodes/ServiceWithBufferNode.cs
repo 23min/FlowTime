@@ -17,9 +17,18 @@ public sealed class ServiceWithBufferNode : INode
     private readonly DispatchScheduleConfig? dispatchSchedule;
 
     public NodeId Id { get; }
-    public IEnumerable<NodeId> Inputs => lossId.HasValue
-        ? new[] { inflowId, outflowId, lossId.Value }
-        : new[] { inflowId, outflowId };
+    public IEnumerable<NodeId> Inputs
+    {
+        get
+        {
+            yield return inflowId;
+            yield return outflowId;
+            if (lossId.HasValue)
+                yield return lossId.Value;
+            if (dispatchSchedule?.CapacitySeriesId is NodeId capacityId)
+                yield return capacityId;
+        }
+    }
 
     public ServiceWithBufferNode(
         string id,
@@ -49,6 +58,9 @@ public sealed class ServiceWithBufferNode : INode
 
         if (dispatchSchedule is not null)
         {
+            // Clone outflow before dispatch mutation to avoid corrupting the
+            // memoized series shared with other nodes (BUG-1 fix).
+            outflow = new Series(outflow.ToArray());
             DispatchScheduleProcessor.ApplySchedule(
                 dispatchSchedule.PeriodBins,
                 dispatchSchedule.PhaseOffset,
