@@ -11,10 +11,9 @@ using FlowTime.Core.Execution;
 using FlowTime.Core.Models;
 using FlowTime.Core.Nodes;
 using FlowTime.Core.TimeTravel;
+using Microsoft.Extensions.Logging;
 using YamlDotNet.Serialization;
 using YamlDotNet.RepresentationModel;
-
-#pragma warning disable CS8602 // Dereference of a possibly null reference - suppressed for dynamic access patterns
 
 namespace FlowTime.Core.Artifacts;
 
@@ -93,7 +92,7 @@ public static class RunArtifactWriter
 
     private const string aggregatesDirectoryName = "aggregates";
 
-    public static async Task<WriteResult> WriteArtifactsAsync(WriteRequest request)
+    public static async Task<WriteResult> WriteArtifactsAsync(WriteRequest request, ILogger? logger = null)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -260,7 +259,7 @@ public static class RunArtifactWriter
 
             if (request.Verbose)
             {
-                Console.WriteLine($"  Wrote {descriptor.CsvFileName} ({seriesData.Length} rows)");
+                logger?.LogDebug("Wrote {FileName} ({RowCount} rows)", descriptor.CsvFileName, seriesData.Length);
             }
         }
 
@@ -294,7 +293,7 @@ public static class RunArtifactWriter
 
                 if (request.Verbose)
                 {
-                    Console.WriteLine($"  Wrote {descriptor.CsvFileName} ({edgeSeries.Values.Length} rows)");
+                    logger?.LogDebug("Wrote {FileName} ({RowCount} rows)", descriptor.CsvFileName, edgeSeries.Values.Length);
                 }
             }
         }

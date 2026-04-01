@@ -1,6 +1,7 @@
 using System.Globalization;
 using FlowTime.Core.Models;
 using FlowTime.Core.TimeTravel;
+using Microsoft.Extensions.Logging;
 
 namespace FlowTime.Core.Compiler;
 
@@ -13,7 +14,7 @@ public static class ModelCompiler
         "dlq"
     };
 
-    public static ModelDefinition Compile(ModelDefinition model)
+    public static ModelDefinition Compile(ModelDefinition model, ILogger? logger = null)
     {
         if (model.Topology?.Nodes is not { Count: > 0 })
         {
@@ -85,7 +86,7 @@ public static class ModelCompiler
                     {
                         foreach (var message in policyResult.Messages)
                         {
-                            Console.WriteLine($"[flowtime] Retry kernel policy for '{retryEchoSeries}': {message}");
+                            logger?.LogDebug("Retry kernel policy for '{SeriesId}': {Message}", retryEchoSeries, message);
                         }
                     }
 

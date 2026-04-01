@@ -228,4 +228,124 @@ public class ExpressionIntegrationTests
 
         Assert.Equal(new[] { 10.0, 0.0, 30.0, 0.0 }, result.ToArray());
     }
+
+    // ──────────────────────────────────────────────────
+    // Edge-case tests for expression functions
+    // ──────────────────────────────────────────────────
+
+    [Fact]
+    public void ParseAndEvaluate_ModFunction_NegativeDivisor()
+    {
+        var result = Eval("MOD(a, b)",
+            ("a", new double[] { 7, -7, 7, -7 }),
+            ("b", new double[] { -3, -3, 3, 3 }));
+
+        // MOD uses floored modulo (result has same sign as divisor)
+        Assert.Equal(-2.0, result[0], 6); // 7 mod -3 = -2
+        Assert.Equal(-1.0, result[1], 6); // -7 mod -3 = -1
+        Assert.Equal(1.0, result[2], 6);  // 7 mod 3 = 1
+        Assert.Equal(2.0, result[3], 6);  // -7 mod 3 = 2
+    }
+
+    [Fact]
+    public void ParseAndEvaluate_ModFunction_SeriesDivisor()
+    {
+        var result = Eval("MOD(a, b)",
+            ("a", new double[] { 10, 15, 20, 25 }),
+            ("b", new double[] { 3, 4, 7, 6 }));
+
+        Assert.Equal(1.0, result[0], 6);  // 10 mod 3
+        Assert.Equal(3.0, result[1], 6);  // 15 mod 4
+        Assert.Equal(6.0, result[2], 6);  // 20 mod 7
+        Assert.Equal(1.0, result[3], 6);  // 25 mod 6
+    }
+
+    [Fact]
+    public void ParseAndEvaluate_StepFunction_SeriesThreshold()
+    {
+        var result = Eval("STEP(x, threshold)",
+            ("x", new double[] { 0.5, 0.8, 0.3, 1.0 }),
+            ("threshold", new double[] { 0.6, 0.6, 0.6, 0.6 }));
+
+        Assert.Equal(new[] { 0.0, 1.0, 0.0, 1.0 }, result);
+    }
+
+    [Fact]
+    public void ParseAndEvaluate_StepFunction_EqualToThreshold_ReturnsOne()
+    {
+        var result = Eval("STEP(x, 0.5)",
+            ("x", new double[] { 0.5, 0.5, 0.5, 0.5 }));
+
+        // value >= threshold, so exactly equal should return 1.0
+        Assert.Equal(new[] { 1.0, 1.0, 1.0, 1.0 }, result);
+    }
+
+    [Fact]
+    public void ParseAndEvaluate_PulseFunction_Period1_AlwaysOn()
+    {
+        var parser = new ExpressionParser("PULSE(1, 0, 5)");
+        var ast = parser.Parse();
+        var exprNode = ExpressionCompiler.Compile(ast, "result");
+
+        var result = exprNode.Evaluate(grid, _ => throw new ArgumentException());
+
+        // Period 1 means every bin is a pulse bin
+        Assert.Equal(new[] { 5.0, 5.0, 5.0, 5.0 }, result.ToArray());
+    }
+
+    [Fact]
+    public void ParseAndEvaluate_CombinedExpressions_FloorOfMod()
+    {
+        var result = Eval("FLOOR(MOD(x, 3))",
+            ("x", new double[] { 7.5, 8.2, 3.0, 11.9 }));
+
+        // MOD(7.5, 3) = 1.5 → FLOOR = 1.0
+        // MOD(8.2, 3) = 2.2 → FLOOR = 2.0
+        // MOD(3.0, 3) = 0.0 → FLOOR = 0.0
+        // MOD(11.9, 3) = 2.9 → FLOOR = 2.0
+        Assert.Equal(1.0, result[0], 6);
+        Assert.Equal(2.0, result[1], 6);
+        Assert.Equal(0.0, result[2], 6);
+        Assert.Equal(2.0, result[3], 6);
+    }
+
+    [Fact]
+    public void ParseAndEvaluate_CombinedExpressions_CeilOfDivision()
+    {
+        var result = Eval("CEIL(a / b)",
+            ("a", new double[] { 7, 10, 1, 0 }),
+            ("b", new double[] { 3, 4, 3, 5 }));
+
+        // 7/3 = 2.333 → CEIL = 3.0
+        // 10/4 = 2.5 → CEIL = 3.0
+        // 1/3 = 0.333 → CEIL = 1.0
+        // 0/5 = 0.0 → CEIL = 0.0
+        Assert.Equal(3.0, result[0]);
+        Assert.Equal(3.0, result[1]);
+        Assert.Equal(1.0, result[2]);
+        Assert.Equal(0.0, result[3]);
+    }
+
+    // ──────────────────────────────────────────────────
+    // Helper
+    // ──────────────────────────────────────────────────
+
+    private double[] Eval(string expr, params (string name, double[] values)[] inputs)
+    {
+        var testGrid = new TimeGrid(inputs[0].values.Length, 60, TimeUnit.Minutes);
+        var parser = new ExpressionParser(expr);
+        var ast = parser.Parse();
+        var exprNode = ExpressionCompiler.Compile(ast, "result");
+
+        Series GetInput(NodeId id)
+        {
+            foreach (var (name, values) in inputs)
+            {
+                if (id.Value == name) return new Series(values);
+            }
+            throw new KeyNotFoundException($"Unknown input: {id.Value}");
+        }
+
+        return exprNode.Evaluate(testGrid, GetInput).ToArray();
+    }
 }

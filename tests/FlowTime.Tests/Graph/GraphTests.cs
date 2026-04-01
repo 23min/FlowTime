@@ -18,6 +18,30 @@ public class GraphTests
     }
 
     [Fact]
+    public void TopologicalOrder_ReturnsCachedInstance()
+    {
+        var a = new ConstSeriesNode("a", new double[]{1,1,1,1});
+        var b = new BinaryOpNode("b", new NodeId("a"), new NodeId("__scalar__"), BinOp.Mul, 2);
+        var g = new Graph(new INode[]{ a, b });
+
+        var order1 = g.TopologicalOrder();
+        var order2 = g.TopologicalOrder();
+
+        Assert.Same(order1, order2);
+    }
+
+    [Fact]
+    public void Constructor_CyclicGraph_Throws()
+    {
+        // a depends on b, b depends on a — cycle
+        var a = new BinaryOpNode("a", new NodeId("b"), new NodeId("__scalar__"), BinOp.Mul, 1);
+        var b = new BinaryOpNode("b", new NodeId("a"), new NodeId("__scalar__"), BinOp.Mul, 1);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => new Graph(new INode[] { a, b }));
+        Assert.Contains("cycle", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Evaluate_MulScalar_ProducesExpected()
     {
         var grid = new TimeGrid(3, 60, TimeUnit.Minutes);

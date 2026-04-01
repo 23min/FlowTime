@@ -58,14 +58,14 @@ public sealed class ServiceWithBufferNode : INode
 
         if (dispatchSchedule is not null)
         {
-            // Clone outflow before dispatch mutation to avoid corrupting the
-            // memoized series shared with other nodes (BUG-1 fix).
-            outflow = new Series(outflow.ToArray());
+            // Series is immutable — get a mutable copy for dispatch schedule application.
+            var outflowData = outflow.ToArray();
             DispatchScheduleProcessor.ApplySchedule(
                 dispatchSchedule.PeriodBins,
                 dispatchSchedule.PhaseOffset,
-                outflow,
-                scheduleCapacity);
+                outflowData,
+                scheduleCapacity?.ToArray());
+            outflow = new Series(outflowData);
         }
 
         var loss = lossId.HasValue ? getInput(lossId.Value) : null;

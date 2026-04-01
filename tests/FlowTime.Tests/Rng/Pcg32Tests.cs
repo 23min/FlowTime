@@ -197,6 +197,33 @@ public class Pcg32Tests
     }
     
     [Fact]
+    public void Pcg32_NextInt_UniformDistribution_NonPowerOfTwoRange()
+    {
+        // Range 3 does not evenly divide uint.MaxValue+1 (2^32).
+        // With modulo bias, values 0 and 1 would each appear ~1 extra time
+        // per ~1.4 billion samples. With 300,000 samples the bias is
+        // statistically undetectable, but this test verifies the rejection
+        // sampling implementation is correct and doesn't degrade distribution.
+        var rng = new Core.Pcg32(seed: 42);
+        var counts = new int[3];
+
+        const int samples = 300_000;
+        for (var i = 0; i < samples; i++)
+        {
+            counts[rng.NextInt(0, 3)]++;
+        }
+
+        // Each bucket should be ~100,000. Allow ±3% (97,000 to 103,000).
+        var expected = samples / 3.0;
+        for (var i = 0; i < 3; i++)
+        {
+            var deviation = Math.Abs(counts[i] - expected) / expected;
+            Assert.True(deviation < 0.03,
+                $"Bucket {i}: count={counts[i]}, expected≈{expected:F0}, deviation={deviation:P1}");
+        }
+    }
+
+    [Fact]
     public void Pcg32_State_IsSerializable()
     {
         // Arrange

@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using FlowTime.Core.Models;
 using FlowTime.Core.Nodes;
 
@@ -7,46 +6,12 @@ namespace FlowTime.Core.Execution;
 public sealed class Graph
 {
     private readonly Dictionary<NodeId, INode> nodes;
+    private readonly IReadOnlyList<NodeId> cachedTopologicalOrder;
 
     public Graph(IEnumerable<INode> nodes)
     {
         this.nodes = nodes.ToDictionary(n => n.Id);
-        ValidateAcyclic();
-    }
-
-    private void ValidateAcyclic()
-    {
-        // Kahn's algorithm to detect cycles
-        var inDegree = new Dictionary<NodeId, int>();
-    foreach (var id in nodes.Keys) inDegree[id] = 0;
-    foreach (var n in nodes.Values)
-        {
-            foreach (var inp in n.Inputs)
-            {
-        if (nodes.ContainsKey(inp))
-                {
-                    // count prerequisite edges into n
-                    inDegree[n.Id]++;
-                }
-            }
-        }
-
-        var queue = new Queue<NodeId>(inDegree.Where(kv => kv.Value == 0).Select(kv => kv.Key));
-        int visited = 0;
-        while (queue.Count > 0)
-        {
-            var id = queue.Dequeue();
-            visited++;
-            foreach (var m in nodes.Values)
-            {
-                if (m.Inputs.Contains(id))
-                {
-                    inDegree[m.Id]--;
-                    if (inDegree[m.Id] == 0) queue.Enqueue(m.Id);
-                }
-            }
-        }
-        if (visited != nodes.Count) throw new InvalidOperationException("Graph has a cycle");
+        cachedTopologicalOrder = ComputeTopologicalOrder();
     }
 
     public IReadOnlyDictionary<NodeId, Series> Evaluate(TimeGrid grid) =>
@@ -61,7 +26,7 @@ public sealed class Graph
         TimeGrid grid,
         IReadOnlyDictionary<NodeId, double[]>? overrides)
     {
-        var order = TopologicalOrder();
+        var order = cachedTopologicalOrder;
         var memo = new Dictionary<NodeId, Series>();
         foreach (var id in order)
         {
@@ -78,13 +43,15 @@ public sealed class Graph
         return memo;
     }
 
-    public IReadOnlyList<NodeId> TopologicalOrder()
+    public IReadOnlyList<NodeId> TopologicalOrder() => cachedTopologicalOrder;
+
+    private IReadOnlyList<NodeId> ComputeTopologicalOrder()
     {
         var inDegree = new Dictionary<NodeId, int>();
-    foreach (var id in nodes.Keys) inDegree[id] = 0;
-    foreach (var n in nodes.Values)
+        foreach (var id in nodes.Keys) inDegree[id] = 0;
+        foreach (var n in nodes.Values)
             foreach (var inp in n.Inputs)
-        if (nodes.ContainsKey(inp)) inDegree[n.Id]++;
+                if (nodes.ContainsKey(inp)) inDegree[n.Id]++;
 
         var queue = new Queue<NodeId>(inDegree.Where(kv => kv.Value == 0).Select(kv => kv.Key));
         var order = new List<NodeId>();
