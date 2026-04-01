@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-API_URL="http://localhost:8080"
+API_URL="http://localhost:8081"
 FIXTURE_YAML="$ROOT/fixtures/order-system/api-model.yaml"
 
 if [ ! -f "$FIXTURE_YAML" ]; then

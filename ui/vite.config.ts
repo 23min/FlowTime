@@ -13,11 +13,11 @@ export default defineConfig({
 				changeOrigin: true
 			},
 			'/v1': {
-				target: 'http://localhost:8080',
+				target: 'http://localhost:8081',
 				changeOrigin: true
 			},
 			'/healthz': {
-				target: 'http://localhost:8080',
+				target: 'http://localhost:8081',
 				changeOrigin: true
 			}
 		}

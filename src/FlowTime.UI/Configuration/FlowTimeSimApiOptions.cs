@@ -5,9 +5,9 @@ public class FlowTimeApiOptions
     public const string SectionName = "FlowTimeApi";
 
     /// <summary>
-    /// The base URL for the FlowTime API (default: http://localhost:8080/)
+    /// The base URL for the FlowTime API (default: http://localhost:8081/)
     /// </summary>
-    public string BaseUrl { get; set; } = "http://localhost:8080/";
+    public string BaseUrl { get; set; } = "http://localhost:8081/";
 
     /// <summary>
     /// The API version to use (default: v1)

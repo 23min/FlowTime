@@ -35,7 +35,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "prelaunch: api",
-      "postDebugTask": "kill:8080",
+      "postDebugTask": "kill:8081",
       "program": "dotnet",
       "args": [
         "run",
@@ -44,12 +44,12 @@
         "--no-build",
         "--",
         "--urls",
-        "http://0.0.0.0:8080"
+        "http://0.0.0.0:8081"
       ],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "env": {
-        "ASPNETCORE_URLS": "http://0.0.0.0:8080",
+        "ASPNETCORE_URLS": "http://0.0.0.0:8081",
         "ASPNETCORE_ENVIRONMENT": "Development",
         "ASPNETCORE_LOGGING__LOGLEVEL__Default": "Debug"
       },
@@ -60,13 +60,13 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "prelaunch: api",
-      "postDebugTask": "kill:8080",
+      "postDebugTask": "kill:8081",
       "program": "${workspaceFolder}/src/FlowTime.API/bin/Debug/net9.0/FlowTime.API.dll",
       "args": [],
       "cwd": "${workspaceFolder}/src/FlowTime.API",
       "console": "internalConsole",
       "env": {
-        "ASPNETCORE_URLS": "http://0.0.0.0:8080",
+        "ASPNETCORE_URLS": "http://0.0.0.0:8081",
         "ASPNETCORE_ENVIRONMENT": "Development",
         "ASPNETCORE_LOGGING__LOGLEVEL__Default": "Debug"
       },

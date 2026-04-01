@@ -66,12 +66,12 @@ builder.Services.AddScoped<ILayoutService, LayoutService>();
 // Port discovery service for API endpoint fallback
 builder.Services.AddScoped<IPortDiscoveryService, PortDiscoveryService>();
 
-// FlowTime API client (for engine/core operations) - now using IHttpClientFactory
+// FlowTime API client (for engine/core operations)
 builder.Services.AddScoped<IFlowTimeApiClient>(sp =>
 {
-    var config = builder.Configuration.GetSection(FlowTimeApiOptions.SectionName).Get<FlowTimeApiOptions>() 
+    var config = builder.Configuration.GetSection(FlowTimeApiOptions.SectionName).Get<FlowTimeApiOptions>()
         ?? new FlowTimeApiOptions();
-    
+
     var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
     var apiHttp = httpClientFactory.CreateClient("FlowTimeAPI");
     return new FlowTimeApiClient(apiHttp, config);

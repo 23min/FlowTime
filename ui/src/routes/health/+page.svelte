@@ -78,7 +78,7 @@
 
 	<div class="grid gap-4 sm:grid-cols-2">
 		{#each [
-			{ label: 'FlowTime API', port: 8080, state: api },
+			{ label: 'FlowTime API', port: 8081, state: api },
 			{ label: 'Simulation API', port: 8090, state: simApi }
 		] as service}
 			<Card.Root>

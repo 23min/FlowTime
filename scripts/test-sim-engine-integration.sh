@@ -15,7 +15,7 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # Configuration
-ENGINE_URL="http://localhost:8080"
+ENGINE_URL="http://localhost:8081"
 SIM_URL="http://localhost:8090"
 TMP_DIR="/tmp/flowtime-integration-test"
 VERBOSE=false

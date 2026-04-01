@@ -12,7 +12,7 @@
 			"env": {
 				"FLOWTIME_SIM_API_URL": "http://localhost:8090/api/v1",
 				"FLOWTIME_SIM_DRAFT_API_URL": "http://localhost:8090/api/v1",
-				"FLOWTIME_API_URL": "http://localhost:8080/v1",
+				"FLOWTIME_API_URL": "http://localhost:8081/v1",
 				"FLOWTIME_DATA_DIR": "/workspaces/flowtime-vnext/data",
 				"FLOWTIME_TEMPLATES_DIR": "/workspaces/flowtime-vnext/templates",
 				"FLOWTIME_TEMPLATES_DRAFT_DIR": "/workspaces/flowtime-vnext/templates-draft",
