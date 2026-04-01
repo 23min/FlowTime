@@ -32,7 +32,7 @@ public sealed class BinaryOpNode : INode
     public Series Evaluate(TimeGrid grid, Func<NodeId, Series> getInput)
     {
         var a = getInput(left);
-        var result = new Series(a.Length);
+        var result = new double[a.Length];
         if (scalarRight.HasValue)
         {
             var k = scalarRight.Value;
@@ -40,13 +40,13 @@ public sealed class BinaryOpNode : INode
             {
                 result[t] = op == BinOp.Mul ? a[t] * k : a[t] + k;
             }
-            return result;
+            return new Series(result);
         }
         var b = getInput(right);
         for (int t = 0; t < a.Length; t++)
         {
             result[t] = op == BinOp.Mul ? a[t] * b[t] : a[t] + b[t];
         }
-        return result;
+        return new Series(result);
     }
 }

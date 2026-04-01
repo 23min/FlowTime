@@ -96,7 +96,22 @@ public class Pcg32
             throw new ArgumentException($"min ({min}) must be less than max ({max})");
 
         uint range = (uint)(max - min);
-        return min + (int)(NextUInt32() % range);
+
+        // Lemire's nearly divisionless algorithm for unbiased bounded random.
+        // Eliminates modulo bias present in the simple (NextUInt32() % range) approach.
+        // Reference: https://arxiv.org/abs/1805.10941
+        ulong m = (ulong)NextUInt32() * range;
+        uint l = (uint)m;
+        if (l < range)
+        {
+            uint threshold = (uint)(-(int)range) % range;
+            while (l < threshold)
+            {
+                m = (ulong)NextUInt32() * range;
+                l = (uint)m;
+            }
+        }
+        return min + (int)(m >> 32);
     }
 
     /// <summary>

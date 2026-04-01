@@ -89,6 +89,46 @@ public class TopologyTests
     }
 
     [Fact]
+    public void GetOutgoingEdges_UnknownNode_ReturnsEmpty()
+    {
+        var topology = new Topology
+        {
+            Nodes = new[]
+            {
+                new Node { Id = "A", Semantics = CreateSemantics("a_in", "a_out", "a_err") }
+            },
+            Edges = new[]
+            {
+                new Edge { Source = "A", Target = "B", Weight = 1.0 }
+            }
+        };
+
+        var outgoing = topology.GetOutgoingEdges("unknown");
+
+        Assert.Empty(outgoing);
+    }
+
+    [Fact]
+    public void GetIncomingEdges_UnknownNode_ReturnsEmpty()
+    {
+        var topology = new Topology
+        {
+            Nodes = new[]
+            {
+                new Node { Id = "A", Semantics = CreateSemantics("a_in", "a_out", "a_err") }
+            },
+            Edges = new[]
+            {
+                new Edge { Source = "A", Target = "B", Weight = 1.0 }
+            }
+        };
+
+        var incoming = topology.GetIncomingEdges("unknown");
+
+        Assert.Empty(incoming);
+    }
+
+    [Fact]
     public void NodeSemantics_AllowsOptionalFields()
     {
         var semantics = new NodeSemantics
