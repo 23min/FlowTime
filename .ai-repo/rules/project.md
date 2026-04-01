@@ -41,17 +41,17 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 
 - `dotnet build FlowTime.sln` / `dotnet test FlowTime.sln`
 - VS Code tasks: `build`, `test`, `start-api`, `stop-api`, `start-sim-api`, `stop-sim-api`, `start-ui`, `stop-ui`
-- Engine API: `dotnet run --project src/FlowTime.API` → port 8080
+- Engine API: `dotnet run --project src/FlowTime.API` → port 8081
 - Sim API: `dotnet run --project src/FlowTime.Sim.Service` with `ASPNETCORE_URLS=http://0.0.0.0:8090`
 - UI: `dotnet run --project src/FlowTime.UI`
-- Default ports: 8080 (Engine API), 8090 (Sim API), 5219/7047 (UI), 8091 (Sim diagnostics), 5091 (Engine dev profile)
+- Default ports: 8081 (Engine API), 8090 (Sim API), 5219/7047 (UI), 8091 (Sim diagnostics), 5091 (Engine dev profile)
 - Build and test before handing work back.
 
 ## Devcontainer Port Safety
 
-- **Never blindly kill all processes on port 8080** — the devcontainer port-forwarder listens there; killing it destroys the session.
-- To free port 8080, filter by process name: only kill `dotnet` processes.
-- Use the `kill-port-8080` VS Code task — it filters safely.
+- **Never blindly kill all processes on port 8081** — the devcontainer port-forwarder listens there; killing it destroys the session.
+- To free port 8081, filter by process name: only kill `dotnet` processes.
+- Use the `kill-port-8081` VS Code task — it filters safely.
 - Verify processes before killing: `lsof -ti:PORT`, `ps aux | grep`. Use `pkill -f "ProcessName"` or `lsof -ti:PORT | xargs -r kill -TERM`. Never `kill <PORT>`.
 - Send SIGTERM first, wait, then SIGKILL only if still alive. Never start with `kill -9`.
 

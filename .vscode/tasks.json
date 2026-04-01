@@ -72,7 +72,7 @@
     {
       "label": "start-api",
       "type": "shell",
-      "command": "$env:ASPNETCORE_URLS = 'http://0.0.0.0:8080'; dotnet run --project src/FlowTime.API",
+      "command": "$env:ASPNETCORE_URLS = 'http://0.0.0.0:8081'; dotnet run --project src/FlowTime.API",
       "isBackground": true,
       "problemMatcher": [],
       "presentation": {
@@ -98,7 +98,7 @@
       },
       "options": {
         "env": {
-          "ASPNETCORE_URLS": "http://0.0.0.0:8080",
+          "ASPNETCORE_URLS": "http://0.0.0.0:8081",
           "FLOWTIME_DATA_DIR": "/workspaces/flowtime-vnext/data"
         }
       }
@@ -154,7 +154,7 @@
         "env": {
           "FLOWTIME_SIM_API_URL": "http://localhost:8090/api/v1",
           "FLOWTIME_SIM_DRAFT_API_URL": "http://localhost:8090/api/v1",
-          "FLOWTIME_API_URL": "http://localhost:8080/v1",
+          "FLOWTIME_API_URL": "http://localhost:8081/v1",
           "FLOWTIME_DATA_DIR": "${workspaceFolder}/data",
           "FLOWTIME_TEMPLATES_DIR": "${workspaceFolder}/templates",
           "FLOWTIME_TEMPLATES_DRAFT_DIR": "${workspaceFolder}/templates-draft",
@@ -264,7 +264,7 @@
     {
       "label": "kill-port-8080",
       "type": "shell",
-      "command": "lsof -ti:8080 | xargs -r ps -p | grep dotnet | awk '{print $1}' | xargs -r kill -TERM && echo 'Killed dotnet on 8080' || echo 'No dotnet process on 8080'",
+      "command": "lsof -ti:8081 | xargs -r ps -p | grep dotnet | awk '{print $1}' | xargs -r kill -TERM && echo 'Killed dotnet on 8080' || echo 'No dotnet process on 8080'",
       "problemMatcher": [],
       "presentation": {
         "echo": true,

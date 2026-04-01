@@ -324,7 +324,7 @@
     private async Task RefreshAllHealth()
     {
         isLoading = true;
-        
+
         // Reset all statuses and clear errors
         flowTimeApiStatus = ApiStatus.Checking;
         flowTimeSimApiStatus = ApiStatus.Checking;
@@ -332,38 +332,43 @@
         flowTimeSimApiError = null;
         flowTimeApiHealth = null;
         flowTimeSimApiHealth = null;
-        
+
         StateHasChanged();
 
+        // Run sim first (has port discovery, works reliably), then engine.
+        // Blazor WASM is single-threaded — Task.WhenAll doesn't help if one hangs.
+        // Each check gets its own timeout so one can't starve the other.
+        await RunWithTimeout(CheckFlowTimeSimApiHealth, TimeSpan.FromSeconds(10));
+        StateHasChanged(); // Show sim result immediately
+
+        await RunWithTimeout(CheckFlowTimeApiHealth, TimeSpan.FromSeconds(10));
+
+        if (flowTimeApiStatus == ApiStatus.Checking)
+        {
+            flowTimeApiStatus = ApiStatus.Unhealthy;
+            flowTimeApiError = "Health check timed out";
+        }
+        if (flowTimeSimApiStatus == ApiStatus.Checking)
+        {
+            flowTimeSimApiStatus = ApiStatus.Unhealthy;
+            flowTimeSimApiError = "Health check timed out";
+        }
+
+        lastUpdated = DateTime.Now;
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    private static async Task RunWithTimeout(Func<CancellationToken, Task> action, TimeSpan timeout)
+    {
         try
         {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5)); // 5 second timeout for refresh all
-            await CheckFlowTimeApiHealth(cts.Token);
-            
-            // Check FlowTime-Sim API health with detailed information
-            Console.WriteLine($"[RefreshAllHealth] Testing FlowTimeSimApiClient.BaseAddress: '{FlowTimeSimApiClient.BaseAddress}'");
-            await CheckFlowTimeSimApiHealth(cts.Token);
-            
-            lastUpdated = DateTime.Now;
+            using var cts = new CancellationTokenSource(timeout);
+            await action(cts.Token);
         }
         catch (OperationCanceledException)
         {
-            // Handle timeout for the entire refresh operation
-            if (flowTimeApiStatus == ApiStatus.Checking)
-            {
-                flowTimeApiStatus = ApiStatus.Unhealthy;
-                flowTimeApiError = "Health check timed out after 5 seconds";
-            }
-            if (flowTimeSimApiStatus == ApiStatus.Checking)
-            {
-                flowTimeSimApiStatus = ApiStatus.Unhealthy;
-                flowTimeSimApiError = "Health check timed out after 5 seconds";
-            }
-        }
-        finally
-        {
-            isLoading = false;
-            StateHasChanged();
+            // Timeout — caller checks status
         }
     }
 
@@ -451,16 +456,16 @@
         isLoadingFlowTimeApi = true;
         flowTimeApiStatus = ApiStatus.Checking;
         StateHasChanged();
-        
+
         try
         {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             await CheckFlowTimeApiHealth(cts.Token);
         }
         catch (OperationCanceledException)
         {
             flowTimeApiStatus = ApiStatus.Unhealthy;
-            flowTimeApiError = "Health check timed out after 5 seconds";
+            flowTimeApiError = "Health check timed out";
         }
         finally
         {

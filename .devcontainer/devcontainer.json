@@ -59,7 +59,7 @@
   ],
   "containerEnv": {
     "MSBUILDNOINPROCNODE": "1",
-    "FLOWTIME_API_BASEURL": "http://flowtime-api:8080",
+    "FLOWTIME_API_BASEURL": "http://flowtime-api:8081",
     "FLOWTIME_API_VERSION": "v1"
   },
   "forwardPorts": [
@@ -79,6 +79,9 @@
     "8080": {
       "label": "FlowTime API",
       "requireLocalPort": true
+    },
+    "8081": {
+      "label": "FlowTime API"
     },
     "8090": {
       "label": "FlowTime Sim API",
