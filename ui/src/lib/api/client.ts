@@ -12,6 +12,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<ApiResult<T>
 			try {
 				const json = JSON.parse(text);
 				if (json.error) error = json.error;
+				else if (json.detail) error = json.detail;
 			} catch {
 				if (text) error = text;
 			}

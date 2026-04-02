@@ -152,6 +152,85 @@ export interface GraphEdge {
 	[key: string]: unknown;
 }
 
+// Templates
+export interface TemplateSummary {
+	id: string;
+	title: string;
+	description: string;
+	narrative?: string;
+	category: string;
+	tags: string[];
+	version: string;
+	captureKey?: string;
+}
+
+export interface TemplateParameter {
+	name: string;
+	type: string;
+	title: string;
+	description: string;
+	defaultValue?: unknown;
+	min?: number;
+	max?: number;
+}
+
+export interface TemplateDetail extends TemplateSummary {
+	parameters: TemplateParameter[];
+}
+
+export interface TemplateCategoriesResponse {
+	categories: string[];
+}
+
+// Run Orchestration
+export type BundleReuseMode = 'reuse' | 'regenerate' | 'fresh';
+
+export interface RunCreateRequest {
+	templateId: string;
+	mode: string;
+	parameters?: Record<string, unknown>;
+	telemetry?: {
+		captureDirectory: string;
+		bindings?: Record<string, string>;
+	};
+	rng?: { kind: string; seed: number };
+	options?: {
+		dryRun?: boolean;
+		deterministicRunId?: boolean;
+		runId?: string;
+		overwriteExisting?: boolean;
+	};
+}
+
+export interface RunCreateResponse {
+	isDryRun: boolean;
+	metadata?: StateMetadata;
+	plan?: RunCreatePlan;
+	warnings: StateWarning[];
+	canReplay?: boolean;
+	telemetry?: {
+		available: boolean;
+		generatedAtUtc?: string;
+		warningCount: number;
+		sourceRunId?: string;
+	};
+	bundleRef?: { kind: string; id: string };
+	wasReused: boolean;
+}
+
+export interface RunCreatePlan {
+	templateId: string;
+	mode: string;
+	outputRoot: string;
+	captureDirectory?: string;
+	deterministicRunId: boolean;
+	requestedRunId?: string;
+	parameters: Record<string, unknown>;
+	telemetryBindings: Record<string, string>;
+	files: { nodeId: string; metric: string; path: string }[];
+	warnings: { code: string; message: string; nodeId?: string }[];
+}
+
 // State
 export interface StateSnapshotResponse {
 	metadata: StateMetadata;
