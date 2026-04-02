@@ -247,36 +247,19 @@ public class ExpressionParseException : Exception
 
 **Decision**: Implement built-in functions with direct compilation rather than extensible registry
 
-**Implementation**:
+**Implementation**: The function dispatch in `ExprNode.cs` compiles each function call to series-level evaluation:
 ```csharp
-private INode CompileFunctionCall(FunctionCallExpressionNode funcNode, 
-                                 Dictionary<string, INode> nodeContext)
+return funcNode.FunctionName switch
 {
-    return funcNode.FunctionName switch
-    {
-        "SHIFT" => CompileShiftFunction(funcNode, nodeContext),
-        "MIN" => CompileMinFunction(funcNode, nodeContext),
-        "MAX" => CompileMaxFunction(funcNode, nodeContext),
-        "CLAMP" => CompileClampFunction(funcNode, nodeContext),
-        _ => throw new ArgumentException($"Unknown function: {funcNode.FunctionName}")
-    };
-}
-
-private INode CompileShiftFunction(FunctionCallExpressionNode funcNode, 
-                                  Dictionary<string, INode> nodeContext)
-{
-    if (funcNode.Arguments.Count != 2)
-        throw new ArgumentException("SHIFT function requires exactly 2 arguments");
-        
-    var sourceNode = funcNode.Arguments[0].CompileToNode("temp", nodeContext);
-    var lagValue = funcNode.Arguments[1].EvaluateScalar(new Dictionary<string, double>());
-    
-    return new ShiftNode($"shift_{Guid.NewGuid()}", sourceNode, (int)lagValue);
-}
+    "SHIFT" => ...,   "CONV" => ...,    "MIN" => ...,
+    "MAX" => ...,     "CLAMP" => ...,   "MOD" => ...,
+    "FLOOR" => ...,   "CEIL" => ...,    "ROUND" => ...,
+    "STEP" => ...,    "PULSE" => ...,
+    _ => throw new ArgumentException($"Unknown function: {funcNode.FunctionName}")
+};
 ```
 
 **Rationale**:
-- **YAGNI Principle**: Only implement what M-01.05 requires (4 functions)
 - **Performance**: Direct compilation, no registry lookup overhead at runtime
 - **Type Safety**: Compile-time validation of function signatures and argument counts
 - **Simplicity**: No complex registration/discovery mechanisms needed
@@ -310,26 +293,49 @@ private INode CompileShiftFunction(FunctionCallExpressionNode funcNode,
 - **Evaluation Memory**: 8 bytes per bin per intermediate series
 - **Garbage Collection**: Minimal allocations during evaluation
 
+## Function Reference (11 functions)
+
+All functions operate per-bin across the full time series. See `ExprNode.cs` for implementations.
+
+### Temporal
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `SHIFT` | `SHIFT(series, lag)` | Temporal lag: shifts series forward by `lag` bins; leading bins are zero-filled. |
+| `CONV` | `CONV(series, kernel)` | Causal convolution with a literal kernel array. Used for retry/backoff modeling. |
+
+### Comparison
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `MIN` | `MIN(a, b)` | Per-bin minimum of two series. |
+| `MAX` | `MAX(a, b)` | Per-bin maximum of two series. |
+| `CLAMP` | `CLAMP(value, min, max)` | Per-bin clamp: `max(min, min(max, value))`. |
+
+### Arithmetic
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `MOD` | `MOD(value, divisor)` | Floored modulo (result has same sign as divisor). Returns 0 when divisor is near zero. NaN/Infinity inputs return NaN. |
+| `FLOOR` | `FLOOR(x)` | Per-bin floor rounding. NaN input returns NaN. |
+| `CEIL` | `CEIL(x)` | Per-bin ceiling rounding. NaN input returns NaN. |
+| `ROUND` | `ROUND(x)` | Per-bin rounding (MidpointRounding.AwayFromZero). NaN input returns NaN. |
+
+### Flow Control
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `STEP` | `STEP(value, threshold)` | Threshold gate: returns 1 when `value >= threshold`, 0 otherwise. Both arguments can be series. NaN value returns 0 (IEEE 754: NaN >= x is false). |
+| `PULSE` | `PULSE(period [, phase [, amplitude]])` | Periodic pulse: outputs `amplitude` (default 1) on bins where `(bin - phase) mod period == 0`, zero elsewhere. Amplitude can be a series reference. |
+
+### NaN/division-by-zero behavior
+
+All functions follow the engine's three-tier NaN policy (see `docs/architecture/nan-policy.md`):
+- Division/MOD by zero → 0.0 ("no activity")
+- Unary math functions (FLOOR, CEIL, ROUND) propagate NaN from IEEE 754
+- STEP with NaN input → 0 (NaN comparison is false)
+
 ## Extension Points for Future Development
-
-### M-09.05 Retry Modeling Support
-The architecture anticipates future retry modeling requirements:
-
-```csharp
-// Future CONV operator implementation
-public class ConvNode : IStatefulNode
-{
-    // Can follow same patterns as ShiftNode
-    // Convolution with retry kernels
-}
-
-// Function registry when we have 20+ functions
-public interface IFunctionRegistry
-{
-    INode CompileFunction(string name, IList<ExpressionNode> args, 
-                         Dictionary<string, INode> context);
-}
-```
 
 ### Performance Optimization Opportunities
 1. **JIT Compilation**: Generate IL code for hot expressions
@@ -383,15 +389,15 @@ public interface IFunctionRegistry
 | Direct Array Indexing | 2025-09-09 | Simplicity, performance | Queue-based, stateful |
 | Abstract Method AST | 2025-09-09 | Type safety, performance | Visitor pattern, interpreter |
 | Exception Error Handling | 2025-09-09 | .NET conventions, simplicity | Result types, nullable returns |
-| Built-in Function Compilation | 2025-09-09 | YAGNI, performance | Plugin architecture, registry |
+| Built-in Function Compilation | 2025-09-09 | Performance, simplicity | Plugin architecture, registry |
+| CONV operator (retry kernels) | 2025-10 | Causal convolution for retry modeling | External retry nodes |
+| MOD, FLOOR, CEIL, ROUND | 2026-01 | Arithmetic completeness | Library call wrappers |
+| STEP, PULSE | 2026-01 | Flow control primitives for scheduling | Conditional expressions |
 
 ## Future Evolution Strategy
 
-The M-01.05 implementation provides a solid foundation for future enhancements while avoiding over-engineering. Key evolution paths:
+The expression system now has 11 built-in functions covering temporal, comparison, arithmetic, and flow control categories. Key evolution paths:
 
-1. **M-09.05 Integration**: Add CONV operator and retry modeling functions
-2. **Performance Scaling**: Add JIT compilation when expressions become performance bottlenecks
-3. **Function Extensibility**: Add registry pattern when we reach 20+ built-in functions
-4. **Advanced Features**: Add when-if conditional expressions, statistical functions
-
-The architecture intentionally balances immediate M-01.05 needs with long-term extensibility, following the principle of "make it work, make it right, make it fast" - focusing on correctness and simplicity first.
+1. **Performance Scaling**: Add JIT compilation when expressions become performance bottlenecks
+2. **Function Extensibility**: Add registry pattern when function count warrants it
+3. **Advanced Features**: IF/conditional expressions, statistical functions (EMA, ABS, SQRT, POW)

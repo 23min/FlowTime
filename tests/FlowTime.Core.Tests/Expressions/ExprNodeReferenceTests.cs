@@ -25,7 +25,10 @@ public class ExprNodeReferenceTests
         Assert.NotSame(sourceSeries, result);
         Assert.Equal(sourceSeries.ToArray(), result.ToArray());
 
-        result[0] = 10.0;
+        // Series is immutable — mutating the copied array does not affect the source
+        var resultArray = result.ToArray();
+        resultArray[0] = 10.0;
         Assert.Equal(1.0, sourceSeries[0]);
+        Assert.Equal(1.0, result[0]);
     }
 }

@@ -374,6 +374,11 @@ public class ExprNode : INode
 
     private static double Modulo(double dividend, double divisor)
     {
+        if (!double.IsFinite(dividend) || !double.IsFinite(divisor))
+        {
+            return double.NaN;
+        }
+
         var remainder = dividend % divisor;
         if (remainder == 0 || Math.Sign(remainder) == Math.Sign(divisor))
         {

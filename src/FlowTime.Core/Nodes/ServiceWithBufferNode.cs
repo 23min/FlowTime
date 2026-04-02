@@ -17,9 +17,18 @@ public sealed class ServiceWithBufferNode : INode
     private readonly DispatchScheduleConfig? dispatchSchedule;
 
     public NodeId Id { get; }
-    public IEnumerable<NodeId> Inputs => lossId.HasValue
-        ? new[] { inflowId, outflowId, lossId.Value }
-        : new[] { inflowId, outflowId };
+    public IEnumerable<NodeId> Inputs
+    {
+        get
+        {
+            yield return inflowId;
+            yield return outflowId;
+            if (lossId.HasValue)
+                yield return lossId.Value;
+            if (dispatchSchedule?.CapacitySeriesId is NodeId capacityId)
+                yield return capacityId;
+        }
+    }
 
     public ServiceWithBufferNode(
         string id,
@@ -49,11 +58,14 @@ public sealed class ServiceWithBufferNode : INode
 
         if (dispatchSchedule is not null)
         {
+            // Series is immutable — get a mutable copy for dispatch schedule application.
+            var outflowData = outflow.ToArray();
             DispatchScheduleProcessor.ApplySchedule(
                 dispatchSchedule.PeriodBins,
                 dispatchSchedule.PhaseOffset,
-                outflow,
-                scheduleCapacity);
+                outflowData,
+                scheduleCapacity?.ToArray());
+            outflow = new Series(outflowData);
         }
 
         var loss = lossId.HasValue ? getInput(lossId.Value) : null;

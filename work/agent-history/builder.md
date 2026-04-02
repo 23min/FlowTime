@@ -34,3 +34,21 @@ Accumulated learnings from implementation sessions.
 - decisions.md and gaps.md updated retroactively, not during implementation
 - Pushed without asking for approval multiple times
 - Merged dag-map branch without explicit approval
+
+## 2026-03-31: Phase 0 Engine Bug Fixes
+
+### Patterns that worked
+- TDD strictly followed: wrote failing tests first, then fixed, then verified no regressions
+- Branch workflow followed: `epic/engine-correctness` → `milestone/phase-0-bugs`
+- Tracking doc created at start, updated per-AC
+- Bitwise determinism test using `BitConverter.DoubleToInt64Bits` — strictest possible comparison
+
+### Pitfalls encountered
+- `InvariantAnalyzer.ValidateQueue` gets dispatch schedule from `model.Nodes` (NodeDefinition), not `model.Topology.Nodes` (TopologyNodeDefinition). Test initially failed because it only set the dispatch schedule on the topology node.
+- `TimeGrid` constructor takes `TimeUnit` enum, not string — check type signatures before writing tests
+- `OutputDefinition` uses `Series` property, not `Id`
+- `Assert.Equal(long, long, string)` doesn't exist in xUnit — use `Assert.True` with message
+
+### Conventions established
+- Bug regression tests go in `tests/FlowTime.Core.Tests/Bugs/Phase0BugTests.cs`
+- Each bug test has a descriptive name matching the bug ID: `Bug1_...`, `Bug2_...`, `Bug3_...`

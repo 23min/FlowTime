@@ -1,5 +1,5 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$schema": "https://json-schema.org/draft-07/schema#",
     "$id": "https://flowtime.dev/schemas/run.schema.json",
     "title": "FlowTime Run Summary",
     "type": "object",

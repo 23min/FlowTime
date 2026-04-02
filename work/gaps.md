@@ -132,6 +132,41 @@ FlowTime classes are metric dimensions, not graph routes. To use dag-map's `layo
 
 ---
 
+## Router Convergence Guard (Deferred from Phase 1)
+
+### What was planned
+Add a max-iteration limit and convergence detection to `RouterAwareGraphEvaluator`, which currently performs a single re-evaluation pass.
+
+### Why deferred
+The single-pass design is correct for static router weights. A convergence guard is only needed if dynamic/expression-based router weights are introduced (e.g., "route to least-utilized path"). No current or planned models require dynamic routing. FlowTime operates on aggregated time series per bin — routing fractions are either observed (telemetry) or assumed (static weights).
+
+### When to revisit
+When dynamic routing is designed as a feature. At that point, add iteration with convergence detection and a max-iteration safety limit.
+
+### Reference
+- `src/FlowTime.Core/Routing/RouterAwareGraphEvaluator.cs`
+- Phase 1 spec: `work/milestones/m-ec-p1-engineering-foundation.md`
+
+---
+
+## Parallelism `object?` Typing (Deferred from Phase 1)
+
+### What was planned
+Replace `NodeSemantics.Parallelism` (`object?`) with a proper discriminated union type. The loose typing exists because YAML deserialization can produce a string (file URI or node reference), a numeric scalar, or a double array.
+
+### Why deferred
+The change touches 21 files across Core, Contracts, Sim, API, and UI — a cross-cutting refactor with high risk for a foundation milestone. CUE (https://cuelang.org/) was noted as a potential future approach for model schema validation with native union type support.
+
+### When to revisit
+Consider as part of a future "model schema" epic, possibly using CUE for schema validation. The `object?` typing works correctly today — `SemanticLoader.ResolveParallelism()` handles all cases.
+
+### Reference
+- `src/FlowTime.Core/Models/NodeSemantics.cs` (line 21)
+- `src/FlowTime.Core/DataSources/SemanticLoader.cs` (ResolveParallelism method)
+- Phase 1 spec: `work/milestones/m-ec-p1-engineering-foundation.md`
+
+---
+
 ## Open Questions
 
 - Should path filters be part of the time-travel API or a separate analysis endpoint?

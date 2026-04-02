@@ -8,6 +8,7 @@ tools/mcp-server/dist/
 out/
 data/
 runs/
+test-results/
 /publish-wasm
 
 # 
