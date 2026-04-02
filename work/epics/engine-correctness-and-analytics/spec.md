@@ -83,14 +83,15 @@ The existing near-term epics (Path Analysis, Visualizations, Anomaly Detection, 
 
 ## Milestones
 
-To be scoped as individual milestones during implementation. Suggested grouping:
-
 | ID | Title | Status |
 |----|-------|--------|
-| (TBD) | Phase 0: Correctness bugs + determinism test | not started |
-| (TBD) | Phase 1: Engineering foundation | not started |
-| (TBD) | Phase 2: Documentation honesty | not started |
-| (TBD) | Phase 3: Analytical primitives | not started |
+| m-ec-p0 | Phase 0: Correctness bugs + determinism test | complete |
+| m-ec-p1 | Phase 1: Engineering foundation | complete |
+| m-ec-p2 | Phase 2: Documentation honesty | complete |
+| m-ec-p3a | Phase 3a: Cycle time & flow efficiency | approved |
+| m-ec-p3b | Phase 3b: WIP limits | approved |
+| m-ec-p3c | Phase 3c: Variability (Cv + Kingman) | approved |
+| m-ec-p3d | Phase 3d: Constraint enforcement | approved |
 
 ## References
 

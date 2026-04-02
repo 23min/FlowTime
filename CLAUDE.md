@@ -150,7 +150,10 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
-- **Epic:** Svelte UI Rewrite (`work/epics/svelte-ui/spec.md`)
-- **Completed:** m-svui-01 (scaffold), m-svui-02 (API + pages), m-svui-03 (topology), m-svui-04 (timeline basics)
-- **Next:** Phase 0 engine bugs (BUG-1, BUG-2, BUG-3), then Svelte UI experimentation toggles
-- **Branch:** `main` (M1-M4 were committed to main; future milestones MUST use branch workflow)
+- **Engine epic:** Engine Correctness & Analytical Primitives — Phases 0-2 complete, Phase 3 (a-d) approved but paused
+  - Phase 3 specs: `work/milestones/m-ec-p3a-cycle-time.md`, `m-ec-p3b-wip-limits.md`, `m-ec-p3c-variability.md`, `m-ec-p3d-constraint-enforcement.md`
+  - Decided: Bottleneck DSL is a separate epic. Starvation/blocking detection → DSL epic.
+- **Active:** Svelte UI epic (`work/epics/svelte-ui/spec.md`)
+  - M1-M4 complete, next: M6 (run orchestration — card-based template picker)
+  - Branch: `milestone/m-svui-06` from `main`
+  - Port 8080→8081 fix merged to main

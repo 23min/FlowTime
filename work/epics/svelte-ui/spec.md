@@ -86,10 +86,11 @@ The UI was generated iteratively with AI assistance and has accumulated CSS debt
 | m-svui-01-scaffold | Project scaffold & shell | SvelteKit + shadcn-svelte + Tailwind + layout shell with sidebar | **done** |
 | m-svui-02-api-and-pages | API layer & simple pages | TypeScript API clients, stores, Home, Health, Artifacts pages | **done** |
 | m-svui-03-topology | Topology via dag-map | dag-map SVG rendering with dark/light theme, run selector | **done** |
-| m-svui-04-timeline | Timeline & playback | SVG timeline, bin scrubbing, dag-map heatmap mode for metric overlays | **in progress** |
+| m-svui-04-timeline | Timeline & playback | SVG timeline, bin scrubbing, dag-map heatmap mode for metric overlays | **done** |
 | m-svui-05-inspector | Inspector & feature bar | Node inspector with sparklines, feature bar overlay settings, legend | not started |
-| m-svui-06-dashboard-and-run | Dashboard & run orchestration | SLA dashboard, class selector, run execution page | not started |
-| m-svui-07-polish | Visual polish & dark mode QA | Transitions, consistent elevation, dark mode audit, accessibility pass | not started |
+| m-svui-06-run-orchestration | Run orchestration | Card-based template selection, bundle reuse, domain icons | not started |
+| m-svui-07-dashboard | Dashboard & class views | SLA dashboard, class selector, per-node metric panels | not started |
+| m-svui-08-polish | Visual polish & dark mode QA | Transitions, consistent elevation, dark mode audit, accessibility pass | not started |
 
 ## ADRs
 
@@ -205,25 +206,43 @@ Acceptance criteria:
 
 **Estimated effort:** 1.5-2 weeks
 
-### M6 — Dashboard & Run Orchestration (m-svui-06-dashboard-and-run)
-**Goal:** SLA dashboard and model execution.
+### M6 — Run Orchestration (m-svui-06-run-orchestration)
+**Goal:** Card-based template selection with rich metadata and bundle reuse options.
+
+Deliverables:
+- Card grid for template selection: name, domain icon, version, short description
+- Search/filter bar for the card grid
+- Selected card expands to show: full description, bundle reuse toggle, RNG seed
+- Bundle reuse options: Reuse (default) / Regenerate / Fresh run
+- Run execution with state tracking (pending → running → complete)
+- Preview/dry-run mode ("Preview" button, clearer than "Plan Model")
+- Raw parameters field hidden (too debug-oriented) — accessible via "Advanced" expandable section if needed
+- Domain icons: inferred from template category or metadata
+
+Acceptance criteria:
+- Templates render as cards with description and domain icon
+- Search filters cards by name/description
+- Selecting a card shows run options (reuse mode, seed)
+- Can execute a model and see results when complete
+- Loading, error, and empty states handled gracefully
+- No raw JSON parameter field visible by default
+
+### M7 — Dashboard & Class Views (m-svui-07-dashboard)
+**Goal:** SLA dashboard and class-based metric views.
 
 Deliverables:
 - Dashboard page with per-node SLA indicators
 - Class selector component (multi-select filter)
-- Run orchestration page: model input (YAML), execution, results
-- RNG seed configuration
-- Run state tracking (pending → running → complete)
+- Per-node metric summary panels
+- Class-filtered topology view
 
 Acceptance criteria:
 - Dashboard shows SLA status for all nodes in a run
 - Class filter correctly hides/shows nodes
-- Can execute a model and see results when complete
+- Metric panels update with class selection
 - Loading and error states are handled gracefully
 
-**Estimated effort:** 1.5 weeks
-
-### M7 — Visual Polish & Dark Mode QA (m-svui-07-polish)
+### M8 — Visual Polish & Dark Mode QA (m-svui-08-polish)
 **Goal:** Demo-ready visual quality.
 
 Deliverables:
