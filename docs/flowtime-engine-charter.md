@@ -100,4 +100,4 @@ Shipped and stable:
 - `work/epics/epic-roadmap.md` — Epic ordering and status.
 - `work/epics/completed/engine-semantics-layer/spec.md` — Semantics layer goal.
 - `work/epics/completed/edge-time-bin/spec.md` — Edge time bin contract.
-- `work/epics/dependency-constraints/spec.md` — Dependency options.
+- `work/epics/E-12-dependency-constraints/spec.md` — Dependency options.

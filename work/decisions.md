@@ -29,7 +29,7 @@ Shared decision log for active architectural and technical decisions.
 **Consequences:** Works in non-TTY environments. Must manually keep components.json aligned with shadcn-svelte schema on upgrades.
 
 ## D-2026-03-30-004: Pin bits-ui to 2.15.0
-**Status:** active
+**Status:** superseded by D-2026-04-02-002
 **Context:** bits-ui 2.16.4 has broken dist/types.js — references `../bits/pin-input/pin-input.svelte.js` and `./attributes.js` which don't exist in the published package.
 **Decision:** Pin bits-ui to 2.15.0 until the issue is fixed upstream.
 **Consequences:** Check for fix on bits-ui releases periodically. Can unpin when 2.16.5+ ships.
@@ -51,3 +51,39 @@ Shared decision log for active architectural and technical decisions.
 **Context:** Engine deep review found 3 P0 bugs (shared series mutation, missing capacity dependency, dispatch-unaware invariant). Svelte UI shows data from these APIs — incorrect engine data means incorrect visualization.
 **Decision:** Prioritize Phase 0 bug fixes (BUG-1, BUG-2, BUG-3) before continuing Svelte UI M4 completion or M5/M6.
 **Consequences:** Svelte UI work pauses briefly. Engine correctness gates all downstream work.
+
+## D-2026-04-02-001: Run orchestration defaults to simulation mode
+**Status:** active
+**Context:** Telemetry mode requires capture CSV files on disk (under `examples/time-travel/{captureKey}/`). In dev environments these may not exist, causing 500 errors. Simulation mode always works.
+**Decision:** M6 run orchestration defaults to simulation mode for all templates. Telemetry mode support deferred until capture generation workflow is in the UI.
+**Consequences:** Runs always succeed but produce synthetic data. Telemetry mode (real CSV data) needs a separate workflow to generate captures first.
+
+## D-2026-04-02-002: Upgrade bits-ui to 2.16.5
+**Status:** active
+**Context:** bits-ui 2.15.0 was missing RadioGroup exports (empty `export {}`). bits-ui 2.16.4 had broken type exports. bits-ui 2.16.5 fixes both issues.
+**Decision:** Upgrade bits-ui from 2.15.0 to 2.16.5. Remove the pin.
+**Consequences:** RadioGroup (and other newer primitives) now available. shadcn-svelte radio-group component works correctly.
+
+## D-2026-04-02-003: Epic numbering convention (E-xx)
+**Status:** active
+**Context:** Epics had no IDs, only slugs. Hard to see sequence at a glance in roadmap and folder listings.
+**Decision:** Number epics sequentially starting at E-10. Affects folder name (`work/epics/E-{NN}-<slug>/`), branch name (`epic/E-{NN}-<slug>`), and milestone IDs (`m-E{NN}-<MM>-<slug>`). Forward-only — completed epics before E-10 stay unnumbered. Mid-term/aspirational epics get numbered when sequence is certain.
+**Consequences:** All `.ai/` templates, skills, and paths updated. Active/planned epics need renaming when numbers assigned.
+
+## D-2026-04-02-004: dag-map work scoped within consuming epics
+**Status:** active
+**Context:** dag-map is a cross-cutting library that multiple epics need (path highlighting for Path Analysis, edge coloring for Inspector, constraint visualization for Dependency Constraints). Considered making it a separate epic.
+**Decision:** dag-map enhancements are scoped as deliverables within the consuming epic's milestones, not a separate epic. Same pattern as M4 pulling in "dag-map heatmap mode."
+**Consequences:** Each epic that needs dag-map features includes them in its milestone specs. No separate dag-map epic or backlog.
+
+## D-2026-04-02-005: Epic sequence E-10 through E-15
+**Status:** active
+**Context:** Needed to assign E-xx numbers to active and planned epics.
+**Decision:** E-10 Engine Correctness, E-11 Svelte UI, E-12 Dependency Constraints, E-13 Path Analysis, E-14 Visualizations, E-15 Telemetry Ingestion. Mid-term epics (E-16+) numbered when sequenced.
+**Consequences:** E-12 is mostly done (M-10.01/02 complete, only MCP enforcement remains). E-13 Path Analysis includes dag-map path highlighting work. E-14 Visualizations is Svelte chart work (no dag-map). E-15 Telemetry Ingestion is independent but sequenced last.
+
+## D-2026-04-02-006: Reprioritize E-10 Phase 3 before E-11 continuation
+**Status:** active
+**Context:** E-10 Phase 3 (analytical primitives: cycle time, WIP limits, variability, constraint enforcement) was paused after Phases 0-2 to work on E-11 Svelte UI. Phase 3 unlocks E-12/E-13/E-14 downstream and the specs are all approved.
+**Decision:** Resume E-10 Phase 3 immediately (p3a → p3b → p3c → p3d). E-11 Svelte UI paused after M6 until Phase 3 completes. Epics and milestones proceed in sequence from here.
+**Consequences:** E-11 M5/M7/M8 deferred. `milestone/m-svui-06` branch needs merge to main first. Next work: create `milestone/m-ec-p3a` from main.

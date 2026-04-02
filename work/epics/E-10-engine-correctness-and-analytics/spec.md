@@ -1,5 +1,7 @@
 # Epic: Engine Correctness & Analytical Primitives
 
+**ID:** E-10
+
 ## Goal
 
 Fix known correctness bugs, harden engineering quality, and build the analytical primitives layer that enables downstream epics (Path Analysis, Anomaly Detection, Scenario Overlays, Visualizations) to deliver their full value.

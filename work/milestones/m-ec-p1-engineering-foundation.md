@@ -1,6 +1,6 @@
 # Milestone: m-ec-p1 — Engineering Foundation (Phase 1)
 
-**Epic:** Engine Correctness & Analytical Primitives (`work/epics/engine-correctness-and-analytics/spec.md`)  
+**Epic:** Engine Correctness & Analytical Primitives (`work/epics/E-10-engine-correctness-and-analytics/spec.md`)  
 **Status:** draft
 
 ## Goal

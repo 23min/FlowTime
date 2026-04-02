@@ -22,9 +22,9 @@ This roadmap reflects the current state of FlowTime Engine + Sim and incorporate
 - **UI Performance** — Input/paint/data lane separation, eliminated main-thread stalls.
 - **Package Updates** — .NET 9 dependencies and MudBlazor updated (M-11.01, M-11.02).
 
-## Immediate — Engine Correctness & Analytical Primitives
+## E-10 — Engine Correctness & Analytical Primitives
 
-**Epic:** `work/epics/engine-correctness-and-analytics/spec.md`
+**Epic:** `work/epics/E-10-engine-correctness-and-analytics/spec.md`
 
 The engine deep review found 3 P0 correctness bugs, engineering debt, documentation drift, and a missing analytical layer. This epic must complete before near-term feature epics can deliver their full value.
 
@@ -54,29 +54,27 @@ The missing layer between the engine's volume/throughput capabilities and what d
 ### Spike: dag-map Library Evaluation (parallel with Phase 1+2)
 Evaluate and extend the [dag-map](https://github.com/23min/dag-map) metro-map layout library for FlowTime topology rendering. ~2-3 days. Informs Visualizations and UI Layout Motors epics. See `docs/architecture/dag-map-evaluation.md`.
 
+## E-11 — Svelte UI (Frontend Rewrite)
+
+**Epic:** `work/epics/E-11-svelte-ui/spec.md` | **Status:** in-progress (M1-M4 done, M6 in progress)
+
+Replace the Blazor WebAssembly UI with SvelteKit + shadcn-svelte for demo-quality visuals. Independent of engine work — consumes existing APIs with zero backend changes. dag-map enhancements scoped within milestones (not a separate epic).
+
 ## Near-Term Epics
 
-These depend on Phase 3 analytical primitives (except Telemetry Ingestion which is independent):
+These depend on Phase 3 analytical primitives (except E-15 which is independent):
 
-1. **Dependency Constraints & Shared Resources** (`work/epics/dependency-constraints/`)
+1. **E-12 — Dependency Constraints & Shared Resources** (`work/epics/E-12-dependency-constraints/`)
    - Runtime constraint enforcement (depends on Phase 3.5). M-10.03 (MCP enforcement) deferred until runtime enforcement is in place. See `work/gaps.md`.
 
-2. **Path Analysis & Subgraph Queries** (`work/epics/path-analysis/`)
-   - Path-level queries, bottleneck attribution, dominant routes, path pain (depends on Phase 3.1, 3.2).
+2. **E-13 — Path Analysis & Subgraph Queries** (`work/epics/E-13-path-analysis/`)
+   - Path-level queries, bottleneck attribution, dominant routes, path pain (depends on Phase 3.1, 3.2). Includes dag-map path highlighting work.
 
-3. **Telemetry Ingestion, Topology Inference + Canonical Bundles** (`work/epics/telemetry-ingestion/`)
+3. **E-14 — Visualizations / Chart Gallery** (`work/epics/E-14-visualizations/`)
+   - Role-focused charts with cycle time distributions, flow efficiency, bottleneck heat maps (depends on Phase 3.1, 3.2, 3.3). Svelte + custom SVG/canvas, no dag-map dependency.
+
+4. **E-15 — Telemetry Ingestion, Topology Inference + Canonical Bundles** (`work/epics/E-15-telemetry-ingestion/`)
    - Gold Builder (raw data → binned facts) + Graph Builder (data → topology) + bundle assembly. Independent of Phase 3; can proceed in parallel. Process mining event logs (BPI Challenge) identified as first validation dataset. See `docs/architecture/dataset-fitness-and-ingestion-research.md`.
-
-4. **Visualizations / Chart Gallery** (`work/epics/visualizations/`)
-   - Role-focused charts with cycle time distributions, flow efficiency, bottleneck heat maps (depends on Phase 3.1, 3.2, 3.3). dag-map spike informs rendering approach.
-
-## Svelte UI — Frontend Rewrite
-
-**Epic:** `work/epics/svelte-ui/spec.md` | **Status:** planning
-
-Replace the Blazor WebAssembly UI with SvelteKit + shadcn-svelte for demo-quality visuals. Independent of engine work — consumes existing APIs with zero backend changes. Initial scope: topology, timeline, dashboard, artifacts, run orchestration. Template Studio and Learning Center deferred. dag-map integration deferred (WIP).
-
-7 milestones, estimated 10-13 weeks. See epic spec for details.
 
 ## Mid-Term / Aspirational
 

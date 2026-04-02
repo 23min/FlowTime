@@ -52,3 +52,25 @@ Accumulated learnings from implementation sessions.
 ### Conventions established
 - Bug regression tests go in `tests/FlowTime.Core.Tests/Bugs/Phase0BugTests.cs`
 - Each bug test has a descriptive name matching the bug ID: `Bug1_...`, `Bug2_...`, `Bug3_...`
+
+## 2026-04-02: M6 Run Orchestration (Svelte UI)
+
+### Patterns that worked
+- Full start-milestone checklist followed: spec → approval → preflight → tracking doc → CLAUDE.md → implement
+- Single-page state machine pattern (selecting → configuring → running → success/error/preview) — clean UX flow
+- `$derived` for filtered template list — reactive search with no manual subscription
+- Domain icon utility with keyword matching — extensible and decoupled from components
+- shadcn-svelte `radio-group` for bundle reuse mode — clear UX with descriptions per option
+- `Collapsible` for advanced params — hides complexity by default (AC7)
+- Mode badge as read-only indicator (telemetry/simulation) — user sees it but doesn't choose it
+
+### Pitfalls encountered
+- `<label>` without `for` attribute on RadioGroup wrapper triggers Svelte a11y warning — use `<span>` with `id` instead
+- shadcn-svelte@next v1.0.0-next.19 installs updated `@lucide/svelte` as dependency (0.561.0) alongside existing devDependency — no breakage but watch for version conflicts
+- `pnpm run build` must be run from `ui/` directory, not repo root
+
+### Conventions established
+- Run orchestration API methods go in `sim.ts` (Sim API surface), not `flowtime.ts`
+- Template/run types (TemplateSummary, RunCreateRequest, etc.) in `types.ts` grouped by section comments
+- Component files for run orchestration: `template-card.svelte`, `run-config-panel.svelte`, `run-result.svelte`, `dry-run-plan.svelte`
+- `domain-icon.ts` utility maps keywords to Lucide icons — add new domains by extending the array
