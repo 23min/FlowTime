@@ -150,10 +150,12 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
-- **Engine epic:** Engine Correctness & Analytical Primitives — Phases 0-2 complete, Phase 3 (a-d) approved but paused
-  - Phase 3 specs: `work/milestones/m-ec-p3a-cycle-time.md`, `m-ec-p3b-wip-limits.md`, `m-ec-p3c-variability.md`, `m-ec-p3d-constraint-enforcement.md`
-  - Decided: Bottleneck DSL is a separate epic. Starvation/blocking detection → DSL epic.
-- **Active:** Svelte UI epic (`work/epics/svelte-ui/spec.md`)
-  - M1-M4 complete, next: M6 (run orchestration — card-based template picker)
-  - Branch: `milestone/m-svui-06` from `main`
-  - Port 8080→8081 fix merged to main
+- **Epic sequence:** E-10 → E-15, in order (`work/epics/epic-roadmap.md`)
+- **E-10** Engine Correctness (`work/epics/E-10-engine-correctness-and-analytics/spec.md`) — **resume here**
+  - Phases 0-2 complete. **Phase 3 is next.**
+  - Specs (all approved): `work/milestones/m-ec-p3a-cycle-time.md`, `m-ec-p3b-wip-limits.md`, `m-ec-p3c-variability.md`, `m-ec-p3d-constraint-enforcement.md`
+  - Start with p3a (cycle time). Branch: create `milestone/m-ec-p3a` from `main`.
+- **E-11** Svelte UI — paused after M6
+  - M1-M4 + M6 done, M5/M7/M8 remain
+  - Branch `milestone/m-svui-06` has 2 commits to merge to main before resuming
+- **E-12–E-15:** planned, not started

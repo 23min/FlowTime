@@ -1,5 +1,6 @@
 # Epic: Telemetry Ingestion, Topology Inference, and Canonical Bundles
 
+**ID:** E-15
 **Status:** Proposed (capture is shipped; ingestion pipeline is not)
 
 ## Goal
@@ -130,4 +131,4 @@ See `docs/architecture/dataset-fitness-and-ingestion-research.md` for the full e
 - `work/epics/completed/time-travel/telemetry-generation-explicit.md` — Existing telemetry capture
 - `docs/reference/engine-capabilities.md` — Engine capabilities
 - `docs/schemas/telemetry-manifest.schema.json` — Bundle manifest schema
-- `work/epics/engine-correctness-and-analytics/spec.md` — Phase 3 analytical primitives (dependency)
+- `work/epics/E-10-engine-correctness-and-analytics/spec.md` — Phase 3 analytical primitives (dependency)

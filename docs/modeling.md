@@ -41,7 +41,7 @@ Describes **why the engine and UI look the way they do**:
 Architecture docs assume the reader knows the basic concepts and want to see rationale, trade-offs, and epic-level change plans. Relevant folders include:
 
 - `work/epics/completed/edge-time-bin/` (edge metrics and overlays)
-- `work/epics/dependency-constraints/` (Option A/B dependency modeling)
+- `work/epics/E-12-dependency-constraints/` (Option A/B dependency modeling)
 - `work/epics/completed/ai/` (MCP modeling and analysis contracts)
 
 ---

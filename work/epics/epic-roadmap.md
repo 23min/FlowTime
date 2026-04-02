@@ -26,12 +26,12 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 | Engine Semantics Layer | `work/epics/completed/engine-semantics-layer/` | M-09.01 |
 | Package Updates (.NET 9) | `work/epics/completed/update-packages/` | M-11.01, M-11.02 |
 
-## Immediate — Engine Correctness & Analytical Primitives
+## Immediate
 
-#### Engine Correctness & Analytical Primitives
+#### E-10 — Engine Correctness & Analytical Primitives
 
-- **Folder:** `work/epics/engine-correctness-and-analytics/`
-- **Status:** Not started — highest priority
+- **Folder:** `work/epics/E-10-engine-correctness-and-analytics/`
+- **Status:** Phases 0-2 complete, Phase 3 paused
 - **Goal:** Fix P0 correctness bugs, harden engineering quality, align documentation with code, and build the analytical primitives layer (bottleneck ID, cycle time, WIP limits, variability, constraint enforcement, starvation detection) that downstream epics depend on.
 - **Phases:** 0 (bugs) → 1+2 (engineering + docs, parallel) → 3 (analytical primitives)
 - **Key dependency:** Phase 3 unlocks near-term epics. See `ROADMAP.md` dependency graph.
@@ -43,39 +43,47 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 - **Status:** Not started — runs in parallel with Phase 1+2
 - **Goal:** Evaluate and extend the dag-map metro-map layout library for FlowTime topology rendering. ~2-3 days. Determines viability of SVG-based topology and informs Visualizations and UI Layout Motors epics.
 
+#### E-11 — Svelte UI (Frontend Rewrite)
+
+- **Folder:** `work/epics/E-11-svelte-ui/`
+- **Status:** M1-M4 complete, M6 in progress
+- **Goal:** Replace Blazor WebAssembly UI with SvelteKit + shadcn-svelte for demo-quality visuals. Independent of engine work.
+- **dag-map:** M3 (topology rendering), M4 (heatmap mode) delivered. M5 (inspector) will need dag-map edge coloring and click events.
+
 ## Near-Term Epics
 
-These depend on the analytical primitives from Phase 3 (except Telemetry Ingestion which is independent).
+These depend on the analytical primitives from Phase 3 (except Telemetry Ingestion which is independent). dag-map enhancements are scoped within consuming milestones, not as a separate epic.
 
-#### Dependency Constraints & Shared Resources
+#### E-12 — Dependency Constraints & Shared Resources
 
-- **Folder:** `work/epics/dependency-constraints/`
+- **Folder:** `work/epics/E-12-dependency-constraints/`
 - **Goal:** Model downstream dependencies as resource constraints with visible bottlenecks and coupling.
 - **Status:** M-10.01 and M-10.02 complete (Option A + B foundations). M-10.03 (MCP enforcement) deferred until runtime constraint enforcement (Phase 3.5) is in place. See `work/gaps.md`.
 - **Depends on:** Phase 3.5 (ConstraintAllocator wired into evaluation pipeline)
 
-#### Path Analysis & Subgraph Queries
+#### E-13 — Path Analysis & Subgraph Queries
 
-- **Folder:** `work/epics/path-analysis/`
+- **Folder:** `work/epics/E-13-path-analysis/`
 - **Goal:** Path-level queries and derived metrics (dominant routes, bottleneck attribution, path pain) for UI and MCP.
 - **Depends on:** Phase 3.1 (bottleneck ID), Phase 3.2 (cycle time decomposition)
+- **dag-map:** Will need path highlighting, edge width by flow volume, non-path dimming
 - **Related:** `work/gaps.md` (Path Analysis section)
 
-#### Telemetry Ingestion, Topology Inference & Canonical Bundles
+#### E-14 — Visualizations / Chart Gallery
 
-- **Folder:** `work/epics/telemetry-ingestion/`
+- **Folder:** `work/epics/E-14-visualizations/`
+- **Goal:** Dedicated UI space for role-focused charts (exec, SRE, support) using FlowTime-derived metrics. Svelte + custom SVG/canvas charts, no dag-map dependency.
+- **Depends on:** Phase 3.1, 3.2, 3.3 (without analytical primitives, charts can only show throughput/queue — same as topology view).
+
+#### E-15 — Telemetry Ingestion, Topology Inference & Canonical Bundles
+
+- **Folder:** `work/epics/E-15-telemetry-ingestion/`
 - **Goal:** Build the pipeline from real-world data (event logs, traces, sensor feeds) to FlowTime topology + Gold-format series. Includes Gold Builder, Graph Builder (topology inference with confidence scoring), and bundle assembly.
 - **Depends on:** Stable bundle schemas (already in place). Independent of Phase 3 for basic ingestion; Phase 3 makes ingested data interesting.
 - **Validation datasets identified:** BPI Challenge 2012 (process mining), Road Traffic Fines, PeMS + OSM (road traffic), MTA + GTFS (transit). See `docs/architecture/dataset-fitness-and-ingestion-research.md`.
 - **Note:** Should preserve variability (Cv) if Phase 3.4 ships, so ingestion format should be designed with this in mind.
 
-#### Visualizations / Chart Gallery
-
-- **Folder:** `work/epics/visualizations/`
-- **Goal:** Dedicated UI space for role-focused charts (exec, SRE, support) using FlowTime-derived metrics.
-- **Depends on:** Phase 3.1, 3.2, 3.3 (without analytical primitives, charts can only show throughput/queue — same as topology view). dag-map spike informs rendering approach.
-
-## Mid-Term / Aspirational Epics
+## Mid-Term / Aspirational Epics (unnumbered until sequenced)
 
 #### Scenario Overlays & What-If Runs
 
@@ -112,12 +120,13 @@ These depend on the analytical primitives from Phase 3 (except Telemetry Ingesti
 - **Goal:** Explore how FlowTime's DAG semantics extend into streaming and modular subsystems.
 - **Notes:** Long-term exploratory. Requires stable engine semantics and node types.
 
-## Uncategorized Epics
+## Epic Numbering Convention
 
-These exist as folders but aren't currently on the active roadmap:
-
-- `work/epics/ui/` — UI architecture notes (not a formal epic)
-- `work/epics/sim-engine-boundary/` — SIM/Engine boundary purification (status unclear)
+- Epics are numbered sequentially: E-10, E-11, E-12, ...
+- Completed epics before E-10 are unnumbered (legacy)
+- Epic folders: `work/epics/E-{NN}-<slug>/`
+- Mid-term/aspirational epics get numbered when their sequence is confirmed
+- dag-map library enhancements are scoped within consuming epic milestones, not a separate epic
 
 ## Keeping in Sync
 

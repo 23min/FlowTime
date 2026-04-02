@@ -1,5 +1,7 @@
 # Epic: Svelte UI — Frontend Rewrite
 
+**ID:** E-11
+
 ## Goal
 
 Replace the Blazor WebAssembly frontend with a SvelteKit + shadcn-svelte application that delivers a polished, modern UI for demos while keeping the existing .NET backend APIs untouched.
