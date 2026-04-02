@@ -1,5 +1,5 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$schema": "https://json-schema.org/draft-07/schema#",
     "$id": "https://flowtime.dev/schemas/time-travel-state.schema.json",
     "title": "FlowTime Time-Travel State Responses",
     "description": "Schema for FlowTime Engine time-travel state responses returned by /v1/runs/{runId}/state and /v1/runs/{runId}/state_window.",

@@ -3,7 +3,7 @@
 > **Purpose:** Capture the motivation, use cases, and risks for advanced expression operators (ABS/SQRT/POW, EMA/DELAY, conditional expressions, routers/autoscale helpers) that appear in the architecture vision but are not yet scheduled for implementation. This is an exploratory document—future milestones may refine or reprioritize these features.
 
 ## 1. Background
-- FlowTime’s current engine supports a minimal expression set (arithmetic, SHIFT, CONV, MIN/MAX/CLAMP).
+- FlowTime’s engine supports arithmetic (`+ - * /`), temporal (`SHIFT`, `CONV`), comparison (`MIN`, `MAX`, `CLAMP`), arithmetic functions (`MOD`, `FLOOR`, `CEIL`, `ROUND`), and flow control (`STEP`, `PULSE`) — 11 built-in functions total.
 - Architecture docs (whitepaper §3, time-travel Chapter 2, retry-modeling §2) list additional functions needed for richer models (non-linear transforms, smoothed feedback loops, gating logic).
 - Some functions exist in docs only (ABS/SQRT/POW enumerated in schemas) while others (EMA) appear in retry modeling guides but not in code.
 - The 2025-10-07 engine audit flagged their absence as a gap; TT‑M milestones have focused on DLQs/time-travel without addressing these primitives.
@@ -50,21 +50,19 @@
   - Autoscale loops need careful design to avoid non-causal dependencies or unstable oscillations.
 - **Roadmap:** Defer until we have clearer requirements (Heatmap/Edge overlay work, autoscale epic). Documented here as aspirational features.
 
-### 2.5 Behavior-Oriented Flow Controls
-- **Motivation:** Several scenarios surfaced in CL‑M‑04.03.x require functions beyond “probabilistic demand.” These lean on runtime behavior (time gating, SLA breaches, conditional triggers) instead of PMFs.
-- **Proposed primitives:**
-  - `MOD`, `FLOOR`, `CEIL`, `ROUND`, `STEP`, `PULSE`: provide cadence/pulse control so queues can dispatch on schedules (bus-stop flows) without hand-rolled arrays.
-  - `IF(condition, whenTrue, whenFalse)` or ternary equivalent to express SLA penalties, overflow routing, or priority cutovers plainly.
-  - `HOLD(series, bins)` / `SMOOTH(series, alpha)` helpers for hysteresis or gradual ramp-up/down.
-  - Lightweight stochastic toggles (`BERNOULLI(probability)` or `CHOICE(weights)`) for random failover events without defining entire PMFs.
-  - `SEGMENT(binIndex, ranges[], values[])` or `DAYPART()` to encode behavior-by-time blocks for retail/shift models without massive literal arrays.
-- **Use cases:**
-  - Scheduled bus departures (transportation templates), manufacturing picker “waves,” or nightly store replenishments.
-  - SLA breach counters that trigger escalations once latency exceeds thresholds (needs IF/STEP).
-  - Autoscale cooldowns that prevent scale-in for N bins after scale-out (HOLD/SMOOTH).
-  - Random jitter injection for failover drills or canary percentages.
-  - Retail dayparting: lunchtime spikes vs. overnight idle time without external CSVs.
-- **Roadmap:** Capture requirements here; implementation ties to future milestones (e.g., CL‑M‑04.03.02 for scheduled dispatch, later epics for SLA logic). Analyzer/UI work must accompany each new behavior to keep parity across docs, schema, and visualization.
+### 2.5 Behavior-Oriented Flow Controls — SHIPPED
+- **Status:** The core primitives from this section are **shipped and tested** as of Phase 1 (engine-correctness epic, 2026-04).
+- **Shipped functions:**
+  - `MOD(value, divisor)` — floored modulo with zero-divisor guard
+  - `FLOOR(x)`, `CEIL(x)`, `ROUND(x)` — unary math rounding
+  - `STEP(value, threshold)` — threshold gate (returns 0 or 1)
+  - `PULSE(period [, phase [, amplitude]])` — periodic pulse generator
+- **See:** `docs/architecture/expression-language-design.md` §Function Reference for full signatures and NaN behavior.
+- **Remaining candidates (not yet implemented):**
+  - `IF(condition, whenTrue, whenFalse)` — conditional expressions for SLA penalties, overflow routing
+  - `HOLD(series, bins)` / `SMOOTH(series, alpha)` — hysteresis, gradual ramp-up/down
+  - `BERNOULLI(probability)` / `CHOICE(weights)` — stochastic toggles
+  - `SEGMENT(binIndex, ranges[], values[])` / `DAYPART()` — behavior-by-time blocks
 
 ## 3. Dependencies & Cross-Cutting Risks
 - **Edge telemetry:** Some extensions (routers) benefit from explicit edge metrics; current architecture is node-centric.

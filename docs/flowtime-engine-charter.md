@@ -81,7 +81,7 @@ Shipped and stable:
 - Compile‑to‑DAG evaluator (evaluation integrity).
 - Edge time bins + conservation warnings.
 - Class‑aware series and UI filters.
-- Dependency constraints (Option A and Option B).
+- Dependency constraints (Option A and Option B) — foundations laid, enforcement pending.
 - Engine semantics layer and MCP‑facing contracts.
 
 ---

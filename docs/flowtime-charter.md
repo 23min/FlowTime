@@ -79,9 +79,10 @@ Shipped foundations:
 - **Edge time bins**: per‑edge flows, retries, conservation checks, UI overlays.
 - **MCP modeling + analysis**: draft → validate → run → inspect loop.
 - **Engine semantics layer**: state/graph contracts as stable semantics.
-- **Dependency constraints**:
+- **Dependency constraints** (foundations laid):
   - Option A: dependency nodes in the topology (flow nodes).
   - Option B: constraint registry attached to services (resource constraints).
+  - Note: `ConstraintAllocator` logic is correct but not called during evaluation — enforcement pending.
 
 ---
 
