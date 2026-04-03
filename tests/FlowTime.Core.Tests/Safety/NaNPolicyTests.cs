@@ -147,6 +147,55 @@ public class NaNPolicyTests
         Assert.Equal(120.0, LatencyComputer.Calculate(queue: 10, served: 5, binMinutes: 60));
     }
 
+    [Fact]
+    public void Tier2_CycleTime_QueueTime_ZeroServed_ReturnsNull()
+    {
+        Assert.Null(CycleTimeComputer.CalculateQueueTime(queueDepth: 10, served: 0, binMs: 60000));
+    }
+
+    [Fact]
+    public void Tier2_CycleTime_QueueTime_NegativeServed_ReturnsNull()
+    {
+        Assert.Null(CycleTimeComputer.CalculateQueueTime(queueDepth: 10, served: -1, binMs: 60000));
+    }
+
+    [Fact]
+    public void Tier2_CycleTime_ServiceTime_NullInputs_ReturnsNull()
+    {
+        Assert.Null(CycleTimeComputer.CalculateServiceTime(processingTimeMsSum: null, servedCount: null));
+    }
+
+    [Fact]
+    public void Tier2_CycleTime_ServiceTime_ZeroServedCount_ReturnsNull()
+    {
+        Assert.Null(CycleTimeComputer.CalculateServiceTime(processingTimeMsSum: 500, servedCount: 0));
+    }
+
+    [Fact]
+    public void Tier2_CycleTime_CycleTime_NullQueueTime_ReturnsServiceTime()
+    {
+        // Pure service node: queue time null, service time available → returns service time
+        Assert.Equal(50.0, CycleTimeComputer.CalculateCycleTime(queueTimeMs: null, serviceTimeMs: 50));
+    }
+
+    [Fact]
+    public void Tier2_FlowEfficiency_NullServiceTime_ReturnsNull()
+    {
+        Assert.Null(CycleTimeComputer.CalculateFlowEfficiency(serviceTimeMs: null, cycleTimeMs: 100));
+    }
+
+    [Fact]
+    public void Tier2_FlowEfficiency_ZeroCycleTime_ReturnsNull()
+    {
+        Assert.Null(CycleTimeComputer.CalculateFlowEfficiency(serviceTimeMs: 50, cycleTimeMs: 0));
+    }
+
+    [Fact]
+    public void Tier2_FlowEfficiency_ValidInputs_ReturnsValue()
+    {
+        Assert.Equal(0.5, CycleTimeComputer.CalculateFlowEfficiency(serviceTimeMs: 50, cycleTimeMs: 100));
+    }
+
     // Exception: Invalid input
 
     [Fact]

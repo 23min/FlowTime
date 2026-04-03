@@ -69,11 +69,11 @@ These depend on the analytical primitives from Phase 3 (except Telemetry Ingesti
 - **dag-map:** Will need path highlighting, edge width by flow volume, non-path dimming
 - **Related:** `work/gaps.md` (Path Analysis section)
 
-#### E-14 — Visualizations / Chart Gallery
+#### E-14 — Visualizations / Chart Gallery (absorbed into UI Analytical Views)
 
 - **Folder:** `work/epics/E-14-visualizations/`
-- **Goal:** Dedicated UI space for role-focused charts (exec, SRE, support) using FlowTime-derived metrics. Svelte + custom SVG/canvas charts, no dag-map dependency.
-- **Depends on:** Phase 3.1, 3.2, 3.3 (without analytical primitives, charts can only show throughput/queue — same as topology view).
+- **Status:** Absorbed. The chart gallery concept is replaced by purpose-built analytical views in the UI Analytical Views epic. Role-focused chart bundles may still exist as presets within that epic.
+- **See:** `work/epics/ui-analytical-views/spec.md`
 
 #### E-15 — Telemetry Ingestion, Topology Inference & Canonical Bundles
 
@@ -82,6 +82,32 @@ These depend on the analytical primitives from Phase 3 (except Telemetry Ingesti
 - **Depends on:** Stable bundle schemas (already in place). Independent of Phase 3 for basic ingestion; Phase 3 makes ingested data interesting.
 - **Validation datasets identified:** BPI Challenge 2012 (process mining), Road Traffic Fines, PeMS + OSM (road traffic), MTA + GTFS (transit). See `docs/architecture/dataset-fitness-and-ingestion-research.md`.
 - **Note:** Should preserve variability (Cv) if Phase 3.4 ships, so ingestion format should be designed with this in mind.
+
+## UI Paradigm Epics (draft — unnumbered until sequenced)
+
+These epics implement the UI paradigm shift described in
+`docs/architecture/ui-paradigm.md`. Blazor UI enters maintenance mode;
+Svelte UI becomes the platform for these new interaction models.
+
+#### UI Workbench & Topology Refinement
+
+- **Folder:** `work/epics/ui-workbench/`
+- **Goal:** Strip the topology DAG to structure + one color dimension. Build a workbench panel for pinning nodes/edges and inspecting metrics side-by-side.
+- **Depends on:** E-11 M3-M4 (topology + timeline). Supersedes E-11 M5 (Inspector).
+- **Rendering:** SVG first; canvas only if measured performance problems.
+
+#### UI Analytical Views
+
+- **Folder:** `work/epics/ui-analytical-views/`
+- **Goal:** Purpose-built views alongside topology: heatmap (nodes x bins grid), decomposition (cycle time breakdown + Kingman), comparison (two runs side-by-side), flow balance (conservation checks).
+- **Depends on:** UI Workbench epic (view switcher), E-10 Phase 3 (analytical primitives).
+- **Absorbs:** E-14 (Visualizations). Role-focused chart bundles become presets within views.
+
+#### UI Question-Driven Interface
+
+- **Folder:** `work/epics/ui-question-driven/`
+- **Goal:** Structured query panel where users ask analytical questions ("Where is the bottleneck?", "Why is cycle time high?") and get computed, provenanced answers. Foundation for future DSL and LLM integration.
+- **Depends on:** E-10 Phase 3 (analytical primitives), UI Workbench epic, UI Analytical Views epic.
 
 ## Mid-Term / Aspirational Epics (unnumbered until sequenced)
 

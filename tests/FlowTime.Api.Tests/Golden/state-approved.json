@@ -52,6 +52,18 @@
           "aggregation": "avg",
           "origin": "derived"
         },
+        "queueTimeMs": {
+          "aggregation": "avg",
+          "origin": "derived"
+        },
+        "cycleTimeMs": {
+          "aggregation": "avg",
+          "origin": "derived"
+        },
+        "flowEfficiency": {
+          "aggregation": "avg",
+          "origin": "derived"
+        },
         "utilization": {
           "aggregation": "unknown",
           "origin": "derived"
@@ -68,13 +80,18 @@
           "errors": 1,
           "capacity": 7,
           "processingTimeMsSum": 1800,
-          "servedCount": 6
+          "servedCount": 6,
+          "serviceTimeMs": 300,
+          "cycleTimeMs": 300,
+          "flowEfficiency": 1
         }
       },
       "derived": {
         "utilization": 0.857143,
         "serviceTimeMs": 300,
+        "cycleTimeMs": 300,
         "flowLatencyMs": 300,
+        "flowEfficiency": 1,
         "throughputRatio": 0.6,
         "retryTax": 0.142857,
         "color": "yellow"
@@ -127,6 +144,14 @@
           "aggregation": "avg",
           "origin": "derived"
         },
+        "queueTimeMs": {
+          "aggregation": "avg",
+          "origin": "derived"
+        },
+        "cycleTimeMs": {
+          "aggregation": "avg",
+          "origin": "derived"
+        },
         "throughputRatio": {
           "aggregation": "unknown",
           "origin": "derived"
@@ -140,12 +165,16 @@
           "arrivals": 7,
           "served": 6,
           "errors": 0,
-          "queue": 10
+          "queue": 10,
+          "queueTimeMs": 500000,
+          "cycleTimeMs": 500000
         }
       },
       "derived": {
         "latencyMinutes": 8.333333,
-        "flowLatencyMs": 500000.00000000006,
+        "queueTimeMs": 500000,
+        "cycleTimeMs": 500000,
+        "flowLatencyMs": 500000,
         "throughputRatio": 0.857143,
         "color": "red"
       },

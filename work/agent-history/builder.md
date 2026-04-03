@@ -74,3 +74,26 @@ Accumulated learnings from implementation sessions.
 - Template/run types (TemplateSummary, RunCreateRequest, etc.) in `types.ts` grouped by section comments
 - Component files for run orchestration: `template-card.svelte`, `run-config-panel.svelte`, `run-result.svelte`, `dry-run-plan.svelte`
 - `domain-icon.ts` utility maps keywords to Lucide icons — add new domains by extending the array
+
+## 2026-04-03: Phase 3a Cycle Time & Flow Efficiency
+
+### Patterns that worked
+- TDD scenario tests modelling each node type (pure queue, pure service, serviceWithBuffer, synthetic, zero-served, per-class) caught a regression before it shipped
+- Static `CycleTimeComputer` with per-value methods (not array-level) — callers compose freely for snapshot (single bin) and window (multi-bin) paths
+- `CalculateCycleTime` symmetric design (returns available component when other is null) — collapsed 3-way if/else in `ComputeFlowLatency` to a single call
+- Computing `queueTimeMs` in milliseconds directly (`binMs`) instead of `binMinutes * 60000` — eliminated floating-point precision artifacts
+- Golden snapshot regeneration: run failing tests to generate `.actual` files, then batch-copy over approved files
+
+### Pitfalls encountered
+- Initial `CalculateCycleTime` returned null when queueTimeMs was null — broke pure service nodes. External review caught this before merge.
+- Snapshot and window paths used different queue-like predicates (`kind` vs `kind || logicalType`) — causes divergence for logicalType-resolved `serviceWithBuffer` nodes. Use a shared computed variable like `isSnapshotQueueLike`.
+- Stationarity warning initially fired on all nodes with arrivals, including pure service nodes that don't use Little's Law. Must gate on `isQueueLike`.
+- `seriesMetadata` must be kept in sync with emitted series — easy to forget when adding new derived series.
+- Don't mark ACs as complete until end-to-end integration is done (not just Core helper tests).
+- Divergence math for stationarity: `|diff| / max(a, b)` not `|diff| / min(a, b)` — check test values carefully.
+
+### Conventions established
+- Metric computers in `FlowTime.Core/Metrics/` follow static class pattern with `double?` returns (Tier 2 null policy)
+- Scenario tests in `tests/FlowTime.Core.Tests/Metrics/` with one class per concern
+- Golden snapshot updates: run tests → copy `*.actual` → re-run to confirm → delete `.actual` files
+- When adding derived fields: update contracts, snapshot path, window series, byClass (both paths), seriesMetadata, and UI DTOs — all six touch points

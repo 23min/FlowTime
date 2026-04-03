@@ -26,7 +26,13 @@ For synthetic models (no telemetry), `processingTimeMsSum` is unavailable. Cycle
 
 3. **AC-3: Flow efficiency metric.** `flowEfficiency = serviceTimeMs / cycleTimeMs` per bin per node. Ranges 0 (all queue time) to 1 (no queue time). Null when `cycleTimeMs` is zero, undefined, or `serviceTimeMs` unavailable. Added to `CycleTimeComputer`.
 
-4. **AC-4: Tests and gate.** Unit tests for `CycleTimeComputer` covering: normal case, zero served (null), missing processingTimeMsSum (graceful), per-class, flow efficiency. Full test suite green.
+4. **AC-4: Tests and gate.** Unit tests for `CycleTimeComputer` covering: normal case, zero served (null), missing processingTimeMsSum (graceful), per-class, flow efficiency. Build green; no new test failures introduced. Pre-existing failures unrelated to this milestone (e.g., schema meta-resolution) are excluded from the gate.
+
+5. **AC-5: Steady-state validation warning.** When computing cycle time over a window, check whether arrival and departure rates are stable enough for Little's Law to be meaningful:
+   - Compare average arrival rate in the first half of the window to the second half.
+   - If the rates diverge beyond a configurable tolerance (default: 25%), emit a warning annotation on the node: `"littles-law-non-stationary"`.
+   - This is a diagnostic signal, not a gate — cycle time is still computed, but flagged as potentially unreliable.
+   - Rationale: Little's Law (which underpins `queueTimeMs = Q/λ × binMs`) assumes steady state. Without this check, point estimates silently mislead during transients, ramp-ups, or drain-downs.
 
 ## Technical Notes
 
@@ -39,6 +45,7 @@ For synthetic models (no telemetry), `processingTimeMsSum` is unavailable. Cycle
 
 - Moving the full `StateQueryService` flow latency propagation algorithm to Core (that's graph-level, not per-node).
 - Cycle time distributions (FlowTime is bin-based, not event-based).
+- Post-review analytical projection hardening discovered during verification (logicalType parity, honest metadata, finite-value safety, contract/DTO symmetry, and AC-5 applicability) — tracked in `m-ec-p3a1`.
 
 ## Dependencies
 

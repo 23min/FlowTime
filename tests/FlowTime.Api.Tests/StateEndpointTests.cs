@@ -51,6 +51,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private const string backlogWarningsParallelismRunId = "run_state_backlog_warnings_parallelism";
     private const string sinkRunId = "run_state_sink";
     private const string sinkPathLatencyRunId = "run_state_sink_path_latency";
+    private const string stationarityRunId = "run_state_stationarity";
     private const int binCount = 4;
     private const int binSizeMinutes = 5;
     private static readonly DateTime startTimeUtc = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -104,6 +105,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateBacklogWarningsParallelismRun();
         CreateSinkRun();
         CreateSinkPathLatencyRun();
+        CreateStationarityRun();
 
         logCollector = new TestLogCollector();
         client = factory.WithWebHostBuilder(builder =>
@@ -1016,6 +1018,31 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(0, flowLatency[3]!.Value, 6);
 
         AssertGoldenResponse("state-window-queue-null-approved.json", payload);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_StationarityWarning_OnlyOnQueueLikeNodes()
+    {
+        var response = await client.GetAsync($"/v1/runs/{stationarityRunId}/state_window?startBin=0&endBin=3");
+        Assert.True(response.IsSuccessStatusCode, $"Expected 200 but got {(int)response.StatusCode}");
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        // Queue node (SupportQueue) should have the stationarity warning
+        var queue = Assert.Single(payload!.Nodes, n => n.Id == "SupportQueue");
+        Assert.NotNull(queue.Telemetry?.Warnings);
+        Assert.Contains(queue.Telemetry!.Warnings, w => w.Code == "littles-law-non-stationary");
+
+        // Service node (OrderService) should NOT have the stationarity warning
+        var service = Assert.Single(payload.Nodes, n => n.Id == "OrderService");
+        if (service.Telemetry?.Warnings is not null)
+        {
+            Assert.DoesNotContain(service.Telemetry.Warnings, w => w.Code == "littles-law-non-stationary");
+        }
     }
 
     [Fact]
@@ -2021,6 +2048,21 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
             overrides: overrides,
             seriesOutputs: seriesOutputs,
             manifestSeries: manifestSeries);
+    }
+
+    private void CreateStationarityRun()
+    {
+        // Non-stationary arrivals: first half avg=5, second half avg=20 → 300% divergence
+        var overrides = new Dictionary<string, double[]>
+        {
+            ["OrderService_arrivals.csv"] = new[] { 5d, 5d, 20d, 20d },
+            ["OrderService_served.csv"] = new[] { 5d, 5d, 20d, 20d },
+            ["SupportQueue_arrivals.csv"] = new[] { 5d, 5d, 20d, 20d },
+            ["SupportQueue_served.csv"] = new[] { 5d, 5d, 20d, 20d },
+            ["SupportQueue_queue.csv"] = new[] { 10d, 10d, 40d, 40d }
+        };
+
+        CreateRun(stationarityRunId, BuildValidModelYaml(), mode: "telemetry", overrides);
     }
 
     private void CreateFullModeRun()
