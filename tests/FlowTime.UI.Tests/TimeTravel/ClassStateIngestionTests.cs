@@ -32,7 +32,7 @@ public sealed class ClassStateIngestionTests
                     Metrics = new TimeTravelNodeMetricsDto { Arrivals = 10, Served = 8, Errors = 1 },
                     ByClass = new Dictionary<string, TimeTravelClassMetricsDto>
                     {
-                        ["Order"] = new TimeTravelClassMetricsDto { Arrivals = 7, Served = 6, Errors = 1, Capacity = 12, ProcessingTimeMsSum = 1200, ServedCount = 6 },
+                        ["Order"] = new TimeTravelClassMetricsDto { Arrivals = 7, Served = 6, Errors = 1, Capacity = 12, ProcessingTimeMsSum = 1200, ServedCount = 6, ServiceTimeMs = 200, CycleTimeMs = 200, FlowEfficiency = 1.0 },
                         ["Refund"] = new TimeTravelClassMetricsDto { Arrivals = 3, Served = 2 }
                     }
                 }
@@ -43,6 +43,33 @@ public sealed class ClassStateIngestionTests
         Assert.True(snapshot.Nodes[0].ByClass.ContainsKey("Order"));
         Assert.Equal(7, snapshot.Nodes[0].ByClass["Order"].Arrivals);
         Assert.Equal(1200, snapshot.Nodes[0].ByClass["Order"].ProcessingTimeMsSum);
+
+        // Analytical fields are available on the class DTO
+        Assert.Equal(200, snapshot.Nodes[0].ByClass["Order"].ServiceTimeMs); // 1200/6
+        Assert.Null(snapshot.Nodes[0].ByClass["Order"].QueueTimeMs); // no queue in fixture
+        Assert.Null(snapshot.Nodes[0].ByClass["Refund"].ServiceTimeMs); // no processing data
+    }
+
+    [Fact]
+    public void Snapshot_ClassAnalyticalFields_RoundTrip()
+    {
+        var dto = new TimeTravelClassMetricsDto
+        {
+            Arrivals = 10,
+            Served = 5,
+            Queue = 8,
+            ProcessingTimeMsSum = 500,
+            ServedCount = 10,
+            QueueTimeMs = 120_000,
+            ServiceTimeMs = 50,
+            CycleTimeMs = 120_050,
+            FlowEfficiency = 0.000416
+        };
+
+        Assert.Equal(120_000, dto.QueueTimeMs);
+        Assert.Equal(50, dto.ServiceTimeMs);
+        Assert.Equal(120_050, dto.CycleTimeMs);
+        Assert.Equal(0.000416, dto.FlowEfficiency);
     }
 
     [Fact]

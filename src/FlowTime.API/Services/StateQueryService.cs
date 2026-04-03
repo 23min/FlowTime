@@ -23,6 +23,16 @@ public sealed record EdgeQueryFilter(
     IReadOnlyCollection<string>? EdgeMetrics,
     IReadOnlyCollection<string>? ClassIds);
 
+/// <summary>
+/// Configuration options for analytical metric computation.
+/// Bound from the "Analytics" configuration section.
+/// </summary>
+public sealed class AnalyticsOptions
+{
+    public const string SectionName = "Analytics";
+    public double StationarityTolerance { get; set; } = 0.25;
+}
+
 public sealed class StateQueryService
 {
     private const int maxWindowBins = 500;
@@ -353,6 +363,22 @@ public sealed class StateQueryService
             var modelNodeDefinitions = modelDefinition.Nodes
                 .Where(n => !string.IsNullOrWhiteSpace(n.Id))
                 .ToDictionary(n => n.Id!, StringComparer.OrdinalIgnoreCase);
+
+            // Include topology nodes so logicalType resolution can find serviceWithBuffer references
+            if (modelDefinition.Topology?.Nodes != null)
+            {
+                foreach (var topoNode in modelDefinition.Topology.Nodes)
+                {
+                    if (!string.IsNullOrWhiteSpace(topoNode.Id) && !modelNodeDefinitions.ContainsKey(topoNode.Id))
+                    {
+                        modelNodeDefinitions[topoNode.Id] = new NodeDefinition
+                        {
+                            Id = topoNode.Id,
+                            Kind = topoNode.Kind ?? "service"
+                        };
+                    }
+                }
+            }
             var nodeData = new Dictionary<string, NodeData>(StringComparer.Ordinal);
             var preValidationWarnings = new List<ModeValidationWarning>();
             var preValidationNodeWarnings = new Dictionary<string, List<ModeValidationWarning>>(StringComparer.OrdinalIgnoreCase);
@@ -551,6 +577,9 @@ public sealed class StateQueryService
             var constraintAssignments = BuildConstraintAssignments(metadata.Topology!.Nodes);
             var constraintAllocations = AllocateConstraintCapacity(constraintData, constraintAssignments, nodeData, metadata.Window.Bins);
 
+            var analyticsOptions = new AnalyticsOptions();
+            configuration.GetSection(AnalyticsOptions.SectionName).Bind(analyticsOptions);
+
             return new StateRunContext(
                 manifest,
                 manifestMetadata,
@@ -564,7 +593,8 @@ public sealed class StateQueryService
                 runDirectory,
                 constraintData,
                 constraintAssignments,
-                constraintAllocations);
+                constraintAllocations,
+                analyticsOptions);
         }
         catch (StateQueryException)
         {
@@ -593,6 +623,7 @@ public sealed class StateQueryService
     {
         var kind = NormalizeKind(node.Kind);
         var logicalType = DetermineLogicalType(node, kind, context, out var serviceWithBufferDefinition);
+        var caps = AnalyticalCapabilities.Resolve(kind, logicalType);
         var dispatchSchedule = ResolveDispatchSchedule(node, context, serviceWithBufferDefinition);
         var arrivals = GetValue(data.Arrivals, binIndex);
         var served = GetValue(data.Served, binIndex);
@@ -607,13 +638,11 @@ public sealed class StateQueryService
         var capacity = GetOptionalValue(data.Capacity, binIndex);
         var parallelism = GetParallelismValue(node.Semantics, data, binIndex);
         var effectiveCapacity = GetEffectiveCapacity(node.Semantics, data, binIndex, capacity);
-        var isServiceWithBuffer = string.Equals(logicalType, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase);
-        var isServiceKind = string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase) || isServiceWithBuffer;
-        var attempts = isServiceKind ? ComputeAttemptValue(data, binIndex, allowDerived: true) : null;
-        var failures = isServiceKind ? ComputeFailureValue(data, binIndex) : null;
-        var exhaustedFailures = isServiceKind ? GetOptionalValue(data.ExhaustedFailures, binIndex) : null;
-        var retryEcho = isServiceKind ? ComputeRetryEchoValue(data, binIndex, allowDerived: true) : null;
-        var retryBudgetRemaining = isServiceKind ? GetOptionalValue(data.RetryBudgetRemaining, binIndex) : null;
+        var attempts = caps.HasServiceSemantics ? ComputeAttemptValue(data, binIndex, allowDerived: true) : null;
+        var failures = caps.HasServiceSemantics ? ComputeFailureValue(data, binIndex) : null;
+        var exhaustedFailures = caps.HasServiceSemantics ? GetOptionalValue(data.ExhaustedFailures, binIndex) : null;
+        var retryEcho = caps.HasServiceSemantics ? ComputeRetryEchoValue(data, binIndex, allowDerived: true) : null;
+        var retryBudgetRemaining = caps.HasServiceSemantics ? GetOptionalValue(data.RetryBudgetRemaining, binIndex) : null;
         var maxAttempts = node.Semantics?.MaxAttempts;
 
         var rawUtilization = served.HasValue
@@ -621,16 +650,15 @@ public sealed class StateQueryService
             : null;
         var utilization = rawUtilization.HasValue ? Normalize(rawUtilization.Value) : null;
 
-        var isSnapshotQueueLike = IsQueueLikeKind(kind) || IsQueueLikeKind(logicalType);
+        // Core computes all analytical derived metrics via capabilities
+        var binMs = context.Window.BinDuration.TotalMilliseconds;
+        var analyticalResult = caps.ComputeBin(queue, served, GetOptionalValue(data.ProcessingTimeMsSum, binIndex), GetOptionalValue(data.ServedCount, binIndex), binMs);
 
-        double? latencyMinutes = null;
-        if (isSnapshotQueueLike && queue.HasValue && served.HasValue)
-        {
-            var rawLatency = LatencyComputer.Calculate(queue.Value, served.Value, context.Window.BinDuration.TotalMinutes);
-            latencyMinutes = rawLatency.HasValue ? Normalize(rawLatency.Value) : null;
-        }
+        var latencyMinutes = analyticalResult.LatencyMinutes.HasValue
+            ? Normalize(analyticalResult.LatencyMinutes.Value)
+            : null;
 
-        var queueLatencyStatus = isSnapshotQueueLike
+        var queueLatencyStatus = caps.HasQueueSemantics
             ? DetermineQueueLatencyStatus(queue, served, dispatchSchedule, binIndex)
             : null;
 
@@ -645,39 +673,27 @@ public sealed class StateQueryService
             flowLatencyMs = raw.HasValue && double.IsFinite(raw.Value) ? raw.Value : null;
         }
 
-        double? serviceTimeMs = null;
-        if (isServiceKind)
-        {
-            serviceTimeMs = ComputeServiceTimeValue(data, binIndex);
-        }
-
-        double? queueTimeMs = null;
-        if (isSnapshotQueueLike && queue.HasValue && served.HasValue)
-        {
-            queueTimeMs = CycleTimeComputer.CalculateQueueTime(queue.Value, served.Value, context.Window.BinDuration.TotalMilliseconds);
-        }
-        var cycleTimeMs = CycleTimeComputer.CalculateCycleTime(queueTimeMs, serviceTimeMs);
-        var flowEfficiency = CycleTimeComputer.CalculateFlowEfficiency(serviceTimeMs, cycleTimeMs);
-
-        var color = isServiceWithBuffer
+        var color = caps.EffectiveKind == "servicewithbuffer"
             ? ColoringRules.PickServiceColor(utilization)
             : IsDlqKind(kind)
                 ? "dlq"
-                : IsQueueLikeKind(kind)
+                : caps.HasQueueSemantics
                     ? ColoringRules.PickQueueColor(latencyMinutes, node.Semantics?.SlaMinutes)
                     : ColoringRules.PickServiceColor(utilization);
 
         var mergedWarnings = MergeWarnings(nodeWarnings, classAggregation.Warnings, node.Id);
         var slaMetrics = BuildSlaMetrics(node, logicalType, data, context, binIndex, dispatchSchedule);
         var queueOrigin = data.QueueDepth is null ? null : ResolveQueueSeriesOrigin(node, context);
+        var advertisedKeys = caps.GetAdvertisedAnalyticalKeys();
         var seriesMetadata = BuildDerivedSeriesMetadata(
-            hasLatency: isSnapshotQueueLike && data.QueueDepth is not null && data.Served is not null,
-            hasServiceTime: isServiceKind && data.ProcessingTimeMsSum is not null && data.ServedCount is not null,
+            hasLatency: caps.HasQueueSemantics && data.QueueDepth is not null && data.Served is not null,
+            hasServiceTime: advertisedKeys.Contains("serviceTimeMs") && data.ProcessingTimeMsSum is not null && data.ServedCount is not null,
             hasFlowLatency: flowLatencyForNode is not null,
             hasUtilization: utilization.HasValue,
             hasThroughputRatio: throughputRatio.HasValue,
-            hasCycleTime: cycleTimeMs.HasValue,
-            hasFlowEfficiency: flowEfficiency.HasValue,
+            hasQueueTime: caps.HasQueueSemantics && analyticalResult.QueueTimeMs.HasValue,
+            hasCycleTime: analyticalResult.CycleTimeMs.HasValue,
+            hasFlowEfficiency: analyticalResult.FlowEfficiency.HasValue,
             queueOrigin: queueOrigin);
 
         var constraintMetrics = BuildConstraintMetrics(node, data, context, binIndex);
@@ -706,18 +722,18 @@ public sealed class StateQueryService
                 QueueLatencyStatus = queueLatencyStatus
             },
             SeriesMetadata = seriesMetadata,
-            ByClass = ConvertClassMetrics(classAggregation.ByClass, context.Window.BinDuration.TotalMilliseconds),
+            ByClass = ConvertClassMetrics(caps, classAggregation.ByClass, binMs),
             Constraints = constraintMetrics,
             ConstraintStatus = constraintStatus,
             Derived = new NodeDerivedMetrics
             {
                 Utilization = utilization,
                 LatencyMinutes = latencyMinutes,
-                ServiceTimeMs = serviceTimeMs,
-                QueueTimeMs = queueTimeMs,
-                CycleTimeMs = cycleTimeMs,
+                ServiceTimeMs = analyticalResult.ServiceTimeMs,
+                QueueTimeMs = analyticalResult.QueueTimeMs,
+                CycleTimeMs = analyticalResult.CycleTimeMs,
                 FlowLatencyMs = flowLatencyMs,
-                FlowEfficiency = flowEfficiency,
+                FlowEfficiency = analyticalResult.FlowEfficiency,
                 ThroughputRatio = throughputRatio,
                 RetryTax = retryTax,
                 Color = color
@@ -891,8 +907,8 @@ public sealed class StateQueryService
         int startBin,
         int count)
     {
-        var isQueueLike = IsQueueLikeKind(node.Kind) || IsQueueLikeKind(logicalType);
-        if (!isQueueLike)
+        var backlogCaps = AnalyticalCapabilities.Resolve(node.Kind, logicalType);
+        if (!backlogCaps.HasQueueSemantics)
         {
             return null;
         }
@@ -909,8 +925,8 @@ public sealed class StateQueryService
 
     private static SlaMetricDescriptor? BuildBacklogAgeMetric(Node node, string? logicalType)
     {
-        var isQueueLike = IsQueueLikeKind(node.Kind) || IsQueueLikeKind(logicalType);
-        if (!isQueueLike)
+        var backlogCaps = AnalyticalCapabilities.Resolve(node.Kind, logicalType);
+        if (!backlogCaps.HasQueueSemantics)
         {
             return null;
         }
@@ -992,7 +1008,7 @@ public sealed class StateQueryService
         };
     }
 
-    private static IReadOnlyDictionary<string, ClassMetrics>? ConvertClassMetrics(IReadOnlyDictionary<string, ClassMetricsSnapshot> byClass, double binMs)
+    private static IReadOnlyDictionary<string, ClassMetrics>? ConvertClassMetrics(AnalyticalCapabilities caps, IReadOnlyDictionary<string, ClassMetricsSnapshot> byClass, double binMs)
     {
         if (byClass is null || byClass.Count == 0)
         {
@@ -1003,12 +1019,7 @@ public sealed class StateQueryService
         foreach (var kvp in byClass)
         {
             var snap = kvp.Value;
-            var qt = snap.Queue.HasValue && snap.Served.HasValue
-                ? CycleTimeComputer.CalculateQueueTime(snap.Queue.Value, snap.Served.Value, binMs)
-                : null;
-            var st = CycleTimeComputer.CalculateServiceTime(snap.ProcessingTimeMsSum, snap.ServedCount);
-            var ct = CycleTimeComputer.CalculateCycleTime(qt, st);
-            var fe = CycleTimeComputer.CalculateFlowEfficiency(st, ct);
+            var analytical = caps.ComputeClassBin(snap, binMs);
 
             result[kvp.Key] = new ClassMetrics
             {
@@ -1019,10 +1030,10 @@ public sealed class StateQueryService
                 Capacity = snap.Capacity,
                 ProcessingTimeMsSum = snap.ProcessingTimeMsSum,
                 ServedCount = snap.ServedCount,
-                QueueTimeMs = qt,
-                ServiceTimeMs = st,
-                CycleTimeMs = ct,
-                FlowEfficiency = fe
+                QueueTimeMs = analytical.QueueTimeMs,
+                ServiceTimeMs = analytical.ServiceTimeMs,
+                CycleTimeMs = analytical.CycleTimeMs,
+                FlowEfficiency = analytical.FlowEfficiency
             };
         }
 
@@ -1080,7 +1091,8 @@ public sealed class StateQueryService
 
         foreach (var node in nodes)
         {
-            if (!IsQueueLikeKind(node.Kind))
+            var nodeCaps = AnalyticalCapabilities.Resolve(node.Kind);
+            if (!nodeCaps.HasQueueSemantics)
             {
                 continue;
             }
@@ -1397,6 +1409,7 @@ public sealed class StateQueryService
     {
         var kind = NormalizeKind(node.Kind);
         var logicalType = DetermineLogicalType(node, kind, context, out var serviceWithBufferDefinition);
+        var caps = AnalyticalCapabilities.Resolve(kind, logicalType);
         var dispatchSchedule = ResolveDispatchSchedule(node, context, serviceWithBufferDefinition);
         var arrivalsSlice = ExtractSlice(data.Arrivals, startBin, count);
         var servedSlice = ExtractSlice(data.Served, startBin, count);
@@ -1418,7 +1431,7 @@ public sealed class StateQueryService
             series["errors"] = errorsSlice;
         }
 
-        var isServiceKind = string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase);
+        var isServiceKind = caps.HasServiceSemantics;
 
         var attemptsSeries = isServiceKind
             ? ComputeAttemptSeries(data, startBin, count, allowDerived: true)
@@ -1500,16 +1513,9 @@ public sealed class StateQueryService
         }
 
         QueueLatencyStatusDescriptor?[]? queueLatencyStatuses = null;
-        double?[]? latencySeries = null;
 
-        if (IsQueueLikeKind(kind) && data.QueueDepth != null)
+        if (caps.HasQueueSemantics && data.QueueDepth != null)
         {
-            latencySeries = ComputeLatencySeries(data, context.Window, startBin, count);
-            if (latencySeries != null)
-            {
-                series["latencyMinutes"] = latencySeries;
-            }
-
             queueLatencyStatuses = ComputeQueueLatencyStatusSeries(
                 data.QueueDepth,
                 data.Served,
@@ -1526,14 +1532,60 @@ public sealed class StateQueryService
             series["throughputRatio"] = throughputSeries;
         }
 
-        double?[]? serviceTimeSeries = null;
-        if (string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(logicalType, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase))
+        // Core computes all analytical derived metrics via capabilities
+        var binMs = context.Window.BinDuration.TotalMilliseconds;
+        var analyticalWindow = caps.ComputeWindow(data, startBin, count, binMs);
+
+        // Latency from Core analytical computation, normalized for API output
+        double?[]? latencySeries = null;
+        if (caps.HasQueueSemantics && data.QueueDepth != null)
         {
-            serviceTimeSeries = ComputeServiceTimeSeries(data, startBin, count);
-            if (serviceTimeSeries != null)
+            latencySeries = NormalizeSeries(analyticalWindow.LatencyMinutes);
+            series["latencyMinutes"] = latencySeries;
+        }
+
+        // Emit analytical series gated by capabilities
+        var hasCycleTimeSeries = false;
+        var hasFlowEfficiencySeries = false;
+        var hasAnyQueueTimeValue = false;
+        if (caps.HasQueueSemantics || caps.HasServiceSemantics)
+        {
+            for (var i = 0; i < count; i++)
             {
-                series["serviceTimeMs"] = serviceTimeSeries;
+                if (analyticalWindow.CycleTimeMs[i].HasValue)
+                {
+                    hasCycleTimeSeries = true;
+                    break;
+                }
+            }
+
+            if (caps.HasServiceSemantics && data.ProcessingTimeMsSum is not null && data.ServedCount is not null)
+            {
+                series["serviceTimeMs"] = analyticalWindow.ServiceTimeMs;
+            }
+
+            // Check if queueTimeMs has any real (non-null) values
+            if (caps.HasQueueSemantics)
+            {
+                for (var i = 0; i < count; i++)
+                {
+                    if (analyticalWindow.QueueTimeMs[i].HasValue)
+                    {
+                        hasAnyQueueTimeValue = true;
+                        break;
+                    }
+                }
+            }
+
+            if (hasCycleTimeSeries)
+            {
+                if (hasAnyQueueTimeValue) series["queueTimeMs"] = analyticalWindow.QueueTimeMs;
+                series["cycleTimeMs"] = analyticalWindow.CycleTimeMs;
+                if (caps.HasServiceSemantics)
+                {
+                    series["flowEfficiency"] = analyticalWindow.FlowEfficiency;
+                    hasFlowEfficiencySeries = true;
+                }
             }
         }
 
@@ -1542,53 +1594,6 @@ public sealed class StateQueryService
         {
             flowLatencySlice = ExtractSlice(flowLatencyForNode, startBin, count);
             series["flowLatencyMs"] = flowLatencySlice;
-        }
-
-        // Cycle time decomposition series
-        var isQueueLike = IsQueueLikeKind(kind) || IsQueueLikeKind(logicalType);
-        var isServiceLike = string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase) ||
-                            string.Equals(logicalType, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase);
-        var hasCycleTimeSeries = false;
-        var hasFlowEfficiencySeries = false;
-        if (isQueueLike || isServiceLike)
-        {
-            var binMs = context.Window.BinDuration.TotalMilliseconds;
-            var queueTimeMsSeries = new double?[count];
-            var cycleTimeMsSeries = new double?[count];
-            var flowEfficiencySeries = new double?[count];
-
-            for (var i = 0; i < count; i++)
-            {
-                double? qt = null;
-                if (isQueueLike && data.QueueDepth is not null && data.Served is not null)
-                {
-                    var idx = startBin + i;
-                    if (idx < data.QueueDepth.Length && idx < data.Served.Length)
-                    {
-                        qt = CycleTimeComputer.CalculateQueueTime(data.QueueDepth[idx], data.Served[idx], binMs);
-                    }
-                }
-
-                var st = serviceTimeSeries?[i];
-                var ct = CycleTimeComputer.CalculateCycleTime(qt, st);
-                var fe = CycleTimeComputer.CalculateFlowEfficiency(st, ct);
-
-                queueTimeMsSeries[i] = qt;
-                cycleTimeMsSeries[i] = ct;
-                flowEfficiencySeries[i] = fe;
-                if (ct.HasValue) hasCycleTimeSeries = true;
-            }
-
-            if (hasCycleTimeSeries)
-            {
-                if (isQueueLike) series["queueTimeMs"] = queueTimeMsSeries;
-                series["cycleTimeMs"] = cycleTimeMsSeries;
-                if (isServiceLike)
-                {
-                    series["flowEfficiency"] = flowEfficiencySeries;
-                    hasFlowEfficiencySeries = true;
-                }
-            }
         }
 
         if (data.Values is not null)
@@ -1602,10 +1607,11 @@ public sealed class StateQueryService
         var queueOrigin = data.QueueDepth is null ? null : ResolveQueueSeriesOrigin(node, context);
         var seriesMetadata = BuildDerivedSeriesMetadata(
             hasLatency: latencySeries is not null,
-            hasServiceTime: serviceTimeSeries is not null,
+            hasServiceTime: series.ContainsKey("serviceTimeMs"),
             hasFlowLatency: flowLatencySlice is not null,
             hasUtilization: utilizationSeries is not null,
             hasThroughputRatio: throughputSeries is not null,
+            hasQueueTime: hasAnyQueueTimeValue,
             hasCycleTime: hasCycleTimeSeries,
             hasFlowEfficiency: hasFlowEfficiencySeries,
             queueOrigin: queueOrigin);
@@ -1625,6 +1631,9 @@ public sealed class StateQueryService
         var constraintSeries = BuildConstraintSeries(node, data, context, startBin, count);
         var constraintStatus = BuildConstraintStatusSeries(node, data, context, startBin, count);
 
+        // Stationarity warnings: only if queueTimeMs has at least one non-null value in this window
+        var stationarityWarnings = BuildStationarityWarnings(nodeWarnings, data, node.Id, startBin, count, caps, context.AnalyticsOptions.StationarityTolerance, hasAnyQueueTimeValue);
+
         return new NodeSeries
         {
             Id = node.Id,
@@ -1632,10 +1641,10 @@ public sealed class StateQueryService
             LogicalType = logicalType,
             Series = series,
             SeriesMetadata = seriesMetadata,
-            ByClass = BuildClassSeries(data, startBin, count, context.Window.BinDuration.TotalMilliseconds),
+            ByClass = BuildClassSeries(caps, data, startBin, count, binMs),
             Constraints = constraintSeries,
             ConstraintStatus = constraintStatus,
-            Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, BuildStationarityWarnings(nodeWarnings, data, node.Id, startBin, count, isQueueLike)),
+            Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, stationarityWarnings),
             Aliases = node.Semantics?.Aliases,
             DispatchSchedule = dispatchSchedule,
             QueueLatencyStatus = queueLatencyStatuses,
@@ -1649,10 +1658,12 @@ public sealed class StateQueryService
         string nodeId,
         int startBin,
         int count,
-        bool isQueueLike)
+        AnalyticalCapabilities caps,
+        double stationarityTolerance,
+        bool hasQueueTimeMsInPayload)
     {
-        // Only warn when Little's Law is actually used to estimate queueTimeMs
-        if (!isQueueLike || data.Arrivals is null || count < 2)
+        // Only warn if queueTimeMs was actually emitted in this window's payload
+        if (!hasQueueTimeMsInPayload || data.Arrivals is null || count < 2)
         {
             return existing;
         }
@@ -1664,7 +1675,7 @@ public sealed class StateQueryService
             slice[i] = idx < data.Arrivals.Length ? data.Arrivals[idx] : 0;
         }
 
-        if (!CycleTimeComputer.CheckNonStationary(slice))
+        if (!caps.CheckStationarity(slice, tolerance: stationarityTolerance))
         {
             return existing;
         }
@@ -1686,7 +1697,7 @@ public sealed class StateQueryService
         return scalar.HasValue ? CreateConstantSeries(scalar.Value, bins) : null;
     }
 
-    private static IDictionary<string, IDictionary<string, double?[]>>? BuildClassSeries(NodeData data, int startBin, int count, double binMs)
+    private static IDictionary<string, IDictionary<string, double?[]>>? BuildClassSeries(AnalyticalCapabilities caps, NodeData data, int startBin, int count, double binMs)
     {
         if (data.ByClass is null || data.ByClass.Count == 0)
         {
@@ -1713,8 +1724,8 @@ public sealed class StateQueryService
             AddSeriesIfAvailable(classSeries, "processingTimeMsSum", classData.ProcessingTimeMsSum);
             AddSeriesIfAvailable(classSeries, "servedCount", classData.ServedCount);
 
-            // Derived cycle time decomposition per class
-            AddClassCycleTimeSeries(classSeries, classData, startBin, count, binMs);
+            // Core computes per-class analytical derived metrics via capabilities
+            AddClassCycleTimeSeries(caps, classSeries, classData, startBin, count, binMs);
 
             if (classSeries.Count > 0)
             {
@@ -1750,69 +1761,34 @@ public sealed class StateQueryService
     }
 
     private static void AddClassCycleTimeSeries(
+        AnalyticalCapabilities caps,
         IDictionary<string, double?[]> target,
         NodeClassData classData,
         int startBin,
         int count,
         double binMs)
     {
-        var hasQueue = classData.QueueDepth is not null && classData.Served is not null;
-        var hasService = classData.ProcessingTimeMsSum is not null && classData.ServedCount is not null;
-        if (!hasQueue && !hasService) return;
+        if (!caps.HasQueueSemantics && !caps.HasServiceSemantics) return;
 
-        var queueTimeSeries = new double?[count];
-        var cycleTimeSeries = new double?[count];
-        var flowEffSeries = new double?[count];
+        var window = caps.ComputeClassWindow(classData, startBin, count, binMs);
+
         var hasCycleTime = false;
-
         for (var i = 0; i < count; i++)
         {
-            var idx = startBin + i;
-
-            double? qt = null;
-            if (hasQueue && idx < classData.QueueDepth!.Length && idx < classData.Served!.Length)
+            if (window.CycleTimeMs[i].HasValue)
             {
-                qt = CycleTimeComputer.CalculateQueueTime(classData.QueueDepth[idx], classData.Served[idx], binMs);
+                hasCycleTime = true;
+                break;
             }
-
-            double? st = null;
-            if (hasService && idx < classData.ProcessingTimeMsSum!.Length && idx < classData.ServedCount!.Length)
-            {
-                var sum = classData.ProcessingTimeMsSum[idx];
-                var cnt = classData.ServedCount[idx];
-                st = CycleTimeComputer.CalculateServiceTime(sum, cnt);
-            }
-
-            var ct = CycleTimeComputer.CalculateCycleTime(qt, st);
-            var fe = CycleTimeComputer.CalculateFlowEfficiency(st, ct);
-
-            queueTimeSeries[i] = qt;
-            cycleTimeSeries[i] = ct;
-            flowEffSeries[i] = fe;
-            if (ct.HasValue) hasCycleTime = true;
         }
 
         if (hasCycleTime)
         {
-            if (hasQueue) target["queueTimeMs"] = queueTimeSeries;
-            if (hasService) target["serviceTimeMs"] = ComputeClassServiceTimeSeries(classData, startBin, count);
-            target["cycleTimeMs"] = cycleTimeSeries;
-            if (hasService) target["flowEfficiency"] = flowEffSeries;
+            if (caps.HasQueueSemantics) target["queueTimeMs"] = window.QueueTimeMs;
+            if (caps.HasServiceSemantics) target["serviceTimeMs"] = window.ServiceTimeMs;
+            target["cycleTimeMs"] = window.CycleTimeMs;
+            if (caps.HasServiceSemantics) target["flowEfficiency"] = window.FlowEfficiency;
         }
-    }
-
-    private static double?[] ComputeClassServiceTimeSeries(NodeClassData classData, int startBin, int count)
-    {
-        var result = new double?[count];
-        for (var i = 0; i < count; i++)
-        {
-            var idx = startBin + i;
-            if (idx < classData.ProcessingTimeMsSum!.Length && idx < classData.ServedCount!.Length)
-            {
-                result[i] = CycleTimeComputer.CalculateServiceTime(classData.ProcessingTimeMsSum[idx], classData.ServedCount[idx]);
-            }
-        }
-        return result;
     }
 
     private static IReadOnlyDictionary<string, SeriesSemanticsMetadata>? BuildDerivedSeriesMetadata(
@@ -1821,6 +1797,7 @@ public sealed class StateQueryService
         bool hasFlowLatency,
         bool hasUtilization,
         bool hasThroughputRatio,
+        bool hasQueueTime,
         bool hasCycleTime,
         bool hasFlowEfficiency,
         string? queueOrigin)
@@ -1857,7 +1834,7 @@ public sealed class StateQueryService
             };
         }
 
-        if (hasCycleTime)
+        if (hasQueueTime)
         {
             metadata ??= new Dictionary<string, SeriesSemanticsMetadata>(StringComparer.OrdinalIgnoreCase);
             metadata["queueTimeMs"] = new SeriesSemanticsMetadata
@@ -1865,6 +1842,11 @@ public sealed class StateQueryService
                 Aggregation = "avg",
                 Origin = "derived"
             };
+        }
+
+        if (hasCycleTime)
+        {
+            metadata ??= new Dictionary<string, SeriesSemanticsMetadata>(StringComparer.OrdinalIgnoreCase);
             metadata["cycleTimeMs"] = new SeriesSemanticsMetadata
             {
                 Aggregation = "avg",
@@ -2731,25 +2713,6 @@ public sealed class StateQueryService
         return series;
     }
 
-    private static double?[]? ComputeLatencySeries(NodeData data, Window window, int start, int count)
-    {
-        if (data.QueueDepth == null)
-        {
-            return null;
-        }
-
-        var result = new double?[count];
-        var binMinutes = window.BinDuration.TotalMinutes;
-        for (var i = 0; i < count; i++)
-        {
-            var queue = data.QueueDepth[start + i];
-            var served = data.Served[start + i];
-            var raw = LatencyComputer.Calculate(queue, served, binMinutes);
-            result[i] = raw.HasValue ? Normalize(raw.Value) : null;
-        }
-
-        return result;
-    }
 
     private static QueueLatencyStatusDescriptor?[]? ComputeQueueLatencyStatusSeries(
         double[]? queueSeries,
@@ -2782,63 +2745,6 @@ public sealed class StateQueryService
         return hasStatus ? result : null;
     }
 
-    private static double? ComputeServiceTimeValue(NodeData data, int index)
-    {
-        if (data.ProcessingTimeMsSum is null || data.ServedCount is null)
-        {
-            return null;
-        }
-
-        if (index < 0 ||
-            index >= data.ProcessingTimeMsSum.Length ||
-            index >= data.ServedCount.Length)
-        {
-            return null;
-        }
-
-        var sum = data.ProcessingTimeMsSum[index];
-        var count = data.ServedCount[index];
-
-        if (!double.IsFinite(sum) || !double.IsFinite(count))
-        {
-            return null;
-        }
-
-        if (count <= 0)
-        {
-            return null;
-        }
-
-        var value = sum / count;
-        return double.IsFinite(value) ? value : null;
-    }
-
-    private static double?[]? ComputeServiceTimeSeries(NodeData data, int start, int count)
-    {
-        if (data.ProcessingTimeMsSum is null || data.ServedCount is null)
-        {
-            return null;
-        }
-
-        var sumLength = data.ProcessingTimeMsSum.Length;
-        var countLength = data.ServedCount.Length;
-        var result = new double?[count];
-
-        for (var i = 0; i < count; i++)
-        {
-            var index = start + i;
-            if (index < 0 || index >= sumLength || index >= countLength)
-            {
-                result[i] = null;
-                continue;
-            }
-
-            result[i] = ComputeServiceTimeValue(data, index);
-        }
-
-        return result;
-    }
-
     private static Dictionary<string, double?[]> ComputeFlowLatency(StateRunContext context)
     {
         var bins = context.Window.Bins;
@@ -2854,36 +2760,19 @@ public sealed class StateQueryService
 
             var baseSeries = new double?[bins];
             var kind = NormalizeKind(node.Kind);
-            var isQueue = IsQueueLikeKind(kind);
-            var isServiceWithBuffer = string.Equals(kind, "servicewithbuffer", StringComparison.OrdinalIgnoreCase);
-            var isService = string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase) || isServiceWithBuffer;
             var isSink = string.Equals(kind, "sink", StringComparison.OrdinalIgnoreCase) ||
                          string.Equals(node.NodeRole, "sink", StringComparison.OrdinalIgnoreCase);
             var hasArrivalsSemantics = !string.IsNullOrWhiteSpace(node.Semantics?.Arrivals);
             var hasServedSemantics = !isSink && !string.IsNullOrWhiteSpace(node.Semantics?.Served);
 
+            // Use capabilities with logicalType for parity with snapshot/window paths
+            var logicalType = DetermineLogicalType(node, kind, context, out _);
+            var flowCaps = AnalyticalCapabilities.Resolve(kind, logicalType);
             var binMs = context.Window.BinDuration.TotalMilliseconds;
-
+            var window = flowCaps.ComputeWindow(data, 0, bins, binMs);
             for (var i = 0; i < bins; i++)
             {
-                double? queueTimeMs = null;
-                if (isQueue)
-                {
-                    var queue = GetOptionalValue(data.QueueDepth, i);
-                    var served = GetOptionalValue(data.Served, i);
-                    if (queue.HasValue && served.HasValue)
-                    {
-                        queueTimeMs = CycleTimeComputer.CalculateQueueTime(queue.Value, served.Value, binMs);
-                    }
-                }
-
-                double? serviceTimeMs = null;
-                if (isService)
-                {
-                    serviceTimeMs = ComputeServiceTimeValue(data, i);
-                }
-
-                baseSeries[i] = CycleTimeComputer.CalculateCycleTime(queueTimeMs, serviceTimeMs);
+                baseSeries[i] = window.CycleTimeMs[i];
             }
 
             double?[]? upstream = null;
@@ -5410,7 +5299,8 @@ public sealed class StateQueryService
         }
         else if (value.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
         {
-            var match = seriesFileRegex.Match(value);
+            var filePart = value["file:".Length..];
+            var match = seriesFileRegex.Match(filePart);
             if (match.Success)
             {
                 value = match.Groups["name"].Value;
@@ -5429,17 +5319,6 @@ public sealed class StateQueryService
         }
 
         return value.Trim();
-    }
-
-    private static bool IsQueueLikeKind(string? kind)
-    {
-        if (string.IsNullOrWhiteSpace(kind))
-        {
-            return false;
-        }
-
-        var normalized = kind.Trim().ToLowerInvariant();
-        return normalized is "queue" or "dlq" or "servicewithbuffer";
     }
 
     private static QueueLatencyStatusDescriptor? DetermineQueueLatencyStatus(
@@ -5543,6 +5422,17 @@ public sealed class StateQueryService
         }
 
         return rounded;
+    }
+
+    private static double?[] NormalizeSeries(double?[] source)
+    {
+        var result = new double?[source.Length];
+        for (var i = 0; i < source.Length; i++)
+        {
+            var v = source[i];
+            result[i] = v.HasValue ? Normalize(v.Value) : null;
+        }
+        return result;
     }
 
     private static IReadOnlyDictionary<string, IReadOnlyList<string>> BuildConstraintAssignments(IReadOnlyList<Node> nodes)
@@ -5652,7 +5542,8 @@ public sealed class StateQueryService
         string RunDirectory,
         IReadOnlyDictionary<string, ConstraintData> ConstraintData,
         IReadOnlyDictionary<string, IReadOnlyList<string>> ConstraintAssignments,
-        IReadOnlyDictionary<string, IReadOnlyDictionary<string, double?[]>> ConstraintAllocations)
+        IReadOnlyDictionary<string, IReadOnlyDictionary<string, double?[]>> ConstraintAllocations,
+        AnalyticsOptions AnalyticsOptions)
     {
         public double BinMinutes => Window.BinDuration.TotalMinutes;
     }

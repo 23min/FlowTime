@@ -127,12 +127,6 @@
           300,
           300
         ],
-        "flowLatencyMs": [
-          250,
-          300,
-          300,
-          300
-        ],
         "cycleTimeMs": [
           250,
           300,
@@ -144,6 +138,12 @@
           1,
           1,
           1
+        ],
+        "flowLatencyMs": [
+          250,
+          300,
+          300,
+          300
         ]
       },
       "seriesMetadata": {
@@ -152,10 +152,6 @@
           "origin": "derived"
         },
         "flowLatencyMs": {
-          "aggregation": "avg",
-          "origin": "derived"
-        },
-        "queueTimeMs": {
           "aggregation": "avg",
           "origin": "derived"
         },

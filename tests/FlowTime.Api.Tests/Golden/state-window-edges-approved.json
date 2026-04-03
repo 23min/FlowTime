@@ -129,12 +129,6 @@
           300,
           300
         ],
-        "flowLatencyMs": [
-          250,
-          300,
-          300,
-          300
-        ],
         "cycleTimeMs": [
           250,
           300,
@@ -146,6 +140,12 @@
           1,
           1,
           1
+        ],
+        "flowLatencyMs": [
+          250,
+          300,
+          300,
+          300
         ]
       },
       "seriesMetadata": {
@@ -154,10 +154,6 @@
           "origin": "derived"
         },
         "flowLatencyMs": {
-          "aggregation": "avg",
-          "origin": "derived"
-        },
-        "queueTimeMs": {
           "aggregation": "avg",
           "origin": "derived"
         },
@@ -242,22 +238,16 @@
           20,
           0
         ],
-        "latencyMinutes": [
-          1.111111,
-          8.333333,
-          11.111111,
-          0
-        ],
         "throughputRatio": [
           1,
           0.857143,
           1,
           0.8
         ],
-        "flowLatencyMs": [
-          66666.666667,
-          500000,
-          666666.666667,
+        "latencyMinutes": [
+          1.111111,
+          8.333333,
+          11.111111,
           0
         ],
         "queueTimeMs": [
@@ -270,6 +260,12 @@
           66666.66666666666,
           500000,
           666666.6666666667,
+          0
+        ],
+        "flowLatencyMs": [
+          66666.666667,
+          500000,
+          666666.666667,
           0
         ]
       },

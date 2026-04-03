@@ -2,74 +2,63 @@
 
 **ID:** m-ec-p3a1
 **Epic:** Engine Correctness & Analytical Primitives
-**Status:** draft
+**Status:** complete
 
 ## Goal
 
-Harden the analytical state projection and contract surfaces introduced in Phase 3a so derived metrics are emitted consistently, honestly, and safely across snapshot, window, metadata, and UI contracts. This answers: "Can downstream consumers trust analytical outputs as first-class API surface, not just math helpers?"
+Establish the first correct boundary move for analytical state metrics: Core owns the current analytical capability resolution and derived metric computation used by `/state` and `/state_window`, while the remaining formula-first purification work is explicitly handed to E-16.
 
 ## Context
 
-Phase 3a introduced the right engine primitive: `CycleTimeComputer` now computes `queueTimeMs`, `serviceTimeMs`, `cycleTimeMs`, and `flowEfficiency` in Core. Review of the p3a implementation showed that the remaining risk is not the engine math itself; it is the projection layer in `StateQueryService` and the contract surfaces around it.
+Phase 3a introduced the right analytical primitives: `CycleTimeComputer` computes `queueTimeMs`, `serviceTimeMs`, `cycleTimeMs`, and `flowEfficiency` as pure math in Core. But the **capability decision** — "does this node have queue semantics? service semantics? both?" — still lived in `StateQueryService`, duplicated across snapshot building, window building, metadata emission, stationarity warnings, per-class conversion, and flow-latency composition.
 
-The same queue/service capability decision is still made in several places across snapshot, window, flow-latency composition, queue latency status, warning emission, and metadata. That duplication caused drift during p3a verification:
-- logicalType-resolved `serviceWithBuffer` behavior can diverge from explicit `kind: serviceWithBuffer`
-- metadata can advertise analytical series that are not actually emitted
-- per-class analytical fields are not fully mirrored through the UI DTO layer
-- non-finite analytical values are not explicitly hardened before serialization
-- AC-5 warning applicability and tolerance policy are still underspecified in code
+This milestone fixed that first-order boundary problem by moving the current analytical capability/computation surface into Core and wiring state projection to consume it. During the follow-on architecture pressure test, we decided not to keep expanding p3a1 into the full cleanup epic. Full purification now belongs to E-16.
 
-These are not new analytical primitives. They are correctness and contract hardening for the analytical layer, and they should be resolved before p3b/p3c/p3d add more derived metrics on top of the same projection surface.
+That means p3a1 is the bridge milestone, not the final deletion milestone. It delivers the current analytical computation move, finite-value safety, logicalType parity for the current state surfaces, and DTO parity. Compiled semantic references, runtime analytical descriptors, class-truth separation, and client heuristic deletion are owned by E-16.
 
 ## Acceptance Criteria
 
-1. **AC-1: Analytical capability parity across node forms.** Explicit `kind: serviceWithBuffer` nodes and logicalType-resolved `serviceWithBuffer` nodes behave identically anywhere analytical queue/service semantics are exposed. Snapshot and window responses stay aligned for:
-   - `latencyMinutes`
-   - `queueLatencyStatus`
-   - `queueTimeMs`
-   - `serviceTimeMs`
-   - `cycleTimeMs`
-   - `flowLatencyMs`
-   - `flowEfficiency`
-   - stationarity warning eligibility
+1. **AC-1: Current analytical capabilities resolved in Core.** Core provides an `AnalyticalCapabilities` concept (record, type, or equivalent) that captures what the current state endpoints can compute analytically: queue semantics (Little's Law queue time, latency), service semantics (service time), cycle-time decomposition (queue + service → cycle time, flow efficiency), and stationarity-warning eligibility.
 
-2. **AC-2: Honest analytical metadata and contract symmetry.** `seriesMetadata` only advertises derived keys that are actually emitted in the payload. Service-only nodes do not advertise `queueTimeMs`; queue-only nodes do not advertise `serviceTimeMs` or `flowEfficiency`. Per-class analytical fields are exposed end-to-end through `ClassMetrics`, snapshot payloads, and `TimeTravelClassMetricsDto`.
+2. **AC-2: Core computes the current analytical derived metrics for state projection.** Core provides a computation surface that takes capabilities and raw data (for a single bin or a windowed range) and produces the analytical values used by `/state` and `/state_window`: `queueTimeMs`, `serviceTimeMs`, `cycleTimeMs`, `flowEfficiency`, and `latencyMinutes`. This covers both node-level and current per-class breakdowns.
 
-3. **AC-3: Finite numeric safety for analytical metrics.** `queueTimeMs`, `serviceTimeMs`, `cycleTimeMs`, and `flowEfficiency` follow the Phase 1 Tier 2 null policy for invalid or non-finite inputs/results. No `NaN` or `Infinity` reaches serialized API output in snapshot or window responses.
+3. **AC-3: Finite-value safety and metadata honesty for the current analytical payload.** The Core computation guarantees that NaN or Infinity inputs or intermediate results never produce non-null NaN/Infinity outputs. Analytical derived values follow the Phase 1 Tier 2 null policy, and `seriesMetadata` only advertises analytical keys that are actually emitted in the payload.
 
-4. **AC-4: Stationarity warning policy is explicit and applicable.** `littles-law-non-stationary` is emitted only when `queueTimeMs` is actually being estimated via Little's Law for that node and window. The tolerance source is explicit and overridable through one named configuration point or options value, with a default of 25%.
+4. **AC-4: Stationarity warning policy is explicit in the runtime path.** `littles-law-non-stationary` uses one named runtime configuration source for tolerance, and it is emitted only when `queueTimeMs` is actually present for the window being projected.
 
-5. **AC-5: Targeted tests prove the negative cases.** Core and API tests cover:
-   - logicalType-resolved `serviceWithBuffer` parity
-   - pure-service nodes lacking `queueTimeMs` metadata
-   - queue-like nodes missing required inputs and therefore lacking stationarity warnings
-   - per-class DTO parity for analytical fields
-   - `NaN`/`Infinity` analytical inputs returning null rather than leaking through the API
+5. **AC-5: Current DTO parity is complete for analytical class fields.** The current state API and Blazor time-travel DTO surfaces expose analytical by-class fields end-to-end so consumers can ingest the projected values without local reconstruction.
 
-6. **AC-6: Tests and gate.** `dotnet build` is green. Targeted Core and API suites for this milestone are green. No new failures are introduced; the same pre-existing schema meta-resolution failures remain excluded from the gate unless they are separately fixed.
+6. **AC-6: Remaining purification work is explicitly handed off to E-16.** Typed semantic references, runtime analytical descriptors, class-truth separation, public analytical contract redesign, client heuristic deletion, and final semantic-parser removal are out of scope for `m-ec-p3a1` and owned by E-16.
+
+7. **AC-7: Tests and gate.** `dotnet build` and `dotnet test --nologo` are green for the wrapped milestone state.
 
 ## Technical Notes
 
-- Prefer a small internal helper or record, e.g. `AnalyticalCapabilities`, resolved once per node from `kind`, `logicalType`, and available inputs. Use that in snapshot, window, flow-latency, metadata, and warning generation instead of repeating ad hoc predicates.
-- Keep the graph-level analytical primitive in Core. This milestone hardens the API/state adapter layer rather than moving the full projection pipeline into Core.
-- If AC-4 configurability does not justify full application configuration yet, a scoped options object in the state-query path is acceptable as long as the tolerance source is explicit and testable.
-- Add assertion-style tests for the new negative cases before updating golden snapshots. Snapshot diffs should confirm behavior, not be the only proof of behavior.
+- `AnalyticalCapabilities` remains the bridge abstraction for the current state surfaces. E-16 will replace string-derived inputs with compiled runtime facts.
+- `flowLatencyMs` graph propagation stays in the adapter for this milestone. p3a1 only moves the per-node analytical base values it consumes into Core.
+- Existing non-analytical derived metrics (`utilization`, `throughputRatio`, `retryTax`, `color`) remain in the adapter.
+- Semantic string parsing and logicalType reconstruction that still exist for runtime behavior are tolerated only as bridge behavior. E-16 owns deleting them.
+- This milestone is allowed to update approved snapshots and fixtures to reflect corrected analytical outputs.
 
 ## Out of Scope
 
+- Typed semantic references in the compiled/runtime model
+- Runtime analytical descriptors on compiled nodes
+- Class-truth boundary cleanup / wildcard fallback separation
+- Public analytical contract redesign and client heuristic deletion
+- Final semantic-parser deletion from API and UI layers
 - New analytical primitives (WIP limits, variability, constraint enforcement, bottleneck ranking)
-- Schema/meta-schema repair in `StateResponseSchemaTests`
-- Moving the full state projection architecture out of `StateQueryService`
-- UI feature work beyond contract/DTO parity
 
 ## Dependencies
 
 - Phase 1 complete ✅
 - Phase 3a implementation exists and is the input to this hardening pass
-- This milestone is a gate before Phase 3 continues with p3b/p3c/p3d
+- E-16 follows immediately after wrap and before Phase 3 continues with p3b/p3c/p3d
 
 ## References
 
 - `work/milestones/m-ec-p3a-review.md`
 - `work/milestones/m-ec-p3a-review-codex.md`
 - `work/milestones/m-ec-p3a-cycle-time.md`
+- `docs/architecture/nan-policy.md`
+- `work/epics/E-16-formula-first-core-purification/spec.md`

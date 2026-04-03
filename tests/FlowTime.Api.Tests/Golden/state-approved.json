@@ -52,10 +52,6 @@
           "aggregation": "avg",
           "origin": "derived"
         },
-        "queueTimeMs": {
-          "aggregation": "avg",
-          "origin": "derived"
-        },
         "cycleTimeMs": {
           "aggregation": "avg",
           "origin": "derived"

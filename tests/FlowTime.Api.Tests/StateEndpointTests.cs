@@ -52,6 +52,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private const string sinkRunId = "run_state_sink";
     private const string sinkPathLatencyRunId = "run_state_sink_path_latency";
     private const string stationarityRunId = "run_state_stationarity";
+    private const string logicalTypeSwbRunId = "run_state_logicaltype_swb";
     private const int binCount = 4;
     private const int binSizeMinutes = 5;
     private static readonly DateTime startTimeUtc = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -106,6 +107,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateSinkRun();
         CreateSinkPathLatencyRun();
         CreateStationarityRun();
+        CreateLogicalTypeSwbRun();
 
         logCollector = new TestLogCollector();
         client = factory.WithWebHostBuilder(builder =>
@@ -645,6 +647,98 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(375_200d, flowLatencySeries[1]!.Value, 5);
         Assert.Equal(100d, flowLatencySeries[2]!.Value, 5);
         Assert.Equal(600_300d, flowLatencySeries[3]!.Value, 5);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_ServiceWithBuffer_ByClassIncludesAnalyticalFields()
+    {
+        var response = await client.GetAsync($"/v1/runs/{serviceWithBufferDerivedRunId}/state?binIndex=0");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<StateSnapshotResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        var node = Assert.Single(payload!.Nodes, n => n.Id == "BufferService");
+        Assert.NotNull(node.ByClass);
+
+        // The wildcard class should include analytical derived fields
+        var wildcard = node.ByClass!["*"];
+        Assert.NotNull(wildcard.QueueTimeMs);
+        Assert.NotNull(wildcard.ServiceTimeMs);
+        Assert.NotNull(wildcard.CycleTimeMs);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_LogicalTypeSwb_HasParityWithExplicitSwb()
+    {
+        // QueueReader is kind: service but logicalType: serviceWithBuffer
+        // It should produce the same analytical fields as an explicit serviceWithBuffer
+        var response = await client.GetAsync($"/v1/runs/{logicalTypeSwbRunId}/state_window?startBin=0&endBin=3");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        var queueReader = Assert.Single(payload!.Nodes, n => n.Id == "QueueReader");
+        var bufferNode = Assert.Single(payload.Nodes, n => n.Id == "BufferNode");
+
+        // logicalType should be resolved to serviceWithBuffer
+        Assert.Equal("serviceWithBuffer", queueReader.LogicalType);
+
+        // Analytical series should match the explicit serviceWithBuffer node
+        // (same queue/service data → same derived metrics)
+        Assert.True(queueReader.Series.ContainsKey("queueTimeMs"), "logicalType-resolved node should have queueTimeMs");
+        Assert.True(queueReader.Series.ContainsKey("serviceTimeMs"), "logicalType-resolved node should have serviceTimeMs");
+        Assert.True(queueReader.Series.ContainsKey("cycleTimeMs"), "logicalType-resolved node should have cycleTimeMs");
+        Assert.True(queueReader.Series.ContainsKey("flowEfficiency"), "logicalType-resolved node should have flowEfficiency");
+        Assert.True(queueReader.Series.ContainsKey("latencyMinutes"), "logicalType-resolved node should have latencyMinutes");
+
+        // flowLatencyMs should include queue component (proving Finding 1 fix)
+        Assert.True(queueReader.Series.ContainsKey("flowLatencyMs"), "logicalType-resolved node should have flowLatencyMs");
+
+        // The flowLatencyMs values should be the same as the explicit serviceWithBuffer
+        // since both use the same queue data and the same processing data
+        var qrFlowLatency = queueReader.Series["flowLatencyMs"];
+        var bnFlowLatency = bufferNode.Series["flowLatencyMs"];
+        Assert.Equal(bnFlowLatency.Length, qrFlowLatency.Length);
+
+        // queueTimeMs values should match between the two nodes
+        var qrQueueTime = queueReader.Series["queueTimeMs"];
+        var bnQueueTime = bufferNode.Series["queueTimeMs"];
+        for (var i = 0; i < bnQueueTime.Length; i++)
+        {
+            Assert.Equal(bnQueueTime[i], qrQueueTime[i]);
+        }
+
+        // Metadata should advertise queueTimeMs for the logicalType-resolved node
+        Assert.NotNull(queueReader.SeriesMetadata);
+        Assert.True(queueReader.SeriesMetadata!.ContainsKey("queueTimeMs"),
+            "logicalType-resolved node should advertise queueTimeMs in metadata");
+    }
+
+    [Fact]
+    public async Task GetStateWindow_ServiceOnly_OmitsQueueTimeMsFromMetadata()
+    {
+        var response = await client.GetAsync($"/v1/runs/{runId}/state_window?startBin=0&endBin=3");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        // OrderService is kind: service — should NOT have queueTimeMs in metadata
+        var node = Assert.Single(payload!.Nodes, n => n.Id == "OrderService");
+        Assert.NotNull(node.SeriesMetadata);
+        Assert.False(node.SeriesMetadata!.ContainsKey("queueTimeMs"),
+            "Service-only node should not advertise queueTimeMs in seriesMetadata");
     }
 
     [Fact]
@@ -2063,6 +2157,76 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         };
 
         CreateRun(stationarityRunId, BuildValidModelYaml(), mode: "telemetry", overrides);
+    }
+
+    private void CreateLogicalTypeSwbRun()
+    {
+        // A "service" node whose queueDepth uses "series:BufferNode" reference,
+        // so it gets promoted to logicalType "serviceWithBuffer" at query time.
+        var overrides = new Dictionary<string, double[]>
+        {
+            // The explicit serviceWithBuffer node (referenced by QueueReader)
+            ["BufferNode_arrivals.csv"] = new[] { 5d, 4d, 3d, 2d },
+            ["BufferNode_served.csv"] = new[] { 2d, 4d, 1d, 2d },
+            ["BufferNode_errors.csv"] = new[] { 0d, 0d, 0d, 0d },
+            ["BufferNode_queue.csv"] = new[] { 10d, 5d, 0d, 4d },
+            ["BufferNode_capacity.csv"] = new[] { 4d, 4d, 4d, 4d },
+            ["BufferNode_processingTimeMsSum.csv"] = new[] { 400d, 800d, 100d, 600d },
+            ["BufferNode_servedCount.csv"] = new[] { 2d, 4d, 1d, 2d },
+            // BufferNode.csv is the queue depth file read by QueueReader.
+            // The resolver extracts "BufferNode" from "file:BufferNode.csv" and finds
+            // the serviceWithBuffer node, promoting QueueReader's logicalType.
+            ["BufferNode.csv"] = new[] { 10d, 5d, 0d, 4d },
+            // The logicalType-resolved node (kind: service, queueDepth → BufferNode)
+            ["QueueReader_arrivals.csv"] = new[] { 5d, 4d, 3d, 2d },
+            ["QueueReader_served.csv"] = new[] { 2d, 4d, 1d, 2d },
+            ["QueueReader_errors.csv"] = new[] { 0d, 0d, 0d, 0d },
+            ["QueueReader_capacity.csv"] = new[] { 4d, 4d, 4d, 4d },
+            ["QueueReader_processingTimeMsSum.csv"] = new[] { 400d, 800d, 100d, 600d },
+            ["QueueReader_servedCount.csv"] = new[] { 2d, 4d, 1d, 2d }
+        };
+
+        CreateRun(logicalTypeSwbRunId, BuildLogicalTypeSwbModelYaml(), mode: "telemetry", overrides);
+    }
+
+    private static string BuildLogicalTypeSwbModelYaml()
+    {
+        return $"""
+schemaVersion: 1
+
+grid:
+  bins: {binCount}
+  binSize: {binSizeMinutes}
+  binUnit: minutes
+  startTimeUtc: "{startTimeUtc:O}"
+
+topology:
+  nodes:
+    - id: "BufferNode"
+      kind: "serviceWithBuffer"
+      semantics:
+        arrivals: "file:BufferNode_arrivals.csv"
+        served: "file:BufferNode_served.csv"
+        errors: "file:BufferNode_errors.csv"
+        queueDepth: "file:BufferNode_queue.csv"
+        capacity: "file:BufferNode_capacity.csv"
+        processingTimeMsSum: "file:BufferNode_processingTimeMsSum.csv"
+        servedCount: "file:BufferNode_servedCount.csv"
+    - id: "QueueReader"
+      kind: "service"
+      semantics:
+        arrivals: "file:QueueReader_arrivals.csv"
+        served: "file:QueueReader_served.csv"
+        errors: "file:QueueReader_errors.csv"
+        queueDepth: "file:BufferNode.csv"
+        capacity: "file:QueueReader_capacity.csv"
+        processingTimeMsSum: "file:QueueReader_processingTimeMsSum.csv"
+        servedCount: "file:QueueReader_servedCount.csv"
+  edges:
+    - from: "BufferNode"
+      to: "QueueReader"
+
+""";
     }
 
     private void CreateFullModeRun()

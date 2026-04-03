@@ -375,6 +375,18 @@ public sealed record TimeTravelClassMetricsDto
 
     [JsonPropertyName("servedCount")]
     public double? ServedCount { get; init; }
+
+    [JsonPropertyName("queueTimeMs")]
+    public double? QueueTimeMs { get; init; }
+
+    [JsonPropertyName("serviceTimeMs")]
+    public double? ServiceTimeMs { get; init; }
+
+    [JsonPropertyName("cycleTimeMs")]
+    public double? CycleTimeMs { get; init; }
+
+    [JsonPropertyName("flowEfficiency")]
+    public double? FlowEfficiency { get; init; }
 }
 
 public sealed record TimeTravelNodeDerivedMetricsDto
