@@ -43,6 +43,10 @@ apis/
 *.userprefs
 .claude/settings.local.json
 
+# AI framework sync-generated (rebuilt by .ai/sync.sh)
+.claude/agents/
+.claude/skills/
+
 # Rider/JetBrains
 .idea/
 *.sln.iml
