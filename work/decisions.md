@@ -87,3 +87,15 @@ Shared decision log for active architectural and technical decisions.
 **Context:** E-10 Phase 3 (analytical primitives: cycle time, WIP limits, variability, constraint enforcement) was paused after Phases 0-2 to work on E-11 Svelte UI. Phase 3 unlocks E-12/E-13/E-14 downstream and the specs are all approved.
 **Decision:** Resume E-10 Phase 3 immediately (p3a → p3b → p3c → p3d). E-11 Svelte UI paused after M6 until Phase 3 completes. Epics and milestones proceed in sequence from here.
 **Consequences:** E-11 M5/M7/M8 deferred. `milestone/m-svui-06` branch needs merge to main first. Next work: create `milestone/m-ec-p3a` from main.
+
+## D-2026-04-03-001: Split post-p3a projection hardening into its own milestone
+**Status:** active
+**Context:** Review of m-ec-p3a found the core analytical primitive is sound, but the state projection and contract surfaces still have duplicated capability logic, metadata drift, finite-value hardening gaps, and incomplete client symmetry. Folding that cleanup back into p3a would blur the milestone boundary and make later Phase 3 work harder to sequence.
+**Decision:** Track the post-review cleanup as a dedicated follow-on milestone, `m-ec-p3a1`, before continuing to p3b/p3c/p3d. p3a remains the primitive-introduction milestone; p3a1 owns analytical projection and contract hardening.
+**Consequences:** Phase 3 order becomes p3a → p3a1 → p3b → p3c → p3d. Future analytical milestones should build on the hardened projection surface rather than duplicating ad hoc snapshot/window logic.
+
+## D-2026-04-03-002: cycleTimeMs coexists with flowLatencyMs
+**Status:** active
+**Context:** Phase 3a introduced `cycleTimeMs` (per-node: queue + service time) alongside the existing `flowLatencyMs` (cumulative: graph-level propagation from entry to node). Needed to decide whether the new metric replaces or coexists with the old.
+**Decision:** Coexist. `cycleTimeMs` answers "how long does work spend at this node?" while `flowLatencyMs` answers "how long does it take for work to get here from entry?" `flowLatencyMs` now uses `CycleTimeComputer` for its per-node base value, but the graph propagation stays in `StateQueryService`.
+**Consequences:** Both fields appear in `NodeDerivedMetrics`. `cycleTimeMs` decomposes into `queueTimeMs` + `serviceTimeMs` with `flowEfficiency` as a ratio. `flowLatencyMs` remains the cumulative metric for end-to-end analysis.

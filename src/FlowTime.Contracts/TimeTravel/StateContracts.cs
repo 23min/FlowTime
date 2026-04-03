@@ -199,6 +199,10 @@ public sealed class ClassMetrics
     public double? Capacity { get; init; }
     public double? ProcessingTimeMsSum { get; init; }
     public double? ServedCount { get; init; }
+    public double? QueueTimeMs { get; init; }
+    public double? ServiceTimeMs { get; init; }
+    public double? CycleTimeMs { get; init; }
+    public double? FlowEfficiency { get; init; }
 }
 
 public sealed class NodeDerivedMetrics
@@ -206,7 +210,10 @@ public sealed class NodeDerivedMetrics
     public double? Utilization { get; init; }
     public double? LatencyMinutes { get; init; }
     public double? ServiceTimeMs { get; init; }
+    public double? QueueTimeMs { get; init; }
+    public double? CycleTimeMs { get; init; }
     public double? FlowLatencyMs { get; init; }
+    public double? FlowEfficiency { get; init; }
     public double? ThroughputRatio { get; init; }
     public double? RetryTax { get; init; }
     public string? Color { get; init; }

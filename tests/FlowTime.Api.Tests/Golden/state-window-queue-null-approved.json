@@ -132,6 +132,18 @@
           300,
           300,
           300
+        ],
+        "cycleTimeMs": [
+          250,
+          300,
+          300,
+          300
+        ],
+        "flowEfficiency": [
+          1,
+          1,
+          1,
+          1
         ]
       },
       "seriesMetadata": {
@@ -140,6 +152,18 @@
           "origin": "derived"
         },
         "flowLatencyMs": {
+          "aggregation": "avg",
+          "origin": "derived"
+        },
+        "queueTimeMs": {
+          "aggregation": "avg",
+          "origin": "derived"
+        },
+        "cycleTimeMs": {
+          "aggregation": "avg",
+          "origin": "derived"
+        },
+        "flowEfficiency": {
           "aggregation": "avg",
           "origin": "derived"
         },
@@ -232,6 +256,18 @@
           null,
           666666.666667,
           0
+        ],
+        "queueTimeMs": [
+          66666.66666666666,
+          null,
+          666666.6666666667,
+          0
+        ],
+        "cycleTimeMs": [
+          66666.66666666666,
+          null,
+          666666.6666666667,
+          0
         ]
       },
       "seriesMetadata": {
@@ -240,6 +276,14 @@
           "origin": "derived"
         },
         "flowLatencyMs": {
+          "aggregation": "avg",
+          "origin": "derived"
+        },
+        "queueTimeMs": {
+          "aggregation": "avg",
+          "origin": "derived"
+        },
+        "cycleTimeMs": {
           "aggregation": "avg",
           "origin": "derived"
         },

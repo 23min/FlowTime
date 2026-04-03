@@ -5,48 +5,65 @@
 
 This project uses the AI-Assisted Development Framework v2.
 
+You work directly in **Agent mode** with full tool access. Use the routing table below to identify the right workflow, then follow the corresponding agent's instructions and skill.
+
+For specific personas with tool restrictions, the user may switch to a named agent: @planner, @builder, @reviewer, @deployer. Otherwise, you operate as the default agent with all tools available.
+
 **Before starting any task**, read these files for context:
 - `.ai/rules.md` — Non-negotiable guardrails
 - `.ai/paths.md` — Where artifacts live
 
-## FIRST — Identify the Agent
+## Session Start — Load Memory
 
-**Before writing any code or making any changes**, determine which agent handles this task.
-Use the routing table below or the user's explicit request to pick the agent.
-Then follow the delegation instructions for that agent.
+Before doing anything else, read these files if they exist:
+1. `work/decisions.md` — shared decision log (active decisions the team has made)
+2. `work/agent-history/` — accumulated learnings from past sessions (read the file matching the current role)
 
-**Do not skip this step. Every task goes through an agent.**
+Use this context to avoid re-discovering things or contradicting prior decisions.
 
-## Agent Delegation
+## Subagent Delegation
 
-Each agent below has a dedicated instruction file. You MUST read it and adopt its role.
+For **research-heavy or analysis tasks**, use subagents to keep your context clean:
+- **Planning/research:** Spawn a subagent (optionally with `agentName: "planner"`) to analyze the codebase, research options, or draft a plan. Review the summary it returns before proceeding.
+- **Code review:** Spawn a subagent (optionally with `agentName: "reviewer"`) to review changes. It runs in isolated context with read-only tools and returns findings.
+
+Do **not** use subagents for building/implementation — that workflow is interactive and requires back-and-forth with the user.
+
+## FIRST — Identify the Workflow
+
+**Before writing any code or making any changes**, determine which workflow this task needs.
+Use the routing table below or the user's explicit request to pick the approach.
+
+## Agent Instructions
+
+Each agent below has a dedicated instruction file. Read it for role-specific constraints and workflow.
 
 ### @planner — Planning, specs, architecture, research
 **Activate when:** user says plan, design, scope, epic, architecture, brainstorm, research, spec, break down
 **Steps:**
-1. Read `.ai/agents/planner.md` — adopt the planner role and constraints
-2. Read the relevant skill: `.ai/skills/plan-epic.md`, `.ai/skills/plan-milestones.md`, `.ai/skills/draft-spec.md`, or `.ai/skills/architect.md`
+1. Read `.github/agents/planner.agent.md` — adopt the planner role and constraints
+2. Read the relevant skill: `.github/skills/plan-epic/SKILL.md`, `.github/skills/plan-milestones/SKILL.md`, `.github/skills/draft-spec/SKILL.md`, or `.github/skills/architect/SKILL.md`
 3. Follow the skill's step-by-step workflow
 
 ### @builder — Implementation, TDD, fixes
 **Activate when:** user says build, implement, code, start, add feature, fix, patch, bug, chore, tweak, hotfix
 **Steps:**
-1. Read `.ai/agents/builder.md` — adopt the builder role and constraints
-2. Read the relevant skill: `.ai/skills/start-milestone.md`, `.ai/skills/tdd-cycle.md`, or `.ai/skills/patch.md`
+1. Read `.github/agents/builder.agent.md` — adopt the builder role and constraints
+2. Read the relevant skill: `.github/skills/start-milestone/SKILL.md`, `.github/skills/tdd-cycle/SKILL.md`, or `.github/skills/patch/SKILL.md`
 3. Follow the skill's step-by-step workflow
 
 ### @reviewer — Code review, milestone wrap-up
 **Activate when:** user says review, check, validate, wrap, finish, complete milestone
 **Steps:**
-1. Read `.ai/agents/reviewer.md` — adopt the reviewer role and constraints
-2. Read the relevant skill: `.ai/skills/review-code.md` or `.ai/skills/wrap-milestone.md`
+1. Read `.github/agents/reviewer.agent.md` — adopt the reviewer role and constraints
+2. Read the relevant skill: `.github/skills/review-code/SKILL.md` or `.github/skills/wrap-milestone/SKILL.md`
 3. Follow the skill's step-by-step workflow
 
 ### @deployer — Releases, deployments, infrastructure
 **Activate when:** user says release, deploy, tag, publish
 **Steps:**
-1. Read `.ai/agents/deployer.md` — adopt the deployer role and constraints
-2. Read the relevant skill: `.ai/skills/release.md`
+1. Read `.github/agents/deployer.agent.md` — adopt the deployer role and constraints
+2. Read the relevant skill: `.github/skills/release/SKILL.md`
 3. Follow the skill's step-by-step workflow
 
 **Available skills:** architect,draft-spec patch,plan-epic plan-milestones,release review-code,start-milestone tdd-cycle,wrap-milestone
@@ -56,17 +73,17 @@ Each agent below has a dedicated instruction file. You MUST read it and adopt it
 
 When the user describes a task, route to the right agent and skill based on intent:
 
-| User intent | Agent | Skill | Mode |
-|-------------|-------|-------|------|
-| Plan, design, scope, epic, architecture, brainstorm, research | @planner | plan-epic, plan-milestones, architect | Epic or Standard |
-| Write a spec, draft spec, break down | @planner | draft-spec | Standard |
-| Build, implement, code, start milestone, add feature | @builder | start-milestone, tdd-cycle | Standard |
-| Fix, patch, bug, chore, tweak, hotfix, one-off | @builder | patch | Quick |
-| Review, check, validate, look over | @reviewer | review-code | Standard |
-| Wrap, finish, complete milestone | @reviewer | wrap-milestone | Standard |
-| Release, deploy, tag, publish | @deployer | release | Standard |
+| User intent | Workflow | Skill | Mode | Subagent? |
+|-------------|---------|-------|------|----------|
+| Plan, design, scope, epic, architecture, brainstorm, research | @planner | plan-epic, plan-milestones, architect | Epic or Standard | Yes — good candidate for subagent research |
+| Write a spec, draft spec, break down | @planner | draft-spec | Standard | Yes |
+| Build, implement, code, start milestone, add feature | @builder | start-milestone, tdd-cycle | Standard | No — interactive, work directly |
+| Fix, patch, bug, chore, tweak, hotfix, one-off | @builder | patch | Quick | No — interactive |
+| Review, check, validate, look over | @reviewer | review-code | Standard | Yes — good candidate for subagent review |
+| Wrap, finish, complete milestone | @reviewer | wrap-milestone | Standard | Partial — analysis as subagent, then present |
+| Release, deploy, tag, publish | @deployer | release | Standard | No — needs explicit human gates |
 
-After identifying the agent, follow the **Agent Delegation** steps above for that agent.
+After identifying the workflow, read the corresponding agent instruction file and follow the skill's steps.
 
 ## Workflow Modes
 
@@ -87,10 +104,13 @@ When unsure, ask: "This looks like a [Quick/Standard/Epic] task. Should I procee
 ## Context Refresh
 
 When the user says **"refresh context"** or **"refresh"**:
-1. Re-read `.ai/rules.md` and `.ai/paths.md`
-2. Re-read the active agent file if one is invoked (e.g. `.ai/agents/builder.md`)
-3. Check `work/epics/` and `ROADMAP.md` for current work state
-4. Summarize: current branch, submodule state, active epic/milestone, pending changes
+1. Re-read `.ai/rules.md` and `.ai/paths.md` (and `.ai-repo/rules/paths-override.md` if it exists)
+2. Re-read the active agent file if one is invoked (e.g. `.github/agents/builder.agent.md`)
+3. Read `CLAUDE.md` "Current Work" section for immediate next steps
+4. Read the roadmap at the path specified by `ROADMAP_PATH` (check paths-override for project-specific location)
+5. Read `work/gaps.md` for known issues and blockers
+6. Read `work/decisions.md` — focus on the most recent decisions for current context
+7. Summarize: current branch, active phase, immediate tasks, known blockers, pending changes
 
 This re-grounds context during long sessions or after framework updates (e.g. `sync.sh`, submodule branch switch).
 ## Key Rules
@@ -145,17 +165,17 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 
 - `dotnet build FlowTime.sln` / `dotnet test FlowTime.sln`
 - VS Code tasks: `build`, `test`, `start-api`, `stop-api`, `start-sim-api`, `stop-sim-api`, `start-ui`, `stop-ui`
-- Engine API: `dotnet run --project src/FlowTime.API` → port 8080
+- Engine API: `dotnet run --project src/FlowTime.API` → port 8081
 - Sim API: `dotnet run --project src/FlowTime.Sim.Service` with `ASPNETCORE_URLS=http://0.0.0.0:8090`
 - UI: `dotnet run --project src/FlowTime.UI`
-- Default ports: 8080 (Engine API), 8090 (Sim API), 5219/7047 (UI), 8091 (Sim diagnostics), 5091 (Engine dev profile)
+- Default ports: 8081 (Engine API), 8090 (Sim API), 5219/7047 (UI), 8091 (Sim diagnostics), 5091 (Engine dev profile)
 - Build and test before handing work back.
 
 ## Devcontainer Port Safety
 
-- **Never blindly kill all processes on port 8080** — the devcontainer port-forwarder listens there; killing it destroys the session.
-- To free port 8080, filter by process name: only kill `dotnet` processes.
-- Use the `kill-port-8080` VS Code task — it filters safely.
+- **Never blindly kill all processes on port 8081** — the devcontainer port-forwarder listens there; killing it destroys the session.
+- To free port 8081, filter by process name: only kill `dotnet` processes.
+- Use the `kill-port-8081` VS Code task — it filters safely.
 - Verify processes before killing: `lsof -ti:PORT`, `ps aux | grep`. Use `pkill -f "ProcessName"` or `lsof -ti:PORT | xargs -r kill -TERM`. Never `kill <PORT>`.
 - Send SIGTERM first, wait, then SIGKILL only if still alive. Never start with `kill -9`.
 

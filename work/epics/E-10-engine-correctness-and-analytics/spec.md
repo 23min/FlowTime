@@ -49,10 +49,11 @@ The existing near-term epics (Path Analysis, Visualizations, Anomaly Detection, 
 **Phase 3 — Analytical Primitives**
 1. Bottleneck identification: cross-node utilization comparison, WIP accumulation, system constraint flagging
 2. Cycle time decomposition: per-ServiceWithBuffer queueTime + processingTime, flow efficiency
-3. WIP limit modeling: optional wipLimit on ServiceWithBufferNode (block arrivals or divert to loss)
-4. Variability preservation: preserve Cv alongside E[X] when compiling PMFs (Kingman's approximation)
-5. Wire ConstraintAllocator into evaluation pipeline: declared constraints actually cap served per bin
-6. Starvation/blocking detection helpers: flag bins with queue=0 but capacity>0, or arrivals=0 but upstream queue>0
+3. Analytical projection hardening: align snapshot/window semantics, honest metadata, finite-value safety, DTO symmetry, and AC-5 warning applicability before building additional primitives on top
+4. WIP limit modeling: optional wipLimit on ServiceWithBufferNode (block arrivals or divert to loss)
+5. Variability preservation: preserve Cv alongside E[X] when compiling PMFs (Kingman's approximation)
+6. Wire ConstraintAllocator into evaluation pipeline: declared constraints actually cap served per bin
+7. Starvation/blocking detection helpers: flag bins with queue=0 but capacity>0, or arrivals=0 but upstream queue>0
 
 ### Out of Scope
 
@@ -91,6 +92,7 @@ The existing near-term epics (Path Analysis, Visualizations, Anomaly Detection, 
 | m-ec-p1 | Phase 1: Engineering foundation | complete |
 | m-ec-p2 | Phase 2: Documentation honesty | complete |
 | m-ec-p3a | Phase 3a: Cycle time & flow efficiency | approved |
+| m-ec-p3a1 | Phase 3a.1: Analytical projection hardening | draft |
 | m-ec-p3b | Phase 3b: WIP limits | approved |
 | m-ec-p3c | Phase 3c: Variability (Cv + Kingman) | approved |
 | m-ec-p3d | Phase 3d: Constraint enforcement | approved |
