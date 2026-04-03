@@ -151,11 +151,12 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
 - **Epic sequence:** E-10 → E-15, in order (`work/epics/epic-roadmap.md`)
-- **E-10** Engine Correctness (`work/epics/E-10-engine-correctness-and-analytics/spec.md`) — **resume here**
-  - Phases 0-2 complete. **Phase 3 is next.**
-  - Specs (all approved): `work/milestones/m-ec-p3a-cycle-time.md`, `m-ec-p3b-wip-limits.md`, `m-ec-p3c-variability.md`, `m-ec-p3d-constraint-enforcement.md`
-  - Start with p3a (cycle time). Branch: create `milestone/m-ec-p3a` from `main`.
+- **E-10** Engine Correctness (`work/epics/E-10-engine-correctness-and-analytics/spec.md`) — **active**
+  - Phases 0-2 complete. **Phase 3 in progress.**
+  - **Active:** m-ec-p3a (Cycle Time & Flow Efficiency) — `milestone/m-ec-p3a` branch
+    - Spec: `work/milestones/m-ec-p3a-cycle-time.md`
+    - Tracking: `work/milestones/tracking/m-ec-p3a-tracking.md`
+  - Next: p3b (WIP Limits), p3c (Variability), p3d (Constraint Enforcement)
 - **E-11** Svelte UI — paused after M6
   - M1-M4 + M6 done, M5/M7/M8 remain
-  - Branch `milestone/m-svui-06` has 2 commits to merge to main before resuming
 - **E-12–E-15:** planned, not started

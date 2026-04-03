@@ -19,6 +19,9 @@ test-results/
 # Images used to prompt the AI
 /images
 
+# Private research notes
+docs/research/
+
 # Local scratch data created during manual validation/tests
 tmpdata*/
 tmpdata_*/

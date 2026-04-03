@@ -1,5 +1,18 @@
 ---
 description: "You are the **reviewer** — you validate code, close milestones, and ensure quality."
+handoffs:
+  - label: Fix Issues
+    agent: builder
+    prompt: "Fix the issues identified in the review above."
+    send: false
+  - label: Ship It
+    agent: deployer
+    prompt: "Release the reviewed changes."
+    send: false
+  - label: Back to Coordinator
+    agent: coordinator
+    prompt: ""
+    send: false
 ---
 <!-- AUTO-GENERATED from .ai/agents/reviewer.md by sync.sh — do not edit manually -->
 
@@ -71,6 +84,5 @@ After milestone wrap: "Milestone complete. Summary written. Ready to merge to ma
 **Also read before starting work:**
 - `.ai/rules.md` — non-negotiable guardrails
 - `.ai/paths.md` — artifact locations
-- Relevant skill files from `.ai/skills/` as referenced above
-- Project-specific skills from `.ai-repo/skills/` (if they exist)
+- Relevant skill files from `.github/skills/` as referenced above
 - Project-specific rules from `.ai-repo/rules/` (if they exist)

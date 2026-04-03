@@ -1,5 +1,14 @@
 ---
 description: "You are the **builder** — you write code and tests. You follow TDD and implement against milestone specs."
+handoffs:
+  - label: Review Changes
+    agent: reviewer
+    prompt: "Review the implementation above."
+    send: false
+  - label: Back to Coordinator
+    agent: coordinator
+    prompt: ""
+    send: false
 ---
 <!-- AUTO-GENERATED from .ai/agents/builder.md by sync.sh — do not edit manually -->
 
@@ -74,6 +83,5 @@ When all acceptance criteria are met and tests pass: "Implementation complete. A
 **Also read before starting work:**
 - `.ai/rules.md` — non-negotiable guardrails
 - `.ai/paths.md` — artifact locations
-- Relevant skill files from `.ai/skills/` as referenced above
-- Project-specific skills from `.ai-repo/skills/` (if they exist)
+- Relevant skill files from `.github/skills/` as referenced above
 - Project-specific rules from `.ai-repo/rules/` (if they exist)

@@ -5,47 +5,52 @@ Read and follow:
 1. `.ai/rules.md` — Non-negotiable guardrails
 2. `.ai/paths.md` — Where artifacts live
 
-## FIRST — Identify the Agent
+Work directly with the default agent. Use the routing table below to identify the right workflow.
+For specific personas with tool restrictions, switch to a named agent: planner, builder, reviewer, deployer.
 
-**Before writing any code or making any changes**, determine which agent handles this task.
-Use the routing table below or the user's explicit request to pick the agent.
-Then follow the delegation instructions for that agent.
+For research-heavy or analysis tasks, use subagents to keep context clean:
+- **Planning/research:** Spawn a subagent to analyze the codebase or draft a plan.
+- **Code review:** Spawn a subagent to review changes in isolated context.
+- Do NOT use subagents for building — that workflow is interactive.
 
-**Do not skip this step. Every task goes through an agent.**
+## FIRST — Identify the Workflow
 
-## Agent Delegation
+**Before writing any code or making any changes**, determine which workflow this task needs.
+Use the routing table below or the user's explicit request to pick the approach.
 
-Each agent below has a dedicated instruction file. You MUST read it and adopt its role.
+## Agent Instructions
+
+Each agent below has a dedicated instruction file. Read it for role-specific constraints and workflow.
 
 ### planner — Planning, specs, architecture, research
 **Activate when:** user says plan, design, scope, epic, architecture, brainstorm, research, spec, break down
 **Steps:**
-1. Read `.ai/agents/planner.md` — adopt the planner role and constraints
-2. Read the relevant skill: `.ai/skills/plan-epic.md`, `.ai/skills/plan-milestones.md`, `.ai/skills/draft-spec.md`, or `.ai/skills/architect.md`
+1. Read `.claude/agents/planner.md` — adopt the planner role and constraints
+2. Read the relevant skill: `.claude/skills/plan-epic/SKILL.md`, `.claude/skills/plan-milestones/SKILL.md`, `.claude/skills/draft-spec/SKILL.md`, or `.claude/skills/architect/SKILL.md`
 3. Follow the skill's step-by-step workflow
 
 ### builder — Implementation, TDD, fixes
 **Activate when:** user says build, implement, code, start, add feature, fix, patch, bug, chore, tweak, hotfix
 **Steps:**
-1. Read `.ai/agents/builder.md` — adopt the builder role and constraints
-2. Read the relevant skill: `.ai/skills/start-milestone.md`, `.ai/skills/tdd-cycle.md`, or `.ai/skills/patch.md`
+1. Read `.claude/agents/builder.md` — adopt the builder role and constraints
+2. Read the relevant skill: `.claude/skills/start-milestone/SKILL.md`, `.claude/skills/tdd-cycle/SKILL.md`, or `.claude/skills/patch/SKILL.md`
 3. Follow the skill's step-by-step workflow
 
 ### reviewer — Code review, milestone wrap-up
 **Activate when:** user says review, check, validate, wrap, finish, complete milestone
 **Steps:**
-1. Read `.ai/agents/reviewer.md` — adopt the reviewer role and constraints
-2. Read the relevant skill: `.ai/skills/review-code.md` or `.ai/skills/wrap-milestone.md`
+1. Read `.claude/agents/reviewer.md` — adopt the reviewer role and constraints
+2. Read the relevant skill: `.claude/skills/review-code/SKILL.md` or `.claude/skills/wrap-milestone/SKILL.md`
 3. Follow the skill's step-by-step workflow
 
 ### deployer — Releases, deployments, infrastructure
 **Activate when:** user says release, deploy, tag, publish
 **Steps:**
-1. Read `.ai/agents/deployer.md` — adopt the deployer role and constraints
-2. Read the relevant skill: `.ai/skills/release.md`
+1. Read `.claude/agents/deployer.md` — adopt the deployer role and constraints
+2. Read the relevant skill: `.claude/skills/release/SKILL.md`
 3. Follow the skill's step-by-step workflow
 
-Agents are defined in `.ai/agents/`. Skills are in `.ai/skills/`.
+Agents are defined in `.claude/agents/`. Skills are in `.claude/skills/`.
 Templates are in `.ai/templates/`.
 
 Project-specific extensions are in `.ai-repo/`:
@@ -57,17 +62,17 @@ Project-specific extensions are in `.ai-repo/`:
 
 Route tasks to the right agent based on intent:
 
-| User intent | Agent | Skill | Mode |
-|-------------|-------|-------|------|
-| Plan, design, scope, epic, architecture, brainstorm | planner | plan-epic, plan-milestones, architect | Epic/Standard |
-| Write a spec, draft spec | planner | draft-spec | Standard |
-| Build, implement, code, start milestone | builder | start-milestone, tdd-cycle | Standard |
-| Fix, patch, bug, chore, tweak, hotfix | builder | patch | Quick |
-| Review, check, validate | reviewer | review-code | Standard |
-| Wrap, finish, complete milestone | reviewer | wrap-milestone | Standard |
-| Release, deploy, tag, publish | deployer | release | Standard |
+| User intent | Workflow | Skill | Mode | Subagent? |
+|-------------|---------|-------|------|----------|
+| Plan, design, scope, epic, architecture, brainstorm | planner | plan-epic, plan-milestones, architect | Epic/Standard | Yes — research |
+| Write a spec, draft spec | planner | draft-spec | Standard | Yes |
+| Build, implement, code, start milestone | builder | start-milestone, tdd-cycle | Standard | No — interactive |
+| Fix, patch, bug, chore, tweak, hotfix | builder | patch | Quick | No — interactive |
+| Review, check, validate | reviewer | review-code | Standard | Yes — review |
+| Wrap, finish, complete milestone | reviewer | wrap-milestone | Standard | Partial |
+| Release, deploy, tag, publish | deployer | release | Standard | No — human gates |
 
-After identifying the agent, follow the **Agent Delegation** steps above for that agent.
+After identifying the workflow, read the corresponding agent instruction file and follow the skill's steps.
 
 ## Workflow Modes
 
@@ -76,6 +81,19 @@ After identifying the agent, follow the **Agent Delegation** steps above for tha
 | **Quick** | One-off fixes, typos, config changes, issue-linked patches | Use patch skill. No spec, no tracking doc. |
 | **Standard** | Milestone-scoped work with acceptance criteria | Spec → TDD → tracking doc → review → merge. |
 | **Epic** | Multi-milestone features, new systems | Plan → milestones → Standard for each → release. |
+
+## Context Refresh
+
+When the user says **"refresh context"** or **"refresh"**:
+1. Re-read `.ai/rules.md` and `.ai/paths.md` (and `.ai-repo/rules/paths-override.md` if it exists)
+2. Re-read the active agent file if one is invoked (e.g. `.claude/agents/builder.md`)
+3. Read `CLAUDE.md` "Current Work" section for immediate next steps
+4. Read the roadmap at the path specified by `ROADMAP_PATH` (check paths-override for project-specific location)
+5. Read `work/gaps.md` for known issues and blockers
+6. Read `work/decisions.md` — focus on the most recent decisions for current context
+7. Summarize: current branch, active phase, immediate tasks, known blockers, pending changes
+
+This re-grounds context during long sessions or after framework updates (e.g. `sync.sh`, submodule branch switch).
 
 Key rules:
 - Never commit without explicit human approval
@@ -128,17 +146,17 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 
 - `dotnet build FlowTime.sln` / `dotnet test FlowTime.sln`
 - VS Code tasks: `build`, `test`, `start-api`, `stop-api`, `start-sim-api`, `stop-sim-api`, `start-ui`, `stop-ui`
-- Engine API: `dotnet run --project src/FlowTime.API` → port 8080
+- Engine API: `dotnet run --project src/FlowTime.API` → port 8081
 - Sim API: `dotnet run --project src/FlowTime.Sim.Service` with `ASPNETCORE_URLS=http://0.0.0.0:8090`
 - UI: `dotnet run --project src/FlowTime.UI`
-- Default ports: 8080 (Engine API), 8090 (Sim API), 5219/7047 (UI), 8091 (Sim diagnostics), 5091 (Engine dev profile)
+- Default ports: 8081 (Engine API), 8090 (Sim API), 5219/7047 (UI), 8091 (Sim diagnostics), 5091 (Engine dev profile)
 - Build and test before handing work back.
 
 ## Devcontainer Port Safety
 
-- **Never blindly kill all processes on port 8080** — the devcontainer port-forwarder listens there; killing it destroys the session.
-- To free port 8080, filter by process name: only kill `dotnet` processes.
-- Use the `kill-port-8080` VS Code task — it filters safely.
+- **Never blindly kill all processes on port 8081** — the devcontainer port-forwarder listens there; killing it destroys the session.
+- To free port 8081, filter by process name: only kill `dotnet` processes.
+- Use the `kill-port-8081` VS Code task — it filters safely.
 - Verify processes before killing: `lsof -ti:PORT`, `ps aux | grep`. Use `pkill -f "ProcessName"` or `lsof -ti:PORT | xargs -r kill -TERM`. Never `kill <PORT>`.
 - Send SIGTERM first, wait, then SIGKILL only if still alive. Never start with `kill -9`.
 

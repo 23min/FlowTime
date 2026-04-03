@@ -31,14 +31,21 @@ Milestone plan exists. User says: "Write spec for milestone X", "Draft M1"
 4. **Save spec**
    - [ ] Write to `work/milestones/<milestone-id>.md`
 
-5. **User approval**
+5. **Create ADO work item** (see `.ai-repo/rules/ado-traceability.md`)
+   - [ ] Create an ADO Task for the milestone with a Description linking to the spec
+   - [ ] Use ADO repo URL format: `https://dev.azure.com/sdctfs/Infrastruktur/_git/Treehouse?path=/work/milestones/<milestone-id>.md&version=GBmain`
+   - [ ] Set parent to the epic's ADO work item
+   - [ ] Record the ADO ID in the spec: `**ADO:** [#NNNNN](...)`
+
+6. **User approval**
    - [ ] Review spec with user
    - [ ] Incorporate feedback
    - [ ] Get explicit "approved" before proceeding
 
 ## Output
 
-- `work/milestones/<milestone-id>.md` — approved milestone spec
+- `work/milestones/<milestone-id>.md` — approved milestone spec (with ADO ID)
+- ADO work item created and linked
 
 ## Next Step
 

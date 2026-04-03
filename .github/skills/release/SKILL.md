@@ -34,6 +34,7 @@ Epic is complete and merged to main. User says: "Release v1.2", "Tag a release",
    - [ ] 🛑 Confirm with human: "Tag as vX.Y.Z and push?"
    - [ ] `git tag -a vX.Y.Z -m "Release vX.Y.Z: <summary>"`
    - [ ] Push tag: `git push origin vX.Y.Z`
+   - [ ] Mirror to GHE: `git push ghe vX.Y.Z`
 
 5. **Post-release**
    - [ ] Update `ROADMAP.md` — mark epic as `released`
