@@ -31,11 +31,21 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 #### E-10 — Engine Correctness & Analytical Primitives
 
 - **Folder:** `work/epics/E-10-engine-correctness-and-analytics/`
-- **Status:** Phases 0-2 complete, Phase 3 paused
+- **Status:** Phases 0-2 complete, `p3a` and `p3a1` wrapped, remaining Phase 3 gated on E-16
 - **Goal:** Fix P0 correctness bugs, harden engineering quality, align documentation with code, and build the analytical primitives layer (bottleneck ID, cycle time, WIP limits, variability, constraint enforcement, starvation detection) that downstream epics depend on.
 - **Phases:** 0 (bugs) → 1+2 (engineering + docs, parallel) → 3 (analytical primitives)
 - **Key dependency:** Phase 3 unlocks near-term epics. See `ROADMAP.md` dependency graph.
 - **Reference:** `docs/architecture/reviews/review-sequenced-plan-2026-03.md` (historical rationale)
+
+#### E-16 — Formula-First Core Purification
+
+- **Folder:** `work/epics/E-16-formula-first-core-purification/`
+- **Status:** Approved — immediate architecture gate after wrapped `m-ec-p3a1`
+- **Goal:** Move semantic truth and analytical identity fully into the compiled Core model so the engine remains a deterministic formula evaluator and API/UI layers consume facts rather than reconstructing meaning from strings.
+- **Sequencing:** Runs immediately after `m-ec-p3a1` and before further E-10 Phase 3 expansion (`p3b`, `p3c`, `p3d`).
+- **Key milestones:** compiled semantic references, class truth boundary, runtime analytical descriptor, Core analytical evaluation, warning facts/primitive cleanup, analytical contract + consumer purification
+- **Migration:** Forward-only. Runs, fixtures, and approved goldens are regenerated rather than kept compatible.
+- **Reference:** `docs/architecture/formula-first-engine-refactor-plan.md`
 
 #### dag-map Library Evaluation (Spike)
 

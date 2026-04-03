@@ -150,12 +150,15 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
-- **Epic sequence:** E-10 → E-15, in order (`work/epics/epic-roadmap.md`)
+- **Immediate gate:** E-16 Formula-First Core Purification must complete before remaining E-10 Phase 3 milestones resume (`work/epics/epic-roadmap.md`)
 - **E-10** Engine Correctness (`work/epics/E-10-engine-correctness-and-analytics/spec.md`) — **active**
-  - Phases 0-2 complete. **Phase 3 in progress.**
-  - **Done:** m-ec-p3a (Cycle Time & Flow Efficiency) — on `milestone/m-ec-p3a`, ready to merge
-  - **Next:** m-ec-p3a1 (Analytical Projection Hardening) — approved spec at `work/milestones/m-ec-p3a1-analytical-projection-hardening.md`
-  - Then: p3b (WIP Limits), p3c (Variability), p3d (Constraint Enforcement)
+  - Phases 0-2 complete. **Phase 3 bridge complete; remaining Phase 3 expansion is gated on E-16.**
+  - **Done:** m-ec-p3a (Cycle Time & Flow Efficiency) — merged to epic branch
+  - **Done:** m-ec-p3a1 (Analytical Projection Hardening) — wrapped on `milestone/m-ec-p3a1`, ready to commit/merge
+  - **Then:** p3b (WIP Limits), p3c (Variability), p3d (Constraint Enforcement) after E-16
+- **E-16** Formula-First Core Purification (`work/epics/E-16-formula-first-core-purification/spec.md`) — **approved, not started**
+  - First: m-E16-01 (Compiled Semantic References)
+  - Then: class truth boundary, runtime analytical descriptor, Core analytical evaluation, warning facts cleanup, contract + consumer purification
 - **E-11** Svelte UI — paused after M6
   - M1-M4 + M6 done, M5/M7/M8 remain
 - **E-12–E-15:** planned, not started

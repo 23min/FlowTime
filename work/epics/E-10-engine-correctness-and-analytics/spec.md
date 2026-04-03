@@ -49,7 +49,7 @@ The existing near-term epics (Path Analysis, Visualizations, Anomaly Detection, 
 **Phase 3 — Analytical Primitives**
 1. Bottleneck identification: cross-node utilization comparison, WIP accumulation, system constraint flagging
 2. Cycle time decomposition: per-ServiceWithBuffer queueTime + processingTime, flow efficiency
-3. Analytical projection hardening: align snapshot/window semantics, honest metadata, finite-value safety, DTO symmetry, and AC-5 warning applicability before building additional primitives on top
+3. Analytical projection hardening bridge: move the current state-query analytical capability/computation surface into Core, stabilize snapshot/window outputs, and hand the remaining formula-first purification work to E-16
 4. WIP limit modeling: optional wipLimit on ServiceWithBufferNode (block arrivals or divert to loss)
 5. Variability preservation: preserve Cv alongside E[X] when compiling PMFs (Kingman's approximation)
 6. Wire ConstraintAllocator into evaluation pipeline: declared constraints actually cap served per bin
@@ -66,6 +66,7 @@ The existing near-term epics (Path Analysis, Visualizations, Anomaly Detection, 
 - Phase 0 must complete before any other work
 - Phase 1 and Phase 2 can run in parallel
 - Phase 3 depends on Phase 1 (especially Series immutability fix for WIP limits)
+- Remaining Phase 3 expansion (`p3b`, `p3c`, `p3d`) is gated on E-16 completing after `m-ec-p3a1`
 - All changes must maintain determinism — the end-to-end determinism test gates everything
 
 ## Success Criteria
@@ -92,10 +93,12 @@ The existing near-term epics (Path Analysis, Visualizations, Anomaly Detection, 
 | m-ec-p1 | Phase 1: Engineering foundation | complete |
 | m-ec-p2 | Phase 2: Documentation honesty | complete |
 | m-ec-p3a | Phase 3a: Cycle time & flow efficiency | approved |
-| m-ec-p3a1 | Phase 3a.1: Analytical projection hardening | draft |
-| m-ec-p3b | Phase 3b: WIP limits | approved |
-| m-ec-p3c | Phase 3c: Variability (Cv + Kingman) | approved |
-| m-ec-p3d | Phase 3d: Constraint enforcement | approved |
+| m-ec-p3a1 | Phase 3a.1: Analytical projection hardening | complete |
+| m-ec-p3b | Phase 3b: WIP limits | approved, gated by E-16 |
+| m-ec-p3c | Phase 3c: Variability (Cv + Kingman) | approved, gated by E-16 |
+| m-ec-p3d | Phase 3d: Constraint enforcement | approved, gated by E-16 |
+
+**Architecture gate:** `m-ec-p3a1` is the bridge milestone that moved the current analytical capability/computation surface into Core. E-16 owns the remaining formula-first purification work exposed by that review, and Phase 3 resumes with `p3b`/`p3c`/`p3d` only after E-16 completes.
 
 ## References
 

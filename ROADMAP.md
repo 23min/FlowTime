@@ -54,6 +54,24 @@ The missing layer between the engine's volume/throughput capabilities and what d
 ### Spike: dag-map Library Evaluation (parallel with Phase 1+2)
 Evaluate and extend the [dag-map](https://github.com/23min/dag-map) metro-map layout library for FlowTime topology rendering. ~2-3 days. Informs Visualizations and UI Layout Motors epics. See `docs/architecture/dag-map-evaluation.md`.
 
+## E-16 — Formula-First Core Purification
+
+**Epic:** `work/epics/E-16-formula-first-core-purification/spec.md` | **Status:** approved
+
+`m-ec-p3a1` is now the bridge milestone that moved the current analytical capability/computation surface into Core. E-16 owns the full purification exposed by that review: semantic truth and analytical identity still need to stop being reconstructed late from strings in the API and clients.
+
+Scope:
+- typed semantic references in the compiled runtime model
+- explicit class-truth boundary before evaluator work
+- compiled analytical descriptors on runtime nodes
+- pure Core analytical evaluation for values, emitted truth, and warning facts
+- forward-only contract and consumer purification so current state clients consume engine facts instead of local heuristics
+
+Suggested sequencing:
+- This epic runs immediately after wrapped `m-ec-p3a1` and before resuming deeper E-10 Phase 3 expansion (`p3b`, `p3c`, `p3d`).
+- This is a strangler refactor around the current compiler/evaluator foundation, not a rewrite.
+- This is forward-only. Existing runs, fixtures, and approved snapshots may be deleted and regenerated as the runtime boundary changes.
+
 ## E-11 — Svelte UI (Frontend Rewrite)
 
 **Epic:** `work/epics/E-11-svelte-ui/spec.md` | **Status:** in-progress (M1-M4 done, M6 in progress)

@@ -97,3 +97,13 @@ Accumulated learnings from implementation sessions.
 - Scenario tests in `tests/FlowTime.Core.Tests/Metrics/` with one class per concern
 - Golden snapshot updates: run tests → copy `*.actual` → re-run to confirm → delete `.actual` files
 - When adding derived fields: update contracts, snapshot path, window series, byClass (both paths), seriesMetadata, and UI DTOs — all six touch points
+
+## 2026-04-03: p3a1 Wrap and E-16 Ownership Transfer
+
+### Patterns that worked
+- When a follow-on cleanup outgrows a milestone, narrow the wrapped milestone to the bridge actually delivered and assign the remaining purification to one explicit epic owner.
+- Forward-only migration is cleaner than compatibility shims for architectural boundary moves: regenerate runs, fixtures, and approved goldens instead of preserving old inference paths.
+
+### Pitfalls encountered
+- Leaving a bridge milestone with “full purification” wording blocks wrap even when the code is valid for the delivered slice.
+- Class-truth cleanup cannot be sequenced after descriptor/evaluator work that depends on it; move that boundary earlier in the plan.
