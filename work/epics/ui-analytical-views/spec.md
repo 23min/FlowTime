@@ -5,7 +5,7 @@
 E-10 Phase 3 (for analytical primitives)
 **Absorbs:** E-14 (Visualizations / Chart Gallery) — the chart gallery concept
 is replaced by purpose-built analytical views
-**Architecture:** [docs/architecture/ui-paradigm.md](../../../docs/architecture/ui-paradigm.md)
+**Architecture:** [reference/ui-paradigm.md](../ui-workbench/reference/ui-paradigm.md)
 
 ---
 

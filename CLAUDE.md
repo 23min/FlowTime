@@ -139,6 +139,31 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 - Sim tests: `tests/FlowTime.Sim.Tests` — covers CLI, template parsing, provenance, service behaviours.
 - Integration tests: `tests/FlowTime.Integration.Tests` for cross-surface scenarios.
 
+## Truth Discipline
+
+### Precedence (highest to lowest)
+1. **Code + passing tests** define live truth.
+2. **`work/decisions.md`** defines approved direction.
+3. **Milestone and epic specs** (`work/milestones/`, `work/epics/`) define implementation target, within their scope.
+4. **Architecture docs** (`docs/`) summarize and connect the above — they never outrank code or decisions.
+5. **Historical and exploration docs** are context only — never implementation authority.
+
+If code, decisions.md, and an architecture doc disagree, do not choose arbitrarily. Report the mismatch and ask.
+
+### Truth classes
+- **`docs/`** — current ground truth. If it's in `docs/`, it describes what IS (shipped, provable by code/tests).
+- **`work/epics/`** — decided-next and exploration. Proposals, specs, architectural direction for future work.
+- **`docs/archive/`**, **`docs/releases/`** — historical. What WAS. Do not use for current state.
+- **`docs/notes/`** — exploration only. Brainstorming, research, ideas. Never treat as implementation authority.
+
+### Guards
+- Do not describe a target contract in present tense unless it is live.
+- Do not let one file simultaneously act as current reference and historical archive.
+- Do not restate a canonical contract in many places from memory — point to the owning doc.
+- Do not let adapter/UI projection become the only place where semantics exist.
+- Do not keep "temporary" compatibility shims without explicit deletion criteria.
+- Do not treat aspirational docs as implementation authority.
+
 ## Documentation
 
 - Engine + shared docs in `docs/`; use Mermaid for diagrams (not ASCII art).
@@ -151,13 +176,11 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
 - **Immediate gate:** E-16 Formula-First Core Purification must complete before remaining E-10 Phase 3 milestones resume (`work/epics/epic-roadmap.md`)
-- **E-10** Engine Correctness (`work/epics/E-10-engine-correctness-and-analytics/spec.md`) — **active**
-  - Phases 0-2 complete. **Phase 3 bridge complete; remaining Phase 3 expansion is gated on E-16.**
-  - **Done:** m-ec-p3a (Cycle Time & Flow Efficiency) — merged to epic branch
-  - **Done:** m-ec-p3a1 (Analytical Projection Hardening) — wrapped on `milestone/m-ec-p3a1`, ready to commit/merge
-  - **Then:** p3b (WIP Limits), p3c (Variability), p3d (Constraint Enforcement) after E-16
-- **E-16** Formula-First Core Purification (`work/epics/E-16-formula-first-core-purification/spec.md`) — **approved, not started**
-  - First: m-E16-01 (Compiled Semantic References)
+- **E-10** Engine Correctness (`work/epics/E-10-engine-correctness-and-analytics/spec.md`) — **gated on E-16**
+  - Phases 0-2 complete. Phase 3 bridge complete (m-ec-p3a, m-ec-p3a1 merged to main).
+  - **Remaining:** p3b (WIP Limits), p3c (Variability), p3d (Constraint Enforcement) — resume after E-16
+- **E-16** Formula-First Core Purification (`work/epics/E-16-formula-first-core-purification/spec.md`) — **approved, ready to start**
+  - **Next:** m-E16-01 (Compiled Semantic References)
   - Then: class truth boundary, runtime analytical descriptor, Core analytical evaluation, warning facts cleanup, contract + consumer purification
 - **E-11** Svelte UI — paused after M6
   - M1-M4 + M6 done, M5/M7/M8 remain

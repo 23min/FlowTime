@@ -5,6 +5,8 @@
 **Implementation**: M-01.05 Expression Language Foundation  
 **Branch**: `feature/M-01.05-expression-language`
 
+> **Note (2026-04):** This document describes the M-01.05 foundation (4 functions: SHIFT, MIN, MAX, CLAMP). The engine now supports 11 functions. For the authoritative shipped function list, see [`docs/reference/engine-capabilities.md`](../reference/engine-capabilities.md). For the aspirational extensions roadmap, see [`docs/notes/expression-extensions-roadmap.md`](../notes/expression-extensions-roadmap.md).
+
 ## Overview
 
 This document captures the key architectural decisions made during the implementation of FlowTime's M-01.05 expression language foundation. The expression system enables users to write mathematical expressions like `(a + b) * 2 + SHIFT(c, 1)` that are parsed, compiled, and evaluated against time-series data.

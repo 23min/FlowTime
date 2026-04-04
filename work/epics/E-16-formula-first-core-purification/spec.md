@@ -58,6 +58,19 @@ This work should therefore be treated as a dedicated epic, not hidden inside ano
 - [ ] API contracts publish authoritative analytical facts so the named current state consumers stop classifying analytical behavior from `kind + logicalType`.
 - [ ] Fallback wildcard class data is explicit and distinguishable from real by-class truth.
 - [ ] Remaining E-10 Phase 3 milestones can build on compiled facts instead of adapter heuristics.
+- [ ] End-to-end pipeline validation proves Sim → Compiler → Runtime → API → Consumer works correctly: Sim-produced YAML (unchanged authoring surface) compiles through the new typed-reference compiler, evaluates correctly, and projects through purified contracts to consumers.
+
+## End-to-End Validation Strategy
+
+E-16 changes Core/Compiler/API but not Sim's authoring surface. The full pipeline must be validated end-to-end even though Sim code is not modified:
+
+- **Sim → Compiler boundary:** Sim-produced YAML with raw string references compiles correctly through the new typed-reference compiler. At minimum, run all existing Sim templates through the new compiler and verify no regressions.
+- **Compiler → Runtime boundary:** Compiled typed references produce the same evaluated series as the old raw-string path. Parity tests per milestone.
+- **Runtime → API boundary:** Purified state projection (snapshot, window, by-class) produces the same analytical outputs. End-to-end API tests with `WebApplicationFactory<Program>`.
+- **API → Consumer boundary:** Named Blazor UI consumers read from the new fact surface and produce the same behavior as the old `kind + logicalType` heuristic path.
+- **Integration test suite:** `tests/FlowTime.Integration.Tests` should include at least one scenario that exercises the full Sim-template → engine-run → state-query → contract-assertion path to guard against boundary drift.
+
+Each milestone is individually shippable, but the final milestone (m-E16-06) must include a cross-cutting integration pass before declaring the epic complete.
 
 ## Risks & Open Questions
 
@@ -96,7 +109,7 @@ In short: E-10 found the wound, `m-ec-p3a1` stabilized the current bridge, and E
 
 ## References
 
-- [docs/architecture/formula-first-engine-refactor-plan.md](../../../docs/architecture/formula-first-engine-refactor-plan.md)
+- [reference/formula-first-engine-refactor-plan.md](reference/formula-first-engine-refactor-plan.md)
 - [docs/concepts/nodes-and-expressions.md](../../../docs/concepts/nodes-and-expressions.md)
 - [docs/architecture/expression-language-design.md](../../../docs/architecture/expression-language-design.md)
 - [work/milestones/m-ec-p3a1-analytical-projection-hardening.md](../../milestones/m-ec-p3a1-analytical-projection-hardening.md)

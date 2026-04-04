@@ -92,7 +92,7 @@ These depend on Phase 3 analytical primitives (except E-15 which is independent)
    - Role-focused charts with cycle time distributions, flow efficiency, bottleneck heat maps (depends on Phase 3.1, 3.2, 3.3). Svelte + custom SVG/canvas, no dag-map dependency.
 
 4. **E-15 — Telemetry Ingestion, Topology Inference + Canonical Bundles** (`work/epics/E-15-telemetry-ingestion/`)
-   - Gold Builder (raw data → binned facts) + Graph Builder (data → topology) + bundle assembly. Independent of Phase 3; can proceed in parallel. Process mining event logs (BPI Challenge) identified as first validation dataset. See `docs/architecture/dataset-fitness-and-ingestion-research.md`.
+   - Gold Builder (raw data → binned facts) + Graph Builder (data → topology) + bundle assembly. Independent of Phase 3; can proceed in parallel. Process mining event logs (BPI Challenge) identified as first validation dataset. See `work/epics/E-15-telemetry-ingestion/reference/dataset-fitness-and-ingestion-research.md`.
 
 ## Mid-Term / Aspirational
 

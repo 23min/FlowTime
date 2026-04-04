@@ -90,13 +90,13 @@ These depend on the analytical primitives from Phase 3 (except Telemetry Ingesti
 - **Folder:** `work/epics/E-15-telemetry-ingestion/`
 - **Goal:** Build the pipeline from real-world data (event logs, traces, sensor feeds) to FlowTime topology + Gold-format series. Includes Gold Builder, Graph Builder (topology inference with confidence scoring), and bundle assembly.
 - **Depends on:** Stable bundle schemas (already in place). Independent of Phase 3 for basic ingestion; Phase 3 makes ingested data interesting.
-- **Validation datasets identified:** BPI Challenge 2012 (process mining), Road Traffic Fines, PeMS + OSM (road traffic), MTA + GTFS (transit). See `docs/architecture/dataset-fitness-and-ingestion-research.md`.
+- **Validation datasets identified:** BPI Challenge 2012 (process mining), Road Traffic Fines, PeMS + OSM (road traffic), MTA + GTFS (transit). See `work/epics/E-15-telemetry-ingestion/reference/dataset-fitness-and-ingestion-research.md`.
 - **Note:** Should preserve variability (Cv) if Phase 3.4 ships, so ingestion format should be designed with this in mind.
 
 ## UI Paradigm Epics (draft — unnumbered until sequenced)
 
 These epics implement the UI paradigm shift described in
-`docs/architecture/ui-paradigm.md`. Blazor UI enters maintenance mode;
+`work/epics/ui-workbench/reference/ui-paradigm.md`. Blazor UI enters maintenance mode;
 Svelte UI becomes the platform for these new interaction models.
 
 #### UI Workbench & Topology Refinement

@@ -158,7 +158,7 @@ Replace `NodeSemantics.Parallelism` (`object?`) with a proper discriminated unio
 The change touches 21 files across Core, Contracts, Sim, API, and UI — a cross-cutting refactor with high risk for a foundation milestone. CUE (https://cuelang.org/) was noted as a potential future approach for model schema validation with native union type support.
 
 ### When to revisit
-Consider as part of a future "model schema" epic, possibly using CUE for schema validation. The `object?` typing works correctly today — `SemanticLoader.ResolveParallelism()` handles all cases.
+Addressed by E-16 m-E16-01 (Compiled Semantic References). See D-2026-04-03-007. Parallelism becomes a typed reference resolved at compile time. Close this gap after m-E16-01 completes.
 
 ### Reference
 - `src/FlowTime.Core/Models/NodeSemantics.cs` (line 21)

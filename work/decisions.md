@@ -111,3 +111,21 @@ Shared decision log for active architectural and technical decisions.
 **Context:** The p3a1 pressure test showed that moving the current analytical capability/computation surface into Core was the right bridge, but full purification is larger than one E-10 follow-on milestone. Compiled semantic references, class-truth separation, runtime analytical descriptors, contract redesign, and consumer heuristic deletion all need one clear owner. We also do not want compatibility shims for old runs, fixtures, or hint-based contracts to dilute the cleanup.
 **Decision:** Wrap `m-ec-p3a1` as the bridge milestone and assign the full formula-first purification to E-16. E-16 is forward-only: old run directories, generated fixtures, and approved golden snapshots can be deleted and regenerated; contract cleanup does not need additive compatibility phases once the named consumers for a milestone are migrated.
 **Consequences:** E-10 Phase 3 pauses after `m-ec-p3a1` until E-16 completes. Milestone planning should prefer explicit deletion and regeneration over fallback layers. Reviews should treat new compatibility heuristics around the old analytical/runtime boundary as regressions.
+
+## D-2026-04-03-005: flowLatencyMs moves to Core in E-16
+**Status:** active (supersedes D-2026-04-03-003 for flowLatencyMs specifically)
+**Context:** D-2026-04-03-003 kept flowLatencyMs graph propagation in the adapter as an "orchestration concern" during m-ec-p3a1 bridge work. E-16 milestone review found this is graph-level queueing theory: expected sojourn time through a network, computed as topological accumulation of per-node cycle times weighted by edge flow volumes. The Core IS a graph engine — graph-level analytical computation belongs there.
+**Decision:** flowLatencyMs computation moves to Core in m-E16-04. The algorithm (`base = cycleTimeMs[node] + weightedAvg(flowLatencyMs[predecessors], edgeFlowVolume)`) becomes a pure Core evaluator function. The adapter passes topology + series inputs, Core returns results.
+**Consequences:** m-E16-04 scope includes flowLatencyMs migration. D-2026-04-03-003 remains active for its other points (non-analytical derived metrics like utilization/throughputRatio/retryTax staying in the adapter was a bridge — E-16 now moves utilization to Core too since effective capacity is flow algebra).
+
+## D-2026-04-03-006: Analytical descriptor absorbs AnalyticalCapabilities
+**Status:** active
+**Context:** m-ec-p3a1 introduced `AnalyticalCapabilities` as a Core bridge resolved from `kind + logicalType` strings. E-16 introduces a compiled analytical descriptor produced by the compiler from typed semantic references. The question is whether they coexist or the descriptor replaces capabilities.
+**Decision:** The descriptor absorbs `AnalyticalCapabilities`. Capability flags become compiled descriptor fields. Computation methods (`ComputeBin`, `ComputeWindow`, etc.) move to the Core analytical evaluator (m-E16-04). `AnalyticalCapabilities.Resolve(kind, logicalType)` is deleted — string-based resolution is exactly what E-16 eliminates. `EffectiveKind` is removed as a bridge concept.
+**Consequences:** m-E16-03 deletes `AnalyticalCapabilities`. m-E16-04 builds the evaluator from its computation methods. No coexistence period.
+
+## D-2026-04-03-007: Parallelism typing included in E-16 m-E16-01
+**Status:** active
+**Context:** `NodeSemantics.Parallelism` is `object?`, parsed at runtime in both Core (`InvariantAnalyzer`) and API (`GetEffectiveCapacity`, `ParseParallelismScalar`). gaps.md deferred this as a 21-file cross-cut. Parallelism represents Kubernetes pod instances (service replicas) and scales effective capacity — this is flow algebra, not presentation.
+**Decision:** Include Parallelism typing in m-E16-01 as part of typed semantic references. Replace `object?` with a typed reference (numeric constant or series ref) resolved at compile time. Effective capacity computation (`capacity x parallelism`) moves to Core evaluator in m-E16-04.
+**Consequences:** The 21-file cross-cut is acceptable because E-16 is already touching the semantic reference boundary. gaps.md entry for Parallelism can be closed after m-E16-01.

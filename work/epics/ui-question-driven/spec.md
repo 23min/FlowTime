@@ -3,7 +3,7 @@
 **Status:** draft (future — depends on Phase 3 analytical primitives)
 **Depends on:** m-ec-p3a (cycle time), m-ec-p3b (WIP limits), m-ec-p3c
 (Kingman), UI Workbench epic, Analytical Views epic
-**Architecture:** [docs/architecture/ui-paradigm.md](../../../docs/architecture/ui-paradigm.md)
+**Architecture:** [reference/ui-paradigm.md](../ui-workbench/reference/ui-paradigm.md)
 
 ---
 

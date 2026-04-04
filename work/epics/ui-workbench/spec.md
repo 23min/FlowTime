@@ -3,7 +3,7 @@
 **Status:** draft
 **Depends on:** E-11 M3 (topology via dag-map), M4 (timeline & playback)
 **Supersedes:** E-11 M5 (Inspector & Feature Bar) — M5 evolves into this epic
-**Architecture:** [docs/architecture/ui-paradigm.md](../../../docs/architecture/ui-paradigm.md)
+**Architecture:** [reference/ui-paradigm.md](reference/ui-paradigm.md)
 
 ---
 
