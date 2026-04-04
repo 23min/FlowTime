@@ -112,5 +112,5 @@ In short: E-10 found the wound, `m-ec-p3a1` stabilized the current bridge, and E
 - [reference/formula-first-engine-refactor-plan.md](reference/formula-first-engine-refactor-plan.md)
 - [docs/concepts/nodes-and-expressions.md](../../../docs/concepts/nodes-and-expressions.md)
 - [docs/architecture/expression-language-design.md](../../../docs/architecture/expression-language-design.md)
-- [work/milestones/m-ec-p3a1-analytical-projection-hardening.md](../../milestones/m-ec-p3a1-analytical-projection-hardening.md)
+- [work/milestones/completed/m-ec-p3a1-analytical-projection-hardening.md](../../milestones/completed/m-ec-p3a1-analytical-projection-hardening.md)
 - [work/epics/E-10-engine-correctness-and-analytics/spec.md](../E-10-engine-correctness-and-analytics/spec.md)
