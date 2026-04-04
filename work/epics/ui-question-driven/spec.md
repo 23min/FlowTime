@@ -1,8 +1,8 @@
 # Epic: Question-Driven Interface
 
-**Status:** draft (future — depends on Phase 3 analytical primitives)
-**Depends on:** m-ec-p3a (cycle time), m-ec-p3b (WIP limits), m-ec-p3c
-(Kingman), UI Workbench epic, Analytical Views epic
+**Status:** draft (future — depends on post-E-16 fact surfaces and the relevant analytical primitives)
+**Depends on:** E-16 truth-gated state/window contracts, resumed p3b/p3c where needed,
+UI Workbench epic, Analytical Views epic
 **Architecture:** [reference/ui-paradigm.md](../ui-workbench/reference/ui-paradigm.md)
 
 ---
@@ -36,7 +36,7 @@ is a traceable computation, not an opaque metric on a dashboard.
 | "Where is the bottleneck?" | Cross-node utilization comparison + WIP accumulation detection | Highlight node with highest sustained rho; show supporting evidence (queue growth, capacity saturation) |
 | "Is the bottleneck shifting?" | Compare bottleneck node across time windows | Timeline of which node was the constraint in each segment |
 
-**Depends on:** Phase 3 analytical primitives (W2.1 bottleneck identification)
+**Depends on:** stable post-E-16 fact surfaces plus the bottleneck primitive
 
 ### Q2: Cycle Time Questions
 
@@ -45,7 +45,7 @@ is a traceable computation, not an opaque metric on a dashboard.
 | "Why is cycle time high at node X?" | Cycle time decomposition (AC-1) + flow efficiency (AC-3) | Stacked breakdown: queue time vs. service time. "82% of cycle time is queue time." |
 | "What does queueing theory predict for node X?" | Kingman approximation (m-ec-p3c AC-3) | Predicted vs. actual queue wait. "Kingman predicts 310ms, actual is 280ms — model is consistent." Or: "Actual is 2x predicted — arrivals may be burstier than modeled." |
 
-**Depends on:** m-ec-p3a, m-ec-p3c
+**Depends on:** stable post-E-16 cycle-time facts, enriched by p3c Kingman diagnostics
 
 ### Q3: Capacity Questions
 
@@ -54,7 +54,7 @@ is a traceable computation, not an opaque metric on a dashboard.
 | "What if I double capacity at node X?" | Re-run model with modified capacity series | Before/after comparison: cycle time, queue depth, utilization. "Cycle time drops 45%, but bottleneck shifts to auth_svc." |
 | "What if I add a WIP limit of N at node X?" | Re-run with wipLimit set | Impact on queue depth, overflow volume, upstream effects |
 
-**Depends on:** m-ec-p3b, scenario overlay infrastructure
+**Depends on:** p3b plus scenario overlay infrastructure
 
 ### Q4: Health Questions
 
@@ -64,7 +64,7 @@ is a traceable computation, not an opaque metric on a dashboard.
 | "Are my cycle time estimates reliable?" | Steady-state validation (AC-5) | "Arrival rate diverges 38% across window — Little's Law estimates may be unreliable." |
 | "Where is starvation or blocking?" | Starvation/blocking detection (W2.6) | List of bins and nodes where starvation or blocking was detected |
 
-**Depends on:** m-ec-p3a AC-5, Phase 3 analytical primitives
+**Depends on:** stable post-E-16 health/warning facts plus the relevant resumed analytical primitives
 
 ### Q5: Flow Distribution Questions
 
@@ -73,7 +73,7 @@ is a traceable computation, not an opaque metric on a dashboard.
 | "How does work split across classes?" | Per-class arrivals/served aggregation | Class breakdown: "Orders: 60%, Refunds: 25%, VIP: 15%." |
 | "Which class has the worst cycle time?" | Per-class cycle time comparison (AC-2) | Ranked table with per-class queue time, service time, flow efficiency |
 
-**Depends on:** m-ec-p3a AC-2
+**Depends on:** stable post-E-16 class-truth and cycle-time facts
 
 ## Interaction Design
 
@@ -174,7 +174,7 @@ To be defined during planning. Likely sequence:
 
 1. Question panel scaffold (UI chrome, question selector, parameter inputs)
 2. Health questions (conservation, steady-state — uses existing engine output)
-3. Cycle time questions (decomposition, Kingman — after m-ec-p3a, m-ec-p3c)
-4. Bottleneck questions (after W2.1 bottleneck identification)
+3. Cycle time questions (decomposition, Kingman — after the post-E-16 fact surface is stable, enriched by p3c)
+4. Bottleneck questions (after the stable post-E-16 bottleneck fact surface is available)
 5. Capacity what-if questions (after scenario overlay infrastructure)
 6. DSL integration (after DSL epic delivers a parser)

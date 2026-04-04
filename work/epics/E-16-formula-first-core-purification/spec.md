@@ -18,7 +18,7 @@ The deeper structural issue remains:
 - API contracts still expose hints (`kind`, `nodeLogicalType`) instead of authoritative analytical facts
 - UI/client code still re-implements queue/service classification and node category heuristics
 
-That means the current architecture is still vulnerable to the same class of drift that p3a1 was meant to fix. If we continue directly into E-10 p3b/p3c/p3d on top of that boundary, we will multiply the cleanup cost and likely accumulate more duct tape.
+That means the current architecture is still vulnerable to the same class of drift that p3a1 was meant to fix. If we continue directly into the remaining E-10 Phase 3 work on top of that boundary, we will multiply the cleanup cost and likely accumulate more duct tape.
 
 This work should therefore be treated as a dedicated epic, not hidden inside another correctness milestone. The point is not a rewrite. The point is to move semantic truth earlier into the compile/evaluate pipeline, make deletion of the current heuristics an explicit deliverable, and do it in a forward-only cut rather than layering on compatibility shims.
 
@@ -105,7 +105,7 @@ E-10 is still the right umbrella for correctness and analytical primitives, but 
 
 1. It gives boundary cleanup explicit success criteria rather than burying it in feature work.
 2. It makes deletion of heuristics and duplicate policy a first-class deliverable.
-3. It prevents p3b/p3c/p3d from normalizing an impure adapter/client boundary.
+3. It prevents the remaining Phase 3 work (`p3d` -> `p3c` -> `p3b`) from normalizing an impure adapter/client boundary.
 
 In short: E-10 found the wound, `m-ec-p3a1` stabilized the current bridge, and E-16 now owns closing it properly.
 

@@ -2,7 +2,7 @@
 
 **Status:** draft
 **Depends on:** UI Workbench epic (for view switcher and shared state),
-E-10 Phase 3 (for analytical primitives)
+E-16 truth-gated state/window contracts, and the relevant resumed E-10 primitives
 **Absorbs:** E-14 (Visualizations / Chart Gallery) — the chart gallery concept
 is replaced by purpose-built analytical views
 **Architecture:** [reference/ui-paradigm.md](../ui-workbench/reference/ui-paradigm.md)
@@ -48,8 +48,9 @@ API needed.
 A per-node deep-dive showing **cycle time decomposition** and queueing
 theory diagnostics.
 
-**Depends on:** m-ec-p3a (cycle time), m-ec-p3c (Kingman) — gracefully
-degrades when these are unavailable (shows only what the engine provides).
+**Depends on:** stable post-E-16 fact surfaces plus the cycle-time and
+Kingman primitives — gracefully degrades when richer diagnostics are
+unavailable (shows only what the engine provides).
 
 **Contents:**
 - **Stacked bar over time:** queue time (bottom) + service time (top) = cycle
@@ -76,7 +77,8 @@ Side-by-side visualization of two runs (or two scenarios from the same model
 with different parameters).
 
 **Depends on:** Scenario Overlay infrastructure (overlays epic). Can start
-with two separate runs compared manually.
+with two separate runs compared manually, but the durable comparison
+contract should come from post-E-16 overlay work rather than ad hoc UI logic.
 
 **Contents:**
 - Two topology DAGs side by side, same layout, same color scale
@@ -179,16 +181,16 @@ CSS class toggle.
    independently? A shared primitive set prevents drift but adds upfront
    cost. Decide during first implementation.
 
-5. **E-14 transition:** Formally close E-14 and point to this epic, or
-   keep E-14 as the "role-based presets" milestone within this epic?
+5. **E-14 transition:** Closed. E-14 is retained only as historical planning
+  context; role-based presets now live inside this epic.
 
 ## Milestones
 
 To be defined during planning. Likely sequence:
 
 1. View switcher infrastructure (shared state, URL routing, transitions)
-2. Heatmap view (V1) — highest standalone value, least dependency on Phase 3
-3. Decomposition view (V2) — after m-ec-p3a ships
+2. Heatmap view (V1) — highest standalone value, least dependency beyond the post-E-16 fact surface
+3. Decomposition view (V2) — after the post-E-16 fact surface is stable; enriched further when resumed p3c diagnostics are available
 4. Flow balance view (V4) — uses existing InvariantAnalyzer output
 5. Comparison view (V3) — after scenario overlay infrastructure
 6. Role presets (V5) — after V1-V4 are stable

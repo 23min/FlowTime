@@ -1,7 +1,7 @@
 # Epic: UI Workbench & Topology Refinement
 
 **Status:** draft
-**Depends on:** E-11 M3 (topology via dag-map), M4 (timeline & playback)
+**Depends on:** E-11 M3 (topology via dag-map), M4 (timeline & playback), and post-E-16 fact surfaces for richer analytical detail
 **Supersedes:** E-11 M5 (Inspector & Feature Bar) — M5 evolves into this epic
 **Architecture:** [reference/ui-paradigm.md](reference/ui-paradigm.md)
 
@@ -49,9 +49,9 @@ that shows detailed metrics for **pinned** nodes and edges.
 - Node ID and kind
 - Key metrics at current bin: utilization, queue depth, arrivals, served,
   errors, capacity
-- Cycle time decomposition (when available — depends on m-ec-p3a):
+- Cycle time decomposition (when available — consumes the stable post-E-16 fact surface for cycle-time outputs):
   queue time, service time, flow efficiency
-- Kingman prediction (when available — depends on m-ec-p3c)
+- Kingman prediction (when available — enriched by resumed p3c diagnostics)
 - Sparkline: selected metric over the full time window (small inline chart)
 - Warnings/annotations from InvariantAnalyzer (conservation violations,
   capacity warnings)

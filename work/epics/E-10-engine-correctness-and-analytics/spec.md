@@ -4,7 +4,7 @@
 
 ## Goal
 
-Fix known correctness bugs, harden engineering quality, and build the analytical primitives layer that enables downstream epics (Path Analysis, Anomaly Detection, Scenario Overlays, Visualizations) to deliver their full value.
+Fix known correctness bugs, harden engineering quality, and build the analytical primitives layer that enables downstream epics (Path Analysis, Anomaly Detection, Scenario Overlays, UI Analytical Views) to deliver their full value.
 
 ## Context
 
@@ -14,7 +14,7 @@ The March 2026 engine deep review (`docs/architecture/reviews/engine-deep-review
 - Documentation drift (6 undocumented expression functions, overstated constraint claims)
 - A missing **analytical layer** — FlowTime can answer "how much flow?" but not "where is the bottleneck?", "what is flow efficiency?", or "what if we set a WIP limit?"
 
-The existing near-term epics (Path Analysis, Visualizations, Anomaly Detection, Scenario Overlays) implicitly depend on these analytical capabilities. Without them, those epics can only work with raw throughput/queue data.
+The existing near-term epics (Path Analysis, UI Analytical Views, Anomaly Detection, Scenario Overlays) implicitly depend on these analytical capabilities. Without them, those epics can only work with raw throughput/queue data.
 
 ## Scope
 
@@ -66,7 +66,7 @@ The existing near-term epics (Path Analysis, Visualizations, Anomaly Detection, 
 - Phase 0 must complete before any other work
 - Phase 1 and Phase 2 can run in parallel
 - Phase 3 depends on Phase 1 (especially Series immutability fix for WIP limits)
-- Remaining Phase 3 expansion (`p3b`, `p3c`, `p3d`) is gated on E-16 completing after `m-ec-p3a1`
+- Remaining Phase 3 expansion (`p3d`, `p3c`, `p3b`) is gated on E-16 completing after `m-ec-p3a1`
 - All changes must maintain determinism — the end-to-end determinism test gates everything
 
 ## Success Criteria
@@ -83,7 +83,7 @@ The existing near-term epics (Path Analysis, Visualizations, Anomaly Detection, 
 |----------------|--------|------------|
 | Series immutability change may break callers | High | BUG-1 fix provides the test; audit all Series.Values usage |
 | WIP limit semantics (block vs divert) need design | Medium | Start with simplest option (divert to loss), iterate |
-| ConstraintAllocator may need redesign for eval pipeline | Medium | Phase 3.5 effort estimate accounts for this |
+| ConstraintAllocator may need redesign for eval pipeline | Medium | `p3d` scope accounts for this |
 
 ## Milestones
 
@@ -98,11 +98,11 @@ The existing near-term epics (Path Analysis, Visualizations, Anomaly Detection, 
 | m-ec-p3c | Phase 3c: Variability (Cv + Kingman) | approved, gated by E-16 |
 | m-ec-p3d | Phase 3d: Constraint enforcement | approved, gated by E-16 |
 
-**Architecture gate:** `m-ec-p3a1` is the bridge milestone that moved the current analytical capability/computation surface into Core. E-16 owns the remaining formula-first purification work exposed by that review, and Phase 3 resumes with `p3b`/`p3c`/`p3d` only after E-16 completes.
+**Architecture gate:** `m-ec-p3a1` is the bridge milestone that moved the current analytical capability/computation surface into Core. E-16 owns the remaining formula-first purification work exposed by that review, and Phase 3 resumes with `p3d` -> `p3c` -> `p3b` only after E-16 completes.
 
 ## References
 
 - `docs/architecture/reviews/engine-deep-review-2026-03.md` — Full deep review
 - `docs/architecture/reviews/engine-review-findings.md` — Initial review findings
 - `docs/architecture/reviews/review-sequenced-plan-2026-03.md` — Sequenced plan (historical rationale)
-- `work/gaps.md` — Deferred M-10.03 (depends on Phase 3.5)
+- `work/gaps.md` — Deferred M-10.03 (depends on runtime constraint enforcement in `p3d`)

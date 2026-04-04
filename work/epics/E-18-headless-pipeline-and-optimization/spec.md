@@ -47,6 +47,8 @@ Every advanced use case is a composition of "call the evaluation function with d
 - **Pipeline SDK** — FlowTime.Core as an embeddable library with clean evaluation API
 - **Chunked evaluation** — evaluate bins in chunks for feedback simulation (autoscaler, circuit breaker scenarios)
 
+Real-telemetry fitting/optimization is part of this epic, but it is not the first cut: when E-18 consumes real telemetry rather than synthetic or fixture data, that branch should sit downstream of E-15's first dataset path and Telemetry Loop & Parity so calibration is grounded in measured replay drift.
+
 ### Out of Scope
 
 - UI for interactive parameter exploration (E-17)
@@ -137,7 +139,7 @@ A critical capability: FlowTime should consume and produce telemetry in standard
 
 **Output:** Predicted series in the same formats. A calibrated FlowTime model's output can be compared directly against production dashboards.
 
-**Roundtrip:** Observe → calibrate → predict → compare → alert on divergence. This is the digital twin loop.
+**Roundtrip:** Observe → parity-check replay → calibrate → predict → compare → alert on divergence. This is the digital twin loop.
 
 ## Architecture
 
@@ -174,7 +176,7 @@ FlowTime.Pipeline (NEW — embeddable SDK)
 - [ ] FlowTime can be called as a headless CLI in a shell pipeline: `cat model.yaml | flowtime evaluate --params '{"parallelism":4}' | jq '.nodes.queue.derived.queueTimeMs'`
 - [ ] Parameter sweeps produce correct comparative results without recompilation per evaluation
 - [ ] An optimization loop can find parameter values that satisfy an objective + constraints
-- [ ] Model fitting against real telemetry produces a calibrated model that predicts within tolerance
+- [ ] Model fitting against parity-validated real telemetry produces a calibrated model that predicts within tolerance
 - [ ] Chunked evaluation enables feedback simulation with external controller logic
 - [ ] All evaluation modes use the pure Core engine — no adapter-side analytical computation
 
@@ -185,7 +187,7 @@ FlowTime.Pipeline (NEW — embeddable SDK)
 | m-E18-01 | Shared Runtime Parameter Foundation & Evaluation SDK | One runtime parameter model for E-18 and E-17: compile, identify parameters, enrich metadata, re-evaluate with overrides |
 | m-E18-02 | Headless CLI / Sidecar | Pipeline-friendly CLI with JSON I/O, iteration protocol, parameter override, sidecar-first integration path |
 | m-E18-03 | Parameter Sweep & Sensitivity | Sweep mode, sensitivity analysis, comparative output |
-| m-E18-04 | Optimization & Fitting | Objective-based optimization, model fitting against observed data |
+| m-E18-04 | Optimization & Fitting | Objective-based optimization plus model fitting against parity-validated observed data |
 | m-E18-05 | Chunked Evaluation | Bin-chunk evaluation for feedback simulation with external controllers, only after the stateful execution seam exists |
 | m-E18-06 | Telemetry I/O | Standard telemetry format ingestion and emission (Prometheus, OTEL, CSV) |
 
@@ -203,6 +205,7 @@ FlowTime.Pipeline (NEW — embeddable SDK)
 
 - E-16 (Formula-First Core Purification) — must complete first
 - E-17 (Interactive What-If Mode) consumes the shared runtime parameter foundation built here; it should not duplicate the runtime parameter model or reevaluation API
+- Telemetry Loop & Parity for any optimization/fitting path that uses ingested real telemetry rather than synthetic or fixture data
 
 ## Analogies
 

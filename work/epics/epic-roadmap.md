@@ -42,9 +42,9 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 - **Folder:** `work/epics/E-16-formula-first-core-purification/`
 - **Status:** Approved, ready to start (m-ec-p3a1 merged to main)
 - **Goal:** Move semantic truth and analytical identity fully into the compiled Core model so the engine remains a deterministic formula evaluator and API/UI layers consume facts rather than reconstructing meaning from strings.
-- **Sequencing:** Runs immediately and before further E-10 Phase 3 expansion (`p3b`, `p3c`, `p3d`).
+- **Sequencing:** Runs immediately and before further E-10 Phase 3 expansion, which resumes in the order `p3d` -> `p3c` -> `p3b`.
 - **Key milestones:** m-E16-01 compiled semantic references → m-E16-02 class truth boundary → m-E16-03 runtime analytical descriptor → m-E16-04 Core analytical evaluation → m-E16-05 warning facts/primitive cleanup → m-E16-06 analytical contract + consumer purification
-- **Key decisions:** D-005 (flowLatencyMs to Core), D-006 (descriptor absorbs AnalyticalCapabilities), D-007 (Parallelism typing)
+- **Key decisions:** D-2026-04-03-005 (flowLatencyMs to Core), D-2026-04-03-006 (descriptor absorbs AnalyticalCapabilities), D-2026-04-03-007 (Parallelism typing)
 - **Migration:** Forward-only. Runs, fixtures, and approved goldens are regenerated rather than kept compatible.
 - **Reference:** `work/epics/E-16-formula-first-core-purification/reference/formula-first-engine-refactor-plan.md`
 
@@ -52,7 +52,7 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 
 - **Reference:** `docs/architecture/dag-map-evaluation.md`
 - **Status:** Not started — runs in parallel with Phase 1+2
-- **Goal:** Evaluate and extend the dag-map metro-map layout library for FlowTime topology rendering. ~2-3 days. Determines viability of SVG-based topology and informs Visualizations and UI Layout Motors epics.
+- **Goal:** Evaluate and extend the dag-map metro-map layout library for FlowTime topology rendering. ~2-3 days. Determines viability of SVG-based topology and informs UI Analytical Views and UI Layout Motors epics.
 
 #### E-11 — Svelte UI (Frontend Rewrite)
 
@@ -152,34 +152,22 @@ Svelte UI becomes the platform for these new interaction models.
 
 - **Folder:** `work/epics/ui-analytical-views/`
 - **Goal:** Purpose-built views alongside topology: heatmap (nodes x bins grid), decomposition (cycle time breakdown + Kingman), comparison (two runs side-by-side), flow balance (conservation checks).
-- **Depends on:** UI Workbench epic (view switcher), E-10 Phase 3 (analytical primitives).
+- **Depends on:** UI Workbench epic (view switcher), post-E-16 fact surfaces, and the relevant resumed E-10 primitives.
 - **Absorbs:** E-14 (Visualizations). Role-focused chart bundles become presets within views.
 
 #### UI Question-Driven Interface
 
 - **Folder:** `work/epics/ui-question-driven/`
 - **Goal:** Structured query panel where users ask analytical questions ("Where is the bottleneck?", "Why is cycle time high?") and get computed, provenanced answers. Foundation for future DSL and LLM integration.
-- **Depends on:** E-10 Phase 3 (analytical primitives), UI Workbench epic, UI Analytical Views epic.
+- **Depends on:** UI Workbench epic, UI Analytical Views epic, post-E-16 fact surfaces, and the relevant resumed E-10 primitives.
 
 ## Mid-Term / Aspirational Epics (unnumbered until sequenced)
-
-#### Scenario Overlays & What-If Runs
-
-- **Folder:** `work/epics/overlays/`
-- **Goal:** Derived overlay runs for capacity, parallelism, arrivals, WIP limit, and variability experiments with deterministic provenance.
-- **Depends on:** Phase 3.3 (WIP limits), Phase 3.4 (variability) — these are force multipliers.
 
 #### Flow-Aware Anomaly & Pathology Detection
 
 - **Folder:** `work/epics/anomaly-detection/`
 - **Goal:** Detect incidents and recurring flow pathologies (retry storms, slow drains, stuck queues) using the time-binned DAG model.
 - **Depends on:** stable post-E-16 facts, resumed Phase 3 primitives, basic path-analysis context, and telemetry parity before automation against real telemetry.
-
-#### Telemetry Loop & Parity
-
-- **Folder:** `work/epics/telemetry-loop-parity/`
-- **Goal:** Ensure synthetic runs and telemetry replays match within defined tolerances.
-- **Depends on:** first E-15 dataset path plus post-E-16 authoritative fact surfaces; should land before fitting/optimization or anomaly automation.
 
 #### UI Layout Motors (Pluggable Layout Engines)
 
