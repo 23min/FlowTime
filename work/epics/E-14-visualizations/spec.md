@@ -1,6 +1,9 @@
 # Epic: Visualizations (Chart Gallery / Demo Lab)
 
 **ID:** E-14
+**Status:** superseded by `work/epics/ui-analytical-views/spec.md`
+
+This spec is retained as historical planning context only. Live ownership for analytical visualization work now sits with the UI Analytical Views epic.
 
 ## Intent
 

@@ -66,6 +66,12 @@ The March 2026 dataset fitness research (`work/epics/E-15-telemetry-ingestion/re
 - **Topology as artifact with provenance**: inferred edges carry confidence scores; the graph is versioned and curable, not a fixed truth.
 - **Honest about gaps**: missing data, low-confidence edges, and inferred values are explicitly surfaced as warnings — never silently hidden.
 
+## Recommended Sequencing
+
+- Build Gold Builder plus one replayable dataset path first; this epic should not wait on later UI or optimization work.
+- Follow the first dataset path immediately with Telemetry Loop & Parity so synthetic-vs-replay drift is measured before fitting, optimization, or anomaly automation.
+- Treat resumed Phase 3 primitives as leverage layers that make ingested data more valuable, not as prerequisites for canonical bundle generation.
+
 ## Canonical Bundle Contract
 
 Bundles consist of:
@@ -81,8 +87,8 @@ Ingestion rules ensure:
 
 ## Dependencies
 
-- **Engine semantics layer** (complete): ingestion outputs must align with canonical series semantics.
-- **Phase 3 analytical primitives** (in progress): bottleneck ID, cycle time, WIP limits — these make ingested data interesting rather than just displayable.
+- **Canonical telemetry contracts and post-E-16 fact surfaces**: ingestion outputs must align with stable series semantics and authoritative graph/category facts.
+- **Phase 3 analytical primitives** (in progress): bottleneck ID, cycle time, WIP limits — these make ingested data interesting rather than just displayable, but are not required to produce canonical bundles.
 - **dag-map spike**: informs how inferred topologies render in the UI.
 
 ## Suggested Milestone Decomposition

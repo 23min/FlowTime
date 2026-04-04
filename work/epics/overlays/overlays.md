@@ -28,7 +28,7 @@ Today, answering those questions requires manual model edits or a separate run d
 2. **Auditability:** derived runs keep provenance linking back to the baseline and overlay definition.
 3. **Minimal change surface:** overlays target *inputs* (arrivals/capacity/parallelism/schedules), not arbitrary outputs.
 4. **Compatibility:** overlays work for both telemetry-backed and simulation-backed runs.
-5. **Comparability:** API and UI can compare baseline vs overlay using the same `/state` and `/state_window` shapes.
+5. **Comparability:** API and UI can compare baseline vs overlay using the same `/state`, `/state_window`, and `/graph` shapes.
 
 ## Non-Goals
 
@@ -48,7 +48,7 @@ Today, answering those questions requires manual model edits or a separate run d
 4. **Generate derived run artifacts**  
    Persist a full run bundle with new `runId`, but link provenance to the baseline.
 5. **Serve as normal**  
-   Derived runs use existing `/state` and `/state_window` APIs; no special UI logic is required to read them.
+   Derived runs use existing `/state`, `/state_window`, and `/graph` APIs; no special UI logic is required to read them.
 
 ## Overlay Descriptor (Conceptual)
 
@@ -110,7 +110,13 @@ Scenario overlays are a natural companion to anomaly detection:
 - Anomaly detection says "capacity is insufficient."
 - Overlays let the user test "what if we add 2 workers?"
 
-This pairing is why overlays should appear early in the **Mid-Term / Aspirational** roadmap, adjacent to flow-aware anomaly detection.
+This pairing is why overlays belong in the bridge-work layer after E-16 and the resumed p3c/p3b analytical work, and before E-17-style live interaction. They should provide the derived-run and comparison contract that later UI/session work consumes rather than re-inventing.
+
+## Recommended Sequencing
+
+- Land after E-16 stabilizes authoritative state/graph facts and run provenance surfaces.
+- Prefer after resumed Phase 3 p3c + p3b so variability- and WIP-aware experiments use the same canonical overlay contract.
+- Use overlays as bridge work before E-17 interactive sessions; live controls should call into derived-run/comparison semantics rather than define a second what-if model.
 
 ## Milestone Decomposition (Suggested)
 

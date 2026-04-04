@@ -40,7 +40,6 @@ Wildcard handling is currently scattered across:
 |--------|----------|-----|
 | Blank-key → `*` string inference | StateQueryService.cs:~1711 | Replace with typed fallback fact at the source |
 | `*`/`DEFAULT` string-equality skip logic | StateQueryService.cs:~4712 | Replaced by typed class-truth discriminator |
-| `EnsureFallbackClassesFromWindow()` | Dashboard.razor.cs:~181 | Client-side fallback heuristic — replaced by explicit fact from API |
 
 ## Test Strategy
 
@@ -54,6 +53,7 @@ Wildcard handling is currently scattered across:
 - Favor a small explicit runtime shape over spreading fallback booleans across unrelated DTOs. A tagged type like `ClassResult<T>` with `Real | Fallback` discriminator is one option.
 - Keep this milestone internal to Core/API surfaces; public analytical contract publication comes later.
 - If wildcard fallback remains visible externally at this stage, it must be labeled as fallback in the internal representation even if the external key is still `*`.
+- Dashboard and other client fallback heuristics are deleted only when explicit fallback facts are published in m-E16-06. Do not pull client migration into this internal boundary slice.
 
 ## Out of Scope
 

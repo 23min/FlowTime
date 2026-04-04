@@ -37,6 +37,20 @@ This means FlowTime can:
 
 FlowTime is therefore a good place to centralize **flow-aware detection**, rather than scattering anomaly logic across individual services or APM tools.
 
+## 2.1 Execution Placement in the Roadmap
+
+Anomaly detection should be treated as a leverage layer, not the first consumer of unstable semantics or raw telemetry.
+
+Recommended preconditions:
+
+- E-16 completed so `/state`, `/state_window`, and `/graph` expose authoritative analytical/category facts.
+- At least one E-15 dataset path exists and Telemetry Loop & Parity can measure baseline-vs-replay drift.
+- Basic path-analysis context exists so incidents can localize along flows rather than only at isolated nodes.
+
+Scenario overlays and interactive what-if are valuable companions for diagnosis and remediation, but they are not required for the first detector pass.
+
+Recommended placement: after the resumed Phase 3 analytical work plus path/parity basics, and before richer AI-generated narrative layers become a core experience.
+
 ---
 
 ## 3. Key Concepts

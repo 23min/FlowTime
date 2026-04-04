@@ -29,7 +29,7 @@ This work should therefore be treated as a dedicated epic, not hidden inside ano
 - Typed semantic references in the compiled runtime model
 - A compiled analytical descriptor on runtime nodes
 - A pure Core analytical evaluator that owns emitted derived metrics and warning facts
-- Purification of `/state` and `/state_window` contracts so clients can consume authoritative analytical facts
+- Purification of `/state`, `/state_window`, and `/graph` contracts so clients can consume authoritative analytical and categorical facts
 - Removal of analytical identity reconstruction from `StateQueryService`
 - Separation of real by-class truth from wildcard fallback projection
 - Deletion audits and review gates that prevent reintroduction of heuristics
@@ -55,7 +55,7 @@ This work should therefore be treated as a dedicated epic, not hidden inside ano
 - [ ] Runtime nodes carry compiled semantic references and an authoritative analytical descriptor.
 - [ ] `StateQueryService` no longer parses raw semantic references or reconstructs analytical identity for runtime behavior.
 - [ ] Core owns analytical evaluation, emitted derived keys, and warning eligibility facts for snapshot, window, and by-class outputs.
-- [ ] API contracts publish authoritative analytical facts so the named current state consumers stop classifying analytical behavior from `kind + logicalType`.
+- [ ] API contracts publish authoritative analytical and node-category facts across current state and graph surfaces so first-party consumers stop classifying behavior from `kind + logicalType`.
 - [ ] Fallback wildcard class data is explicit and distinguishable from real by-class truth.
 - [ ] Remaining E-10 Phase 3 milestones can build on compiled facts instead of adapter heuristics.
 - [ ] End-to-end pipeline validation proves Sim → Compiler → Runtime → API → Consumer works correctly: Sim-produced YAML (unchanged authoring surface) compiles through the new typed-reference compiler, evaluates correctly, and projects through purified contracts to consumers.
@@ -67,7 +67,9 @@ E-16 changes Core/Compiler/API but not Sim's authoring surface. The full pipelin
 - **Sim → Compiler boundary:** Sim-produced YAML with raw string references compiles correctly through the new typed-reference compiler. At minimum, run all existing Sim templates through the new compiler and verify no regressions.
 - **Compiler → Runtime boundary:** Compiled typed references produce the same evaluated series as the old raw-string path. Parity tests per milestone.
 - **Runtime → API boundary:** Purified state projection (snapshot, window, by-class) produces the same analytical outputs. End-to-end API tests with `WebApplicationFactory<Program>`.
-- **API → Consumer boundary:** Named Blazor UI consumers read from the new fact surface and produce the same behavior as the old `kind + logicalType` heuristic path.
+- **Runtime → Graph/API boundary:** Graph projection and current-state projection both consume compiled facts instead of re-deriving category or analytical identity from strings.
+- **API → Consumer boundary:** First-party Blazor/JS consumers read from the new fact surface and produce the same behavior as the old `kind + logicalType` heuristic path.
+- **Model / template boundary:** Typed parallelism and reference cleanup must validate through model DTOs, template substitution, and graph projection surfaces; E-16 is not treated as a Core/API-only refactor in implementation planning.
 - **Integration test suite:** `tests/FlowTime.Integration.Tests` should include at least one scenario that exercises the full Sim-template → engine-run → state-query → contract-assertion path to guard against boundary drift.
 
 Each milestone is individually shippable, but the final milestone (m-E16-06) must include a cross-cutting integration pass before declaring the epic complete.
@@ -77,14 +79,14 @@ Each milestone is individually shippable, but the final milestone (m-E16-06) mus
 | Risk / Question | Impact | Mitigation |
 |----------------|--------|------------|
 | Compiler/runtime model refactor touches many files across Core and API | High | Sequence compiler-first slices, keep each milestone shippable, and use deletion lists to constrain scope |
-| Contract purification may ripple into UI/client code and golden tests | High | Keep the consumer scope explicit and migrate only the named current-state consumers in the contract milestone |
+| Contract purification may ripple into UI/client code, graph consumers, and golden tests | High | Keep the first-party consumer scope explicit and migrate all current state + topology consumers in the contract milestone |
 | Existing templates and fixtures rely on loose reference shapes | Medium | Regenerate runs, fixtures, and approved snapshots forward-only rather than carrying compatibility fallbacks |
 | Should the public contract expose the analytical descriptor directly or a smaller fact surface? | Medium | Decide in the contract milestone and ship one forward-only fact surface for the named current-state consumers |
 | How much warning policy belongs in the analytical evaluator vs a separate analyzer package? | Medium | Resolve explicitly during the evaluator milestone and document the ownership boundary |
 
 ## Milestones
 
-**Sequencing note:** `m-E16-01` through `m-E16-05` are the architecture gate between wrapped `m-ec-p3a1` and the rest of E-10 Phase 3. `m-E16-06` publishes the final contract/consumer cut and deletes the named current-state heuristics.
+**Sequencing note:** `m-E16-01` through `m-E16-05` are the architecture gate between wrapped `m-ec-p3a1` and the rest of E-10 Phase 3. `m-E16-01` introduces typed references and parallelism typing; `m-E16-03` is the descriptor-driven deletion point for analytical-identity heuristics; `m-E16-06` publishes the final contract/consumer cut across state and graph surfaces.
 
 | ID | Title | Summary | Depends On | Status |
 |----|-------|---------|------------|--------|

@@ -1,12 +1,26 @@
-# FlowTime Roadmap — Updated 2026-03-24
+# FlowTime Roadmap — Updated 2026-04-04
 
-This roadmap reflects the current state of FlowTime Engine + Sim and incorporates findings from the March 2026 engine deep review. It supersedes the previous version (2026-01-24). Architecture **epics** and milestone docs provide the implementation detail (see `work/epics/epic-roadmap.md`).
+This roadmap reflects the current state of FlowTime Engine + Sim and the strategic direction established during the E-16 planning cycle. Architecture **epics** and milestone docs provide the implementation detail (see `work/epics/epic-roadmap.md`).
 
 ## Scope & Assumptions
 - Engine remains responsible for deterministic execution, artifact generation, and `/state` APIs (see `docs/flowtime-engine-charter.md`).
 - FlowTime.Sim owns template authoring, stochastic inputs, and template catalog endpoints.
 - Product-level scope is summarized in `docs/flowtime-charter.md`.
-- The engine deep review (`docs/architecture/reviews/engine-deep-review-2026-03.md`) is the primary input for immediate priorities.
+- The engine deep review (`docs/architecture/reviews/engine-deep-review-2026-03.md`) is the primary input for correctness priorities.
+
+## Thesis: Pure Engine, Then Power
+
+FlowTime is a **spreadsheet for flow dynamics** — a deterministic graph of pure transforms over named time series. Queueing theory made executable.
+
+The strategic arc is three phases:
+
+1. **Make it pure (E-16).** The engine's analytical identity and semantic meaning are still reconstructed late from strings in the API and UI. E-16 moves all of that into the compiled Core: typed references, compiled analytical descriptors, pure evaluation. After E-16, the engine is an honest formula evaluator — the compiler owns meaning, evaluation is pure, consumers read facts.
+
+2. **Make it interactive (E-17).** Once the engine is pure and evaluation takes microseconds, live what-if becomes possible. Change a parameter, see every metric update instantly. The spreadsheet comes alive. This needs runtime parameter identification, server-side sessions, and a push channel to the UI.
+
+3. **Make it programmable (E-18).** Once the engine is a callable pure function, embed it in pipelines. Parameter sweeps, optimization loops, model fitting against real telemetry, sensitivity analysis, digital twin architectures. FlowTime becomes an instrument, not just a simulator.
+
+This arc describes the product capability ladder, not strict implementation order. In implementation, the shared runtime parameter foundation lands first in the E-18 headless layer and is then consumed by E-17's session/push UX. E-16 completes first, then E-10 resumes, then E-12-E-15 build on the analytical layer.
 
 ## Delivered (Completed Epics)
 
@@ -26,81 +40,103 @@ This roadmap reflects the current state of FlowTime Engine + Sim and incorporate
 
 **Epic:** `work/epics/E-10-engine-correctness-and-analytics/spec.md`
 
-The engine deep review found 3 P0 correctness bugs, engineering debt, documentation drift, and a missing analytical layer. This epic must complete before near-term feature epics can deliver their full value.
+The engine deep review found 3 P0 correctness bugs, engineering debt, documentation drift, and a missing analytical layer. Phases 0-2 complete. Phase 3 bridge complete (m-ec-p3a cycle time, m-ec-p3a1 analytical projection hardening — both merged to main). Remaining Phase 3 expansion gated on E-16.
 
-### Phase 0: Correctness Bugs (P0)
-Fix before all other work:
-1. **BUG-1** — Shared series mutation (clone outflow before dispatch)
-2. **BUG-2** — Missing capacity dependency in ServiceWithBufferNode.Inputs
-3. **BUG-3** — InvariantAnalyzer ignores dispatch schedules (false positive warnings)
-4. Regression tests + end-to-end determinism test
+### Phase 3: Analytical Primitives (gated on E-16)
+After E-16 purifies the compiled Core, Phase 3 resumes in this execution order:
+1. **p3d — Constraint Enforcement** — Wire ConstraintAllocator into evaluation pipeline so declared constraints are real rather than advisory.
+2. **p3c — Variability** — Preserve Cv from PMFs for Kingman's approximation and theory-vs-runtime diagnostics.
+3. **p3b — WIP Limits** — Optional wipLimit on ServiceWithBufferNode (Kanban what-if).
 
-### Phase 1: Engineering Foundation + Phase 2: Documentation Honesty (parallel)
-- Cache topological order, precompute adjacency lists, enforce NaN/Infinity policy
-- Fix PCG32 modulo bias, add router convergence guard, Series immutability fix
-- Add expression function tests (MOD, FLOOR, CEIL, ROUND, STEP, PULSE)
-- Update docs: 11 expression functions, downgrade constraint claims, clarify time-travel scope
-- Locate/create model.schema.yaml, standardize JSON Schema meta-version
+The milestone IDs are historical; the recommended implementation order above is the lower-risk sequence.
 
-### Phase 3: Analytical Primitives (new)
-The missing layer between the engine's volume/throughput capabilities and what downstream epics need:
-1. **Bottleneck identification** — Cross-node utilization comparison, WIP accumulation detection
-2. **Cycle time decomposition** — Per-stage queueTime + processingTime, flow efficiency metric
-3. **WIP limit modeling** — Optional wipLimit on ServiceWithBufferNode (Kanban what-if)
-4. **Variability preservation** — Preserve Cv from PMFs for Kingman's approximation
-5. **Constraint enforcement** — Wire ConstraintAllocator into evaluation pipeline
-6. **Starvation/blocking detection** — Flag starved and blocked bins
+## E-16 — Formula-First Core Purification (active)
 
-### Spike: dag-map Library Evaluation (parallel with Phase 1+2)
-Evaluate and extend the [dag-map](https://github.com/23min/dag-map) metro-map layout library for FlowTime topology rendering. ~2-3 days. Informs Visualizations and UI Layout Motors epics. See `docs/architecture/dag-map-evaluation.md`.
+**Epic:** `work/epics/E-16-formula-first-core-purification/spec.md` | **Status:** approved, ready to start
 
-## E-16 — Formula-First Core Purification
+The immediate architecture gate. Purify the engine so semantic meaning and analytical truth are compiled into Core once and consumed as facts everywhere else.
 
-**Epic:** `work/epics/E-16-formula-first-core-purification/spec.md` | **Status:** approved
+Six milestones in sequence:
+1. **m-E16-01** — Compiled Semantic References (typed refs replace raw string parsing, Parallelism typing)
+2. **m-E16-02** — Class Truth Boundary (real by-class data vs wildcard fallback made explicit)
+3. **m-E16-03** — Runtime Analytical Descriptor (absorbs AnalyticalCapabilities, compiled by compiler not resolved from strings)
+4. **m-E16-04** — Core Analytical Evaluation (all analytical math moves to Core including flowLatencyMs graph propagation)
+5. **m-E16-05** — Warning Facts & Primitive Cleanup (backlog/stationarity/overload warnings move to Core analyzers)
+6. **m-E16-06** — Contract & Consumer Purification (publish facts in API, delete IsServiceLike/Classify heuristics from UI)
 
-`m-ec-p3a1` is now the bridge milestone that moved the current analytical capability/computation surface into Core. E-16 owns the full purification exposed by that review: semantic truth and analytical identity still need to stop being reconstructed late from strings in the API and clients.
+Key decisions: D-2026-04-03-005 (flowLatencyMs to Core), D-2026-04-03-006 (descriptor absorbs AnalyticalCapabilities), D-2026-04-03-007 (Parallelism typing in E-16). See `work/decisions.md`.
 
-Scope:
-- typed semantic references in the compiled runtime model
-- explicit class-truth boundary before evaluator work
-- compiled analytical descriptors on runtime nodes
-- pure Core analytical evaluation for values, emitted truth, and warning facts
-- forward-only contract and consumer purification so current state clients consume engine facts instead of local heuristics
-
-Suggested sequencing:
-- This epic runs immediately after wrapped `m-ec-p3a1` and before resuming deeper E-10 Phase 3 expansion (`p3b`, `p3c`, `p3d`).
-- This is a strangler refactor around the current compiler/evaluator foundation, not a rewrite.
-- This is forward-only. Existing runs, fixtures, and approved snapshots may be deleted and regenerated as the runtime boundary changes.
+Migration is forward-only. Existing runs, fixtures, and approved snapshots are regenerated, not compatibility-layered.
 
 ## E-11 — Svelte UI (Frontend Rewrite)
 
-**Epic:** `work/epics/E-11-svelte-ui/spec.md` | **Status:** in-progress (M1-M4 done, M6 in progress)
+**Epic:** `work/epics/E-11-svelte-ui/spec.md` | **Status:** paused after M6 (M1-M4 + M6 done, M5/M7/M8 remain)
 
-Replace the Blazor WebAssembly UI with SvelteKit + shadcn-svelte for demo-quality visuals. Independent of engine work — consumes existing APIs with zero backend changes. dag-map enhancements scoped within milestones (not a separate epic).
+Replace the Blazor WebAssembly UI with SvelteKit + shadcn-svelte for demo-quality visuals. Independent of engine work — consumes existing APIs with zero backend changes.
 
 ## Near-Term Epics
 
-These depend on Phase 3 analytical primitives (except E-15 which is independent):
+These depend on the analytical primitives from E-10 Phase 3 (except E-15 which is independent):
 
 1. **E-12 — Dependency Constraints & Shared Resources** (`work/epics/E-12-dependency-constraints/`)
-   - Runtime constraint enforcement (depends on Phase 3.5). M-10.03 (MCP enforcement) deferred until runtime enforcement is in place. See `work/gaps.md`.
+   - Runtime constraint enforcement (depends on Phase 3 p3d). M-10.01/02 complete. M-10.03 deferred.
 
 2. **E-13 — Path Analysis & Subgraph Queries** (`work/epics/E-13-path-analysis/`)
-   - Path-level queries, bottleneck attribution, dominant routes, path pain (depends on Phase 3.1, 3.2). Includes dag-map path highlighting work.
+   - Path-level queries, bottleneck attribution, dominant routes, path pain.
 
-3. **E-14 — Visualizations / Chart Gallery** (`work/epics/E-14-visualizations/`)
-   - Role-focused charts with cycle time distributions, flow efficiency, bottleneck heat maps (depends on Phase 3.1, 3.2, 3.3). Svelte + custom SVG/canvas, no dag-map dependency.
+3. **E-14 — Visualizations** (`work/epics/E-14-visualizations/`)
+   - Absorbed into UI Analytical Views epic. See `work/epics/ui-analytical-views/spec.md`.
 
 4. **E-15 — Telemetry Ingestion, Topology Inference + Canonical Bundles** (`work/epics/E-15-telemetry-ingestion/`)
-   - Gold Builder (raw data → binned facts) + Graph Builder (data → topology) + bundle assembly. Independent of Phase 3; can proceed in parallel. Process mining event logs (BPI Challenge) identified as first validation dataset. See `work/epics/E-15-telemetry-ingestion/reference/dataset-fitness-and-ingestion-research.md`.
+   - Gold Builder + Graph Builder + bundle assembly. Independent of Phase 3.
+
+## Bridge Work (recommended before advanced leverage)
+
+These are the lowest-risk leverage layers after purification. They make the pure engine more useful without forcing live sessions, streaming state, or optimization frameworks too early.
+
+1. **Scenario Overlays & What-If Runs** (`work/epics/overlays/overlays.md`)
+   - Deterministic derived runs created from a baseline via validated input patches. Recommended after p3c + p3b so variability- and WIP-aware experiments have a clean execution path.
+
+2. **Telemetry Loop & Parity** (`work/epics/telemetry-loop-parity/spec.md`)
+   - Automated parity harness between baseline synthetic runs and telemetry replay runs. Recommended immediately after the first E-15 dataset path and before model fitting, optimization, or anomaly automation.
+
+## E-17 — Interactive What-If Mode (future)
+
+**Epic:** `work/epics/E-17-interactive-what-if-mode/spec.md` | **Status:** future
+
+Once E-16 makes the engine a pure compiled evaluator, live interactive recalculation becomes possible. Change a parameter via a UI slider, see all metrics/charts/heatmaps update instantly (sub-50ms). No recompilation for parameter value changes.
+
+Requires: runtime parameter model, server-side session management, WebSocket/SignalR push channel, auto-generated UI parameter controls.
+
+Recommended engineering order: build the shared runtime parameter foundation in the E-18 headless layer first, then add E-17 session management, push delivery, and UI controls.
+
+**Depends on:** E-16
+
+## E-18 — Headless Pipeline & Optimization (future)
+
+**Epic:** `work/epics/E-18-headless-pipeline-and-optimization/spec.md` | **Status:** future
+
+Make FlowTime usable as a pure callable function in pipelines, optimization loops, model discovery workflows, and digital twin architectures. SPICE-inspired analysis modes: parameter sweep, optimization, sensitivity analysis, Monte Carlo, model fitting against real telemetry, chunked evaluation for feedback simulation.
+
+Requires: headless CLI with pipeline-friendly I/O, iteration protocol, evaluation SDK, optimization framework, telemetry I/O in standard formats.
+
+Recommended execution layers: (1) shared runtime parameter foundation + evaluation SDK + headless CLI/sidecar, (2) sweep/sensitivity/optimization/fitting, (3) chunked/stateful extensions only after a dedicated streaming/stateful execution seam exists.
+
+**Depends on:** E-16
+
+## UI Paradigm Epics (draft — unnumbered until sequenced)
+
+See `work/epics/ui-workbench/reference/ui-paradigm.md` for the architectural proposal.
+
+- **UI Workbench & Topology Refinement** — Strip topology to structure + one color dimension, workbench panel for inspection.
+- **UI Analytical Views** — Purpose-built views: heatmap, decomposition, comparison, flow balance. Absorbs E-14.
+- **UI Question-Driven Interface** — Structured query panel for analytical questions with provenanced answers.
 
 ## Mid-Term / Aspirational
 
 | Epic | Key Dependency | Notes |
 |------|---------------|-------|
-| **Scenario Overlays & What-If** | Phase 3.3 (WIP limits), 3.4 (variability) | Force-multiplied by analytical primitives |
-| **Anomaly & Pathology Detection** | Phase 3.1 (bottleneck ID), 3.6 (starvation) | Leverages analytical primitives as building blocks |
-| **Telemetry Loop & Parity** | Telemetry Ingestion | Synthetic/telemetry parity tooling |
+| **Anomaly & Pathology Detection** | Phase 3 + path/parity basics | Needs analytical primitives plus basic path context and telemetry parity before real-data automation |
 | **UI Layout Motors** | dag-map spike | Pluggable layout engines behind stable contract |
 | **Ptolemy-Inspired Semantics** | — | Conceptual guardrails for engine evolution |
 | **Streaming & Subsystems** | Stable engine semantics | Long-term exploratory |
@@ -108,33 +144,39 @@ These depend on Phase 3 analytical primitives (except E-15 which is independent)
 ## Dependency Graph
 
 ```
-Phase 0 (Bugs)
+E-10 Phases 0-2 (done)
   |
   v
-Phase 1+2 (Engineering + Docs)  ←→  dag-map spike [parallel]
+E-10 Phase 3 bridge: p3a + p3a1 (done, merged to main)
   |
   v
-Phase 3 (Analytical Primitives)
+E-16 Formula-First Core Purification (NOW — 6 milestones)
   |
-  +--→ Dependency Constraints (needs 3.5)
-  +--→ Path Analysis (needs 3.1, 3.2)
-  +--→ Visualizations (needs 3.1, 3.2, 3.3 + dag-map results)
-  +--→ Telemetry Ingestion (independent)
-  |
-  v
-Scenario Overlays (needs 3.3, 3.4)
-Anomaly Detection (needs 3.1, 3.6)
-Telemetry Parity (needs Ingestion)
-UI Layout Motors (needs dag-map spike)
+   +--→ E-10 Phase 3 resume: p3d → p3c → p3b
+   |      |
+   |      +--→ E-12 Dependency Constraints (after p3d)
+   |      +--→ E-13 Path Analysis (after p3c + p3b)
+   |      +--→ Scenario Overlays (after p3c + p3b)
+   |      +--→ Anomaly Detection (after Phase 3 + path/parity basics)
+   |
+   +--→ E-15 Telemetry Ingestion
+   |      +--→ Telemetry Loop & Parity
+   |             +--→ E-18 fit / optimization against real telemetry
+   |
+   +--→ E-18 foundation: runtime parameter model + evaluation SDK + headless CLI
+             |
+             +--→ E-17 Interactive What-If
+             +--→ E-18 advanced modes (sweep / optimize / fit)
 
-Svelte UI (independent — runs parallel to all engine work)
+E-11 Svelte UI (independent — paused after M6)
+UI Paradigm epics (after E-11 M3-M4 foundation + relevant Phase 3 work)
 ```
 
 ## References
 - `docs/architecture/reviews/engine-deep-review-2026-03.md` — Full engine deep review
-- `docs/architecture/reviews/engine-review-findings.md` — Initial review findings (2026-03-07)
-- `docs/architecture/reviews/review-sequenced-plan-2026-03.md` — Sequenced plan (historical rationale for this roadmap)
+- `docs/architecture/reviews/engine-review-findings.md` — Initial review findings
+- `docs/architecture/reviews/review-sequenced-plan-2026-03.md` — Sequenced plan (historical rationale)
 - `work/epics/epic-roadmap.md` — Architecture epics with links to specs
-- `docs/architecture/dag-map-evaluation.md` — dag-map library evaluation
+- `work/decisions.md` — Architectural decisions (dated D-2026-… identifiers)
 - `docs/architecture/whitepaper.md` — Engine vision + future primitives
 - `docs/flowtime-engine-charter.md` — Engine remit and non-goals

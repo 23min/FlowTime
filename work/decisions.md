@@ -129,3 +129,15 @@ Shared decision log for active architectural and technical decisions.
 **Context:** `NodeSemantics.Parallelism` is `object?`, parsed at runtime in both Core (`InvariantAnalyzer`) and API (`GetEffectiveCapacity`, `ParseParallelismScalar`). gaps.md deferred this as a 21-file cross-cut. Parallelism represents Kubernetes pod instances (service replicas) and scales effective capacity — this is flow algebra, not presentation.
 **Decision:** Include Parallelism typing in m-E16-01 as part of typed semantic references. Replace `object?` with a typed reference (numeric constant or series ref) resolved at compile time. Effective capacity computation (`capacity x parallelism`) moves to Core evaluator in m-E16-04.
 **Consequences:** The 21-file cross-cut is acceptable because E-16 is already touching the semantic reference boundary. gaps.md entry for Parallelism can be closed after m-E16-01.
+
+## D-2026-04-04-008: Shared runtime parameter foundation is owned once and reused by E-17 and E-18
+**Status:** active
+**Context:** E-17 (Interactive What-If) and E-18 (Headless Pipeline & Optimization) both need the same foundational capability: identify editable parameters in compiled graphs, apply deterministic overrides without recompilation, and expose metadata suitable for either UI controls or programmatic callers. Duplicating that work across two future epics would create drift between the interactive and headless paths.
+**Decision:** Own the shared runtime parameter foundation once in the programmable/headless layer. The foundation includes compiled parameter identity, override points, reevaluation APIs, and the contract for enriching human-facing metadata from authored template parameters when available. E-17 consumes that foundation for sessions, push delivery, and UI controls rather than defining a second runtime parameter model.
+**Consequences:** E-18 foundation work (`m-E18-01/02`) precedes or runs alongside the UI/session-specific work in E-17. Reviews should treat any second, UI-only runtime parameter model as a regression.
+
+## D-2026-04-04-009: Chunked evaluation is deferred beyond the first E-18 headless cut
+**Status:** active
+**Context:** The headless and optimization story benefits from a pure callable engine quickly, but chunked evaluation for feedback simulation depends on real stateful execution semantics. The current `IStatefulNode` seam is only a stub and is not sufficient to justify bundling chunked/stateful execution into the initial headless foundation.
+**Decision:** Split E-18 into layers. The first cut covers the shared runtime parameter foundation, evaluation SDK, and headless CLI / sidecar. Advanced analysis modes (sweep, sensitivity, optimization, fitting) build on that. Chunked evaluation waits for a dedicated streaming/stateful execution seam.
+**Consequences:** The sidecar/SDK foundation can ship without solving streaming/stateful execution. Reviews should reject attempts to block the headless foundation on chunked evaluation design.

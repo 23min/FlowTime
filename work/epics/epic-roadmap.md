@@ -31,21 +31,22 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 #### E-10 — Engine Correctness & Analytical Primitives
 
 - **Folder:** `work/epics/E-10-engine-correctness-and-analytics/`
-- **Status:** Phases 0-2 complete, `p3a` and `p3a1` wrapped, remaining Phase 3 gated on E-16
+- **Status:** Phases 0-2 complete, p3a and p3a1 merged to main, remaining Phase 3 gated on E-16
 - **Goal:** Fix P0 correctness bugs, harden engineering quality, align documentation with code, and build the analytical primitives layer (bottleneck ID, cycle time, WIP limits, variability, constraint enforcement, starvation detection) that downstream epics depend on.
 - **Phases:** 0 (bugs) → 1+2 (engineering + docs, parallel) → 3 (analytical primitives)
-- **Key dependency:** Phase 3 unlocks near-term epics. See `ROADMAP.md` dependency graph.
+- **Key dependency:** After E-16, resume Phase 3 in the order p3d → p3c → p3b. See `ROADMAP.md` dependency graph.
 - **Reference:** `docs/architecture/reviews/review-sequenced-plan-2026-03.md` (historical rationale)
 
 #### E-16 — Formula-First Core Purification
 
 - **Folder:** `work/epics/E-16-formula-first-core-purification/`
-- **Status:** Approved — immediate architecture gate after wrapped `m-ec-p3a1`
+- **Status:** Approved, ready to start (m-ec-p3a1 merged to main)
 - **Goal:** Move semantic truth and analytical identity fully into the compiled Core model so the engine remains a deterministic formula evaluator and API/UI layers consume facts rather than reconstructing meaning from strings.
-- **Sequencing:** Runs immediately after `m-ec-p3a1` and before further E-10 Phase 3 expansion (`p3b`, `p3c`, `p3d`).
-- **Key milestones:** compiled semantic references, class truth boundary, runtime analytical descriptor, Core analytical evaluation, warning facts/primitive cleanup, analytical contract + consumer purification
+- **Sequencing:** Runs immediately and before further E-10 Phase 3 expansion (`p3b`, `p3c`, `p3d`).
+- **Key milestones:** m-E16-01 compiled semantic references → m-E16-02 class truth boundary → m-E16-03 runtime analytical descriptor → m-E16-04 Core analytical evaluation → m-E16-05 warning facts/primitive cleanup → m-E16-06 analytical contract + consumer purification
+- **Key decisions:** D-005 (flowLatencyMs to Core), D-006 (descriptor absorbs AnalyticalCapabilities), D-007 (Parallelism typing)
 - **Migration:** Forward-only. Runs, fixtures, and approved goldens are regenerated rather than kept compatible.
-- **Reference:** `docs/architecture/formula-first-engine-refactor-plan.md`
+- **Reference:** `work/epics/E-16-formula-first-core-purification/reference/formula-first-engine-refactor-plan.md`
 
 #### dag-map Library Evaluation (Spike)
 
@@ -56,7 +57,7 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 #### E-11 — Svelte UI (Frontend Rewrite)
 
 - **Folder:** `work/epics/E-11-svelte-ui/`
-- **Status:** M1-M4 complete, M6 in progress
+- **Status:** paused after M6 (M1-M4 + M6 done, M5/M7/M8 remain)
 - **Goal:** Replace Blazor WebAssembly UI with SvelteKit + shadcn-svelte for demo-quality visuals. Independent of engine work.
 - **dag-map:** M3 (topology rendering), M4 (heatmap mode) delivered. M5 (inspector) will need dag-map edge coloring and click events.
 
@@ -68,14 +69,14 @@ These depend on the analytical primitives from Phase 3 (except Telemetry Ingesti
 
 - **Folder:** `work/epics/E-12-dependency-constraints/`
 - **Goal:** Model downstream dependencies as resource constraints with visible bottlenecks and coupling.
-- **Status:** M-10.01 and M-10.02 complete (Option A + B foundations). M-10.03 (MCP enforcement) deferred until runtime constraint enforcement (Phase 3.5) is in place. See `work/gaps.md`.
-- **Depends on:** Phase 3.5 (ConstraintAllocator wired into evaluation pipeline)
+- **Status:** M-10.01 and M-10.02 complete (Option A + B foundations). M-10.03 (MCP enforcement) deferred until runtime constraint enforcement (`p3d`) is in place. See `work/gaps.md`.
+- **Depends on:** `p3d` (ConstraintAllocator wired into evaluation pipeline)
 
 #### E-13 — Path Analysis & Subgraph Queries
 
 - **Folder:** `work/epics/E-13-path-analysis/`
 - **Goal:** Path-level queries and derived metrics (dominant routes, bottleneck attribution, path pain) for UI and MCP.
-- **Depends on:** Phase 3.1 (bottleneck ID), Phase 3.2 (cycle time decomposition)
+- **Depends on:** stable post-E-16 analytical facts, then `p3c` and `p3b` for the richer path diagnostics and what-if path work.
 - **dag-map:** Will need path highlighting, edge width by flow volume, non-path dimming
 - **Related:** `work/gaps.md` (Path Analysis section)
 
@@ -91,7 +92,48 @@ These depend on the analytical primitives from Phase 3 (except Telemetry Ingesti
 - **Goal:** Build the pipeline from real-world data (event logs, traces, sensor feeds) to FlowTime topology + Gold-format series. Includes Gold Builder, Graph Builder (topology inference with confidence scoring), and bundle assembly.
 - **Depends on:** Stable bundle schemas (already in place). Independent of Phase 3 for basic ingestion; Phase 3 makes ingested data interesting.
 - **Validation datasets identified:** BPI Challenge 2012 (process mining), Road Traffic Fines, PeMS + OSM (road traffic), MTA + GTFS (transit). See `work/epics/E-15-telemetry-ingestion/reference/dataset-fitness-and-ingestion-research.md`.
-- **Note:** Should preserve variability (Cv) if Phase 3.4 ships, so ingestion format should be designed with this in mind.
+- **Note:** Should preserve variability (Cv) when `p3c` ships, so ingestion format should be designed with this in mind.
+- **Recommended follow-on:** `work/epics/telemetry-loop-parity/spec.md` before optimization, model fitting, or anomaly automation builds on ingested data.
+
+## Bridge Work (post-purification, pre-advanced leverage)
+
+These are the lowest-risk leverage layers after the E-16 truth gate. They increase usefulness without forcing live sessions or richer orchestration too early.
+
+#### Scenario Overlays & What-If Runs
+
+- **Folder:** `work/epics/overlays/`
+- **Status:** Proposed — recommended after p3c + p3b
+- **Goal:** Deterministic derived runs from a baseline via validated input patches (parallelism, capacity, arrivals, schedules) with explicit provenance and comparison.
+- **Why early:** Clean bridge between a pure engine and scenario exploration; reuses existing run artifacts rather than requiring sessions or streaming state.
+
+#### Telemetry Loop & Parity
+
+- **Folder:** `work/epics/telemetry-loop-parity/`
+- **Status:** Proposed — recommended immediately after the first E-15 dataset path
+- **Goal:** Prove synthetic runs and telemetry replay runs match within defined tolerances before optimization, fitting, or anomaly automation builds on real data.
+- **Why early:** Prevents higher-order features from normalizing ingestion drift.
+
+## Post-Purification Epics (after E-16)
+
+#### E-17 — Interactive What-If Mode
+
+- **Folder:** `work/epics/E-17-interactive-what-if-mode/`
+- **Status:** Future — depends on E-16
+- **Goal:** Live interactive recalculation. Change a parameter via UI slider, see all metrics/charts/heatmaps update instantly (sub-50ms). No recompilation for parameter value changes. The spreadsheet comes alive.
+- **Key milestones:** consume shared runtime parameter foundation, session & push channel, UI parameter controls
+- **Shared foundation:** one runtime parameter model + reevaluation API, owned once and reused by E-18 and E-17.
+- **Depends on:** E-16 plus the shared runtime parameter foundation (built in E-18 m-E18-01/02)
+
+#### E-18 — Headless Pipeline & Optimization
+
+- **Folder:** `work/epics/E-18-headless-pipeline-and-optimization/`
+- **Status:** Future — depends on E-16
+- **Goal:** FlowTime as a callable pure function for pipelines, optimization loops, model fitting against real telemetry, sensitivity analysis, and digital twin architectures. SPICE-inspired analysis modes.
+- **Key milestones:** shared runtime parameter foundation + evaluation SDK, headless CLI / sidecar, parameter sweep & sensitivity, optimization & fitting, chunked evaluation, telemetry I/O
+- **Depends on:** E-16 (pure compiled engine as evaluation function)
+- **Analysis modes:** sweep, optimize, fit, sensitivity, Monte Carlo, feedback/chunked
+- **Recommended sequencing:** m-E18-01/02 foundation first, then E-17 session/push UX, then E-18's richer analysis modes.
+- **Stateful extension note:** chunked evaluation belongs after a dedicated streaming/stateful seam exists; do not make it part of the first headless cut.
 
 ## UI Paradigm Epics (draft — unnumbered until sequenced)
 
@@ -103,7 +145,7 @@ Svelte UI becomes the platform for these new interaction models.
 
 - **Folder:** `work/epics/ui-workbench/`
 - **Goal:** Strip the topology DAG to structure + one color dimension. Build a workbench panel for pinning nodes/edges and inspecting metrics side-by-side.
-- **Depends on:** E-11 M3-M4 (topology + timeline). Supersedes E-11 M5 (Inspector).
+- **Depends on:** E-11 M3-M4 (topology + timeline). Supersedes E-11 M5 (Inspector); does not require full E-11 completion.
 - **Rendering:** SVG first; canvas only if measured performance problems.
 
 #### UI Analytical Views
@@ -131,13 +173,13 @@ Svelte UI becomes the platform for these new interaction models.
 
 - **Folder:** `work/epics/anomaly-detection/`
 - **Goal:** Detect incidents and recurring flow pathologies (retry storms, slow drains, stuck queues) using the time-binned DAG model.
-- **Depends on:** Phase 3.1 (bottleneck ID), Phase 3.6 (starvation/blocking detection) as building blocks.
+- **Depends on:** stable post-E-16 facts, resumed Phase 3 primitives, basic path-analysis context, and telemetry parity before automation against real telemetry.
 
 #### Telemetry Loop & Parity
 
 - **Folder:** `work/epics/telemetry-loop-parity/`
 - **Goal:** Ensure synthetic runs and telemetry replays match within defined tolerances.
-- **Depends on:** Telemetry Ingestion epic.
+- **Depends on:** first E-15 dataset path plus post-E-16 authoritative fact surfaces; should land before fitting/optimization or anomaly automation.
 
 #### UI Layout Motors (Pluggable Layout Engines)
 

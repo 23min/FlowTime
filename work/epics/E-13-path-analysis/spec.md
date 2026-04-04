@@ -6,7 +6,7 @@
 
 This epic defines **path analysis** as a first‑class capability in FlowTime: answering end‑to‑end journey questions across one or more routes in the DAG, over time, using FlowTime’s per‑bin node and edge artifacts.
 
-Path analysis is built on EdgeTimeBin and Classes‑as‑Flows and is consumed by both the UI and MCP server. It is not a replacement for edge overlays; it is a higher‑order analysis layer.
+Path analysis is built on EdgeTimeBin, Classes‑as‑Flows, and the stable post-E-16 fact surfaces exposed by the server. It is consumed by both the UI and MCP server. It is not a replacement for edge overlays; it is a higher‑order analysis layer.
 
 ---
 
@@ -131,9 +131,11 @@ MCP should consume **server‑provided path outputs** (authoritative), not compu
 
 ## 9. Dependencies
 
+- Stable post-E-16 server-provided state/graph facts and contracts
 - EdgeTimeBin (edge series + quality + warnings)
-- Classes as Flows (per‑class edge series)
-- Derived sink/path latency (v1 signal for end‑to‑end latency)
+- Classes as Flows (per-class edge series)
+- Derived sink/path latency (v1 signal for end-to-end latency)
+- Resumed Phase 3 p3c + p3b for richer diagnostics and what-if path work
 
 ---
 
@@ -142,10 +144,10 @@ MCP should consume **server‑provided path outputs** (authoritative), not compu
 This epic will be broken into milestones once the query contract and minimal metrics are approved.
 
 Suggested phases:
-1. Path query contract + subgraph responses.
-2. Volume split + bottleneck attribution (v1).
-3. Path pain + latency estimate (v1).
-4. UI + MCP integration.
+1. Path query contract + subgraph responses on stable post-E-16 fact surfaces.
+2. Volume split + bottleneck attribution (v1) once edge facts are authoritative.
+3. Path pain + latency estimate (v1), then richer comparison/what-if path work after p3c + p3b.
+4. UI + MCP integration; overlay-aware comparisons can layer on later.
 
 ---
 

@@ -30,7 +30,7 @@ The descriptor absorbs `AnalyticalCapabilities` rather than sitting alongside it
 
 1. Runtime nodes carry a compiled analytical descriptor that captures: effective analytical identity, queue/service semantics, cycle-time applicability, warning applicability, queue-origin/source-node facts, node category, and resolved parallelism.
 2. Explicit `serviceWithBuffer` nodes and reference-resolved queue-backed nodes produce identical descriptors using typed references and real fixture shapes, not basename heuristics.
-3. Snapshot/window analytical paths, backlog warnings, flow-latency base composition, and SLA helper logic consume the descriptor rather than reconstructing analytical identity from strings.
+3. Snapshot/window analytical paths, backlog warnings, flow-latency base composition, SLA helper logic, and internal state/graph projection paths consume the descriptor rather than reconstructing analytical identity from strings.
 4. `AnalyticalCapabilities` is deleted. Its capability flags are absorbed into the descriptor. Its computation methods move to the evaluator (m-E16-04 scope, but the descriptor must be designed to support that move).
 5. Adapter-side logical-type inference helpers used for runtime analytical behavior are deleted.
 6. Core and targeted API tests prove parity for both explicit and reference-resolved cases.
@@ -54,6 +54,7 @@ The descriptor absorbs `AnalyticalCapabilities` rather than sitting alongside it
 | `AnalyticalCapabilities.Resolve()` | Core/Metrics/AnalyticalCapabilities.cs:32 | String-based resolution replaced by compiler |
 | `DetermineLogicalType()` (if survived m-E16-01) | StateQueryService.cs:5252 | Adapter-side logicalType inference |
 | `NormalizeKind()` (if survived m-E16-01) | StateQueryService.cs:5240 | String normalization — descriptor has the identity |
+| `IsDlqKind()` (if survived m-E16-01) | StateQueryService.cs:5354 | DLQ classification becomes a compiled fact |
 | `TryResolveServiceWithBufferDefinition()` | StateQueryService.cs:5267 | Queue-origin discovery from strings — now a compiled fact |
 | UI-side `IsServiceLike()` for analytical gating (if any exists) | Various | Replaced by descriptor fact; UI deletion completes in m-E16-06 |
 
@@ -71,6 +72,7 @@ The descriptor absorbs `AnalyticalCapabilities` rather than sitting alongside it
 - Descriptor fields should be facts, not deferred computations.
 - Queue origin and source-node identity should come from compiled references rather than file-name or string-shape inference.
 - Consider an enum for node category rather than strings: `NodeCategory { Expression, Constant, Service, Queue, Dlq, Router }`.
+- Legacy projection hints may still be serialized for compatibility until m-E16-06, but they must be derived from descriptor facts rather than reparsed semantics or local string heuristics.
 
 ## Out of Scope
 

@@ -17,6 +17,8 @@ f(model, parameters, inputs) → outputs
 
 This is the same relationship a circuit simulator (SPICE) has with its netlist: compile once, evaluate many times, vary parameters programmatically. SPICE built an entire ecosystem of analysis modes on this foundation — parameter sweeps, Monte Carlo, optimization, model fitting. FlowTime can do the same for queueing networks.
 
+This epic owns the shared runtime parameter foundation used by both the programmable/headless layer and the interactive UI layer. The parameter model, override surface, and reevaluation API should be built once here and consumed by E-17, not implemented twice.
+
 ## The core insight
 
 Every advanced use case is a composition of "call the evaluation function with different inputs":
@@ -36,6 +38,7 @@ Every advanced use case is a composition of "call the evaluation function with d
 ### In Scope
 
 - **Headless CLI mode** — FlowTime as a pipeline-friendly command: model + params in, results out (JSON/CSV)
+- **Shared runtime parameter foundation** — compiled parameter identities, override points, reevaluation API, and optional enrichment contract for template-authored parameter metadata reused by E-17
 - **Iteration protocol** — keep compiled graph alive, accept new parameter sets per iteration without recompile
 - **Parameter sweep** — evaluate over a grid of parameter values
 - **Optimization** — find parameter values that minimize/maximize an objective subject to constraints
@@ -50,6 +53,15 @@ Every advanced use case is a composition of "call the evaluation function with d
 - WebSocket/SignalR push channel (E-17)
 - New analytical primitives
 - Rewriting the DAG evaluator foundation
+- Chunked/stateful execution semantics in the first headless cut — treat them as a later layer once a dedicated streaming/stateful seam exists
+
+## Execution Layers
+
+To minimize risk, execute this epic in three layers:
+
+1. **Foundation layer:** shared runtime parameter foundation + evaluation SDK + headless CLI / sidecar.
+2. **Analysis layer:** parameter sweep, sensitivity, optimization, and fitting on top of the foundation.
+3. **Stateful layer:** chunked evaluation and richer telemetry adapters only after a dedicated streaming/stateful execution seam exists.
 
 ## Analysis Modes (SPICE-inspired)
 
@@ -137,7 +149,7 @@ FlowTime.Core (E-16: pure compiled engine)
 │
 │  E-17/E-18 shared foundation:
 ├── IdentifyParameters(graph) → Parameter[]
-├── Revaluate(graph, param_overrides) → EvaluatedState
+├── Reevaluate(graph, param_overrides) → EvaluatedState
 │
 │  E-18 specific:
 ├── EvaluateChunk(graph, state_at_t, bins[t..t+n]) → state_at_t+n
@@ -170,11 +182,11 @@ FlowTime.Pipeline (NEW — embeddable SDK)
 
 | ID | Title | Summary |
 |----|-------|---------|
-| m-E18-01 | Evaluation SDK | Clean programmatic API: compile, evaluate, re-evaluate with overrides, identify parameters |
-| m-E18-02 | Headless CLI | Pipeline-friendly CLI with JSON I/O, iteration protocol, parameter override |
+| m-E18-01 | Shared Runtime Parameter Foundation & Evaluation SDK | One runtime parameter model for E-18 and E-17: compile, identify parameters, enrich metadata, re-evaluate with overrides |
+| m-E18-02 | Headless CLI / Sidecar | Pipeline-friendly CLI with JSON I/O, iteration protocol, parameter override, sidecar-first integration path |
 | m-E18-03 | Parameter Sweep & Sensitivity | Sweep mode, sensitivity analysis, comparative output |
 | m-E18-04 | Optimization & Fitting | Objective-based optimization, model fitting against observed data |
-| m-E18-05 | Chunked Evaluation | Bin-chunk evaluation for feedback simulation with external controllers |
+| m-E18-05 | Chunked Evaluation | Bin-chunk evaluation for feedback simulation with external controllers, only after the stateful execution seam exists |
 | m-E18-06 | Telemetry I/O | Standard telemetry format ingestion and emission (Prometheus, OTEL, CSV) |
 
 ## Risks & Open Questions
@@ -183,14 +195,14 @@ FlowTime.Pipeline (NEW — embeddable SDK)
 |----------------|--------|------------|
 | Optimization solver choice (Nelder-Mead vs Bayesian vs gradient-free) | Medium | Start with Nelder-Mead (simple, derivative-free), add Bayesian later |
 | Model fitting convergence for complex topologies | High | Start with small models, add diagnostics for fit quality |
-| Chunked evaluation requires IStatefulNode completion | Medium | Already stubbed in codebase; implement when needed |
+| Chunked evaluation requires a real stateful execution seam, not just the current `IStatefulNode` stubs | High | Defer chunked evaluation to the epic's stateful layer; do not block foundation or analysis layers on it |
 | Objective expression language design | Medium | Start with simple predefined metrics, add expression support later |
 | Telemetry format proliferation | Low | Start with CSV (already supported) and JSON, add OTEL later |
 
 ## Dependencies
 
 - E-16 (Formula-First Core Purification) — must complete first
-- E-17 (Interactive What-If Mode) — shares runtime parameter model foundation; can proceed in parallel for non-overlapping milestones
+- E-17 (Interactive What-If Mode) consumes the shared runtime parameter foundation built here; it should not duplicate the runtime parameter model or reevaluation API
 
 ## Analogies
 
@@ -205,3 +217,4 @@ FlowTime's relationship to these analysis modes is the same as SPICE's relations
 - SPICE analysis modes (.DC, .AC, .TRAN, .STEP, .MC, .OPTIM) as architectural precedent
 - Control theory system identification (Ljung, "System Identification: Theory for the User")
 - [work/epics/E-16-formula-first-core-purification/reference/formula-first-engine-refactor-plan.md](../E-16-formula-first-core-purification/reference/formula-first-engine-refactor-plan.md)
+- [docs/research/flowtime-headless-integration.md](../../../docs/research/flowtime-headless-integration.md)

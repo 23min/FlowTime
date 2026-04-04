@@ -16,7 +16,7 @@ Ensure the **telemetry loop** is a measurable contract, not just a narrative: sy
 ## Scope
 
 ### In Scope
-- Parity criteria for `/state` and `/state_window` outputs.
+- Parity criteria for `/state` and `/state_window` outputs, plus authoritative category/topology facts when they are part of the replay bundle.
 - Diff tooling and automated checks.
 - Tolerance rules and drift classification.
 - Reporting artifacts for regressions.
@@ -32,6 +32,12 @@ Ensure the **telemetry loop** is a measurable contract, not just a narrative: sy
 - Telemetry capture is available via CLI/API.
 - Parity validation is manual or fixture-based; no automated parity harness exists.
 
+## Recommended Sequencing
+
+- Start after E-15 produces the first repeatable dataset path and replayable canonical bundle.
+- Consume post-E-16 authoritative state/graph facts rather than legacy client-side heuristics.
+- Complete before E-18 fitting/optimization or anomaly automation against real telemetry so downstream loops are grounded in measured drift.
+
 ## Parity Principles
 
 - **Contract-first**: use published schemas and stable series keys.
@@ -46,8 +52,9 @@ Ensure the **telemetry loop** is a measurable contract, not just a narrative: sy
 
 ## Dependencies
 
-- Telemetry Ingestion and Canonical Bundles.
-- Engine Semantics Layer.
+- E-15 Telemetry Ingestion and Canonical Bundles for the first replayable dataset path.
+- E-16 Formula-First Core Purification for authoritative analytical/category facts on `/state`, `/state_window`, and `/graph`.
+- Not dependent on overlays or interactive UI; those are downstream consumers of the parity-checked loop.
 
 ## References
 
