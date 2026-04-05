@@ -15,7 +15,7 @@ CL-M-04.01 introduces class-aware modeling across schemas, canonical outputs, an
 - **DTOs & Artifacts:** Model/traffic/classes added to contracts and run/manifest outputs; manifests and run metadata include class inventory.
 - **CLI:** `flow-sim generate` surfaces declared classes; validation errors on undeclared/missing class references.
 - **Docs & Examples:** Class guidance added to authoring/concepts/PMF docs; new sample `examples/class-enabled.yaml`; telemetry guide notes class metadata forward reference.
-- **Follow-up Spec:** `work/milestones/completed/CL-M-04.01.01.md` captures template schema alignment and schema-backed Sim validation as next work.
+- **Follow-up Spec:** `work/epics/completed/classes/CL-M-04.01.01.md` captures template schema alignment and schema-backed Sim validation as next work.
 
 ## Test Coverage
 

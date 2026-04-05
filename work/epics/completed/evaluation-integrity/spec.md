@@ -64,8 +64,8 @@ The following override or injection paths must be pulled into the pre-eval pipel
 
 ## Milestones
 
-- `work/milestones/completed/M-06.01-evaluation-integrity-dag-contract.md` — Evaluation integrity contract, guardrails, and tests.
-- `work/milestones/completed/M-06.02-model-compiler.md` — Compiler extraction and parity validation.
+- `work/epics/completed/evaluation-integrity/M-06.01-evaluation-integrity-dag-contract.md` — Evaluation integrity contract, guardrails, and tests.
+- `work/epics/completed/evaluation-integrity/M-06.02-model-compiler.md` — Compiler extraction and parity validation.
 
 ## References
 

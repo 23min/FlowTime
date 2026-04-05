@@ -29,7 +29,7 @@ SB‑M‑05.03 completes the queue/DLQ DSL work started in SB‑M‑05.02. Any t
 
 ## Known Gaps / Follow-ups
 
-- Router nodes still require helper series for arrivals/served/capacity. `work/milestones/completed/SB-M-05.03.md` documents the router follow-up milestone (“SB-M-05.03-router”) which will give routers the same implicit synthesizer treatment.
+- Router nodes still require helper series for arrivals/served/capacity. `work/epics/completed/service-with-buffer/SB-M-05.03.md` documents the router follow-up milestone (“SB-M-05.03-router”) which will give routers the same implicit synthesizer treatment.
 - Templates that still reference backlog series in expressions (warehouse picker, IT systems, incident retry, manufacturing, network reliability, transportation classes) will be refactored as part of the router/queue follow-up; for now those aliases remain intentional.
 
 ## Verification

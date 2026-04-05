@@ -1,19 +1,25 @@
 # Milestones Directory Layout
 
-The `work/milestones/` folder now mirrors the active roadmap status:
+`work/milestones/` is now a legacy holding area, not the source of truth for active workflow artifacts.
 
-- **Active / Upcoming work** remains at the top level, alongside the shared `tracking/` documents.
-- **Completed milestones** have been archived under `work/milestones/completed/`. Every reference in the repo now points to the files in that subfolder (e.g., `work/milestones/completed/UI-M-03.12.md`).
+Current workflow:
+
+- New and active milestone specs live inside the owning epic folder under `work/epics/<epic>/`.
+- Milestone progress logs live beside the spec as `*-log.md` in that same epic folder.
+
+What remains here:
+
+- `work/milestones/completed/` contains only unresolved legacy milestone specs that do not yet have a defensible epic-local home.
+- `work/milestones/tracking/` contains the matching unresolved legacy logs.
+- Typical remaining families are the pre-epic milestones such as `M-00/M-01/M-02`, `UI-M-00/UI-M-01/UI-M-02`, `SVC-M`, `SYN-M`, and `M-16.00`.
 
 ## Adding a new milestone
 
-1. Author the spec at `work/milestones/<MILESTONE-ID>.md` (only for work that is planned or in progress).
-   - The spec filename may include a descriptive suffix (for example, `FT-M-05.08-servicewithbuffer-inspector.md`).
-   - References elsewhere should use the milestone ID without the suffix (for example, `FT-M-05.08`).
-2. When the milestone ships, move the spec to `work/milestones/completed/` and update references (including the tracking log and release notes).
-3. Keep the tracking document under `work/milestones/tracking/` no matter what stage the milestone is in.
+1. Create the milestone spec inside the owning epic folder, not in `work/milestones/`.
+2. Create the milestone log beside it using the `*-log.md` naming pattern.
+3. Leave this directory unchanged unless you are relocating or documenting unresolved legacy milestones.
 
 ## Quick Links
 
-- **Active Milestone:** See top-level files under `work/milestones/`.
-- **Archive:** See `work/milestones/completed/` for historic milestones across backend, UI, time-travel, and service epics.
+- **Current workflow:** See `work/epics/` for active and completed epic-local milestone specs and logs.
+- **Legacy archive:** See `work/milestones/completed/` and `work/milestones/tracking/` for the residual unmapped pre-epic archive.

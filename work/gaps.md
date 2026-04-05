@@ -81,7 +81,7 @@ M-10.03 scoped MCP-side pattern enforcement: a dependency pattern selector routi
 After Phase 3.5 (runtime constraint enforcement) is complete. At that point, M-10.03 should be re-scoped to include both runtime enforcement and MCP guardrails.
 
 ### Reference
-- Spec: `work/milestones/completed/M-10.03-dependency-mcp-pattern-enforcement.md`
+- Spec: `work/epics/E-12-dependency-constraints/M-10.03-dependency-mcp-pattern-enforcement.md`
 - Review: `docs/architecture/reviews/review-sequenced-plan-2026-03.md` (Phase 3.5, Phase 4.1)
 
 ---
@@ -174,4 +174,3 @@ Addressed by E-16 m-E16-01 (Compiled Semantic References). See D-2026-04-03-007.
 - Should derived path outputs be stored in run artifacts or computed on demand?
 - How should node kind (service/queue/dlq) map to visual differentiation in dag-map?
 - Should the Svelte UI support both operational and full graph views? What layout handles 80+ nodes?
-

@@ -10,7 +10,7 @@ Related architecture background:
 - `work/epics/completed/ai/mcp-modeling-tools.md`
 
 Tracking (Epic 8):
-- `work/milestones/tracking/M-08.01-tracking.md` through `M-08.05-tracking.md`
+- `work/epics/completed/ai/M-08.01-mcp-server-poc-log.md` through `work/epics/completed/ai/M-08.05-mcp-edge-metrics-support-log.md`
 
 ---
 

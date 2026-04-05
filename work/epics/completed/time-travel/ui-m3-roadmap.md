@@ -196,7 +196,7 @@ Purpose: make retries and service time first‑class, end‑to‑end. Start with
   - UI: inspector Service Time chart + horizon; Feature Bar adds “Service Time” color basis with static 400 ms/700 ms thresholds (green/yellow/red).
 
 - TT‑M‑03.30 — UI Overlays (Retries + Service Time)
-  - TT‑M‑03.30.1 — Domain terminology aliases (template ➜ API ➜ UI wiring complete; see `work/milestones/completed/TT-M-03.30.1.md`)
+  - TT‑M‑03.30.1 — Domain terminology aliases (template ➜ API ➜ UI wiring complete; see `work/epics/completed/time-travel/TT-M-03.30.1.md`)
   - Edge overlays: color by RetryRate or Attempts; legend and toggles in Feature Bar; persistence.
   - Derivation stays client-side for 03.30: sample node series from `/state_window` + graph metadata to avoid changing the contract; API `edges` slice moves to 03.31.
   - Node basis: allow coloring by Service Time; tooltip includes S at current bin.
@@ -204,10 +204,10 @@ Purpose: make retries and service time first‑class, end‑to‑end. Start with
 
 - TT‑M‑03.31 — E2E Fixtures, Goldens, Docs (Closeout)
   - Reproducible fixtures; API golden snapshots; UI tests for overlays/basis; operator docs and demo script.
-  - ✅ May 2025 update: `/state_window` now emits retry `edges` (attempts/failures/retryRate) by default; UI consumes server-provided series. Fixture lives at `fixtures/time-travel/retry-service-time/` with README + CSVs. Golden snapshot `state-window-edges-approved.json` pins the payload. Docs + demo checklist captured in `work/milestones/completed/TT-M-03.31.md`.
+  - ✅ May 2025 update: `/state_window` now emits retry `edges` (attempts/failures/retryRate) by default; UI consumes server-provided series. Fixture lives at `fixtures/time-travel/retry-service-time/` with README + CSVs. Golden snapshot `state-window-edges-approved.json` pins the payload. Docs + demo checklist captured in `work/epics/completed/time-travel/TT-M-03.31.md`.
 
 References
-- work/milestones/completed/TT-M-03.28.md
-- work/milestones/completed/TT-M-03.29.md
-- work/milestones/completed/TT-M-03.30.md
-- work/milestones/completed/TT-M-03.31.md
+- work/epics/completed/time-travel/TT-M-03.28.md
+- work/epics/completed/time-travel/TT-M-03.29.md
+- work/epics/completed/time-travel/TT-M-03.30.md
+- work/epics/completed/time-travel/TT-M-03.31.md

@@ -920,7 +920,7 @@ The following items are intentionally deferred from TT‑M‑03.27 — Queues Fi
 - Edge overlays (attempt/success/latency heat on edges)
 - API fallback to reconstruct queue depth from arrivals/served when telemetry omits depth (requires q0 policy and provenance flag)
 
-Reference: `work/milestones/completed/TT-M-03.27.md`
+Reference: `work/epics/completed/time-travel/TT-M-03.27.md`
 
 ---
 
