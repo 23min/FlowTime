@@ -9,6 +9,7 @@ using FlowTime.Contracts.Services;
 using FlowTime.Contracts.TimeTravel;
 using FlowTime.Core.Compiler;
 using FlowTime.Core.Dispatching;
+using FlowTime.Core.Metrics;
 using FlowTime.Core.Models;
 using FlowTime.Core.Services;
 using Microsoft.Extensions.Configuration;
@@ -99,6 +100,25 @@ public sealed class GraphService
             .Where(n => !string.IsNullOrWhiteSpace(n.Id))
             .ToDictionary(n => n.Id!, StringComparer.OrdinalIgnoreCase);
 
+        if (modelDefinition.Topology?.Nodes != null)
+        {
+            foreach (var topoNode in modelDefinition.Topology.Nodes)
+            {
+                if (string.IsNullOrWhiteSpace(topoNode.Id) || nodeDefinitionsById.ContainsKey(topoNode.Id))
+                {
+                    continue;
+                }
+
+                nodeDefinitionsById[topoNode.Id] = new NodeDefinition
+                {
+                    Id = topoNode.Id,
+                    Kind = topoNode.Kind ?? "service",
+                    DispatchSchedule = topoNode.DispatchSchedule,
+                    Metadata = topoNode.Semantics?.Metadata
+                };
+            }
+        }
+
         var allowedKinds = options.Kinds?.Count > 0
             ? new HashSet<string>(options.Kinds, StringComparer.OrdinalIgnoreCase)
             : new HashSet<string>(mode == GraphQueryMode.Full ? defaultFullKinds : defaultOperationalKinds, StringComparer.OrdinalIgnoreCase);
@@ -128,8 +148,13 @@ public sealed class GraphService
             var kind = string.IsNullOrWhiteSpace(topoNode.Kind)
                 ? nodeDefinition?.Kind ?? "service"
                 : topoNode.Kind!;
-            var logicalType = DetermineLogicalType(kind, runtimeNode, nodeDefinitionsById, out var serviceWithBufferDefinition);
-            if (!allowedKinds.Contains(kind))
+            var analytical = runtimeNode is not null && runtimeNode.Analytical.Identity != AnalyticalIdentity.Unknown
+                ? runtimeNode.Analytical
+                : runtimeNode is not null
+                    ? AnalyticalDescriptorCompiler.Build(runtimeNode.Id, runtimeNode.Kind, runtimeNode.Semantics, nodeDefinitionsById)
+                    : CompileAnalyticalDescriptor(topoNode.Id, kind, topoNode.Semantics?.QueueDepth, topoNode.Semantics?.Parallelism, nodeDefinitionsById);
+            var logicalType = ProjectLogicalType(kind, analytical);
+            if (!allowedKinds.Contains(kind) && !allowedKinds.Contains(logicalType))
             {
                 continue;
             }
@@ -170,9 +195,13 @@ public sealed class GraphService
             {
                 dispatchSchedule = ConvertSchedule(topoNode.DispatchSchedule);
             }
-            if (dispatchSchedule is null && serviceWithBufferDefinition is not null)
+            if (dispatchSchedule is null &&
+                !string.IsNullOrWhiteSpace(analytical.QueueSourceNodeId) &&
+                !string.Equals(analytical.QueueSourceNodeId, topoNode.Id, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(analytical.QueueSourceNodeId, "self", StringComparison.OrdinalIgnoreCase) &&
+                nodeDefinitionsById.TryGetValue(analytical.QueueSourceNodeId, out var sourceDefinition))
             {
-                dispatchSchedule = ConvertSchedule(serviceWithBufferDefinition.DispatchSchedule);
+                dispatchSchedule = ConvertSchedule(sourceDefinition.DispatchSchedule);
             }
 
             AddOrReplaceNode(new GraphNode
@@ -283,7 +312,7 @@ public sealed class GraphService
                 {
                     Id = nodeDef.Id,
                     Kind = displayKind,
-                    LogicalType = NormalizeKind(actualKind),
+                    LogicalType = ProjectLogicalType(actualKind, CompileAnalyticalDescriptor(nodeDef.Id, actualKind, queueDepth: null, parallelism: null, nodeDefinitionsById)),
                     Semantics = semantics,
                     DispatchSchedule = TryBuildDispatchSchedule(nodeDefinitionsById, nodeDef.Id)
                 });
@@ -500,46 +529,49 @@ public sealed class GraphService
         };
     }
 
-    private static string DetermineLogicalType(
-        string kind,
-        Node? node,
-        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
-        out NodeDefinition? serviceWithBufferDefinition)
+    private static string ProjectLogicalType(string? kind, AnalyticalDescriptor analytical)
     {
-        serviceWithBufferDefinition = null;
-        var normalizedKind = NormalizeKind(kind);
-
-        if (node?.Semantics is not null && normalizedKind is "queue" or "service")
+        return analytical.Identity switch
         {
-            serviceWithBufferDefinition = TryResolveServiceWithBufferDefinition(nodeDefinitions, node.Semantics.QueueDepthRef);
-            if (serviceWithBufferDefinition is not null)
-            {
-                return "serviceWithBuffer";
-            }
-        }
-
-        return normalizedKind;
+            AnalyticalIdentity.ServiceWithBuffer => "serviceWithBuffer",
+            AnalyticalIdentity.Service => "service",
+            AnalyticalIdentity.Queue => "queue",
+            AnalyticalIdentity.Dlq => "dlq",
+            AnalyticalIdentity.Router => "router",
+            AnalyticalIdentity.External => "external",
+            AnalyticalIdentity.Sink => "sink",
+            AnalyticalIdentity.Dependency => "dependency",
+            _ => NormalizeAuthoredKind(kind)
+        };
     }
 
-    private static NodeDefinition? TryResolveServiceWithBufferDefinition(
-        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
-        CompiledSeriesReference? reference)
-    {
-        var candidateId = reference?.ProducerIdCandidate;
-        if (string.IsNullOrWhiteSpace(candidateId) ||
-            string.Equals(candidateId, "self", StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
-
-        return nodeDefinitions.TryGetValue(candidateId, out var definition) &&
-            string.Equals(definition.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase)
-            ? definition
-            : null;
-    }
-
-    private static string NormalizeKind(string? kind) =>
+    private static string NormalizeAuthoredKind(string? kind) =>
         string.IsNullOrWhiteSpace(kind) ? "service" : kind.Trim().ToLowerInvariant();
+
+    private static AnalyticalDescriptor CompileAnalyticalDescriptor(
+        string nodeId,
+        string? kind,
+        string? queueDepth,
+        object? parallelism,
+        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions)
+    {
+        var normalizedQueueDepth = string.IsNullOrWhiteSpace(queueDepth) ? null : queueDepth.Trim();
+        var parallelismRef = SemanticReferenceResolver.ParseParallelismReference(parallelism);
+
+        return AnalyticalDescriptorCompiler.Build(
+            nodeId,
+            kind,
+            new NodeSemantics
+            {
+                Arrivals = string.Empty,
+                Served = string.Empty,
+                QueueDepth = normalizedQueueDepth,
+                QueueDepthRef = SemanticReferenceResolver.ParseOptionalSeriesReference(normalizedQueueDepth),
+                ParallelismRawText = parallelismRef?.RawText,
+                ParallelismRef = parallelismRef
+            },
+            nodeDefinitions);
+    }
 
     private static string? NormalizeParallelismLiteral(object? value)
     {

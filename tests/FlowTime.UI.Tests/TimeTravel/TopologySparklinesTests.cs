@@ -82,4 +82,134 @@ public sealed class TopologySparklinesTests
         var missing = topology.TestGetNodesMissingSparkline();
         Assert.Empty(missing);
     }
+
+    [Fact]
+    public void BuildNodeSparklines_MarksPromotedExpressionNodesMissingWhenNoSeriesExist()
+    {
+        var metadata = new TimeTravelStateMetadataDto
+        {
+            RunId = "run",
+            TemplateId = "template",
+            Mode = "full",
+            Schema = new TimeTravelSchemaMetadataDto { Id = "schema", Version = "1.0.0", Hash = "hash" },
+            Storage = new TimeTravelStorageDescriptorDto()
+        };
+
+        var window = new TimeTravelStateWindowDto
+        {
+            Metadata = metadata,
+            Window = new TimeTravelWindowSliceDto { StartBin = 0, EndBin = 0, BinCount = 1 },
+            TimestampsUtc = Array.Empty<DateTimeOffset>(),
+            Nodes = Array.Empty<TimeTravelNodeSeriesDto>()
+        };
+
+        var exprNode = new TopologyNode(
+            "expr_promoted", "service", "expr",
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            0,
+            0,
+            0,
+            0,
+            false,
+            new TopologyNodeSemantics(
+                Arrivals: null,
+                Served: null,
+                Errors: null,
+                Attempts: null,
+                Failures: null,
+                ExhaustedFailures: null,
+                RetryEcho: null,
+                RetryBudgetRemaining: null,
+                Queue: null,
+                Capacity: null,
+                Parallelism: null,
+                Series: null,
+                Expression: null,
+                Distribution: null,
+                InlineValues: null,
+                Aliases: null));
+
+        var graph = new TopologyGraph(
+            new[] { exprNode },
+            Array.Empty<TopologyEdge>());
+
+        var topology = new Topology();
+        topology.TestSetWindowData(window);
+        topology.TestSetTopologyGraph(graph);
+        topology.TestBuildNodeSparklines();
+
+        var missing = topology.TestGetNodesMissingSparkline();
+        Assert.Contains("expr_promoted", missing);
+    }
+
+    [Fact]
+    public void BuildNodeSparklines_MarksPromotedWindowExpressionNodesMissingWhenSeriesAreEmpty()
+    {
+        var metadata = new TimeTravelStateMetadataDto
+        {
+            RunId = "run",
+            TemplateId = "template",
+            Mode = "full",
+            Schema = new TimeTravelSchemaMetadataDto { Id = "schema", Version = "1.0.0", Hash = "hash" },
+            Storage = new TimeTravelStorageDescriptorDto()
+        };
+
+        var window = new TimeTravelStateWindowDto
+        {
+            Metadata = metadata,
+            Window = new TimeTravelWindowSliceDto { StartBin = 0, EndBin = 0, BinCount = 1 },
+            TimestampsUtc = Array.Empty<DateTimeOffset>(),
+            Nodes = new[]
+            {
+                new TimeTravelNodeSeriesDto
+                {
+                    Id = "expr_promoted_window",
+                    Kind = "service",
+                    LogicalType = "expr",
+                    Series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+                }
+            }
+        };
+
+        var graph = new TopologyGraph(
+            new[]
+            {
+                new TopologyNode(
+                    "expr_promoted_window", "service", "expr",
+                    Array.Empty<string>(),
+                    Array.Empty<string>(),
+                    0,
+                    0,
+                    0,
+                    0,
+                    false,
+                    new TopologyNodeSemantics(
+                        Arrivals: null,
+                        Served: null,
+                        Errors: null,
+                        Attempts: null,
+                        Failures: null,
+                        ExhaustedFailures: null,
+                        RetryEcho: null,
+                        RetryBudgetRemaining: null,
+                        Queue: null,
+                        Capacity: null,
+                        Parallelism: null,
+                        Series: null,
+                        Expression: null,
+                        Distribution: null,
+                        InlineValues: null,
+                        Aliases: null))
+            },
+            Array.Empty<TopologyEdge>());
+
+        var topology = new Topology();
+        topology.TestSetWindowData(window);
+        topology.TestSetTopologyGraph(graph);
+        topology.TestBuildNodeSparklines();
+
+        var missing = topology.TestGetNodesMissingSparkline();
+        Assert.Contains("expr_promoted_window", missing);
+    }
 }

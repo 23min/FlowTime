@@ -144,7 +144,7 @@ internal static class GraphMapper
 
     private static double ResolvehorizontalSpacing(NodeBuilder builder, LayoutMode layout)
     {
-            var category = Classify(builder.Kind, builder.LogicalType);
+        var category = Classify(builder.LogicalType);
         if (category == NodeCategory.Expression || category == NodeCategory.Constant)
         {
             return layout == LayoutMode.HappyPath
@@ -224,15 +224,14 @@ internal static class GraphMapper
         return layerByNode;
     }
 
-    private static NodeCategory Classify(string? kind, string? logicalType = null)
+    private static NodeCategory Classify(string? logicalType)
     {
-        var candidate = string.IsNullOrWhiteSpace(logicalType) ? kind : logicalType;
-        if (string.IsNullOrWhiteSpace(candidate))
+        if (string.IsNullOrWhiteSpace(logicalType))
         {
             return NodeCategory.Service;
         }
 
-        return candidate.Trim().ToLowerInvariant() switch
+        return logicalType.Trim().ToLowerInvariant() switch
         {
             "expr" or "expression" => NodeCategory.Expression,
             "const" or "constant" or "pmf" => NodeCategory.Constant,
@@ -250,7 +249,7 @@ internal static class GraphMapper
         var toRemove = nodeBuilders.Values
             .Where(builder =>
             {
-                var category = Classify(builder.Kind, builder.LogicalType);
+                var category = Classify(builder.LogicalType);
                 if (category == NodeCategory.Service)
                 {
                     return false;
@@ -301,7 +300,7 @@ internal static class GraphMapper
 
         var categoryById = nodeBuilders.Values.ToDictionary(
             b => b.Id,
-            b => Classify(b.Kind, b.LogicalType),
+            b => Classify(b.LogicalType),
             StringComparer.OrdinalIgnoreCase);
 
         var laneByNode = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -758,7 +757,7 @@ internal static class GraphMapper
             Id = node.Id ?? throw new ArgumentException("Graph node id is required.", nameof(node));
             Kind = node.Kind ?? "unknown";
             LogicalType = string.IsNullOrWhiteSpace(node.LogicalType)
-                ? Kind
+                ? string.Empty
                 : node.LogicalType!;
             NodeRole = node.NodeRole;
             Ui = node.Ui;

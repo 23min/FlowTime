@@ -4,104 +4,114 @@ using Xunit;
 namespace FlowTime.Core.Tests.Metrics;
 
 /// <summary>
-/// Tests for AnalyticalCapabilities resolution — AC-1 and AC-3.
-/// Verifies that capability flags are correctly derived from node kind,
-/// logicalType, and available input series.
+/// Tests for compiled analytical descriptor facts and single-bin evaluation.
 /// </summary>
-public class AnalyticalCapabilitiesTests
+public class AnalyticalDescriptorTests
 {
-    // ── AC-1: Capability resolution from kind ──
-
     [Fact]
     public void ServiceWithBuffer_Explicit_HasAllCapabilities()
     {
-        var caps = AnalyticalCapabilities.Resolve(kind: "serviceWithBuffer");
+        var descriptor = AnalyticalDescriptorTestFactory.ForKind("serviceWithBuffer");
 
-        Assert.True(caps.HasQueueSemantics);
-        Assert.True(caps.HasServiceSemantics);
-        Assert.True(caps.HasCycleTimeDecomposition);
-        Assert.True(caps.StationarityWarningApplicable);
+        Assert.Equal(AnalyticalIdentity.ServiceWithBuffer, descriptor.Identity);
+        Assert.Equal(AnalyticalNodeCategory.Service, descriptor.Category);
+        Assert.True(descriptor.HasQueueSemantics);
+        Assert.True(descriptor.HasServiceSemantics);
+        Assert.True(descriptor.HasCycleTimeDecomposition);
+        Assert.True(descriptor.StationarityWarningApplicable);
     }
 
     [Fact]
     public void ServiceWithBuffer_LogicalType_IdenticalToExplicit()
     {
-        var explicit_ = AnalyticalCapabilities.Resolve(kind: "serviceWithBuffer");
-        var resolved = AnalyticalCapabilities.Resolve(kind: "service", logicalType: "serviceWithBuffer");
+        var explicitDescriptor = AnalyticalDescriptorTestFactory.ForKind("serviceWithBuffer");
+        var resolvedDescriptor = AnalyticalDescriptorTestFactory.ResolvedServiceWithBuffer();
 
-        Assert.Equal(explicit_.HasQueueSemantics, resolved.HasQueueSemantics);
-        Assert.Equal(explicit_.HasServiceSemantics, resolved.HasServiceSemantics);
-        Assert.Equal(explicit_.HasCycleTimeDecomposition, resolved.HasCycleTimeDecomposition);
-        Assert.Equal(explicit_.StationarityWarningApplicable, resolved.StationarityWarningApplicable);
+        Assert.Equal(explicitDescriptor.Identity, resolvedDescriptor.Identity);
+        Assert.Equal(explicitDescriptor.Category, resolvedDescriptor.Category);
+        Assert.Equal(explicitDescriptor.HasQueueSemantics, resolvedDescriptor.HasQueueSemantics);
+        Assert.Equal(explicitDescriptor.HasServiceSemantics, resolvedDescriptor.HasServiceSemantics);
+        Assert.Equal(explicitDescriptor.HasCycleTimeDecomposition, resolvedDescriptor.HasCycleTimeDecomposition);
+        Assert.Equal(explicitDescriptor.StationarityWarningApplicable, resolvedDescriptor.StationarityWarningApplicable);
     }
 
     [Fact]
     public void Queue_HasQueueSemanticsOnly()
     {
-        var caps = AnalyticalCapabilities.Resolve(kind: "queue");
+        var descriptor = AnalyticalDescriptorTestFactory.ForKind("queue");
 
-        Assert.True(caps.HasQueueSemantics);
-        Assert.False(caps.HasServiceSemantics);
-        Assert.False(caps.HasCycleTimeDecomposition);
-        Assert.True(caps.StationarityWarningApplicable);
+        Assert.Equal(AnalyticalIdentity.Queue, descriptor.Identity);
+        Assert.Equal(AnalyticalNodeCategory.Queue, descriptor.Category);
+        Assert.True(descriptor.HasQueueSemantics);
+        Assert.False(descriptor.HasServiceSemantics);
+        Assert.False(descriptor.HasCycleTimeDecomposition);
+        Assert.True(descriptor.StationarityWarningApplicable);
     }
 
     [Fact]
     public void Dlq_HasQueueSemanticsOnly()
     {
-        var caps = AnalyticalCapabilities.Resolve(kind: "dlq");
+        var descriptor = AnalyticalDescriptorTestFactory.ForKind("dlq");
 
-        Assert.True(caps.HasQueueSemantics);
-        Assert.False(caps.HasServiceSemantics);
-        Assert.False(caps.HasCycleTimeDecomposition);
-        Assert.True(caps.StationarityWarningApplicable);
+        Assert.Equal(AnalyticalIdentity.Dlq, descriptor.Identity);
+        Assert.Equal(AnalyticalNodeCategory.Dlq, descriptor.Category);
+        Assert.True(descriptor.HasQueueSemantics);
+        Assert.False(descriptor.HasServiceSemantics);
+        Assert.False(descriptor.HasCycleTimeDecomposition);
+        Assert.True(descriptor.StationarityWarningApplicable);
     }
 
     [Fact]
     public void Service_HasServiceSemanticsOnly()
     {
-        var caps = AnalyticalCapabilities.Resolve(kind: "service");
+        var descriptor = AnalyticalDescriptorTestFactory.ForKind("service");
 
-        Assert.False(caps.HasQueueSemantics);
-        Assert.True(caps.HasServiceSemantics);
-        Assert.False(caps.HasCycleTimeDecomposition);
-        Assert.False(caps.StationarityWarningApplicable);
+        Assert.Equal(AnalyticalIdentity.Service, descriptor.Identity);
+        Assert.Equal(AnalyticalNodeCategory.Service, descriptor.Category);
+        Assert.False(descriptor.HasQueueSemantics);
+        Assert.True(descriptor.HasServiceSemantics);
+        Assert.False(descriptor.HasCycleTimeDecomposition);
+        Assert.False(descriptor.StationarityWarningApplicable);
     }
 
     [Fact]
-    public void Const_HasNoAnalyticalCapabilities()
+    public void Const_HasNoAnalyticalDescriptorFacts()
     {
-        var caps = AnalyticalCapabilities.Resolve(kind: "const");
+        var descriptor = AnalyticalDescriptorTestFactory.ForKind("const");
 
-        Assert.False(caps.HasQueueSemantics);
-        Assert.False(caps.HasServiceSemantics);
-        Assert.False(caps.HasCycleTimeDecomposition);
-        Assert.False(caps.StationarityWarningApplicable);
+        Assert.Equal(AnalyticalIdentity.Constant, descriptor.Identity);
+        Assert.Equal(AnalyticalNodeCategory.Constant, descriptor.Category);
+        Assert.False(descriptor.HasQueueSemantics);
+        Assert.False(descriptor.HasServiceSemantics);
+        Assert.False(descriptor.HasCycleTimeDecomposition);
+        Assert.False(descriptor.StationarityWarningApplicable);
     }
 
     [Fact]
-    public void Expression_HasNoAnalyticalCapabilities()
+    public void Expression_HasNoAnalyticalDescriptorFacts()
     {
-        var caps = AnalyticalCapabilities.Resolve(kind: "expression");
+        var descriptor = AnalyticalDescriptorTestFactory.ForKind("expression");
 
-        Assert.False(caps.HasQueueSemantics);
-        Assert.False(caps.HasServiceSemantics);
-        Assert.False(caps.HasCycleTimeDecomposition);
-        Assert.False(caps.StationarityWarningApplicable);
+        Assert.Equal(AnalyticalIdentity.Expression, descriptor.Identity);
+        Assert.Equal(AnalyticalNodeCategory.Expression, descriptor.Category);
+        Assert.False(descriptor.HasQueueSemantics);
+        Assert.False(descriptor.HasServiceSemantics);
+        Assert.False(descriptor.HasCycleTimeDecomposition);
+        Assert.False(descriptor.StationarityWarningApplicable);
     }
 
     [Fact]
-    public void Pmf_HasNoAnalyticalCapabilities()
+    public void Pmf_HasNoAnalyticalDescriptorFacts()
     {
-        var caps = AnalyticalCapabilities.Resolve(kind: "pmf");
+        var descriptor = AnalyticalDescriptorTestFactory.ForKind("pmf");
 
-        Assert.False(caps.HasQueueSemantics);
-        Assert.False(caps.HasServiceSemantics);
-        Assert.False(caps.HasCycleTimeDecomposition);
-        Assert.False(caps.StationarityWarningApplicable);
+        Assert.Equal(AnalyticalIdentity.Constant, descriptor.Identity);
+        Assert.Equal(AnalyticalNodeCategory.Constant, descriptor.Category);
+        Assert.False(descriptor.HasQueueSemantics);
+        Assert.False(descriptor.HasServiceSemantics);
+        Assert.False(descriptor.HasCycleTimeDecomposition);
+        Assert.False(descriptor.StationarityWarningApplicable);
     }
-
-    // ── AC-1: Case insensitivity and normalization ──
 
     [Theory]
     [InlineData("ServiceWithBuffer")]
@@ -109,10 +119,11 @@ public class AnalyticalCapabilitiesTests
     [InlineData(" serviceWithBuffer ")]
     public void KindResolution_IsCaseInsensitiveAndTrimmed(string kind)
     {
-        var caps = AnalyticalCapabilities.Resolve(kind: kind);
+        var descriptor = AnalyticalDescriptorTestFactory.ForKind(kind);
 
-        Assert.True(caps.HasQueueSemantics);
-        Assert.True(caps.HasServiceSemantics);
+        Assert.Equal(AnalyticalIdentity.ServiceWithBuffer, descriptor.Identity);
+        Assert.True(descriptor.HasQueueSemantics);
+        Assert.True(descriptor.HasServiceSemantics);
     }
 
     [Theory]
@@ -121,72 +132,54 @@ public class AnalyticalCapabilitiesTests
     [InlineData("  ")]
     public void NullOrEmptyKind_DefaultsToService(string? kind)
     {
-        var caps = AnalyticalCapabilities.Resolve(kind: kind);
+        var descriptor = AnalyticalDescriptorTestFactory.ForKind(kind);
 
-        Assert.False(caps.HasQueueSemantics);
-        Assert.True(caps.HasServiceSemantics);
-        Assert.False(caps.HasCycleTimeDecomposition);
+        Assert.Equal(AnalyticalIdentity.Service, descriptor.Identity);
+        Assert.False(descriptor.HasQueueSemantics);
+        Assert.True(descriptor.HasServiceSemantics);
+        Assert.False(descriptor.HasCycleTimeDecomposition);
     }
-
-    // ── AC-1: LogicalType overrides kind for capability resolution ──
 
     [Fact]
     public void LogicalType_ServiceWithBuffer_OverridesServiceKind()
     {
-        var caps = AnalyticalCapabilities.Resolve(kind: "service", logicalType: "serviceWithBuffer");
+        var descriptor = AnalyticalDescriptorTestFactory.ResolvedServiceWithBuffer();
 
-        Assert.True(caps.HasQueueSemantics);
-        Assert.True(caps.HasServiceSemantics);
-        Assert.True(caps.HasCycleTimeDecomposition);
+        Assert.Equal(AnalyticalIdentity.ServiceWithBuffer, descriptor.Identity);
+        Assert.Equal("BufferNode", descriptor.QueueSourceNodeId);
+        Assert.True(descriptor.HasQueueSemantics);
+        Assert.True(descriptor.HasServiceSemantics);
+        Assert.True(descriptor.HasCycleTimeDecomposition);
     }
 
     [Fact]
     public void LogicalType_Null_DoesNotOverride()
     {
-        var caps = AnalyticalCapabilities.Resolve(kind: "service", logicalType: null);
+        var descriptor = AnalyticalDescriptorTestFactory.ForKind("service");
 
-        Assert.False(caps.HasQueueSemantics);
-        Assert.True(caps.HasServiceSemantics);
+        Assert.False(descriptor.HasQueueSemantics);
+        Assert.True(descriptor.HasServiceSemantics);
     }
-
-    // ── AC-1: CycleTimeDecomposition requires both queue AND service ──
 
     [Fact]
     public void CycleTimeDecomposition_RequiresBothQueueAndService()
     {
-        var queueOnly = AnalyticalCapabilities.Resolve(kind: "queue");
-        var serviceOnly = AnalyticalCapabilities.Resolve(kind: "service");
-        var both = AnalyticalCapabilities.Resolve(kind: "serviceWithBuffer");
+        var queueOnly = AnalyticalDescriptorTestFactory.ForKind("queue");
+        var serviceOnly = AnalyticalDescriptorTestFactory.ForKind("service");
+        var both = AnalyticalDescriptorTestFactory.ForKind("serviceWithBuffer");
 
         Assert.False(queueOnly.HasCycleTimeDecomposition);
         Assert.False(serviceOnly.HasCycleTimeDecomposition);
         Assert.True(both.HasCycleTimeDecomposition);
     }
 
-    // ── AC-1: EffectiveKind reflects the resolved type ──
-
-    [Fact]
-    public void EffectiveKind_ReflectsLogicalTypeWhenPresent()
-    {
-        var caps = AnalyticalCapabilities.Resolve(kind: "service", logicalType: "serviceWithBuffer");
-        Assert.Equal("servicewithbuffer", caps.EffectiveKind);
-    }
-
-    [Fact]
-    public void EffectiveKind_ReflectsKindWhenNoLogicalType()
-    {
-        var caps = AnalyticalCapabilities.Resolve(kind: "queue");
-        Assert.Equal("queue", caps.EffectiveKind);
-    }
-
-    // ── AC-3: Finite-value safety in computation ──
-
     [Fact]
     public void ComputeBin_NaNInputs_ReturnsNulls()
     {
-        var caps = AnalyticalCapabilities.Resolve(kind: "serviceWithBuffer");
+        var descriptor = AnalyticalDescriptorTestFactory.ForKind("serviceWithBuffer");
 
-        var result = caps.ComputeBin(
+        var result = AnalyticalEvaluator.ComputeBin(
+            descriptor,
             queueDepth: double.NaN,
             served: double.NaN,
             processingTimeMsSum: double.NaN,
@@ -202,9 +195,10 @@ public class AnalyticalCapabilitiesTests
     [Fact]
     public void ComputeBin_InfinityInputs_ReturnsNulls()
     {
-        var caps = AnalyticalCapabilities.Resolve(kind: "serviceWithBuffer");
+        var descriptor = AnalyticalDescriptorTestFactory.ForKind("serviceWithBuffer");
 
-        var result = caps.ComputeBin(
+        var result = AnalyticalEvaluator.ComputeBin(
+            descriptor,
             queueDepth: double.PositiveInfinity,
             served: 5,
             processingTimeMsSum: double.NegativeInfinity,
@@ -220,9 +214,10 @@ public class AnalyticalCapabilitiesTests
     [Fact]
     public void ComputeBin_ValidInputs_ServiceWithBuffer_ReturnsAllMetrics()
     {
-        var caps = AnalyticalCapabilities.Resolve(kind: "serviceWithBuffer");
+        var descriptor = AnalyticalDescriptorTestFactory.ForKind("serviceWithBuffer");
 
-        var result = caps.ComputeBin(
+        var result = AnalyticalEvaluator.ComputeBin(
+            descriptor,
             queueDepth: 10,
             served: 5,
             processingTimeMsSum: 500,
@@ -238,10 +233,11 @@ public class AnalyticalCapabilitiesTests
     [Fact]
     public void ComputeBin_ServiceOnly_NoQueueMetrics()
     {
-        var caps = AnalyticalCapabilities.Resolve(kind: "service");
+        var descriptor = AnalyticalDescriptorTestFactory.ForKind("service");
 
-        var result = caps.ComputeBin(
-            queueDepth: 10,  // provided but should be ignored — service nodes don't have queue semantics
+        var result = AnalyticalEvaluator.ComputeBin(
+            descriptor,
+            queueDepth: 10,
             served: 5,
             processingTimeMsSum: 500,
             servedCount: 10,
@@ -249,34 +245,36 @@ public class AnalyticalCapabilitiesTests
 
         Assert.Null(result.QueueTimeMs);
         Assert.Equal(50.0, result.ServiceTimeMs);
-        Assert.Equal(50.0, result.CycleTimeMs);  // falls back to service time only
+        Assert.Equal(50.0, result.CycleTimeMs);
         Assert.Equal(1.0, result.FlowEfficiency);
     }
 
     [Fact]
     public void ComputeBin_QueueOnly_NoServiceMetrics()
     {
-        var caps = AnalyticalCapabilities.Resolve(kind: "queue");
+        var descriptor = AnalyticalDescriptorTestFactory.ForKind("queue");
 
-        var result = caps.ComputeBin(
+        var result = AnalyticalEvaluator.ComputeBin(
+            descriptor,
             queueDepth: 10,
             served: 5,
-            processingTimeMsSum: 500,  // provided but should be ignored — queue nodes don't have service semantics
+            processingTimeMsSum: 500,
             servedCount: 10,
             binMs: 60_000);
 
         Assert.Equal(120_000.0, result.QueueTimeMs);
         Assert.Null(result.ServiceTimeMs);
-        Assert.Equal(120_000.0, result.CycleTimeMs);  // queue time only
-        Assert.Null(result.FlowEfficiency);  // no service time → no efficiency
+        Assert.Equal(120_000.0, result.CycleTimeMs);
+        Assert.Null(result.FlowEfficiency);
     }
 
     [Fact]
-    public void ComputeBin_ComputedNode_ReturnsAllNulls()
+    public void ComputeBin_ComputedNode_NoMetrics()
     {
-        var caps = AnalyticalCapabilities.Resolve(kind: "const");
+        var descriptor = AnalyticalDescriptorTestFactory.ForKind("const");
 
-        var result = caps.ComputeBin(
+        var result = AnalyticalEvaluator.ComputeBin(
+            descriptor,
             queueDepth: 10,
             served: 5,
             processingTimeMsSum: 500,
@@ -290,21 +288,21 @@ public class AnalyticalCapabilitiesTests
     }
 
     [Fact]
-    public void ComputeBin_NaN_ProducedByDivision_ReturnsNull()
+    public void ComputeBin_ZeroServed_NoQueueTimeOrLatency()
     {
-        // 0/0 in IEEE 754 produces NaN — must be caught
-        var caps = AnalyticalCapabilities.Resolve(kind: "serviceWithBuffer");
+        var descriptor = AnalyticalDescriptorTestFactory.ForKind("serviceWithBuffer");
 
-        var result = caps.ComputeBin(
-            queueDepth: 0,
+        var result = AnalyticalEvaluator.ComputeBin(
+            descriptor,
+            queueDepth: 10,
             served: 0,
-            processingTimeMsSum: 0,
-            servedCount: 0,
+            processingTimeMsSum: 500,
+            servedCount: 10,
             binMs: 60_000);
 
         Assert.Null(result.QueueTimeMs);
-        Assert.Null(result.ServiceTimeMs);
-        Assert.Null(result.CycleTimeMs);
-        Assert.Null(result.FlowEfficiency);
+        Assert.Equal(50.0, result.ServiceTimeMs);
+        Assert.Equal(50.0, result.CycleTimeMs);
+        Assert.Null(result.LatencyMinutes);
     }
 }

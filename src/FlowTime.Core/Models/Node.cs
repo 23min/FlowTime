@@ -1,3 +1,5 @@
+using FlowTime.Core.Metrics;
+
 namespace FlowTime.Core.Models;
 
 public sealed record Node
@@ -9,6 +11,7 @@ public sealed record Node
     public UiHints? Ui { get; init; }
     public IReadOnlyList<string>? Constraints { get; init; }
     public required NodeSemantics Semantics { get; init; }
+    public AnalyticalDescriptor Analytical { get; init; } = AnalyticalDescriptor.None;
     public InitialCondition? InitialCondition { get; init; }
     public DispatchScheduleDefinition? DispatchSchedule { get; init; }
 }

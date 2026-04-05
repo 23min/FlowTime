@@ -32,6 +32,23 @@ public sealed class TopologyInspectorTabsTests
     }
 
     [Fact]
+    public void Topology_InspectorTabs_UsesLogicalTypeForPromotedExpressionNodes()
+    {
+        var topology = new Topology();
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("expr-promoted", "service", "expr", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics()),
+                new TopologyNode("svc-1", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 1, 0, 0, false, EmptySemantics())
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var expressionTabs = topology.TestGetInspectorTabsForNode("expr-promoted");
+
+        Assert.Contains("Expression", expressionTabs);
+    }
+
+    [Fact]
     public void Topology_InspectorTabs_PreservesSelectionWhileOpen()
     {
         var topology = new Topology();

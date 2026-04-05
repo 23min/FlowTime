@@ -1789,8 +1789,8 @@
             }
 
             for (const [, meta] of nodeMap.entries()) {
-                const kind = String(meta.kind || '').toLowerCase();
-                if ((kind === 'const' || kind === 'constant') && !meta.sparkline) {
+                const logicalType = normalizeLogicalType(meta.logicalType ?? meta.LogicalType);
+                if (isConstKind(logicalType) && !meta.sparkline) {
                     const inline = meta.semantics?.inline;
                     if (inline && Array.isArray(inline) && inline.length > 0) {
                         const slice = { values: inline.slice(), startIndex: 0 };
@@ -2171,11 +2171,11 @@
 
             const nodeMeta = nodeMap.get(id);
             const kind = String(meta?.kind ?? node.kind ?? node.Kind ?? 'service').toLowerCase();
-            const logicalType = String(meta?.logicalType ?? node.logicalType ?? node.LogicalType ?? kind).toLowerCase();
+            const logicalType = normalizeLogicalType(meta?.logicalType ?? node.logicalType ?? node.LogicalType);
             if (nodeMeta) {
                 nodeMeta.logicalType = logicalType;
             }
-            const queueLikeNode = isQueueLikeKind(kind, logicalType);
+            const queueLikeNode = isQueueLikeKind(logicalType);
 
             if (overlayNode) {
                 nodeMeta.fill = fill;
@@ -2199,11 +2199,11 @@
                 const warningEntries = normalizeWarningEntries(nodeMeta, state.globalWarningsByNode);
                 nodeMeta.queueWarningText = extractQueueWarningText(warningEntries);
             }
-            const dlqNode = isDlqKind(kind);
-            const nodeRole = String(meta?.nodeRole ?? meta?.NodeRole ?? '').trim().toLowerCase();
-            const isSinkNode = kind === 'sink' || nodeRole === 'sink';
-            const isLeafComputed = !!nodeMeta?.leaf && isComputedKind(kind);
-            const serviceLikeNode = kind === 'service' || logicalType === 'servicewithbuffer';
+            const dlqNode = isDlqKind(logicalType);
+            const nodeRole = normalizeLogicalType(meta?.nodeRole ?? meta?.NodeRole);
+            const isSinkNode = isSinkKind(logicalType, nodeRole);
+            const isLeafComputed = !!nodeMeta?.leaf && isComputedKind(logicalType);
+            const serviceLikeNode = isServiceLikeKind(logicalType);
             const retryTax = serviceLikeNode ? resolveRetryTaxValue(nodeMeta) : null;
             const hasRetryLoop = overlaySettings.showRetryMetrics !== false &&
                 serviceLikeNode &&
@@ -2211,17 +2211,17 @@
                 retryTax > 0;
 
             let focusLabelWidth = Math.max(width - 14, 18);
-            const expressionLikeNode = isExpressionKind(kind) || isConstKind(kind);
+            const expressionLikeNode = isExpressionKind(logicalType) || isConstKind(logicalType);
             const expressionOverride = isDarkTheme() && expressionLikeNode ? EXPRESSION_DARK_FILL : null;
             const expressionStrokeOverride = isDarkTheme() && expressionLikeNode ? NODE_LABEL_COLOR_DARK : null;
-            const computedOverride = isDarkTheme() && isComputedKind(kind) ? defaultLeafFill : null;
+            const computedOverride = isDarkTheme() && isComputedKind(logicalType) ? defaultLeafFill : null;
             let fillForText = expressionOverride ?? computedOverride ?? fill;
 
             if (isLeafComputed) {
                 const pillMetrics = drawLeafNode(ctx, nodeMeta);
                 focusLabelWidth = Math.max(pillMetrics.width - 14, 18);
                 fillForText = pillMetrics.fill ?? defaultLeafFill;
-            } else if (kind === 'queue' && logicalType !== 'servicewithbuffer') {
+            } else if (queueLikeNode) {
                 drawQueueNode(ctx, nodeMeta, overlaySettings);
                 fillForText = QUEUE_PILL_FILL;
             } else if (dlqNode) {
@@ -2229,7 +2229,7 @@
                 fillForText = getDlqPalette().fill;
             } else {
                 ctx.beginPath();
-                if (kind === 'expr' || kind === 'expression') {
+                if (isExpressionKind(logicalType)) {
                     const hw = width / 2;
                     const hh = height / 2;
                     ctx.moveTo(x, y - hh);
@@ -2256,9 +2256,9 @@
                 drawServiceWithBufferBadge(ctx, nodeMeta);
             }
 
-            if (kind === 'service' || logicalType === 'servicewithbuffer' || kind === 'queue' || kind === 'router' || kind === 'dependency' || logicalType === 'dependency' || dlqNode || isSinkNode) {
+            if (serviceLikeNode || queueLikeNode || isRouterKind(logicalType) || isDependencyKind(logicalType) || dlqNode || isSinkNode) {
                 drawServiceDecorations(ctx, nodeMeta, overlaySettings, state);
-            } else if (kind === 'pmf') {
+            } else if (isPmfKind(logicalType)) {
                 const hasSparkline = overlaySettings.showSparklines && nodeMeta?.sparkline;
                 const sparklineLayout = hasSparkline
                     ? computeSparklineLayout(nodeMeta, overlaySettings, nodeMeta.sparkline)
@@ -2271,7 +2271,7 @@
                 if (hasSparkline && sparklineLayout) {
                     drawInputSparkline(ctx, nodeMeta, overlaySettings, sparklineLayout);
                 }
-            } else if ((kind === 'const' || kind === 'constant') && overlaySettings.showSparklines && nodeMeta?.sparkline) {
+            } else if (isConstKind(logicalType) && overlaySettings.showSparklines && nodeMeta?.sparkline) {
                 drawInputSparkline(ctx, nodeMeta, overlaySettings);
             }
 
@@ -3302,13 +3302,13 @@
         if (hasSparkline) {
             const baselineStart = textY + lineHeight;
             const sparkTop = baselineStart + sparklineMarginTop;
-            const isComputedNode = isComputedKind(anchorMeta?.kind ?? anchorMeta?.Kind ?? '');
+            const isComputedNode = isComputedKind(anchorMeta?.logicalType ?? anchorMeta?.LogicalType ?? '');
             const defaultSpark = isComputedNode
                 ? '#94A3B8'
                 : (anchorMeta?.fill ?? resolveSparklineColor(overlays.colorBasis ?? 0));
             try {
                 const seriesBasis = resolveSparklineBasis(anchorMeta, tooltipSparkline, overlays);
-                const label = resolveSparklineLabel(seriesBasis, anchorMeta?.kind ?? anchorMeta?.Kind ?? '');
+                const label = resolveSparklineLabel(seriesBasis, anchorMeta?.logicalType ?? anchorMeta?.LogicalType ?? '');
                 if (label) {
                     ctx.save();
                     const sparkLabelColor = isDarkTheme() ? NODE_LABEL_COLOR_DARK : '#64748B';
@@ -4237,67 +4237,56 @@
         }
     }
 
-    function isComputedKind(kind) {
-        if (typeof kind !== 'string') {
-            return false;
+    function normalizeLogicalType(value) {
+        if (typeof value !== 'string') {
+            return '';
         }
 
-        const normalized = kind.trim().toLowerCase();
+        return value.trim().toLowerCase();
+    }
+
+    function isComputedKind(logicalType) {
+        const normalized = normalizeLogicalType(logicalType);
         return normalized === 'expr' || normalized === 'expression' || normalized === 'const' || normalized === 'constant' || normalized === 'pmf';
     }
 
-    function isQueueLikeKind(kind, logicalType) {
-        if (typeof kind !== 'string') {
-            return false;
-        }
-
-        if (typeof logicalType === 'string' && logicalType.trim().toLowerCase() === 'servicewithbuffer') {
-            return false;
-        }
-
-        const normalized = kind.trim().toLowerCase();
+    function isQueueLikeKind(logicalType) {
+        const normalized = normalizeLogicalType(logicalType);
         return normalized === 'queue' || normalized === 'dlq';
     }
 
-    function isSinkKind(kind, nodeRole) {
-        if (typeof nodeRole === 'string' && nodeRole.trim().toLowerCase() === 'sink') {
+    function isSinkKind(logicalType, nodeRole) {
+        if (normalizeLogicalType(nodeRole) === 'sink') {
             return true;
         }
 
-        if (typeof kind !== 'string') {
-            return false;
-        }
-
-        return kind.trim().toLowerCase() === 'sink';
+        return normalizeLogicalType(logicalType) === 'sink';
     }
 
-    function isRouterKind(kind, logicalType) {
-        if (typeof kind === 'string' && kind.trim().toLowerCase() === 'router') {
-            return true;
-        }
-        return typeof logicalType === 'string' && logicalType.trim().toLowerCase() === 'router';
+    function isRouterKind(logicalType) {
+        return normalizeLogicalType(logicalType) === 'router';
     }
 
-    function isDlqKind(kind) {
-        if (typeof kind !== 'string') {
-            return false;
-        }
-        return kind.trim().toLowerCase() === 'dlq';
+    function isDependencyKind(logicalType) {
+        return normalizeLogicalType(logicalType) === 'dependency';
     }
 
-    function isExpressionKind(kind) {
-        if (typeof kind !== 'string') {
-            return false;
-        }
-        const normalized = kind.trim().toLowerCase();
+    function isServiceLikeKind(logicalType) {
+        const normalized = normalizeLogicalType(logicalType);
+        return normalized === 'service' || normalized === 'servicewithbuffer' || normalized === 'flow';
+    }
+
+    function isDlqKind(logicalType) {
+        return normalizeLogicalType(logicalType) === 'dlq';
+    }
+
+    function isExpressionKind(logicalType) {
+        const normalized = normalizeLogicalType(logicalType);
         return normalized === 'expr' || normalized === 'expression';
     }
 
-    function isConstKind(kind) {
-        if (typeof kind !== 'string') {
-            return false;
-        }
-        const normalized = kind.trim().toLowerCase();
+    function isConstKind(logicalType) {
+        const normalized = normalizeLogicalType(logicalType);
         return normalized === 'const' || normalized === 'constant';
     }
 
@@ -4383,11 +4372,11 @@
         const absUx = Math.abs(ux);
         const absUy = Math.abs(uy);
         const epsilon = 1e-6;
-        const kind = String(node.kind ?? node.Kind ?? 'service').toLowerCase();
-        const isLeafComputed = !!(node.leaf ?? node.Leaf) && isComputedKind(kind);
+        const logicalType = normalizeLogicalType(node.logicalType ?? node.LogicalType);
+        const isLeafComputed = !!(node.leaf ?? node.Leaf) && isComputedKind(logicalType);
 
         let boundary;
-        if (kind === 'expr' || kind === 'expression') {
+        if (isExpressionKind(logicalType)) {
             const halfW = width / 2;
             const halfH = height / 2;
             const denom = (absUx / halfW) + (absUy / halfH);
@@ -4645,16 +4634,16 @@
         const hasSpark = spark !== null;
         const shouldDrawSparkline = overlays.showSparklines && spark;
         const nodeKind = String(nodeMeta.kind ?? nodeMeta.Kind ?? '').trim().toLowerCase();
-        const nodeLogicalType = String(nodeMeta.logicalType ?? nodeMeta.LogicalType ?? '').trim().toLowerCase();
+        const nodeLogicalType = normalizeLogicalType(nodeMeta.logicalType ?? nodeMeta.LogicalType);
         const hasRetrySemantics = Boolean(semantics.attempts || semantics.failures || semantics.retry);
-        const isDependencyNode = nodeKind === 'dependency' || nodeLogicalType === 'dependency';
+        const isDependencyNode = isDependencyKind(nodeLogicalType);
         const showRetryMetrics = !isDependencyNode && overlays.showRetryMetrics !== false && hasRetrySemantics;
-        const nodeRole = String(nodeMeta.nodeRole ?? nodeMeta.NodeRole ?? '').trim().toLowerCase();
-        const isSinkNode = nodeKind === 'sink' || nodeLogicalType === 'sink' || nodeRole === 'sink';
-        const isServiceNode = nodeKind === 'service' || nodeLogicalType === 'servicewithbuffer';
+        const nodeRole = normalizeLogicalType(nodeMeta.nodeRole ?? nodeMeta.NodeRole);
+        const isSinkNode = isSinkKind(nodeLogicalType, nodeRole);
+        const isServiceNode = isServiceLikeKind(nodeLogicalType);
         const isServiceWithBuffer = nodeLogicalType === 'servicewithbuffer';
-        const isDlqNode = isDlqKind(nodeKind);
-        const isRouterNode = isRouterKind(nodeKind, nodeLogicalType);
+        const isDlqNode = isDlqKind(nodeLogicalType);
+        const isRouterNode = isRouterKind(nodeLogicalType);
         const schedule = nodeMeta.dispatchSchedule ?? nodeMeta.DispatchSchedule ?? null;
         const retryTax = isServiceNode ? resolveRetryTaxValue(nodeMeta) : null;
         const hasRetryLoop = showRetryMetrics && isServiceNode && Number.isFinite(retryTax) && retryTax > 0;
@@ -4822,7 +4811,7 @@
 
         if (shouldDrawSparkline) {
             const neutralSpark = '#94A3B8';
-            const isComputedNode = isComputedKind(nodeMeta.kind);
+            const isComputedNode = isComputedKind(nodeMeta.logicalType ?? nodeMeta.LogicalType ?? '');
             const defaultSpark = isComputedNode ? neutralSpark : (nodeMeta.fill ?? resolveSparklineColor(overlays.colorBasis));
             drawSparkline(ctx, nodeMeta, spark, overlays, defaultSpark, {
                 top: topRowTop,
@@ -5345,9 +5334,8 @@
         let queueTooltip = null;
 
         if (!isDependencyNode && overlays.showQueueDependencies !== false) {
-            const nodeKind = String(nodeMeta.kind ?? nodeMeta.Kind ?? '').trim().toLowerCase();
-            const nodeLogicalType = String(nodeMeta.logicalType ?? nodeMeta.LogicalType ?? '').trim().toLowerCase();
-            const isQueueNode = isQueueLikeKind(nodeKind, nodeLogicalType);
+            const nodeLogicalType = normalizeLogicalType(nodeMeta.logicalType ?? nodeMeta.LogicalType);
+            const isQueueNode = isQueueLikeKind(nodeLogicalType);
             const isServiceWithBufferNode = nodeLogicalType === 'servicewithbuffer';
             const queueValue = sampleValueFor('queue', semantics.queue);
             queueTooltip = semanticTooltip(semantics.queue, 'Queue depth');
@@ -8817,14 +8805,13 @@ function setHoveredEdge(state, edgeId) {
 
     function resolveSparklineBasis(nodeMeta, sparkline, overlays) {
         const basis = Number(overlays?.colorBasis ?? 0);
-        const nodeKind = String(nodeMeta?.kind ?? nodeMeta?.Kind ?? '').trim().toLowerCase();
-        const nodeLogicalType = String(nodeMeta?.logicalType ?? nodeMeta?.LogicalType ?? '').trim().toLowerCase();
-        const nodeRole = String(nodeMeta?.nodeRole ?? nodeMeta?.NodeRole ?? '').trim().toLowerCase();
-        if (isQueueLikeKind(nodeKind, nodeLogicalType)) {
+        const nodeLogicalType = normalizeLogicalType(nodeMeta?.logicalType ?? nodeMeta?.LogicalType);
+        const nodeRole = normalizeLogicalType(nodeMeta?.nodeRole ?? nodeMeta?.NodeRole);
+        if (isQueueLikeKind(nodeLogicalType)) {
             return 3;
         }
 
-        if (basis === 5 && isSinkKind(nodeKind, nodeRole)) {
+        if (basis === 5 && isSinkKind(nodeLogicalType, nodeRole)) {
             const series = selectSeriesForBasis(sparkline, basis);
             if (!Array.isArray(series) || !computeSeriesBounds(series).hasValue) {
                 return 6;
@@ -8834,9 +8821,9 @@ function setHoveredEdge(state, edgeId) {
         return basis;
     }
 
-    function resolveSparklineLabel(seriesBasis, nodeKind) {
+    function resolveSparklineLabel(seriesBasis, nodeLogicalType) {
         if (seriesBasis === 3) {
-            return isDlqKind(nodeKind) ? 'DLQ' : 'Queue';
+            return isDlqKind(nodeLogicalType) ? 'DLQ' : 'Queue';
         }
 
         switch (seriesBasis) {

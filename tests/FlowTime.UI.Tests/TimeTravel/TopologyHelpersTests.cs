@@ -11,14 +11,34 @@ public sealed class TopologyHelpersTests
     private const int leafLane = 2;
 
     [Fact]
+    public void GraphMapperDoesNotBackfillLogicalTypeFromKind()
+    {
+        var response = new GraphResponseModel(
+            new[]
+            {
+                new GraphNodeModel("metric", "expression", CreateSemantics()),
+                CreateNode("service", "service")
+            },
+            new[]
+            {
+                new GraphEdgeModel("edge_metric_service", "metric:out", "service:in", 1, null, null, null, null)
+            });
+
+        var graph = GraphMapper.Map(response, respectUiPositions: false, layout: LayoutMode.HappyPath);
+        var metric = graph.Nodes.Single(n => n.Id == "metric");
+
+        Assert.Equal(string.Empty, metric.LogicalType);
+    }
+
+    [Fact]
     public void GraphMapperAssignsLayersAndConnections()
     {
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("ingress", "service", CreateSemantics()),
-                new GraphNodeModel("processor", "service", CreateSemantics()),
-                new GraphNodeModel("egress", "queue", CreateSemantics())
+                CreateNode("ingress", "service"),
+                CreateNode("processor", "service"),
+                CreateNode("egress", "queue")
             },
             new[]
             {
@@ -52,8 +72,8 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("alpha", "service", CreateSemantics()),
-                new GraphNodeModel("beta", "queue", CreateSemantics(), Ui: new GraphNodeUiModel(160, 48))
+                CreateNode("alpha", "service"),
+                CreateNode("beta", "queue", Ui: new GraphNodeUiModel(160, 48))
             },
             new[]
             {
@@ -77,8 +97,8 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("svc", "service", CreateSemantics()),
-                new GraphNodeModel("analytics", "service", CreateSemantics())
+                CreateNode("svc", "service"),
+                CreateNode("analytics", "service")
             },
             new[]
             {
@@ -103,9 +123,9 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("ingress", "service", CreateSemantics()),
-                new GraphNodeModel("processor", "service", CreateSemantics()),
-                new GraphNodeModel("egress", "service", CreateSemantics())
+                CreateNode("ingress", "service"),
+                CreateNode("processor", "service"),
+                CreateNode("egress", "service")
             },
             new[]
             {
@@ -132,9 +152,9 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("constant", "const", CreateSemantics()),
-                new GraphNodeModel("expression", "expression", CreateSemantics()),
-                new GraphNodeModel("service", "service", CreateSemantics())
+                CreateNode("constant", "const"),
+                CreateNode("expression", "expression"),
+                CreateNode("service", "service")
             },
             new[]
             {
@@ -159,9 +179,9 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("ingress", "service", CreateSemantics()),
-                new GraphNodeModel("processor", "service", CreateSemantics()),
-                new GraphNodeModel("orphan_metric", "expression", CreateSemantics())
+                CreateNode("ingress", "service"),
+                CreateNode("processor", "service"),
+                CreateNode("orphan_metric", "expression")
             },
             new[]
             {
@@ -181,14 +201,14 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("svc_a", "service", CreateSemantics()),
-                new GraphNodeModel("svc_b", "service", CreateSemantics()),
-                new GraphNodeModel("svc_c", "service", CreateSemantics()),
-                new GraphNodeModel("expr_in", "expression", CreateSemantics()),
-                new GraphNodeModel("expr_mid", "expression", CreateSemantics()),
-                new GraphNodeModel("expr_top", "expression", CreateSemantics()),
-                new GraphNodeModel("leaf_one", "expression", CreateSemantics()),
-                new GraphNodeModel("leaf_two", "expression", CreateSemantics())
+                CreateNode("svc_a", "service"),
+                CreateNode("svc_b", "service"),
+                CreateNode("svc_c", "service"),
+                CreateNode("expr_in", "expression"),
+                CreateNode("expr_mid", "expression"),
+                CreateNode("expr_top", "expression"),
+                CreateNode("leaf_one", "expression"),
+                CreateNode("leaf_two", "expression")
             },
             new[]
             {
@@ -217,10 +237,10 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("svc", "service", CreateSemantics()),
-                new GraphNodeModel("expr_upper", "expression", CreateSemantics()),
-                new GraphNodeModel("expr_lower", "expression", CreateSemantics()),
-                new GraphNodeModel("const_seed", "const", CreateSemantics())
+                CreateNode("svc", "service"),
+                CreateNode("expr_upper", "expression"),
+                CreateNode("expr_lower", "expression"),
+                CreateNode("const_seed", "const")
             },
             new[]
             {
@@ -337,7 +357,10 @@ public sealed class TopologyHelpersTests
         Assert.Contains("Completion SLA 92.0%", content.Lines);
     }
 
-private static GraphNodeSemanticsModel CreateSemantics()
+    private static GraphNodeModel CreateNode(string id, string kind, GraphNodeUiModel? Ui = null) =>
+        new(id, kind, CreateSemantics(), LogicalType: kind, Ui: Ui);
+
+    private static GraphNodeSemanticsModel CreateSemantics()
     => new(
         Arrivals: "series:arrivals",
         Served: "series:served",

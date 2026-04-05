@@ -131,3 +131,12 @@ Accumulated learnings from implementation sessions.
 
 ### Patterns that worked
 - When a legacy stopwatch-based perf assertion becomes a wrap blocker but BenchmarkDotNet coverage already exists for the same concern, quarantine the legacy gate from default suite readiness and point targeted perf checks to the benchmark runner.
+
+## 2026-04-05: E-16 m-E16-03 Runtime Analytical Descriptor
+
+### Patterns that worked
+- When removing UI category fallback from authored `kind`, update test fixtures and helper builders to set `nodeLogicalType` explicitly. This keeps UI tests aligned with the API contract instead of silently reintroducing kind-based reconstruction.
+- When descriptor-promoted nodes flow through UI view models, carry runtime logical type all the way into active metrics, provenance selection, and tooltip formatting. Fixing only `GraphMapper` is not enough.
+
+### Pitfalls encountered
+- UI fallback tests that hand-build `TimeTravelNodeSeriesDto` or `GraphNodeModel` instances can fail after logicalType-only cleanup if they omit `LogicalType`, even though production API payloads now always include descriptor-derived `nodeLogicalType`.

@@ -2,7 +2,7 @@
 
 **ID:** m-E16-03-runtime-analytical-descriptor
 **Epic:** Formula-First Core Purification
-**Status:** draft
+**Status:** complete
 
 ## Goal
 

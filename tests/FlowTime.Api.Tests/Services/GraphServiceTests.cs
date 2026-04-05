@@ -382,7 +382,58 @@ nodes:
         var fullGraph = await service.GetGraphAsync(runId, new GraphQueryOptions { Mode = GraphQueryMode.Full });
         var serviceWithBufferNode = Assert.Single(fullGraph.Nodes, node => node.Id == "picker_wave_backlog");
         Assert.Equal("serviceWithBuffer", serviceWithBufferNode.Kind);
+        Assert.Equal("serviceWithBuffer", serviceWithBufferNode.LogicalType);
         Assert.Equal("series:picker_wave_backlog", serviceWithBufferNode.Semantics.Series);
+
+        var constantNode = Assert.Single(fullGraph.Nodes, node => node.Id == "wave_arrivals");
+        Assert.Equal("const", constantNode.LogicalType);
+    }
+
+    [Fact]
+    public async Task GetGraphAsync_KindsFilter_MatchesPromotedServiceWithBufferLogicalType()
+    {
+        const string runId = "run_graph_logicaltype_swb_filter";
+        CreateRun(runId, """
+schemaVersion: 1
+
+grid:
+  bins: 2
+  binSize: 5
+  binUnit: minutes
+
+topology:
+  nodes:
+    - id: QueueReader
+      kind: service
+      semantics:
+        arrivals: series:QueueReader_arrivals
+        served: series:QueueReader_served
+        errors: series:QueueReader_errors
+        queueDepth: series:BufferNode
+  edges: []
+
+nodes:
+  - id: BufferIn
+    kind: const
+    values: [10, 10]
+  - id: BufferOut
+    kind: const
+    values: [8, 8]
+  - id: BufferNode
+    kind: serviceWithBuffer
+    inflow: BufferIn
+    outflow: BufferOut
+""");
+
+        var response = await service.GetGraphAsync(runId, new GraphQueryOptions
+        {
+            Kinds = new List<string> { "serviceWithBuffer" }
+        });
+
+        var queueReader = Assert.Single(response.Nodes);
+        Assert.Equal("QueueReader", queueReader.Id);
+        Assert.Equal("service", queueReader.Kind);
+        Assert.Equal("serviceWithBuffer", queueReader.LogicalType);
     }
 
     [Fact]

@@ -209,6 +209,7 @@ public class DashboardTests
                 {
                     Id = "OrderService",
                     Kind = "service",
+                    LogicalType = "service",
                     Series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
                     {
                         ["arrivals"] = arrivals,

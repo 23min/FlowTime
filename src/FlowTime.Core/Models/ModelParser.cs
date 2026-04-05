@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using FlowTime.Core.Compiler;
+using FlowTime.Core.Metrics;
 using System.Linq;
 using FlowTime.Core.Dispatching;
 using FlowTime.Core.Execution;
@@ -62,6 +63,8 @@ public static class ModelParser
             StartTime = ParseStartTime(model.Grid.StartTimeUtc)
         };
 
+        var modelNodeDefinitions = BuildModelNodeDefinitions(model);
+
         Topology? topology = null;
         if (model.Topology != null)
         {
@@ -105,6 +108,45 @@ public static class ModelParser
             var processingTimeMsSum = OptionalSemantic(definition.Semantics.ProcessingTimeMsSum);
             var servedCount = OptionalSemantic(definition.Semantics.ServedCount);
 
+            var semantics = new NodeSemantics
+            {
+                Arrivals = arrivals,
+                ArrivalsRef = SemanticReferenceResolver.ParseSeriesReference(arrivals),
+                Served = served,
+                ServedRef = SemanticReferenceResolver.ParseSeriesReference(served),
+                Errors = errors,
+                ErrorsRef = SemanticReferenceResolver.ParseOptionalSeriesReference(errors),
+                Attempts = attempts,
+                AttemptsRef = SemanticReferenceResolver.ParseOptionalSeriesReference(attempts),
+                Failures = failures,
+                FailuresRef = SemanticReferenceResolver.ParseOptionalSeriesReference(failures),
+                ExhaustedFailures = exhaustedFailures,
+                ExhaustedFailuresRef = SemanticReferenceResolver.ParseOptionalSeriesReference(exhaustedFailures),
+                RetryEcho = retryEcho,
+                RetryEchoRef = SemanticReferenceResolver.ParseOptionalSeriesReference(retryEcho),
+                RetryBudgetRemaining = retryBudgetRemaining,
+                RetryBudgetRemainingRef = SemanticReferenceResolver.ParseOptionalSeriesReference(retryBudgetRemaining),
+                RetryKernel = definition.Semantics.RetryKernel,
+                ExternalDemand = externalDemand,
+                ExternalDemandRef = SemanticReferenceResolver.ParseOptionalSeriesReference(externalDemand),
+                QueueDepth = queueDepth,
+                QueueDepthRef = SemanticReferenceResolver.ParseOptionalSeriesReference(queueDepth),
+                Capacity = capacity,
+                CapacityRef = SemanticReferenceResolver.ParseOptionalSeriesReference(capacity),
+                ParallelismRawText = parallelismRef?.RawText,
+                ParallelismRef = parallelismRef,
+                ProcessingTimeMsSum = processingTimeMsSum,
+                ProcessingTimeMsSumRef = SemanticReferenceResolver.ParseOptionalSeriesReference(processingTimeMsSum),
+                ServedCount = servedCount,
+                ServedCountRef = SemanticReferenceResolver.ParseOptionalSeriesReference(servedCount),
+                SlaMinutes = definition.Semantics.SlaMin,
+                MaxAttempts = definition.Semantics.MaxAttempts,
+                BackoffStrategy = definition.Semantics.BackoffStrategy,
+                ExhaustedPolicy = definition.Semantics.ExhaustedPolicy,
+                Metadata = definition.Semantics.Metadata,
+                Aliases = NormalizeAliases(definition.Semantics.Aliases)
+            };
+
             return new Node
             {
                 Id = definition.Id,
@@ -114,44 +156,8 @@ public static class ModelParser
                 Ui = definition.Ui != null ? new UiHints { X = definition.Ui.X, Y = definition.Ui.Y } : null,
                 Constraints = definition.Constraints,
                 DispatchSchedule = definition.DispatchSchedule,
-                Semantics = new NodeSemantics
-                {
-                    Arrivals = arrivals,
-                    ArrivalsRef = SemanticReferenceResolver.ParseSeriesReference(arrivals),
-                    Served = served,
-                    ServedRef = SemanticReferenceResolver.ParseSeriesReference(served),
-                    Errors = errors,
-                    ErrorsRef = SemanticReferenceResolver.ParseOptionalSeriesReference(errors),
-                    Attempts = attempts,
-                    AttemptsRef = SemanticReferenceResolver.ParseOptionalSeriesReference(attempts),
-                    Failures = failures,
-                    FailuresRef = SemanticReferenceResolver.ParseOptionalSeriesReference(failures),
-                    ExhaustedFailures = exhaustedFailures,
-                    ExhaustedFailuresRef = SemanticReferenceResolver.ParseOptionalSeriesReference(exhaustedFailures),
-                    RetryEcho = retryEcho,
-                    RetryEchoRef = SemanticReferenceResolver.ParseOptionalSeriesReference(retryEcho),
-                    RetryBudgetRemaining = retryBudgetRemaining,
-                    RetryBudgetRemainingRef = SemanticReferenceResolver.ParseOptionalSeriesReference(retryBudgetRemaining),
-                    RetryKernel = definition.Semantics.RetryKernel,
-                    ExternalDemand = externalDemand,
-                    ExternalDemandRef = SemanticReferenceResolver.ParseOptionalSeriesReference(externalDemand),
-                    QueueDepth = queueDepth,
-                    QueueDepthRef = SemanticReferenceResolver.ParseOptionalSeriesReference(queueDepth),
-                    Capacity = capacity,
-                    CapacityRef = SemanticReferenceResolver.ParseOptionalSeriesReference(capacity),
-                    ParallelismRawText = parallelismRef?.RawText,
-                    ParallelismRef = parallelismRef,
-                    ProcessingTimeMsSum = processingTimeMsSum,
-                    ProcessingTimeMsSumRef = SemanticReferenceResolver.ParseOptionalSeriesReference(processingTimeMsSum),
-                    ServedCount = servedCount,
-                    ServedCountRef = SemanticReferenceResolver.ParseOptionalSeriesReference(servedCount),
-                    SlaMinutes = definition.Semantics.SlaMin,
-                    MaxAttempts = definition.Semantics.MaxAttempts,
-                    BackoffStrategy = definition.Semantics.BackoffStrategy,
-                    ExhaustedPolicy = definition.Semantics.ExhaustedPolicy,
-                    Metadata = definition.Semantics.Metadata,
-                    Aliases = NormalizeAliases(definition.Semantics.Aliases)
-                },
+                Semantics = semantics,
+                Analytical = AnalyticalDescriptorCompiler.Build(definition.Id, definition.Kind, semantics, modelNodeDefinitions),
                 InitialCondition = definition.InitialCondition != null
                     ? new InitialCondition { QueueDepth = definition.InitialCondition.QueueDepth }
                     : null
@@ -242,6 +248,35 @@ public static class ModelParser
 
             return normalized.Count == 0 ? null : new ReadOnlyDictionary<string, string>(normalized);
         }
+    }
+
+    private static Dictionary<string, NodeDefinition> BuildModelNodeDefinitions(ModelDefinition model)
+    {
+        var definitions = model.Nodes
+            .Where(node => !string.IsNullOrWhiteSpace(node.Id))
+            .ToDictionary(node => node.Id!, StringComparer.OrdinalIgnoreCase);
+
+        if (model.Topology?.Nodes is null)
+        {
+            return definitions;
+        }
+
+        foreach (var topoNode in model.Topology.Nodes)
+        {
+            if (string.IsNullOrWhiteSpace(topoNode.Id) || definitions.ContainsKey(topoNode.Id))
+            {
+                continue;
+            }
+
+            definitions[topoNode.Id] = new NodeDefinition
+            {
+                Id = topoNode.Id,
+                Kind = topoNode.Kind ?? "service",
+                Metadata = topoNode.Semantics?.Metadata
+            };
+        }
+
+        return definitions;
     }
 
     private static DateTime? ParseStartTime(string? startTime)

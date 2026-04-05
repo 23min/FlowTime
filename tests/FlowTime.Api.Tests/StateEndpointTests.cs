@@ -1514,12 +1514,14 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
 
         var computed = Assert.Single(payload!.Nodes, n => n.Id == "expr_output");
         Assert.Equal("expr", computed.Kind);
+        Assert.Equal("expr", computed.LogicalType);
         Assert.True(computed.Series.TryGetValue("values", out var values));
         Assert.Equal(new double?[] { 2.0, 4.0, 6.0, 8.0 }, values);
         Assert.True(computed.Series.ContainsKey("series:expr_output"));
 
         var constantNode = Assert.Single(payload.Nodes, n => n.Id == "base_input");
         Assert.Equal("const", constantNode.Kind);
+        Assert.Equal("const", constantNode.LogicalType);
         Assert.True(constantNode.Series.TryGetValue("values", out var baseValues));
         Assert.Equal(new double?[] { 1.0, 2.0, 3.0, 4.0 }, baseValues);
     }

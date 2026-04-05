@@ -435,6 +435,33 @@ public sealed class TopologyInspectorTests
     }
 
     [Fact]
+    public void BuildInspectorMetrics_PromotedExpressionNode_ShowsComputedOutputOnly()
+    {
+        var topology = new Topology();
+
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[] { new TopologyNode("expr-promoted", "service", "expr", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics()) },
+            Array.Empty<TopologyEdge>()));
+
+        var sparkline = CreateSparkline(new Dictionary<string, double?[]>
+        {
+            ["values"] = new double?[] { 0.5, 0.6, 0.7 },
+            ["errorRate"] = new double?[] { 0.1, 0.08, 0.05 }
+        });
+
+        topology.TestSetNodeSparklines(new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["expr-promoted"] = sparkline
+        });
+
+        var metrics = topology.TestBuildInspectorMetrics("expr-promoted");
+
+        Assert.Collection(metrics,
+            block => Assert.Equal("Output", block.Title),
+            block => Assert.Equal("Error rate", block.Title));
+    }
+
+    [Fact]
     public void BuildNodeSparklines_UsesSuccessRateSeries()
     {
         var topology = new Topology();
@@ -1576,6 +1603,58 @@ public sealed class TopologyInspectorTests
         AssertRowValue(rows, "Service time", "110.0 ms");
         AssertRowValue(rows, "Flow latency", "600.0 ms");
         AssertRowValue(rows, "Latency status", "Paused (gate closed)");
+    }
+
+    [Fact]
+    public void InspectorBinMetrics_PromotedServiceWithBuffer_UsesLogicalTypeForQueueRowsAndProvenance()
+    {
+        var topology = new Topology();
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("queue-reader", "service", "serviceWithBuffer", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["queue"] = new double?[] { 5, 6, 7 },
+            ["latencyMinutes"] = new double?[] { 2, 3, 4 },
+            ["arrivals"] = new double?[] { 10, 12, 14 },
+            ["served"] = new double?[] { 8, 10, 12 },
+            ["errors"] = new double?[] { 0, 1, 1 },
+            ["utilization"] = new double?[] { 0.3, 0.4, 0.5 },
+            ["serviceTimeMs"] = new double?[] { 100, 110, 120 },
+            ["flowLatencyMs"] = new double?[] { 500, 600, 700 }
+        };
+
+        var status = new TimeTravelQueueLatencyStatusDto?[]
+        {
+            null,
+            new TimeTravelQueueLatencyStatusDto { Code = "queue_latency_gate_closed" },
+            null
+        };
+
+        var node = CreateSeriesNode("queue-reader", "service", series, logicalType: "serviceWithBuffer") with
+        {
+            QueueLatencyStatus = status
+        };
+
+        topology.TestSetWindowData(CreateWindowData(node));
+        topology.TestUpdateActiveMetrics(1);
+
+        var metrics = topology.TestGetActiveMetrics()["queue-reader"];
+        Assert.Equal("serviceWithBuffer", metrics.NodeKind);
+
+        var rows = topology.TestBuildInspectorBinMetrics("queue-reader", metrics);
+        AssertRowValue(rows, "Queue depth", "6.0");
+        AssertRowValue(rows, "Queue latency", "3.0 min");
+        AssertRowValue(rows, "Latency status", "Paused (gate closed)");
+
+        var dump = topology.TestBuildBinDump("queue-reader");
+        Assert.NotNull(dump);
+        Assert.NotNull(dump!.Provenance);
+        Assert.Equal("serviceWithBuffer", dump.Provenance!.NodeKind);
     }
 
     [Fact]

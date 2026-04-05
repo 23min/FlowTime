@@ -379,7 +379,7 @@ public partial class Dashboard : IDisposable
 
     private TimeTravelServiceMetricsDto? BuildClassAwareMetrics(TimeTravelNodeSeriesDto node, int windowBinCount)
     {
-        if (!IsServiceLike(node.Kind, node.LogicalType) || node.ByClass is null)
+        if (!IsServiceLike(node.LogicalType) || node.ByClass is null)
         {
             return null;
         }
@@ -431,17 +431,16 @@ public partial class Dashboard : IDisposable
         return accumulator;
     }
 
-    private static bool IsServiceLike(string? kind, string? logicalType = null)
+    private static bool IsServiceLike(string? logicalType)
     {
-        var candidate = string.IsNullOrWhiteSpace(logicalType) ? kind : logicalType;
-        if (string.IsNullOrWhiteSpace(candidate))
+        if (string.IsNullOrWhiteSpace(logicalType))
         {
             return false;
         }
 
-        return string.Equals(candidate, "service", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(candidate, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(candidate, "flow", StringComparison.OrdinalIgnoreCase);
+        return string.Equals(logicalType, "service", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(logicalType, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(logicalType, "flow", StringComparison.OrdinalIgnoreCase);
     }
 
     private const double classSlaThreshold = 0.95d;
