@@ -39,14 +39,16 @@ What is deleted:
 
 1. `FlowTime.Contracts` and the current `/state`, `/state_window`, and `/graph` response shapes expose a compact authoritative fact surface sufficient to determine analytical behavior and node category without `kind + logicalType` inference. This includes at minimum: node category (expression/constant/service/queue/dlq/router/sink as needed by first-party consumers), analytical applicability flags (queue semantics, service semantics, cycle-time decomposition), fallback/class-truth labeling, and warning applicability.
 2. The explicit first-party consumer scope for this milestone is migrated to use engine-published facts: `src/FlowTime.UI/Services/TimeTravelMetricsClient.cs`, `src/FlowTime.UI/Pages/TimeTravel/Dashboard.razor.cs`, `src/FlowTime.UI/Pages/TimeTravel/Topology.razor`, `src/FlowTime.UI/Components/Topology/GraphMapper.cs`, `src/FlowTime.UI/Components/Topology/TopologyCanvas.razor.cs`, `src/FlowTime.UI/Components/Topology/TooltipFormatter.cs`, and `src/FlowTime.UI/wwwroot/js/topologyCanvas.js`.
-3. Old hint fields and targeted analytical heuristics are removed in the same forward-only cut once those consumers are migrated; runs, fixtures, and approved snapshots are regenerated rather than compatibility-layered.
-4. API/UI tests and a grep-based audit prove the targeted analytical classification helpers are deleted.
-5. Documentation and decision records are updated so E-10 Phase 3 can resume on the purified boundary.
+3. Once the new contract fact surface exists, no named consumer in this milestone may branch on `Kind`, `LogicalType`, or `nodeLogicalType` to determine analytical behavior or node category. Those fields may remain only for authored display/debug surfaces until they are deleted.
+4. Old hint fields and targeted analytical heuristics are removed in the same forward-only cut once those consumers are migrated; runs, fixtures, and approved snapshots are regenerated rather than compatibility-layered.
+5. API/UI tests and a grep-based audit prove the targeted analytical classification helpers are deleted.
+6. Documentation and decision records are updated so E-10 Phase 3 can resume on the purified boundary.
 
 ## Guards / DO NOT
 
 - **DO NOT** expose the full internal Core descriptor type directly in the API contract. Prefer a compact fact surface designed for consumers, not a leak of internal types.
 - **DO NOT** keep `kind + logicalType` as the primary way consumers determine analytical behavior. The old hint fields may remain for backward-compatible display purposes, but analytical behavior must come from the new fact surface.
+- **DO NOT** replace deleted helper methods with inline `Kind` / `LogicalType` / `nodeLogicalType` string checks inside the named consumers. Direct branching on those hint fields for analytical behavior or node category is the same purity leak in a less searchable form.
 - **DO NOT** grow scope implicitly. If another consumer surface appears before this milestone starts, add it explicitly to the consumer list or defer it with a documented reason.
 - **DO NOT** let `IsServiceLike()`, `Classify()`, or `ClassifyNode()` survive in any form. These are the heuristics this milestone exists to delete.
 - **DO NOT** move layout/rendering logic into Core. Layout spacing, lane assignment, and rendering dimensions stay in the UI — they consume the category, they don't define it.
@@ -75,6 +77,7 @@ What is deleted:
 - **Contract completeness tests:** Assert that the new fact surface on `/state`, `/state_window`, and `/graph` responses contains the category and analytical flags required by first-party consumers.
 - **Consumer migration tests:** Each named first-party consumer has tests proving it reads from the contract fact surface, not from `kind + logicalType` strings.
 - **Grep-based deletion audit:** `rg "IsServiceLike\|Classify\b\|ClassifyNode\|IsQueueLikeKind\|IsComputedKind\|IsSinkKind\|EnsureFallbackClassMetadataFromWindow\|isComputedKind\|isQueueLikeKind\|isSinkKind" src/FlowTime.UI/` returns zero matches.
+- **Direct-branch audit:** Review the named consumer files for direct branching on `Kind`, `LogicalType`, or `nodeLogicalType` in analytical/category decisions. Inline string checks on those fields count as failures even if the legacy helper names are gone.
 - **Negative contract test:** Assert that removing `nodeLogicalType` from the contract does not break any consumer's analytical behavior (display may degrade, but analytical classification must not).
 - **End-to-end parity:** UI integration tests (if present) show the same analytical behavior as before the migration.
 
@@ -82,6 +85,7 @@ What is deleted:
 
 - Prefer a small explicit fact surface over leaking internal Core types directly. A nested `analytical` object on state nodes and a compact `category` fact on graph nodes is one option.
 - Visual presentation categorization that is unrelated to analytical truth may remain in the UI, but it must consume the contract-provided category rather than re-deriving it from strings.
+- Migration is only complete when both helper-based heuristics and ad hoc inline string-branching are gone from the named consumer set.
 - If another consumer surface appears before this milestone starts, add it explicitly or defer it; do not grow scope implicitly.
 
 ## Out of Scope

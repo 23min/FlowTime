@@ -177,8 +177,8 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 
 - **Active epic:** E-16 Formula-First Core Purification (`work/epics/E-16-formula-first-core-purification/spec.md`)
   - **Active milestone:** m-E16-04 Core Analytical Evaluation (`work/milestones/m-E16-04-core-analytical-evaluation.md`) — **upcoming after m-E16-03 merge**
-  - **Branch:** `milestone/m-E16-03-runtime-analytical-descriptor`
-  - **Current focus:** m-E16-03 is wrapped on this branch and ready to commit/merge; next step is to branch into m-E16-04 Core analytical evaluation
+  - **Branch:** `epic/E-16-formula-first-core-purification`
+  - **Current focus:** m-E16-03 is merged into the E-16 epic branch; next step is to branch into m-E16-04 Core analytical evaluation
 - **Immediate gate:** E-16 must complete before remaining E-10 Phase 3 milestones resume (`work/epics/epic-roadmap.md`)
 - **E-10** Engine Correctness (`work/epics/E-10-engine-correctness-and-analytics/spec.md`) — **gated on E-16**
   - Phases 0-2 complete. Phase 3 bridge complete (m-ec-p3a, m-ec-p3a1 merged to main).
