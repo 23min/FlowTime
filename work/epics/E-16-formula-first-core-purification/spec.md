@@ -90,8 +90,8 @@ Each milestone is individually shippable, but the final milestone (m-E16-06) mus
 
 | ID | Title | Summary | Depends On | Status |
 |----|-------|---------|------------|--------|
-| [m-E16-01-compiled-semantic-references](../../milestones/m-E16-01-compiled-semantic-references.md) | Compiled Semantic References | Replace raw runtime semantic strings with typed references and regenerate dependent runs/fixtures forward-only. | none | draft |
-| [m-E16-02-class-truth-boundary](../../milestones/m-E16-02-class-truth-boundary.md) | Class Truth Boundary | Separate real by-class truth from wildcard fallback before descriptor and evaluator work depend on it. | m-E16-01 | draft |
+| [m-E16-01-compiled-semantic-references](../../milestones/m-E16-01-compiled-semantic-references.md) | Compiled Semantic References | Replace raw runtime semantic strings with typed references and regenerate dependent runs/fixtures forward-only. | none | complete |
+| [m-E16-02-class-truth-boundary](../../milestones/m-E16-02-class-truth-boundary.md) | Class Truth Boundary | Separate real by-class truth from wildcard fallback before descriptor and evaluator work depend on it. | m-E16-01 | complete |
 | [m-E16-03-runtime-analytical-descriptor](../../milestones/m-E16-03-runtime-analytical-descriptor.md) | Runtime Analytical Descriptor | Compile authoritative analytical identity onto runtime nodes and delete adapter-side logical-type reconstruction. | m-E16-02 | draft |
 | [m-E16-04-core-analytical-evaluation](../../milestones/m-E16-04-core-analytical-evaluation.md) | Core Analytical Evaluation | Move analytical values and emitted-series truth into a pure Core evaluator for snapshot, window, and by-class outputs. | m-E16-03 | draft |
 | [m-E16-05-analytical-warning-facts-and-primitive-cleanup](../../milestones/m-E16-05-analytical-warning-facts-and-primitive-cleanup.md) | Analytical Warning Facts & Primitive Cleanup | Move warning facts into Core analyzers and finish analytical primitive ownership cleanup. | m-E16-04 | draft |

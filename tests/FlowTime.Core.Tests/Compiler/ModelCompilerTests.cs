@@ -136,4 +136,42 @@ public sealed class ModelCompilerTests
         Assert.Equal("queue_node_queue", topo.Semantics.QueueDepth);
         Assert.Contains(compiled.Nodes, node => node.Id == "queue_node_queue");
     }
+
+    [Fact]
+    public void ModelCompiler_DoesNotSynthesizeQueueNode_WhenSeriesReferenceTargetsExistingNode()
+    {
+        var model = new ModelDefinition
+        {
+            Grid = new GridDefinition { Bins = 2, BinSize = 1, BinUnit = "hours" },
+            Nodes =
+            {
+                new NodeDefinition { Id = "wave_arrivals", Kind = "const", Values = new[] { 5d, 6d } },
+                new NodeDefinition { Id = "wave_served", Kind = "const", Values = new[] { 4d, 5d } },
+                new NodeDefinition { Id = "picker_wave_backlog", Kind = "serviceWithBuffer", Inflow = "wave_arrivals", Outflow = "wave_served" }
+            },
+            Topology = new TopologyDefinition
+            {
+                Nodes =
+                {
+                    new TopologyNodeDefinition
+                    {
+                        Id = "PickerWave",
+                        Kind = "queue",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "series:wave_arrivals",
+                            Served = "series:wave_served",
+                            QueueDepth = "series:picker_wave_backlog"
+                        }
+                    }
+                }
+            }
+        };
+
+        var compiled = ModelCompiler.Compile(model);
+
+        Assert.DoesNotContain(compiled.Nodes, node => node.Id == "series:picker_wave_backlog");
+        Assert.Single(compiled.Nodes, node => node.Id == "picker_wave_backlog");
+        Assert.Equal("series:picker_wave_backlog", compiled.Topology!.Nodes.Single().Semantics.QueueDepth);
+    }
 }

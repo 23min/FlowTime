@@ -172,6 +172,64 @@
           "origin": "derived"
         }
       },
+      "byClass": {
+        "*": {
+          "arrivals": [
+            10,
+            10,
+            10,
+            10
+          ],
+          "served": [
+            9,
+            6,
+            9,
+            4
+          ],
+          "errors": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "capacity": [
+            12,
+            7,
+            9,
+            4
+          ],
+          "processingTimeMsSum": [
+            2250,
+            1800,
+            2700,
+            1200
+          ],
+          "servedCount": [
+            9,
+            6,
+            9,
+            4
+          ],
+          "serviceTimeMs": [
+            250,
+            300,
+            300,
+            300
+          ],
+          "cycleTimeMs": [
+            250,
+            300,
+            300,
+            300
+          ],
+          "flowEfficiency": [
+            1,
+            1,
+            1,
+            1
+          ]
+        }
+      },
       "telemetry": {
         "sources": [
           "file:OrderService_arrivals.csv",
@@ -289,6 +347,46 @@
         },
         "queue": {
           "origin": "explicit"
+        }
+      },
+      "byClass": {
+        "*": {
+          "arrivals": [
+            9,
+            7,
+            9,
+            5
+          ],
+          "served": [
+            9,
+            6,
+            9,
+            4
+          ],
+          "errors": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "queue": [
+            2,
+            10,
+            20,
+            0
+          ],
+          "queueTimeMs": [
+            66666.66666666666,
+            500000,
+            666666.6666666667,
+            0
+          ],
+          "cycleTimeMs": [
+            66666.66666666666,
+            500000,
+            666666.6666666667,
+            0
+          ]
         }
       },
       "telemetry": {

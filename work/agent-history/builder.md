@@ -107,3 +107,27 @@ Accumulated learnings from implementation sessions.
 ### Pitfalls encountered
 - Leaving a bridge milestone with “full purification” wording blocks wrap even when the code is valid for the delivered slice.
 - Class-truth cleanup cannot be sequenced after descriptor/evaluator work that depends on it; move that boundary earlier in the plan.
+
+## 2026-04-04: E-16 m-E16-01 Compiled References
+
+### Patterns that worked
+- For API graph/state services, separate authored-model projection from compiled-runtime reasoning: keep authored strings in outward graph payloads, but use compiled references internally for logical-type and dependency resolution.
+- For local JSON Schema validation in runtime/tests, parse the schema JSON and remove `$schema` before `JsonSchema.FromText(...)` so validation stays offline and doesn't depend on custom meta-schema resolution.
+
+### Pitfalls encountered
+- Compiling the model too early in `GraphService` changed outward semantics payloads (`queueDepth` surfaced synthesized queue ids). Preserve authored topology for response shape and use the compiled model only for internal truth.
+- Validators and tests that construct `NodeSemantics` directly may not populate compiled refs. When migrating logic to typed refs, either build the refs in tests or add a narrow fallback through `SemanticReferenceResolver` for raw-only semantics.
+
+## 2026-04-04: E-16 m-E16-02 Class Truth Boundary
+
+### Patterns that worked
+- Keep the public `byClass` contract stable while moving truth discrimination internal: use a tagged Core wrapper (`Specific | Fallback`) and only project `*` when fallback is the only available class truth.
+- Add one Core test that proves conservation/coverage is computed from real classes only, even when fallback totals are present, and one API test that proves fallback-only window responses still expose wildcard `byClass` externally.
+
+### Pitfalls encountered
+- Window projection was easier to miss than snapshot projection. If fallback is filtered unconditionally in the window path, fallback-only nodes silently lose `byClass` even though the public contract shape did not change.
+
+## 2026-04-05: Legacy Perf Gate Quarantine
+
+### Patterns that worked
+- When a legacy stopwatch-based perf assertion becomes a wrap blocker but BenchmarkDotNet coverage already exists for the same concern, quarantine the legacy gate from default suite readiness and point targeted perf checks to the benchmark runner.

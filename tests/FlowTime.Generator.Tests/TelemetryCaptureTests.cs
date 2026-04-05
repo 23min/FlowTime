@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using FlowTime.Generator;
 using FlowTime.Generator.Models;
 using FlowTime.Generator.Processing;
@@ -208,7 +209,15 @@ public sealed class TelemetryCaptureTests
     private static JsonSchema LoadTelemetryManifestSchema()
     {
         var schemaPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "docs", "schemas", "telemetry-manifest.schema.json"));
-        return JsonSchema.FromText(File.ReadAllText(schemaPath));
+        var schemaText = File.ReadAllText(schemaPath);
+        var schemaNode = JsonNode.Parse(schemaText) ?? throw new InvalidDataException("Telemetry manifest schema JSON could not be parsed.");
+        if (schemaNode is JsonObject schemaObject)
+        {
+            schemaObject.Remove("$schema");
+            schemaText = schemaNode.ToJsonString();
+        }
+
+        return JsonSchema.FromText(schemaText);
     }
 
     private static string ComputeHash(string path)

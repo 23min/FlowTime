@@ -157,8 +157,8 @@ Replace `NodeSemantics.Parallelism` (`object?`) with a proper discriminated unio
 ### Why deferred
 The change touches 21 files across Core, Contracts, Sim, API, and UI — a cross-cutting refactor with high risk for a foundation milestone. CUE (https://cuelang.org/) was noted as a potential future approach for model schema validation with native union type support.
 
-### When to revisit
-Addressed by E-16 m-E16-01 (Compiled Semantic References). See D-2026-04-03-007. Parallelism becomes a typed reference resolved at compile time. Close this gap after m-E16-01 completes.
+### Resolution
+Completed in E-16 m-E16-01 (Compiled Semantic References). See D-2026-04-03-007. Runtime `NodeSemantics` now uses `CompiledParallelismReference`, and Core/API no longer parse runtime parallelism from raw `object?` values.
 
 ### Reference
 - `src/FlowTime.Core/Models/NodeSemantics.cs` (line 21)
@@ -174,4 +174,24 @@ Addressed by E-16 m-E16-01 (Compiled Semantic References). See D-2026-04-03-007.
 - Should derived path outputs be stored in run artifacts or computed on demand?
 - How should node kind (service/queue/dlq) map to visual differentiation in dag-map?
 - Should the Svelte UI support both operational and full graph views? What layout handles 80+ nodes?
+
+---
+
+## M15 Performance Harness Sensitivity
+
+### Why this is a gap
+The stopwatch-based performance assertion in `FlowTime.Tests.Performance.M15PerformanceTests.Test_ExpressionType_Performance` can fail in aggregate full-suite runs even when the isolated test passes immediately afterward. During the 2026-04-05 E-16 wrap audit, `dotnet test --nologo --no-build` failed on the ratio check `complex.evalTime < simple.evalTime * 6`, but a direct filtered rerun of that test passed.
+
+### Why it matters
+This makes full-suite green an unreliable wrap gate for unrelated milestones, even when functional and targeted regression tests are green. The current branch cannot be truthfully presented as fully green under the wrap rules until this harness is stabilized or explicitly treated as a known non-blocking suite-level issue.
+
+### Current mitigation
+As of 2026-04-05, the legacy stopwatch-based `Test_ExpressionType_Performance` gate is quarantined from default full-suite readiness. Targeted expression-type perf checks should use `M16BenchmarkRunner.RunM16ExpressionTypeBenchmarks` instead of relying on the legacy ratio assertion.
+
+### When to revisit
+Stabilize, relax, isolate, or quarantine the stopwatch-based ratio assertion before using full-suite pass/fail as a hard readiness gate for unrelated milestone branches.
+
+### Reference
+- `tests/FlowTime.Tests/Performance/M15PerformanceTests.cs`
+- `work/milestones/tracking/FT-M-05.06-tracking.md`
 

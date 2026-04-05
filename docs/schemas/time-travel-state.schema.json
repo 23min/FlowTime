@@ -284,7 +284,11 @@
                 "queue": { "$ref": "#/$defs/nullableNumber" },
                 "capacity": { "$ref": "#/$defs/nullableNumber" },
                 "processingTimeMsSum": { "$ref": "#/$defs/nullableNumber" },
-                "servedCount": { "$ref": "#/$defs/nullableNumber" }
+                "servedCount": { "$ref": "#/$defs/nullableNumber" },
+                "queueTimeMs": { "$ref": "#/$defs/nullableNumber" },
+                "serviceTimeMs": { "$ref": "#/$defs/nullableNumber" },
+                "cycleTimeMs": { "$ref": "#/$defs/nullableNumber" },
+                "flowEfficiency": { "$ref": "#/$defs/nullableNumber" }
             }
         },
         "nodeDerivedMetrics": {
@@ -294,7 +298,10 @@
                 "utilization": { "$ref": "#/$defs/nullableNumber" },
                 "latencyMinutes": { "$ref": "#/$defs/nullableNumber" },
                 "serviceTimeMs": { "$ref": "#/$defs/nullableNumber" },
+                "queueTimeMs": { "$ref": "#/$defs/nullableNumber" },
+                "cycleTimeMs": { "$ref": "#/$defs/nullableNumber" },
                 "flowLatencyMs": { "$ref": "#/$defs/nullableNumber" },
+                "flowEfficiency": { "$ref": "#/$defs/nullableNumber" },
                 "throughputRatio": { "$ref": "#/$defs/nullableNumber" },
                 "retryTax": { "$ref": "#/$defs/nullableNumber" },
                 "color": { "type": ["string", "null"], "minLength": 1 }

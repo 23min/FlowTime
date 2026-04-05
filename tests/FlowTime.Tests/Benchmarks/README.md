@@ -40,11 +40,17 @@ dotnet test --filter "FullyQualifiedName~M2BenchmarkRunner.RunM2EndToEndBenchmar
 
 ### Run Quick Performance Tests (Legacy, faster feedback)
 ```bash
-# M1.5 legacy tests (stopwatch-based, ~2-3 seconds)
+# M1.5 legacy tests (stopwatch-based, ~2-3 seconds; expression-type ratio gate skipped by default)
 dotnet test --filter "FullyQualifiedName~M15PerformanceTests"
 
 # M2 legacy tests (stopwatch-based, ~2-3 seconds) 
 dotnet test --filter "FullyQualifiedName~M2PerformanceTests"
+```
+
+For targeted expression-type performance checks, prefer the BenchmarkDotNet runner:
+
+```bash
+dotnet test --filter "FullyQualifiedName~M16BenchmarkRunner.RunM16ExpressionTypeBenchmarks"
 ```
 
 ## Benchmark Categories

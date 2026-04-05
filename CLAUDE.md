@@ -175,13 +175,15 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
-- **Immediate gate:** E-16 Formula-First Core Purification must complete before remaining E-10 Phase 3 milestones resume (`work/epics/epic-roadmap.md`)
+- **Active epic:** E-16 Formula-First Core Purification (`work/epics/E-16-formula-first-core-purification/spec.md`)
+  - **Active milestone:** m-E16-02 Class Truth Boundary (`work/milestones/m-E16-02-class-truth-boundary.md`) — **complete**
+  - **Branch:** `milestone/m-E16-02-class-truth-boundary`
+  - **Current focus:** branch is wrapped and green again after quarantining the legacy M15 expression-type perf gate; next up is m-E16-03 Runtime Analytical Descriptor once this branch is committed or otherwise handed off cleanly
+- **Immediate gate:** E-16 must complete before remaining E-10 Phase 3 milestones resume (`work/epics/epic-roadmap.md`)
 - **E-10** Engine Correctness (`work/epics/E-10-engine-correctness-and-analytics/spec.md`) — **gated on E-16**
   - Phases 0-2 complete. Phase 3 bridge complete (m-ec-p3a, m-ec-p3a1 merged to main).
-  - **Remaining:** p3b (WIP Limits), p3c (Variability), p3d (Constraint Enforcement) — resume after E-16
-- **E-16** Formula-First Core Purification (`work/epics/E-16-formula-first-core-purification/spec.md`) — **approved, ready to start**
-  - **Next:** m-E16-01 (Compiled Semantic References)
-  - Then: class truth boundary, runtime analytical descriptor, Core analytical evaluation, warning facts cleanup, contract + consumer purification
+  - **Remaining after E-16:** p3d (Constraint Enforcement), p3c (Variability), p3b (WIP Limits)
+- **E-16 milestone sequence after m-E16-02:** runtime analytical descriptor, Core analytical evaluation, warning facts cleanup, contract + consumer purification
 - **E-11** Svelte UI — paused after M6
   - M1-M4 + M6 done, M5/M7/M8 remain
 - **E-12–E-15:** planned, not started

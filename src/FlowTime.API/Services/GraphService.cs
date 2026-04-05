@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using FlowTime.Contracts.Services;
 using FlowTime.Contracts.TimeTravel;
+using FlowTime.Core.Compiler;
 using FlowTime.Core.Dispatching;
 using FlowTime.Core.Models;
 using FlowTime.Core.Services;
@@ -77,10 +77,19 @@ public sealed class GraphService
             throw new GraphQueryException(409, $"Model for run '{runId}' could not be parsed: {ex.Message}");
         }
 
-        if (modelDefinition.Topology is null)
+        var authoredModelDefinition = modelDefinition;
+        modelDefinition = ModelCompiler.Compile(modelDefinition, logger);
+
+        if (authoredModelDefinition.Topology is null)
         {
             throw new GraphQueryException(412, $"Run '{runId}' does not include topology information.");
         }
+
+        var runtimeModel = ModelParser.ParseMetadata(modelDefinition);
+        var runtimeNodesById = runtimeModel.Topology?.Nodes?
+            .Where(node => !string.IsNullOrWhiteSpace(node.Id))
+            .ToDictionary(node => node.Id, StringComparer.OrdinalIgnoreCase)
+            ?? new Dictionary<string, Node>(StringComparer.OrdinalIgnoreCase);
 
         options ??= GraphQueryOptions.Default;
         var mode = options.Mode;
@@ -112,19 +121,22 @@ public sealed class GraphService
         }
 
         // Operational topology nodes
-        foreach (var topoNode in modelDefinition.Topology.Nodes)
+        foreach (var topoNode in authoredModelDefinition.Topology.Nodes)
         {
             nodeDefinitionsById.TryGetValue(topoNode.Id, out var nodeDefinition);
+            runtimeNodesById.TryGetValue(topoNode.Id, out var runtimeNode);
             var kind = string.IsNullOrWhiteSpace(topoNode.Kind)
                 ? nodeDefinition?.Kind ?? "service"
                 : topoNode.Kind!;
-            var logicalType = DetermineLogicalType(kind, topoNode, nodeDefinitionsById, out var serviceWithBufferDefinition);
+            var logicalType = DetermineLogicalType(kind, runtimeNode, nodeDefinitionsById, out var serviceWithBufferDefinition);
             if (!allowedKinds.Contains(kind))
             {
                 continue;
             }
 
-            var parallelismReference = NormalizeParallelismReference(topoNode.Semantics?.Parallelism);
+            var parallelismReference = runtimeNode?.Semantics.ParallelismRawText
+                ?? runtimeNode?.Semantics.ParallelismRef?.CanonicalText
+                ?? NormalizeParallelismLiteral(topoNode.Semantics?.Parallelism);
             var semantics = new GraphNodeSemantics
             {
                 Arrivals = topoNode.Semantics?.Arrivals ?? string.Empty,
@@ -176,7 +188,7 @@ public sealed class GraphService
         }
 
         // Topology edges
-        foreach (var topoEdge in modelDefinition.Topology.Edges)
+        foreach (var topoEdge in authoredModelDefinition.Topology.Edges)
         {
             var fromNodeId = ExtractNodeId(topoEdge.Source);
             var toNodeId = ExtractNodeId(topoEdge.Target);
@@ -318,27 +330,30 @@ public sealed class GraphService
             }
 
             // Service/queue dependency edges from producers.
-            foreach (var topoNode in modelDefinition.Topology.Nodes)
+            foreach (var topoNode in authoredModelDefinition.Topology.Nodes)
             {
                 if (!graphNodes.ContainsKey(topoNode.Id))
                 {
                     continue;
                 }
 
-                AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.Arrivals, "arrivals");
-                AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.Served, "served");
-                AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.Errors, "errors");
-                AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.Attempts, "attempts");
-                AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.Failures, "failures");
-                AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.RetryEcho, "retryEcho");
-                AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.QueueDepth, "queue");
-                AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.Capacity, "capacity");
-                AddSemanticsDependencyEdge(topoNode.Id, NormalizeParallelismReference(topoNode.Semantics?.Parallelism), "parallelism");
+                runtimeNodesById.TryGetValue(topoNode.Id, out var runtimeNode);
+                var runtimeSemantics = runtimeNode?.Semantics;
+
+                AddSemanticsDependencyEdge(topoNode.Id, runtimeSemantics?.ArrivalsRef, "arrivals");
+                AddSemanticsDependencyEdge(topoNode.Id, runtimeSemantics?.ServedRef, "served");
+                AddSemanticsDependencyEdge(topoNode.Id, runtimeSemantics?.ErrorsRef, "errors");
+                AddSemanticsDependencyEdge(topoNode.Id, runtimeSemantics?.AttemptsRef, "attempts");
+                AddSemanticsDependencyEdge(topoNode.Id, runtimeSemantics?.FailuresRef, "failures");
+                AddSemanticsDependencyEdge(topoNode.Id, runtimeSemantics?.RetryEchoRef, "retryEcho");
+                AddSemanticsDependencyEdge(topoNode.Id, runtimeSemantics?.QueueDepthRef, "queue");
+                AddSemanticsDependencyEdge(topoNode.Id, runtimeSemantics?.CapacityRef, "capacity");
+                AddSemanticsDependencyEdge(topoNode.Id, runtimeSemantics?.ParallelismRef?.Series, "parallelism");
             }
 
-            void AddSemanticsDependencyEdge(string consumerId, string? reference, string field)
+            void AddSemanticsDependencyEdge(string consumerId, CompiledSeriesReference? reference, string field)
             {
-                if (string.IsNullOrWhiteSpace(reference))
+                if (reference is null)
                 {
                     return;
                 }
@@ -348,7 +363,7 @@ public sealed class GraphService
                     return;
                 }
 
-                var producerCandidate = TryResolveProducerId(reference);
+                var producerCandidate = reference.ProducerIdCandidate;
                 if (producerCandidate is null)
                 {
                     return;
@@ -445,44 +460,6 @@ public sealed class GraphService
         var colon = value.IndexOf(':');
         return colon < 0 ? value.Trim() : value[..colon].Trim();
     }
-
-    private static readonly Regex seriesFileRegex = new(@"(?<name>[^/\\]+?)(?:\.csv)?$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
-
-    private static string? TryResolveProducerId(string reference)
-    {
-        if (string.IsNullOrWhiteSpace(reference))
-        {
-            return null;
-        }
-
-        var value = reference.Trim();
-
-        if (value.StartsWith("series:", StringComparison.OrdinalIgnoreCase))
-        {
-            value = value["series:".Length..];
-        }
-        else if (value.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
-        {
-            var match = seriesFileRegex.Match(value);
-            if (match.Success)
-            {
-                value = match.Groups["name"].Value;
-            }
-        }
-
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        var at = value.IndexOf('@');
-        if (at > 0)
-        {
-            value = value[..at];
-        }
-
-        return value.Trim();
-    }
     private static DispatchScheduleDescriptor? TryBuildDispatchSchedule(
         IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
         string nodeId)
@@ -525,16 +502,16 @@ public sealed class GraphService
 
     private static string DetermineLogicalType(
         string kind,
-        TopologyNodeDefinition node,
+        Node? node,
         IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
         out NodeDefinition? serviceWithBufferDefinition)
     {
         serviceWithBufferDefinition = null;
         var normalizedKind = NormalizeKind(kind);
 
-        if (normalizedKind is "queue" or "service")
+        if (node?.Semantics is not null && normalizedKind is "queue" or "service")
         {
-            serviceWithBufferDefinition = TryResolveServiceWithBufferDefinition(nodeDefinitions, node.Semantics?.QueueDepth);
+            serviceWithBufferDefinition = TryResolveServiceWithBufferDefinition(nodeDefinitions, node.Semantics.QueueDepthRef);
             if (serviceWithBufferDefinition is not null)
             {
                 return "serviceWithBuffer";
@@ -546,15 +523,11 @@ public sealed class GraphService
 
     private static NodeDefinition? TryResolveServiceWithBufferDefinition(
         IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
-        string? reference)
+        CompiledSeriesReference? reference)
     {
-        if (string.IsNullOrWhiteSpace(reference))
-        {
-            return null;
-        }
-
-        var candidateId = TryResolveProducerId(reference);
-        if (string.IsNullOrWhiteSpace(candidateId))
+        var candidateId = reference?.ProducerIdCandidate;
+        if (string.IsNullOrWhiteSpace(candidateId) ||
+            string.Equals(candidateId, "self", StringComparison.OrdinalIgnoreCase))
         {
             return null;
         }
@@ -568,7 +541,7 @@ public sealed class GraphService
     private static string NormalizeKind(string? kind) =>
         string.IsNullOrWhiteSpace(kind) ? "service" : kind.Trim().ToLowerInvariant();
 
-    private static string? NormalizeParallelismReference(object? value)
+    private static string? NormalizeParallelismLiteral(object? value)
     {
         if (value is null)
         {

@@ -1,4 +1,5 @@
 using System.Globalization;
+using FlowTime.Core.Compiler;
 using FlowTime.Core.Models;
 
 namespace FlowTime.Core.TimeTravel;
@@ -135,44 +136,62 @@ public sealed class ModeValidator
         {
             var unresolved = new List<string>();
 
-            Assess(semantics.Arrivals, "arrivals");
-            Assess(semantics.Served, "served");
-            Assess(semantics.Errors, "errors");
-            Assess(semantics.Attempts, "attempts");
-            Assess(semantics.Failures, "failures");
-            Assess(semantics.RetryEcho, "retryEcho");
-            Assess(semantics.QueueDepth, "queue");
-            Assess(semantics.Capacity, "capacity");
-            Assess(semantics.ExternalDemand, "external_demand");
-            if (semantics.Parallelism is string parallelismSeries)
-            {
-                if (!double.TryParse(parallelismSeries, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
-                {
-                    Assess(parallelismSeries, "parallelism");
-                }
-            }
+            Assess(semantics.Arrivals, semantics.ArrivalsRef, "arrivals");
+            Assess(semantics.Served, semantics.ServedRef, "served");
+            Assess(semantics.Errors, semantics.ErrorsRef, "errors");
+            Assess(semantics.Attempts, semantics.AttemptsRef, "attempts");
+            Assess(semantics.Failures, semantics.FailuresRef, "failures");
+            Assess(semantics.RetryEcho, semantics.RetryEchoRef, "retryEcho");
+            Assess(semantics.QueueDepth, semantics.QueueDepthRef, "queue");
+            Assess(semantics.Capacity, semantics.CapacityRef, "capacity");
+            Assess(semantics.ExternalDemand, semantics.ExternalDemandRef, "external_demand");
+            AssessParallelism(semantics.ParallelismRawText, semantics.ParallelismRef, "parallelism");
 
             return unresolved;
 
-            void Assess(string? value, string label)
+            void Assess(string? rawValue, CompiledSeriesReference? reference, string label)
             {
-                if (string.IsNullOrWhiteSpace(value))
+                reference ??= TryParseSeriesReference(rawValue);
+                if (reference is null || reference.Kind == CompiledSeriesReferenceKind.File)
                 {
                     return;
                 }
 
-                var trimmed = value.Trim();
-                if (trimmed.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
-                {
-                    return;
-                }
-
+                var trimmed = reference.LookupKey;
                 if (context.ManifestMetadata.NodeSources.ContainsKey(trimmed))
                 {
                     return;
                 }
 
                 unresolved.Add(label);
+            }
+
+            void AssessParallelism(string? rawValue, CompiledParallelismReference? reference, string label)
+            {
+                reference ??= SemanticReferenceResolver.ParseParallelismReference(rawValue);
+                if (reference?.Series is null)
+                {
+                    return;
+                }
+
+                Assess(reference.Series.RawText, reference.Series, label);
+            }
+
+            static CompiledSeriesReference? TryParseSeriesReference(string? rawValue)
+            {
+                if (string.IsNullOrWhiteSpace(rawValue))
+                {
+                    return null;
+                }
+
+                try
+                {
+                    return SemanticReferenceResolver.ParseOptionalSeriesReference(rawValue);
+                }
+                catch (ArgumentException)
+                {
+                    return null;
+                }
             }
         }
     }

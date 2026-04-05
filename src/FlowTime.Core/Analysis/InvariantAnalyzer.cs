@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Linq;
 using FlowTime.Core.Artifacts;
+using FlowTime.Core.Compiler;
 using FlowTime.Core.Dispatching;
 using FlowTime.Core.Execution;
 using FlowTime.Core.Models;
@@ -214,7 +215,7 @@ public static class InvariantAnalyzer
             var effectiveCapacity = capacity;
             if (capacity is not null)
             {
-                ResolveParallelism(semantics.Parallelism, out var parallelismSeries, out var parallelismScalar);
+                ResolveParallelism(SemanticReferenceResolver.ParseParallelismReference(semantics.Parallelism), out var parallelismSeries, out var parallelismScalar);
                 effectiveCapacity = ApplyParallelism(capacity, parallelismSeries, parallelismScalar);
             }
 
@@ -672,7 +673,7 @@ public static class InvariantAnalyzer
             return true;
         }
 
-        void ResolveParallelism(object? parallelism, out double[]? series, out double? scalar)
+        void ResolveParallelism(CompiledParallelismReference? parallelism, out double[]? series, out double? scalar)
         {
             series = null;
             scalar = null;
@@ -682,25 +683,15 @@ public static class InvariantAnalyzer
                 return;
             }
 
-            if (parallelism is string seriesId)
+            if (parallelism.Constant.HasValue)
             {
-                if (double.TryParse(seriesId, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
-                {
-                    scalar = parsed;
-                    return;
-                }
-
-                if (TryGetSeries(seriesId, out var resolved))
-                {
-                    series = resolved;
-                }
-
+                scalar = parallelism.Constant.Value;
                 return;
             }
 
-            if (parallelism is IConvertible)
+            if (parallelism.Series is not null && TryGetSeries(parallelism.Series.LookupKey, out var resolved))
             {
-                scalar = Convert.ToDouble(parallelism, CultureInfo.InvariantCulture);
+                series = resolved;
             }
         }
 
