@@ -2,7 +2,7 @@
 
 **ID:** m-E16-02-class-truth-boundary
 **Epic:** Formula-First Core Purification
-**Status:** draft
+**Status:** complete
 
 ## Goal
 
@@ -50,7 +50,7 @@ Wildcard handling is currently scattered across:
 
 ## Technical Notes
 
-- Favor a small explicit runtime shape over spreading fallback booleans across unrelated DTOs. A tagged type like `ClassResult<T>` with `Real | Fallback` discriminator is one option.
+- Favor a small explicit runtime shape over spreading fallback booleans across unrelated DTOs. A tagged type like `ClassEntry<T>` with `Specific | Fallback` discriminator is one option.
 - Keep this milestone internal to Core/API surfaces; public analytical contract publication comes later.
 - If wildcard fallback remains visible externally at this stage, it must be labeled as fallback in the internal representation even if the external key is still `*`.
 - Dashboard and other client fallback heuristics are deleted only when explicit fallback facts are published in m-E16-06. Do not pull client migration into this internal boundary slice.

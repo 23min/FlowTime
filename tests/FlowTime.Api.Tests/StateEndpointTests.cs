@@ -672,6 +672,28 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     }
 
     [Fact]
+    public async Task GetStateWindow_ServiceWithBuffer_FallbackOnlyByClassPreservesWildcardSeries()
+    {
+        var response = await client.GetAsync($"/v1/runs/{serviceWithBufferDerivedRunId}/state_window?startBin=0&endBin=3");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        var node = Assert.Single(payload!.Nodes, n => n.Id == "BufferService");
+        Assert.NotNull(node.ByClass);
+        Assert.Single(node.ByClass!);
+
+        var wildcard = node.ByClass["*"];
+        Assert.True(wildcard.ContainsKey("queueTimeMs"));
+        Assert.True(wildcard.ContainsKey("serviceTimeMs"));
+        Assert.True(wildcard.ContainsKey("cycleTimeMs"));
+    }
+
+    [Fact]
     public async Task GetStateWindow_LogicalTypeSwb_HasParityWithExplicitSwb()
     {
         // QueueReader is kind: service but logicalType: serviceWithBuffer

@@ -176,6 +176,64 @@
           "origin": "derived"
         }
       },
+      "byClass": {
+        "*": {
+          "arrivals": [
+            10,
+            10,
+            10,
+            10
+          ],
+          "served": [
+            9,
+            6,
+            9,
+            4
+          ],
+          "errors": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "capacity": [
+            12,
+            7,
+            9,
+            4
+          ],
+          "processingTimeMsSum": [
+            2250,
+            1800,
+            2700,
+            1200
+          ],
+          "servedCount": [
+            9,
+            6,
+            9,
+            4
+          ],
+          "serviceTimeMs": [
+            250,
+            300,
+            300,
+            300
+          ],
+          "cycleTimeMs": [
+            250,
+            300,
+            300,
+            300
+          ],
+          "flowEfficiency": [
+            1,
+            1,
+            1,
+            1
+          ]
+        }
+      },
       "constraints": {
         "db_main": {
           "series": {

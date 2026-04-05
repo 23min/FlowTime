@@ -722,7 +722,7 @@ public sealed class StateQueryService
                 QueueLatencyStatus = queueLatencyStatus
             },
             SeriesMetadata = seriesMetadata,
-            ByClass = ConvertClassMetrics(caps, classAggregation.ByClass, binMs),
+            ByClass = ConvertClassMetrics(caps, classAggregation.ClassEntries, binMs),
             Constraints = constraintMetrics,
             ConstraintStatus = constraintStatus,
             Derived = new NodeDerivedMetrics
@@ -1008,20 +1008,26 @@ public sealed class StateQueryService
         };
     }
 
-    private static IReadOnlyDictionary<string, ClassMetrics>? ConvertClassMetrics(AnalyticalCapabilities caps, IReadOnlyDictionary<string, ClassMetricsSnapshot> byClass, double binMs)
+    private static IReadOnlyDictionary<string, ClassMetrics>? ConvertClassMetrics(AnalyticalCapabilities caps, IReadOnlyList<ClassEntry<ClassMetricsSnapshot>> classEntries, double binMs)
     {
-        if (byClass is null || byClass.Count == 0)
+        if (classEntries is null || classEntries.Count == 0)
         {
             return null;
         }
 
-        var result = new Dictionary<string, ClassMetrics>(byClass.Count, StringComparer.OrdinalIgnoreCase);
-        foreach (var kvp in byClass)
+        var hasSpecificClasses = classEntries.Any(fact => fact.Kind == ClassEntryKind.Specific);
+        var result = new Dictionary<string, ClassMetrics>(classEntries.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var fact in classEntries)
         {
-            var snap = kvp.Value;
+            if (fact.Kind == ClassEntryKind.Fallback && hasSpecificClasses)
+            {
+                continue;
+            }
+
+            var snap = fact.Payload;
             var analytical = caps.ComputeClassBin(snap, binMs);
 
-            result[kvp.Key] = new ClassMetrics
+            result[fact.ContractKey] = new ClassMetrics
             {
                 Arrivals = snap.Arrivals,
                 Served = snap.Served,
@@ -1316,8 +1322,8 @@ public sealed class StateQueryService
     {
         double[] CreateSeries() => new double[bins];
         var kernelResult = RetryKernelPolicy.Apply(node.Semantics.RetryKernel?.ToArray());
-        var parallelism = BuildParallelismSeries(node.Semantics.Parallelism, bins);
-        var hasErrors = !string.IsNullOrWhiteSpace(node.Semantics.Errors);
+        var parallelism = BuildParallelismSeries(node.Semantics.ParallelismRef, bins);
+        var hasErrors = node.Semantics.ErrorsRef is not null;
 
         return new NodeData
         {
@@ -1325,18 +1331,18 @@ public sealed class StateQueryService
             Arrivals = CreateSeries(),
             Served = CreateSeries(),
             Errors = hasErrors ? CreateSeries() : null,
-            Attempts = node.Semantics.Attempts != null ? CreateSeries() : null,
-            Failures = node.Semantics.Failures != null ? CreateSeries() : null,
-            ExhaustedFailures = node.Semantics.ExhaustedFailures != null ? CreateSeries() : null,
-            RetryEcho = node.Semantics.RetryEcho != null ? CreateSeries() : null,
+            Attempts = node.Semantics.AttemptsRef is not null ? CreateSeries() : null,
+            Failures = node.Semantics.FailuresRef is not null ? CreateSeries() : null,
+            ExhaustedFailures = node.Semantics.ExhaustedFailuresRef is not null ? CreateSeries() : null,
+            RetryEcho = node.Semantics.RetryEchoRef is not null ? CreateSeries() : null,
             RetryKernel = kernelResult.Kernel,
-            ExternalDemand = node.Semantics.ExternalDemand != null ? CreateSeries() : null,
-            QueueDepth = node.Semantics.QueueDepth != null ? CreateSeries() : null,
-            Capacity = node.Semantics.Capacity != null ? CreateSeries() : null,
+            ExternalDemand = node.Semantics.ExternalDemandRef is not null ? CreateSeries() : null,
+            QueueDepth = node.Semantics.QueueDepthRef is not null ? CreateSeries() : null,
+            Capacity = node.Semantics.CapacityRef is not null ? CreateSeries() : null,
             Parallelism = parallelism,
-            ProcessingTimeMsSum = node.Semantics.ProcessingTimeMsSum != null ? CreateSeries() : null,
-            ServedCount = node.Semantics.ServedCount != null ? CreateSeries() : null,
-            RetryBudgetRemaining = node.Semantics.RetryBudgetRemaining != null ? CreateSeries() : null
+            ProcessingTimeMsSum = node.Semantics.ProcessingTimeMsSumRef is not null ? CreateSeries() : null,
+            ServedCount = node.Semantics.ServedCountRef is not null ? CreateSeries() : null,
+            RetryBudgetRemaining = node.Semantics.RetryBudgetRemainingRef is not null ? CreateSeries() : null
         };
     }
 
@@ -1691,7 +1697,7 @@ public sealed class StateQueryService
         return merged;
     }
 
-    private static double[]? BuildParallelismSeries(object? parallelism, int bins)
+    private static double[]? BuildParallelismSeries(CompiledParallelismReference? parallelism, int bins)
     {
         var scalar = ParseParallelismScalar(parallelism);
         return scalar.HasValue ? CreateConstantSeries(scalar.Value, bins) : null;
@@ -1699,21 +1705,24 @@ public sealed class StateQueryService
 
     private static IDictionary<string, IDictionary<string, double?[]>>? BuildClassSeries(AnalyticalCapabilities caps, NodeData data, int startBin, int count, double binMs)
     {
-        if (data.ByClass is null || data.ByClass.Count == 0)
+        var classEntries = ClassMetricsAggregator.BuildClassEntries(data);
+        if (classEntries.Count == 0)
         {
             return null;
         }
 
+        var hasSpecificClasses = classEntries.Any(fact => fact.Kind == ClassEntryKind.Specific);
         var result = new Dictionary<string, IDictionary<string, double?[]>>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var kvp in data.ByClass)
+        foreach (var fact in classEntries)
         {
-            var classId = string.IsNullOrWhiteSpace(kvp.Key) ? "*" : kvp.Key.Trim();
-            var classData = kvp.Value;
-            if (classData is null)
+            if (fact.Kind == ClassEntryKind.Fallback && hasSpecificClasses)
             {
                 continue;
             }
+
+            var classId = fact.ContractKey;
+            var classData = fact.Payload;
 
             var classSeries = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
             AddSeriesIfAvailable(classSeries, "arrivals", classData.Arrivals);
@@ -2342,18 +2351,24 @@ public sealed class StateQueryService
 
     private static string? ResolveQueueSeriesOrigin(Node node, StateRunContext context)
     {
-        if (node.Semantics is null || string.IsNullOrWhiteSpace(node.Semantics.QueueDepth))
+        if (node.Semantics is null || node.Semantics.QueueDepthRef is null)
         {
             return null;
         }
 
-        var raw = node.Semantics.QueueDepth.Trim();
-        if (raw.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+        if (node.Semantics.QueueDepthRef.Kind == CompiledSeriesReferenceKind.File)
         {
             return "explicit";
         }
 
-        var seriesId = ExtractNodeId(raw);
+        var seriesIdCandidate = node.Semantics.QueueDepthRef.ProducerIdCandidate;
+        if (string.IsNullOrWhiteSpace(seriesIdCandidate))
+        {
+            return null;
+        }
+
+        var seriesId = seriesIdCandidate!;
+
         if (string.Equals(seriesId, "self", StringComparison.OrdinalIgnoreCase))
         {
             return "derived";
@@ -2372,18 +2387,6 @@ public sealed class StateQueryService
         }
 
         return "derived";
-    }
-
-    private static string ExtractNodeId(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return string.Empty;
-        }
-
-        var trimmed = value.Trim();
-        var separatorIndex = trimmed.IndexOf(':');
-        return separatorIndex >= 0 ? trimmed[..separatorIndex] : trimmed;
     }
 
     private void InspectTelemetrySources(
@@ -2671,28 +2674,17 @@ public sealed class StateQueryService
             return double.IsFinite(value) ? value : null;
         }
 
-        return ParseParallelismScalar(semantics.Parallelism);
+        return ParseParallelismScalar(semantics.ParallelismRef);
     }
 
-    private static double? ParseParallelismScalar(object? value)
+    private static double? ParseParallelismScalar(CompiledParallelismReference? value)
     {
-        if (value is null)
+        if (value is null || !value.Constant.HasValue)
         {
             return null;
         }
 
-        double parsed;
-        switch (value)
-        {
-            case string text when double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var numeric):
-                parsed = numeric;
-                break;
-            case IConvertible:
-                parsed = Convert.ToDouble(value, CultureInfo.InvariantCulture);
-                break;
-            default:
-                return null;
-        }
+        var parsed = value.Constant.GetValueOrDefault();
 
         if (!double.IsFinite(parsed) || parsed <= 0d)
         {
@@ -4517,47 +4509,20 @@ public sealed class StateQueryService
         int bins,
         IReadOnlyDictionary<string, SeriesReference> seriesLookup)
     {
-        double[]? Resolve(string? id, double[]? current)
-        {
-            if (current != null)
-            {
-                return current;
-            }
-
-            if (string.IsNullOrWhiteSpace(id))
-            {
-                return null;
-            }
-
-            if (!seriesLookup.TryGetValue(id, out var reference) || string.IsNullOrWhiteSpace(reference.Path))
-            {
-                return null;
-            }
-
-            var relative = reference.Path.Replace('/', Path.DirectorySeparatorChar);
-            var path = Path.Combine(runDirectory, relative);
-            if (!File.Exists(path))
-            {
-                return null;
-            }
-
-            return CsvReader.ReadTimeSeries(path, bins);
-        }
-
         var semantics = node.Semantics;
 
-        var arrivals = Resolve(semantics.Arrivals, data.Arrivals);
-        var served = Resolve(semantics.Served, data.Served);
-        var errors = Resolve(semantics.Errors, data.Errors);
-        var attempts = Resolve(semantics.Attempts, data.Attempts);
-        var failures = Resolve(semantics.Failures, data.Failures);
-        var retryEcho = Resolve(semantics.RetryEcho, data.RetryEcho);
-        var queue = Resolve(semantics.QueueDepth, data.QueueDepth);
-        var capacity = Resolve(semantics.Capacity, data.Capacity);
-        var parallelism = ResolveParallelism(semantics.Parallelism, data.Parallelism);
-        var external = Resolve(semantics.ExternalDemand, data.ExternalDemand);
-        var processingTime = Resolve(semantics.ProcessingTimeMsSum, data.ProcessingTimeMsSum);
-        var servedCount = Resolve(semantics.ServedCount, data.ServedCount);
+        var arrivals = ResolveSeriesFromManifest(semantics.ArrivalsRef, data.Arrivals, runDirectory, bins, seriesLookup);
+        var served = ResolveSeriesFromManifest(semantics.ServedRef, data.Served, runDirectory, bins, seriesLookup);
+        var errors = ResolveSeriesFromManifest(semantics.ErrorsRef, data.Errors, runDirectory, bins, seriesLookup);
+        var attempts = ResolveSeriesFromManifest(semantics.AttemptsRef, data.Attempts, runDirectory, bins, seriesLookup);
+        var failures = ResolveSeriesFromManifest(semantics.FailuresRef, data.Failures, runDirectory, bins, seriesLookup);
+        var retryEcho = ResolveSeriesFromManifest(semantics.RetryEchoRef, data.RetryEcho, runDirectory, bins, seriesLookup);
+        var queue = ResolveSeriesFromManifest(semantics.QueueDepthRef, data.QueueDepth, runDirectory, bins, seriesLookup);
+        var capacity = ResolveSeriesFromManifest(semantics.CapacityRef, data.Capacity, runDirectory, bins, seriesLookup);
+        var parallelism = ResolveParallelismFromManifest(semantics.ParallelismRef, data.Parallelism, runDirectory, bins, seriesLookup);
+        var external = ResolveSeriesFromManifest(semantics.ExternalDemandRef, data.ExternalDemand, runDirectory, bins, seriesLookup);
+        var processingTime = ResolveSeriesFromManifest(semantics.ProcessingTimeMsSumRef, data.ProcessingTimeMsSum, runDirectory, bins, seriesLookup);
+        var servedCount = ResolveSeriesFromManifest(semantics.ServedCountRef, data.ServedCount, runDirectory, bins, seriesLookup);
 
         return data with
         {
@@ -4574,28 +4539,6 @@ public sealed class StateQueryService
             ProcessingTimeMsSum = processingTime,
             ServedCount = servedCount
         };
-
-        double[]? ResolveParallelism(object? value, double[]? current)
-        {
-            if (current != null)
-            {
-                return current;
-            }
-
-            if (value is null)
-            {
-                return null;
-            }
-
-            if (value is string seriesId)
-            {
-                var scalar = ParseParallelismScalar(seriesId);
-                return scalar.HasValue ? CreateConstantSeries(scalar.Value, bins) : Resolve(seriesId, null);
-            }
-
-            var literal = ParseParallelismScalar(value);
-            return literal.HasValue ? CreateConstantSeries(literal.Value, bins) : null;
-        }
     }
 
     private static ConstraintData AugmentConstraintDataFromManifest(
@@ -4605,38 +4548,11 @@ public sealed class StateQueryService
         int bins,
         IReadOnlyDictionary<string, SeriesReference> seriesLookup)
     {
-        double[]? Resolve(string? id, double[]? current)
-        {
-            if (current is not null && current.Any(double.IsFinite))
-            {
-                return current;
-            }
-
-            if (string.IsNullOrWhiteSpace(id))
-            {
-                return null;
-            }
-
-            if (!seriesLookup.TryGetValue(id, out var reference) || string.IsNullOrWhiteSpace(reference.Path))
-            {
-                return null;
-            }
-
-            var relative = reference.Path.Replace('/', Path.DirectorySeparatorChar);
-            var path = Path.Combine(runDirectory, relative);
-            if (!File.Exists(path))
-            {
-                return null;
-            }
-
-            return CsvReader.ReadTimeSeries(path, bins);
-        }
-
         var semantics = constraint.Semantics;
-        var arrivals = Resolve(semantics.Arrivals, data.Arrivals);
-        var served = Resolve(semantics.Served, data.Served);
-        var errors = Resolve(semantics.Errors, data.Errors);
-        var latencyMinutes = Resolve(semantics.LatencyMinutes, data.LatencyMinutes);
+        var arrivals = ResolveSeriesFromManifest(semantics.ArrivalsRef, data.Arrivals, runDirectory, bins, seriesLookup, requireFiniteCurrent: true);
+        var served = ResolveSeriesFromManifest(semantics.ServedRef, data.Served, runDirectory, bins, seriesLookup, requireFiniteCurrent: true);
+        var errors = ResolveSeriesFromManifest(semantics.ErrorsRef, data.Errors, runDirectory, bins, seriesLookup, requireFiniteCurrent: true);
+        var latencyMinutes = ResolveSeriesFromManifest(semantics.LatencyMinutesRef, data.LatencyMinutes, runDirectory, bins, seriesLookup, requireFiniteCurrent: true);
 
         return data with
         {
@@ -4663,15 +4579,19 @@ public sealed class StateQueryService
 
         var byClass = new Dictionary<string, NodeClassData>(StringComparer.OrdinalIgnoreCase);
 
-        void Apply(string? semanticId, Func<NodeClassData, double[], NodeClassData> merge)
+        void Apply(CompiledSeriesReference? semanticReference, Func<NodeClassData, double[], NodeClassData> merge)
         {
-            var componentId = ResolveComponentId(semanticId, seriesLookup);
+            var componentId = ResolveComponentId(semanticReference, seriesLookup);
             if (string.IsNullOrWhiteSpace(componentId))
             {
                 return;
             }
 
-            var metricKey = NormalizeSeriesKey(semanticId ?? string.Empty);
+            var metricKey = GetSeriesLookupKey(semanticReference);
+            if (string.IsNullOrWhiteSpace(metricKey))
+            {
+                return;
+            }
             var atIndexMetric = metricKey.IndexOf('@');
             if (atIndexMetric >= 0)
             {
@@ -4709,25 +4629,24 @@ public sealed class StateQueryService
                     continue;
                 }
 
-                var classId = string.IsNullOrWhiteSpace(meta.Class) ? "*" : meta.Class.Trim();
-                if (string.Equals(classId, "*", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(classId, "DEFAULT", StringComparison.OrdinalIgnoreCase))
+                if (ClassMetricsAggregator.IsFallbackClassId(meta.Class))
                 {
                     // Skip totals; they are already represented in NodeData.Arrivals/Served/Errors arrays.
                     continue;
                 }
+                var classId = meta.Class!.Trim();
                 var current = byClass.TryGetValue(classId, out var existing) ? existing : new NodeClassData();
                 byClass[classId] = merge(current, series);
             }
         }
 
-        Apply(node.Semantics.Arrivals, (current, series) => current with { Arrivals = series });
-        Apply(node.Semantics.Served, (current, series) => current with { Served = series });
-        Apply(node.Semantics.Errors, (current, series) => current with { Errors = series });
-        Apply(node.Semantics.QueueDepth, (current, series) => current with { QueueDepth = series });
-        Apply(node.Semantics.Capacity, (current, series) => current with { Capacity = series });
-        Apply(node.Semantics.ProcessingTimeMsSum, (current, series) => current with { ProcessingTimeMsSum = series });
-        Apply(node.Semantics.ServedCount, (current, series) => current with { ServedCount = series });
+        Apply(node.Semantics.ArrivalsRef, (current, series) => current with { Arrivals = series });
+        Apply(node.Semantics.ServedRef, (current, series) => current with { Served = series });
+        Apply(node.Semantics.ErrorsRef, (current, series) => current with { Errors = series });
+        Apply(node.Semantics.QueueDepthRef, (current, series) => current with { QueueDepth = series });
+        Apply(node.Semantics.CapacityRef, (current, series) => current with { Capacity = series });
+        Apply(node.Semantics.ProcessingTimeMsSumRef, (current, series) => current with { ProcessingTimeMsSum = series });
+        Apply(node.Semantics.ServedCountRef, (current, series) => current with { ServedCount = series });
 
         if (byClass.Count > 0)
         {
@@ -4737,14 +4656,14 @@ public sealed class StateQueryService
         return byClass.Count == 0 ? null : byClass;
     }
 
-    private static string? ResolveComponentId(string? semanticId, IReadOnlyDictionary<string, SeriesReference> seriesLookup)
+    private static string? ResolveComponentId(CompiledSeriesReference? semanticReference, IReadOnlyDictionary<string, SeriesReference> seriesLookup)
     {
-        if (string.IsNullOrWhiteSpace(semanticId))
+        var normalized = GetSeriesLookupKey(semanticReference);
+        if (string.IsNullOrWhiteSpace(normalized))
         {
             return null;
         }
 
-        var normalized = NormalizeSeriesKey(semanticId);
         var key = normalized;
         var atIndex = key.IndexOf('@');
         if (atIndex >= 0)
@@ -4761,27 +4680,11 @@ public sealed class StateQueryService
             }
         }
 
-        var fallback = ExtractComponentId(normalized);
+        var fallback = ExtractComponentId(semanticReference?.ProducerIdCandidate ?? normalized);
         return string.IsNullOrWhiteSpace(fallback) ? null : fallback;
     }
 
-    private static string NormalizeSeriesKey(string semanticId)
-    {
-        var trimmed = semanticId.Trim();
-        if (trimmed.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
-        {
-            trimmed = trimmed["file:".Length..].TrimStart('/', '\\');
-        }
-
-        trimmed = Path.GetFileName(trimmed);
-
-        if (trimmed.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
-        {
-            trimmed = trimmed[..^4];
-        }
-
-        return trimmed;
-    }
+    private static string GetSeriesLookupKey(CompiledSeriesReference? reference) => reference?.LookupKey ?? string.Empty;
 
     private static string? ExtractComponentId(string? seriesId)
     {
@@ -5247,15 +5150,13 @@ public sealed class StateQueryService
         return kind.Trim().ToLowerInvariant();
     }
 
-    private static readonly Regex seriesFileRegex = new(@"(?<name>[^/\\]+?)(?:\.csv)?$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
-
     private static string DetermineLogicalType(
         Node node,
         string normalizedKind,
         StateRunContext context,
         out NodeDefinition? serviceWithBufferDefinition)
     {
-        serviceWithBufferDefinition = TryResolveServiceWithBufferDefinition(node.Semantics?.QueueDepth, context.ModelNodes);
+        serviceWithBufferDefinition = TryResolveServiceWithBufferDefinition(node.Semantics?.QueueDepthRef, context.ModelNodes);
         if (serviceWithBufferDefinition is not null)
         {
             return "serviceWithBuffer";
@@ -5265,16 +5166,12 @@ public sealed class StateQueryService
     }
 
     private static NodeDefinition? TryResolveServiceWithBufferDefinition(
-        string? reference,
+        CompiledSeriesReference? reference,
         IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions)
     {
-        if (string.IsNullOrWhiteSpace(reference))
-        {
-            return null;
-        }
-
-        var candidateId = TryResolveSeriesNodeId(reference);
-        if (string.IsNullOrWhiteSpace(candidateId))
+        var candidateId = reference?.ProducerIdCandidate;
+        if (string.IsNullOrWhiteSpace(candidateId) ||
+            string.Equals(candidateId, "self", StringComparison.OrdinalIgnoreCase))
         {
             return null;
         }
@@ -5285,40 +5182,56 @@ public sealed class StateQueryService
             : null;
     }
 
-    private static string? TryResolveSeriesNodeId(string? reference)
+    private static double[]? ResolveSeriesFromManifest(
+        CompiledSeriesReference? reference,
+        double[]? current,
+        string runDirectory,
+        int bins,
+        IReadOnlyDictionary<string, SeriesReference> seriesLookup,
+        bool requireFiniteCurrent = false)
     {
-        if (string.IsNullOrWhiteSpace(reference))
+        if (current is not null && (!requireFiniteCurrent || current.Any(double.IsFinite)))
+        {
+            return current;
+        }
+
+        var key = GetSeriesLookupKey(reference);
+        if (string.IsNullOrWhiteSpace(key) ||
+            !seriesLookup.TryGetValue(key, out var seriesReference) ||
+            string.IsNullOrWhiteSpace(seriesReference.Path))
         {
             return null;
         }
 
-        var value = reference.Trim();
-        if (value.StartsWith("series:", StringComparison.OrdinalIgnoreCase))
-        {
-            value = value["series:".Length..];
-        }
-        else if (value.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
-        {
-            var filePart = value["file:".Length..];
-            var match = seriesFileRegex.Match(filePart);
-            if (match.Success)
-            {
-                value = match.Groups["name"].Value;
-            }
-        }
-
-        if (string.IsNullOrWhiteSpace(value))
+        var relative = seriesReference.Path.Replace('/', Path.DirectorySeparatorChar);
+        var path = Path.Combine(runDirectory, relative);
+        if (!File.Exists(path))
         {
             return null;
         }
 
-        var at = value.IndexOf('@');
-        if (at > 0)
+        return CsvReader.ReadTimeSeries(path, bins);
+    }
+
+    private static double[]? ResolveParallelismFromManifest(
+        CompiledParallelismReference? reference,
+        double[]? current,
+        string runDirectory,
+        int bins,
+        IReadOnlyDictionary<string, SeriesReference> seriesLookup)
+    {
+        if (current != null)
         {
-            value = value[..at];
+            return current;
         }
 
-        return value.Trim();
+        var scalar = ParseParallelismScalar(reference);
+        if (scalar.HasValue)
+        {
+            return CreateConstantSeries(scalar.Value, bins);
+        }
+
+        return ResolveSeriesFromManifest(reference?.Series, null, runDirectory, bins, seriesLookup);
     }
 
     private static QueueLatencyStatusDescriptor? DetermineQueueLatencyStatus(

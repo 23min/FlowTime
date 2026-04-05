@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using FlowTime.Core.Compiler;
 using System.Linq;
 using FlowTime.Core.Dispatching;
 using FlowTime.Core.Execution;
@@ -89,6 +90,21 @@ public static class ModelParser
             if (definition.Semantics == null)
                 throw new ModelParseException($"Topology node '{definition.Id}' must include semantics");
 
+            var arrivals = RequireSemantic(definition.Semantics.Arrivals, definition.Id, "arrivals");
+            var served = RequireSemantic(definition.Semantics.Served, definition.Id, "served");
+            var errors = OptionalSemantic(definition.Semantics.Errors);
+            var attempts = OptionalSemantic(definition.Semantics.Attempts);
+            var failures = OptionalSemantic(definition.Semantics.Failures);
+            var exhaustedFailures = OptionalSemantic(definition.Semantics.ExhaustedFailures);
+            var retryEcho = OptionalSemantic(definition.Semantics.RetryEcho);
+            var retryBudgetRemaining = OptionalSemantic(definition.Semantics.RetryBudgetRemaining);
+            var externalDemand = OptionalSemantic(definition.Semantics.ExternalDemand);
+            var queueDepth = OptionalSemantic(definition.Semantics.QueueDepth);
+            var capacity = OptionalSemantic(definition.Semantics.Capacity);
+            var parallelismRef = SemanticReferenceResolver.ParseParallelismReference(definition.Semantics.Parallelism);
+            var processingTimeMsSum = OptionalSemantic(definition.Semantics.ProcessingTimeMsSum);
+            var servedCount = OptionalSemantic(definition.Semantics.ServedCount);
+
             return new Node
             {
                 Id = definition.Id,
@@ -100,21 +116,35 @@ public static class ModelParser
                 DispatchSchedule = definition.DispatchSchedule,
                 Semantics = new NodeSemantics
                 {
-                    Arrivals = RequireSemantic(definition.Semantics.Arrivals, definition.Id, "arrivals"),
-                    Served = RequireSemantic(definition.Semantics.Served, definition.Id, "served"),
-                    Errors = OptionalSemantic(definition.Semantics.Errors),
-                    Attempts = definition.Semantics.Attempts,
-                    Failures = definition.Semantics.Failures,
-                    ExhaustedFailures = definition.Semantics.ExhaustedFailures,
-                    RetryEcho = definition.Semantics.RetryEcho,
-                    RetryBudgetRemaining = definition.Semantics.RetryBudgetRemaining,
+                    Arrivals = arrivals,
+                    ArrivalsRef = SemanticReferenceResolver.ParseSeriesReference(arrivals),
+                    Served = served,
+                    ServedRef = SemanticReferenceResolver.ParseSeriesReference(served),
+                    Errors = errors,
+                    ErrorsRef = SemanticReferenceResolver.ParseOptionalSeriesReference(errors),
+                    Attempts = attempts,
+                    AttemptsRef = SemanticReferenceResolver.ParseOptionalSeriesReference(attempts),
+                    Failures = failures,
+                    FailuresRef = SemanticReferenceResolver.ParseOptionalSeriesReference(failures),
+                    ExhaustedFailures = exhaustedFailures,
+                    ExhaustedFailuresRef = SemanticReferenceResolver.ParseOptionalSeriesReference(exhaustedFailures),
+                    RetryEcho = retryEcho,
+                    RetryEchoRef = SemanticReferenceResolver.ParseOptionalSeriesReference(retryEcho),
+                    RetryBudgetRemaining = retryBudgetRemaining,
+                    RetryBudgetRemainingRef = SemanticReferenceResolver.ParseOptionalSeriesReference(retryBudgetRemaining),
                     RetryKernel = definition.Semantics.RetryKernel,
-                    ExternalDemand = definition.Semantics.ExternalDemand,
-                    QueueDepth = definition.Semantics.QueueDepth,
-                    Capacity = definition.Semantics.Capacity,
-                    Parallelism = definition.Semantics.Parallelism,
-                    ProcessingTimeMsSum = definition.Semantics.ProcessingTimeMsSum,
-                    ServedCount = definition.Semantics.ServedCount,
+                    ExternalDemand = externalDemand,
+                    ExternalDemandRef = SemanticReferenceResolver.ParseOptionalSeriesReference(externalDemand),
+                    QueueDepth = queueDepth,
+                    QueueDepthRef = SemanticReferenceResolver.ParseOptionalSeriesReference(queueDepth),
+                    Capacity = capacity,
+                    CapacityRef = SemanticReferenceResolver.ParseOptionalSeriesReference(capacity),
+                    ParallelismRawText = parallelismRef?.RawText,
+                    ParallelismRef = parallelismRef,
+                    ProcessingTimeMsSum = processingTimeMsSum,
+                    ProcessingTimeMsSumRef = SemanticReferenceResolver.ParseOptionalSeriesReference(processingTimeMsSum),
+                    ServedCount = servedCount,
+                    ServedCountRef = SemanticReferenceResolver.ParseOptionalSeriesReference(servedCount),
                     SlaMinutes = definition.Semantics.SlaMin,
                     MaxAttempts = definition.Semantics.MaxAttempts,
                     BackoffStrategy = definition.Semantics.BackoffStrategy,
@@ -158,15 +188,24 @@ public static class ModelParser
                 throw new ModelParseException($"Topology constraint '{definition.Id}' must include semantics");
             }
 
+            var arrivals = RequireSemantic(definition.Semantics.Arrivals, definition.Id, "arrivals");
+            var served = RequireSemantic(definition.Semantics.Served, definition.Id, "served");
+            var errors = OptionalSemantic(definition.Semantics.Errors);
+            var latencyMinutes = OptionalSemantic(definition.Semantics.LatencyMinutes);
+
             return new Constraint
             {
                 Id = definition.Id,
                 Semantics = new ConstraintSemantics
                 {
-                    Arrivals = RequireSemantic(definition.Semantics.Arrivals, definition.Id, "arrivals"),
-                    Served = RequireSemantic(definition.Semantics.Served, definition.Id, "served"),
-                    Errors = OptionalSemantic(definition.Semantics.Errors),
-                    LatencyMinutes = OptionalSemantic(definition.Semantics.LatencyMinutes)
+                    Arrivals = arrivals,
+                    ArrivalsRef = SemanticReferenceResolver.ParseSeriesReference(arrivals),
+                    Served = served,
+                    ServedRef = SemanticReferenceResolver.ParseSeriesReference(served),
+                    Errors = errors,
+                    ErrorsRef = SemanticReferenceResolver.ParseOptionalSeriesReference(errors),
+                    LatencyMinutes = latencyMinutes,
+                    LatencyMinutesRef = SemanticReferenceResolver.ParseOptionalSeriesReference(latencyMinutes)
                 }
             };
         }

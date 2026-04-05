@@ -34,18 +34,23 @@ public static class ModelCompiler
             if (IsQueueLikeKind(topoNode.Kind))
             {
                 var queueSeries = semantics.QueueDepth?.Trim();
-                if (!IsFileReference(queueSeries))
+                var queueReference = SemanticReferenceResolver.ParseOptionalSeriesReference(queueSeries);
+                if (queueReference is null || queueReference.Kind != CompiledSeriesReferenceKind.File)
                 {
-                    var needsQueueNode = string.IsNullOrWhiteSpace(queueSeries) ||
-                                         queueSeries.Equals("self", StringComparison.OrdinalIgnoreCase) ||
-                                         !existingNodeIds.Contains(queueSeries);
+                    var requestedQueueNodeId = queueReference?.Kind == CompiledSeriesReferenceKind.Node
+                        ? queueReference.NodeId
+                        : null;
+                    var needsQueueNode = queueReference is null ||
+                                         queueReference.Kind == CompiledSeriesReferenceKind.Self ||
+                                         string.IsNullOrWhiteSpace(requestedQueueNodeId) ||
+                                         !existingNodeIds.Contains(requestedQueueNodeId);
 
                     if (needsQueueNode)
                     {
                         var inflow = RequireSeries(semantics.Arrivals, topoNode.Id, "semantics.arrivals");
                         var outflow = ResolveQueueOutflow(semantics, topoNode.Id);
                         var loss = string.IsNullOrWhiteSpace(semantics.Errors) ? null : semantics.Errors.Trim();
-                        var queueNodeId = DetermineQueueNodeId(topoNode.Id, queueSeries, existingNodeIds);
+                        var queueNodeId = DetermineQueueNodeId(topoNode.Id, requestedQueueNodeId, existingNodeIds);
 
                         semantics.QueueDepth = queueNodeId;
                         nodes.Add(new NodeDefinition
@@ -69,9 +74,12 @@ public static class ModelCompiler
             }
 
             var retryEchoSeries = semantics.RetryEcho?.Trim();
-            if (!string.IsNullOrWhiteSpace(retryEchoSeries) &&
-                !IsFileReference(retryEchoSeries) &&
-                !existingNodeIds.Contains(retryEchoSeries))
+            var retryEchoReference = SemanticReferenceResolver.ParseOptionalSeriesReference(retryEchoSeries);
+            var retryEchoNodeId = retryEchoReference?.Kind == CompiledSeriesReferenceKind.Node
+                ? retryEchoReference.NodeId
+                : null;
+            if (!string.IsNullOrWhiteSpace(retryEchoNodeId) &&
+                !existingNodeIds.Contains(retryEchoNodeId))
             {
                 var failuresSeries = !string.IsNullOrWhiteSpace(semantics.Failures)
                     ? semantics.Failures!.Trim()
@@ -95,7 +103,7 @@ public static class ModelCompiler
                         var kernelLiteral = FormatKernelLiteral(policyResult.Kernel);
                         nodes.Add(new NodeDefinition
                         {
-                            Id = retryEchoSeries,
+                            Id = retryEchoNodeId,
                             Kind = "expr",
                             Expr = $"CONV({failuresSeries}, {kernelLiteral})",
                             Metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -103,7 +111,7 @@ public static class ModelCompiler
                                 ["graph.hidden"] = "true"
                             }
                         });
-                        existingNodeIds.Add(retryEchoSeries);
+                        existingNodeIds.Add(retryEchoNodeId);
                         changed = true;
                     }
                 }
@@ -136,9 +144,6 @@ public static class ModelCompiler
 
         return queueLikeKinds.Contains(kind.Trim());
     }
-
-    private static bool IsFileReference(string? value) =>
-        !string.IsNullOrWhiteSpace(value) && value.Trim().StartsWith("file:", StringComparison.OrdinalIgnoreCase);
 
     private static string RequireSeries(string? value, string nodeId, string field)
     {

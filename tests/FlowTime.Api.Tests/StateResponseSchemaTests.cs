@@ -33,7 +33,15 @@ public class StateResponseSchemaTests : IClassFixture<TestWebApplicationFactory>
             throw new FileNotFoundException($"State schema file not found at '{schemaPath}'.");
         }
 
-        schema = JsonSchema.FromText(File.ReadAllText(schemaPath));
+        var schemaText = File.ReadAllText(schemaPath);
+        var schemaNode = JsonNode.Parse(schemaText) ?? throw new InvalidDataException("State schema JSON could not be parsed.");
+        if (schemaNode is JsonObject schemaObject)
+        {
+            schemaObject.Remove("$schema");
+            schemaText = schemaNode.ToJsonString();
+        }
+
+        schema = JsonSchema.FromText(schemaText);
     }
 
     [Fact]

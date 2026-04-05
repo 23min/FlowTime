@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using FlowTime.Tests.Support;
 using Json.Schema;
 using YamlDotNet.Serialization;
@@ -195,6 +196,14 @@ public sealed class TemplateSchemaValidationTests
     private static JsonSchema LoadSchema()
     {
         var schemaPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "docs", "schemas", "template.schema.json"));
-        return JsonSchema.FromText(File.ReadAllText(schemaPath));
+        var schemaText = File.ReadAllText(schemaPath);
+        var schemaNode = JsonNode.Parse(schemaText) ?? throw new InvalidDataException("Template schema JSON could not be parsed.");
+        if (schemaNode is JsonObject schemaObject)
+        {
+            schemaObject.Remove("$schema");
+            schemaText = schemaNode.ToJsonString();
+        }
+
+        return JsonSchema.FromText(schemaText);
     }
 }

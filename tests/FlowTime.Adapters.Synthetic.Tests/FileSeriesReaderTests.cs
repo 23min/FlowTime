@@ -200,6 +200,13 @@ public class FileSeriesReaderTests : IDisposable
     {
         var schemaPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "docs", "schemas", "manifest.schema.json"));
         var schemaText = File.ReadAllText(schemaPath);
+        var schemaNode = JsonNode.Parse(schemaText) ?? throw new InvalidDataException("Manifest schema JSON could not be parsed.");
+        if (schemaNode is JsonObject schemaObject)
+        {
+            schemaObject.Remove("$schema");
+            schemaText = schemaNode.ToJsonString();
+        }
+
         return JsonSchema.FromText(schemaText);
     }
 

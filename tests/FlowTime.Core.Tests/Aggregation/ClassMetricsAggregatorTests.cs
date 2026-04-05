@@ -58,10 +58,55 @@ public class ClassMetricsAggregatorTests
 
         var entry = Assert.Single(result.ByClass);
         Assert.Equal("*", entry.Key);
+        var entryRecord = Assert.Single(result.ClassEntries);
+        Assert.Equal(ClassEntryKind.Fallback, entryRecord.Kind);
+        Assert.Equal("*", entryRecord.ContractKey);
         Assert.Equal(5d, entry.Value.Arrivals);
         Assert.Equal(4d, entry.Value.Served);
         Assert.Equal(1d, entry.Value.Errors);
         Assert.Equal(ClassCoverage.Missing, result.Coverage);
+    }
+
+    [Fact]
+    public void Aggregate_DistinguishesRealClasses_FromFallbackTruth()
+    {
+        var data = new NodeData
+        {
+            NodeId = "service",
+            Arrivals = new[] { 10d },
+            Served = new[] { 8d },
+            Errors = new[] { 2d },
+            ByClass = new Dictionary<string, NodeClassData>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["vip"] = new NodeClassData
+                {
+                    Arrivals = new[] { 4d },
+                    Served = new[] { 3d },
+                    Errors = new[] { 1d }
+                },
+                ["standard"] = new NodeClassData
+                {
+                    Arrivals = new[] { 4d },
+                    Served = new[] { 3d },
+                    Errors = new[] { 1d }
+                },
+                ["*"] = new NodeClassData
+                {
+                    Arrivals = new[] { 10d },
+                    Served = new[] { 8d },
+                    Errors = new[] { 2d }
+                }
+            }
+        };
+
+        var result = ClassMetricsAggregator.Aggregate(data, binIndex: 0);
+
+        Assert.Equal(ClassCoverage.Partial, result.Coverage);
+        Assert.Contains(result.Warnings, warning => warning.Code == "class_totals_mismatch");
+        Assert.Equal(new[] { "standard", "vip", "*" }, result.ClassEntries.Select(fact => fact.ContractKey));
+        Assert.Equal(
+            new[] { ClassEntryKind.Specific, ClassEntryKind.Specific, ClassEntryKind.Fallback },
+            result.ClassEntries.Select(fact => fact.Kind));
     }
 
     [Fact]
@@ -115,5 +160,6 @@ public class ClassMetricsAggregatorTests
         var result = ClassMetricsAggregator.Aggregate(data, binIndex: 0);
 
         Assert.Equal(new[] { "alpha", "zeta" }, result.ByClass.Keys);
+        Assert.Equal(new[] { "alpha", "zeta" }, result.ClassEntries.Select(fact => fact.ContractKey));
     }
 }

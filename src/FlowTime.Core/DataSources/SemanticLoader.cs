@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using System.Linq;
 using FlowTime.Core.Models;
 
@@ -23,55 +22,33 @@ public sealed class SemanticLoader
             throw new ArgumentOutOfRangeException(nameof(bins), bins, "bins must be positive");
 
         var semantics = node.Semantics;
-        var arrivals = LoadSeries(semantics.Arrivals, bins);
-        var served = LoadSeries(semantics.Served, bins);
-        double[]? errors = IsFileUri(semantics.Errors)
-            ? LoadSeries(semantics.Errors!, bins)
-            : null;
+        var arrivals = LoadRequiredSeries(semantics.ArrivalsRef, bins, "arrivals");
+        var served = LoadRequiredSeries(semantics.ServedRef, bins, "served");
+        double[]? errors = LoadOptionalSeries(semantics.ErrorsRef, bins);
 
-        double[]? attempts = IsFileUri(semantics.Attempts)
-            ? LoadSeries(semantics.Attempts!, bins)
-            : null;
+        double[]? attempts = LoadOptionalSeries(semantics.AttemptsRef, bins);
 
-        double[]? failures = IsFileUri(semantics.Failures)
-            ? LoadSeries(semantics.Failures!, bins)
-            : null;
+        double[]? failures = LoadOptionalSeries(semantics.FailuresRef, bins);
 
-        double[]? exhaustedFailures = IsFileUri(semantics.ExhaustedFailures)
-            ? LoadSeries(semantics.ExhaustedFailures!, bins)
-            : null;
+        double[]? exhaustedFailures = LoadOptionalSeries(semantics.ExhaustedFailuresRef, bins);
 
-        double[]? retryEcho = IsFileUri(semantics.RetryEcho)
-            ? LoadSeries(semantics.RetryEcho!, bins)
-            : null;
+        double[]? retryEcho = LoadOptionalSeries(semantics.RetryEchoRef, bins);
 
-        double[]? retryBudgetRemaining = IsFileUri(semantics.RetryBudgetRemaining)
-            ? LoadSeries(semantics.RetryBudgetRemaining!, bins)
-            : null;
+        double[]? retryBudgetRemaining = LoadOptionalSeries(semantics.RetryBudgetRemainingRef, bins);
 
         var retryKernel = semantics.RetryKernel?.ToArray();
 
-        double[]? externalDemand = IsFileUri(semantics.ExternalDemand)
-            ? LoadSeries(semantics.ExternalDemand!, bins)
-            : null;
+        double[]? externalDemand = LoadOptionalSeries(semantics.ExternalDemandRef, bins);
 
-        double[]? queueDepth = IsFileUri(semantics.QueueDepth)
-            ? LoadSeries(semantics.QueueDepth!, bins)
-            : null;
+        double[]? queueDepth = LoadOptionalSeries(semantics.QueueDepthRef, bins);
 
-        double[]? capacity = IsFileUri(semantics.Capacity)
-            ? LoadSeries(semantics.Capacity!, bins)
-            : null;
+        double[]? capacity = LoadOptionalSeries(semantics.CapacityRef, bins);
 
-        var parallelism = ResolveParallelism(semantics.Parallelism, bins);
+        var parallelism = ResolveParallelism(semantics.ParallelismRef, bins);
 
-        double[]? processingTimeMsSum = IsFileUri(semantics.ProcessingTimeMsSum)
-            ? LoadSeries(semantics.ProcessingTimeMsSum!, bins)
-            : null;
+        double[]? processingTimeMsSum = LoadOptionalSeries(semantics.ProcessingTimeMsSumRef, bins);
 
-        double[]? servedCount = IsFileUri(semantics.ServedCount)
-            ? LoadSeries(semantics.ServedCount!, bins)
-            : null;
+        double[]? servedCount = LoadOptionalSeries(semantics.ServedCountRef, bins);
 
         return new NodeData
         {
@@ -104,18 +81,12 @@ public sealed class SemanticLoader
             throw new ArgumentOutOfRangeException(nameof(bins), bins, "bins must be positive");
 
         var semantics = constraint.Semantics;
-        var arrivals = IsFileUri(semantics.Arrivals)
-            ? LoadSeries(semantics.Arrivals!, bins)
-            : CreateConstantSeries(double.NaN, bins);
-        var served = IsFileUri(semantics.Served)
-            ? LoadSeries(semantics.Served!, bins)
-            : CreateConstantSeries(double.NaN, bins);
-        double[]? errors = IsFileUri(semantics.Errors)
-            ? LoadSeries(semantics.Errors!, bins)
-            : null;
-        double[]? latencyMinutes = IsFileUri(semantics.LatencyMinutes)
-            ? LoadSeries(semantics.LatencyMinutes!, bins)
-            : null;
+        var arrivals = LoadOptionalSeries(semantics.ArrivalsRef, bins)
+            ?? CreateConstantSeries(double.NaN, bins);
+        var served = LoadOptionalSeries(semantics.ServedRef, bins)
+            ?? CreateConstantSeries(double.NaN, bins);
+        double[]? errors = LoadOptionalSeries(semantics.ErrorsRef, bins);
+        double[]? latencyMinutes = LoadOptionalSeries(semantics.LatencyMinutesRef, bins);
 
         return new ConstraintData
         {
@@ -127,42 +98,19 @@ public sealed class SemanticLoader
         };
     }
 
-    private double[]? ResolveParallelism(object? parallelism, int bins)
+    private double[]? ResolveParallelism(CompiledParallelismReference? parallelism, int bins)
     {
         if (parallelism is null)
         {
             return null;
         }
 
-        if (parallelism is string seriesId)
+        if (parallelism.Constant.HasValue)
         {
-            if (IsFileUri(seriesId))
-            {
-                return LoadSeries(seriesId, bins);
-            }
-
-            if (double.TryParse(seriesId, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) &&
-                double.IsFinite(parsed) &&
-                parsed > 0d)
-            {
-                return CreateConstantSeries(parsed, bins);
-            }
-
-            return null;
+            return CreateConstantSeries(parallelism.Constant.Value, bins);
         }
 
-        if (parallelism is IConvertible)
-        {
-            var value = Convert.ToDouble(parallelism, CultureInfo.InvariantCulture);
-            if (!double.IsFinite(value) || value <= 0d)
-            {
-                return null;
-            }
-
-            return CreateConstantSeries(value, bins);
-        }
-
-        return null;
+        return LoadOptionalSeries(parallelism.Series, bins);
     }
 
     private static double[] CreateConstantSeries(double value, int bins)
@@ -182,6 +130,20 @@ public sealed class SemanticLoader
         return CsvReader.ReadTimeSeries(path, bins);
     }
 
-    private static bool IsFileUri(string? value) =>
-        !string.IsNullOrWhiteSpace(value) && value.Trim().StartsWith("file:", StringComparison.OrdinalIgnoreCase);
+    private double[] LoadRequiredSeries(CompiledSeriesReference? reference, int bins, string fieldName)
+    {
+        var series = LoadOptionalSeries(reference, bins);
+        return series ?? throw new InvalidOperationException(
+            $"SemanticLoader requires a file-backed compiled reference for '{fieldName}'.");
+    }
+
+    private double[]? LoadOptionalSeries(CompiledSeriesReference? reference, int bins)
+    {
+        if (reference is null || reference.Kind != CompiledSeriesReferenceKind.File)
+        {
+            return null;
+        }
+
+        return LoadSeries(reference.RawText, bins);
+    }
 }

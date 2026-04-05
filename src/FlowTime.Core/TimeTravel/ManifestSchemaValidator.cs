@@ -48,6 +48,13 @@ public static class ManifestSchemaValidator
             }
 
             var schemaText = File.ReadAllText(schemaPath);
+            var schemaNode = JsonNode.Parse(schemaText) ?? throw new InvalidDataException("Schema JSON could not be parsed.");
+            if (schemaNode is JsonObject schemaObject)
+            {
+                schemaObject.Remove("$schema");
+                schemaText = schemaNode.ToJsonString();
+            }
+
             return JsonSchema.FromText(schemaText);
         }
         catch

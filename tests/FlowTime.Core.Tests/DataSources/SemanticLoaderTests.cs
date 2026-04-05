@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using FlowTime.Core.Compiler;
 using FlowTime.Core.Models;
 using FlowTime.Core.DataSources;
 using Xunit;
@@ -31,8 +32,12 @@ public class SemanticLoaderTests
             Semantics = new NodeSemantics
             {
                 Arrivals = "file:arrivals.csv",
+                ArrivalsRef = SemanticReferenceResolver.ParseSeriesReference("file:arrivals.csv"),
                 Served = "file:served.csv",
+                ServedRef = SemanticReferenceResolver.ParseSeriesReference("file:served.csv"),
                 Errors = "file:errors.csv"
+                ,
+                ErrorsRef = SemanticReferenceResolver.ParseSeriesReference("file:errors.csv")
             }
         };
 
@@ -78,10 +83,15 @@ public class SemanticLoaderTests
             Semantics = new NodeSemantics
             {
                 Arrivals = "file:arrivals.csv",
+                ArrivalsRef = SemanticReferenceResolver.ParseSeriesReference("file:arrivals.csv"),
                 Served = "file:served.csv",
+                ServedRef = SemanticReferenceResolver.ParseSeriesReference("file:served.csv"),
                 Errors = "file:errors.csv",
+                ErrorsRef = SemanticReferenceResolver.ParseSeriesReference("file:errors.csv"),
                 ExternalDemand = "file:external.csv",
-                QueueDepth = "file:queue.csv"
+                ExternalDemandRef = SemanticReferenceResolver.ParseSeriesReference("file:external.csv"),
+                QueueDepth = "file:queue.csv",
+                QueueDepthRef = SemanticReferenceResolver.ParseSeriesReference("file:queue.csv")
             }
         };
 
@@ -107,14 +117,54 @@ public class SemanticLoaderTests
             Semantics = new NodeSemantics
             {
                 Arrivals = "file:arrivals.csv",
+                ArrivalsRef = SemanticReferenceResolver.ParseSeriesReference("file:arrivals.csv"),
                 Served = "file:missing.csv",
-                Errors = "file:errors.csv"
+                ServedRef = SemanticReferenceResolver.ParseSeriesReference("file:missing.csv"),
+                Errors = "file:errors.csv",
+                ErrorsRef = SemanticReferenceResolver.ParseSeriesReference("file:errors.csv")
             }
         };
 
         var loader = new SemanticLoader(temp.Path);
 
         Assert.Throws<FileNotFoundException>(() => loader.LoadNodeData(node, 2));
+    }
+
+    [Fact]
+    public void LoadNodeData_LoadsParallelismFromCompiledReferences()
+    {
+        using var temp = TempDirectory.Create();
+        temp.Write("arrivals.csv", @"bin_index,value
+0,10
+1,20
+");
+        temp.Write("served.csv", @"bin_index,value
+0,8
+1,18
+");
+        temp.Write("parallelism.csv", @"bin_index,value
+0,2
+1,3
+");
+
+        var node = new Node
+        {
+            Id = "OrderService",
+            Semantics = new NodeSemantics
+            {
+                Arrivals = "file:arrivals.csv",
+                ArrivalsRef = SemanticReferenceResolver.ParseSeriesReference("file:arrivals.csv"),
+                Served = "file:served.csv",
+                ServedRef = SemanticReferenceResolver.ParseSeriesReference("file:served.csv"),
+                ParallelismRawText = "file:parallelism.csv",
+                ParallelismRef = SemanticReferenceResolver.ParseParallelismReference("file:parallelism.csv")
+            }
+        };
+
+        var loader = new SemanticLoader(temp.Path);
+        var data = loader.LoadNodeData(node, 2);
+
+        Assert.Equal(new[] { 2d, 3d }, data.Parallelism);
     }
 
     private sealed class TempDirectory : IDisposable
