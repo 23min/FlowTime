@@ -806,8 +806,8 @@ parameters:
 ### 6.8 Related Documents
 
 **Internal:**
-- M-1 Implementation Plan: `work/milestones/completed/M-01.00.md`
-- M-2 Implementation Plan: `work/milestones/completed/M-02.00.md`
+- M-1 Implementation Plan: `work/epics/completed/core-foundations/M-01.00.md`
+- M-2 Implementation Plan: `work/epics/completed/pmf-modeling/M-02.00.md`
 - M-3 Implementation Plan: `work/epics/completed/time-travel/M-03.00.md`
 - M-4 Implementation Plan: `work/milestones/M-04.00.md`
 - API Reference: `docs/api/openapi.yaml`

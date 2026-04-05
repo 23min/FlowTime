@@ -12,13 +12,21 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 
 ## Completed Epics
 
-9 epics delivered. Full specs and supporting docs in `work/epics/completed/`.
+17 epics delivered. Full specs and supporting docs in `work/epics/completed/`.
 
 | Epic | Folder | Key Milestones |
 |------|--------|---------------|
 | Time Travel V1 | `work/epics/completed/time-travel/` | TT-M-03.17 through TT-M-03.32.1 |
 | UI Performance | `work/epics/completed/ui-perf/` | FT-M-05.06, FT-M-05.07 |
 | Classes & Routing | `work/epics/completed/classes/` | CL-M-04.01 through CL-M-04.04 |
+| Core Foundations | `work/epics/completed/core-foundations/` | M-00.00, M-01.00, M-01.05, M-01.06 |
+| PMF Modeling | `work/epics/completed/pmf-modeling/` | M-02.00 |
+| Artifacts, Schema & Provenance | `work/epics/completed/artifacts-schema-provenance/` | M-02.06 through M-02.10 |
+| Service API Foundation | `work/epics/completed/service-api-foundation/` | SVC-M-00.00, SVC-M-01.00 |
+| Synthetic Ingest | `work/epics/completed/synthetic-ingest/` | SYN-M-00.00 |
+| UI Foundations & Runner | `work/epics/completed/ui-foundations/` | UI-M-00.00 through UI-M-02.00 |
+| UI Charter Workflow | `work/epics/completed/ui-charter-workflow/` | UI-M-02.05 through UI-M-02.08 |
+| UI Schema & Contract Migration | `work/epics/completed/ui-schema-migration/` | UI-M-02.09 |
 | Service With Buffer | `work/epics/completed/service-with-buffer/` | SB-M-05.01 through SB-M-05.04 |
 | Evaluation Integrity | `work/epics/completed/evaluation-integrity/` | M-06.01, M-06.02 |
 | Edge Time Bins | `work/epics/completed/edge-time-bin/` | M-07.01 through M-07.06 |
@@ -174,6 +182,13 @@ Svelte UI becomes the platform for these new interaction models.
 - **Folder:** `work/epics/ui-layout/`
 - **Goal:** Decouple topology layout from rendering behind a stable `LayoutInput -> LayoutResult` contract.
 - **Depends on:** dag-map spike results.
+
+#### Browser Execution / WASM Engine
+
+- **Folder:** `work/epics/browser-execution/`
+- **Status:** Future — preserved as a legacy design thread, not active scheduled work
+- **Goal:** Explore a browser-hosted FlowTime runtime for offline demos and small-model interactive what-if workflows while preserving parity with server execution.
+- **Relationship to current plan:** Downstream of `E-17` and `E-18`; browser execution is not the near-term path for interactive modeling.
 
 #### Ptolemy-Inspired Semantics & Directors
 

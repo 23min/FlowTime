@@ -1,6 +1,6 @@
 # UI-M-2 — Mode Toggle & UX Enhancement
 
-> **📋 Charter Notice**: This completed milestone predates the [FlowTime-Engine Charter](../flowtime-engine-charter.md). The artifact-first architecture implemented here aligns with charter principles. See [ROADMAP.md](../ROADMAP.md) for current development direction.
+> **📋 Charter Notice**: This completed milestone predates the [FlowTime-Engine Charter](../../../../docs/flowtime-engine-charter.md). The artifact-first architecture implemented here aligns with charter principles. See [ROADMAP.md](../../../../ROADMAP.md) for current development direction.
 
 > **Target Project:** FlowTime UI  
 > **Prerequisites:** UI-M-1 ✅, SVC-M-1 ✅, SYN-M-00.00 ✅  
@@ -321,7 +321,7 @@ The results display must read from `series/index.json` rather than custom metada
 ## Dependencies
 
 ### FlowTime-Sim Service Integration Spec Compliance
-- **Critical**: Current UI-M-1 mock violates [`flowtime-sim-integration-spec-legacy.md`](../archive/flowtime-sim-integration-spec-legacy.md)
+- **Critical**: Current UI-M-1 mock violates [`flowtime-sim-integration-spec-legacy.md`](../../../../docs/archive/flowtime-sim-integration-spec-legacy.md)
 - **Required**: Mock must write canonical run artifacts (`runs/<runId>/...`)
 - **Required**: UI must read from `series/index.json` and stream CSVs
 - **Architecture**: Artifact-first pattern, not custom JSON blobs

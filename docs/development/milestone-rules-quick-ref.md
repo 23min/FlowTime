@@ -143,9 +143,9 @@ Before marking milestone as "📋 Planned":
 
 ## Examples
 
-**Good:** `work/milestones/completed/M-02.09.md` (remove time estimate)
-**Good:** `work/milestones/completed/M-02.10.md` (remove "1-2 hours")
-**Updated:** `work/milestones/completed/UI-M-02.09.md` (now follows rules)
+**Good:** `work/epics/completed/artifacts-schema-provenance/M-02.09.md` (remove time estimate)
+**Good:** `work/epics/completed/artifacts-schema-provenance/M-02.10.md` (remove "1-2 hours")
+**Updated:** `work/epics/completed/ui-schema-migration/UI-M-02.09.md` (now follows rules)
 
 ---
 

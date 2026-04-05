@@ -486,21 +486,21 @@ All task checklists MUST follow this order:
 ## Examples of Good Milestones
 
 ### Simple Milestone
-See: [`work/milestones/completed/M-02.10.md`](../milestones/M-02.10.md)
+See: [`work/epics/completed/artifacts-schema-provenance/M-02.10.md`](../../work/epics/completed/artifacts-schema-provenance/M-02.10.md)
 - ✅ Clear scope (provenance queries)
 - ✅ Specific API/CLI requirements
 - ✅ Test cases included
 - ⚠️ Remove time estimate (violates rule)
 
 ### Complex Milestone
-See: [`work/milestones/completed/M-02.09.md`](../milestones/M-02.09.md)
+See: [`work/epics/completed/artifacts-schema-provenance/M-02.09.md`](../../work/epics/completed/artifacts-schema-provenance/M-02.09.md)
 - ✅ Multi-phase implementation
 - ✅ TDD approach documented
 - ✅ Comprehensive test plan
 - ✅ Architecture decisions
 
 ### UI Milestone
-See: [`work/milestones/completed/UI-M-02.09.md`](../milestones/UI-M-02.09.md)
+See: [`work/epics/completed/ui-schema-migration/UI-M-02.09.md`](../epics/completed/ui-schema-migration/UI-M-02.09.md)
 - ⚠️ Needs update (outdated schema assumptions)
 - ⚠️ Remove date stamp
 - ⚠️ Remove time estimates

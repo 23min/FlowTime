@@ -1,6 +1,6 @@
 # UI-M-02.05 — Navigation Architecture Enhancement
 
-> **📋 Charter Notice**: This milestone has been superseded by the [FlowTime-Engine Charter](../flowtime-engine-charter.md). The Engine+Sim navigation structure described here aligns with charter principles but implementation details now follow the Charter UI Milestone Structure (UI-M-02.07, UI-M-02.08, UI-M-02.09, UI-M-03.00).
+> **📋 Charter Notice**: This milestone has been superseded by the [FlowTime-Engine Charter](../../../../docs/flowtime-engine-charter.md). The Engine+Sim navigation structure described here aligns with charter principles but implementation details now follow the Charter UI Milestone Structure (UI-M-02.07, UI-M-02.08, UI-M-02.09, UI-M-03.00).
 
 > **Target Project:** FlowTime UI  
 > **Prerequisites:** UI-M-2 ✅  
@@ -122,7 +122,7 @@ Implement clear Engine vs Sim navigation structure that reinforces architectural
 ## Files Modified
 
 ```
-work/milestones/completed/UI-M-02.05.md                    # This milestone document
+work/epics/completed/ui-charter-workflow/UI-M-02.05.md               # This milestone document
 docs/ui/design-specification.md               # Updated navigation section
 docs/ui/route-architecture.md                 # Updated route structure
 ```

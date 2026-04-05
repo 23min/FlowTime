@@ -9,9 +9,9 @@
 
 ## Quick Links
 
-- **Milestone Document:** [`work/milestones/completed/UI-M-02.09.md`](../UI-M-02.09.md)
-- **Related Analysis:** [`docs/ui/UI-CURRENT-STATE-ANALYSIS.md`](../../ui/UI-CURRENT-STATE-ANALYSIS.md)
-- **Milestone Guide:** [`docs/development/milestone-documentation-guide.md`](../../development/milestone-documentation-guide.md)
+- **Milestone Document:** [`work/epics/completed/ui-schema-migration/UI-M-02.09.md`](UI-M-02.09.md)
+- **Related Analysis:** [`docs/ui/UI-CURRENT-STATE-ANALYSIS.md`](../../../../docs/ui/UI-CURRENT-STATE-ANALYSIS.md)
+- **Milestone Guide:** [`docs/development/milestone-documentation-guide.md`](../../../../docs/development/milestone-documentation-guide.md)
 
 ---
 

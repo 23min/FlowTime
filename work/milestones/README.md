@@ -9,9 +9,18 @@ Current workflow:
 
 What remains here:
 
-- `work/milestones/completed/` contains only unresolved legacy milestone specs that do not yet have a defensible epic-local home.
-- `work/milestones/tracking/` contains the matching unresolved legacy logs.
-- Typical remaining families are the pre-epic milestones such as `M-00/M-01/M-02`, `UI-M-00/UI-M-01/UI-M-02`, `SVC-M`, `SYN-M`, and `M-16.00`.
+- `work/milestones/completed/` and `work/milestones/tracking/` are legacy staging directories and are currently empty.
+
+Why these still live here:
+
+- They provide a temporary holding area if a future archival cleanup encounters genuinely unmapped legacy artifacts.
+- They are no longer the source of truth for shipped or planned milestone specs in this repository.
+
+Move rule for leftovers:
+
+- Prefer creating or identifying an explicit epic-local home first.
+- Move the paired log at the same time and rename it to `*-log.md` beside the milestone spec.
+- Use this directory only as a temporary staging area when ownership is genuinely unresolved and still needs a human decision.
 
 ## Adding a new milestone
 
@@ -22,4 +31,4 @@ What remains here:
 ## Quick Links
 
 - **Current workflow:** See `work/epics/` for active and completed epic-local milestone specs and logs.
-- **Legacy archive:** See `work/milestones/completed/` and `work/milestones/tracking/` for the residual unmapped pre-epic archive.
+- **Legacy staging area:** `work/milestones/completed/` and `work/milestones/tracking/` should normally remain empty.

@@ -202,7 +202,7 @@ sequenceDiagram
 - ❌ Advanced analytics
 - ❌ UI integration
 
-See [`work/milestones/completed/M-02.10.md`](milestones/M-02.10.md) for detailed requirements.
+See [`work/epics/completed/artifacts-schema-provenance/M-02.10.md`](../../work/epics/completed/artifacts-schema-provenance/M-02.10.md) for detailed requirements.
 
 ---
 

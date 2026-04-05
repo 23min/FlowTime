@@ -10,7 +10,7 @@
 
 Update FlowTime UI to correctly parse the new schema format (`binSize`/`binUnit`) introduced in M-02.09. The UI currently expects the OLD schema format (`binMinutes`) and **cannot function** with Engine v0.6.1+ or Sim v0.6.0+.
 
-**CRITICAL**: The UI is currently **completely broken** - all API calls fail due to schema mismatch. See [`docs/ui/UI-CURRENT-STATE-ANALYSIS.md`](../ui/UI-CURRENT-STATE-ANALYSIS.md) for comprehensive analysis.
+**CRITICAL**: The UI is currently **completely broken** - all API calls fail due to schema mismatch. See [`docs/ui/UI-CURRENT-STATE-ANALYSIS.md`](../../../../docs/ui/UI-CURRENT-STATE-ANALYSIS.md) for comprehensive analysis.
 
 ### Strategic Context
 - **Motivation**: Engine M-02.09 completed schema evolution from `binMinutes` to `binSize`/`binUnit` format
@@ -78,7 +78,7 @@ public record GridInfo(
 - ✅ SIM-M-02.06: Sim schema evolution complete
 
 **Internal:**
-- Comprehensive UI state analysis ([`docs/ui/UI-CURRENT-STATE-ANALYSIS.md`](../ui/UI-CURRENT-STATE-ANALYSIS.md))
+- Comprehensive UI state analysis ([`docs/ui/UI-CURRENT-STATE-ANALYSIS.md`](../../../../docs/ui/UI-CURRENT-STATE-ANALYSIS.md))
 
 ---
 
@@ -453,7 +453,7 @@ See "Phase 3: Testing & Validation" section above for manual test cases
 ### Files to Create
 
 **Priority: P1 (Tracking)**
-- `work/milestones/tracking/UI-M-02.09-tracking.md` - Implementation tracking document
+- `work/epics/completed/ui-schema-migration/UI-M-02.09-log.md` - Implementation tracking document
 
 ---
 
@@ -497,8 +497,8 @@ See "Phase 3: Testing & Validation" section above for manual test cases
 
 ## Related Documents
 
-- [UI Current State Analysis](../ui/UI-CURRENT-STATE-ANALYSIS.md) - Comprehensive breakage analysis
+- [UI Current State Analysis](../../../../docs/ui/UI-CURRENT-STATE-ANALYSIS.md) - Comprehensive breakage analysis
 - [M-02.09 Milestone](M-02.09.md) - Engine schema evolution (complete)
-- [SIM-M-02.06 Milestone](../../flowtime-sim-vnext/work/milestones/SIM-M-02.06.md) - Sim schema evolution
-- [Milestone Documentation Guide](../development/milestone-documentation-guide.md) - Documentation standards
+- [SIM-M-02.06 Milestone](../../../../../flowtime-sim-vnext/work/milestones/SIM-M-02.06.md) - Sim schema evolution
+- [Milestone Documentation Guide](../../../../docs/development/milestone-documentation-guide.md) - Documentation standards
 
