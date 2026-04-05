@@ -57,8 +57,8 @@ That means p3a1 is the bridge milestone, not the final deletion milestone. It de
 
 ## References
 
-- `work/milestones/m-ec-p3a-review.md`
-- `work/milestones/m-ec-p3a-review-codex.md`
-- `work/milestones/m-ec-p3a-cycle-time.md`
+- `work/epics/E-10-engine-correctness-and-analytics/m-ec-p3a-review.md`
+- `work/epics/E-10-engine-correctness-and-analytics/m-ec-p3a-review-codex.md`
+- `work/epics/E-10-engine-correctness-and-analytics/m-ec-p3a-cycle-time.md`
 - `docs/architecture/nan-policy.md`
 - `work/epics/E-16-formula-first-core-purification/spec.md`

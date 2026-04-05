@@ -145,7 +145,7 @@ When dynamic routing is designed as a feature. At that point, add iteration with
 
 ### Reference
 - `src/FlowTime.Core/Routing/RouterAwareGraphEvaluator.cs`
-- Phase 1 spec: `work/milestones/m-ec-p1-engineering-foundation.md`
+- Phase 1 spec: `work/epics/E-10-engine-correctness-and-analytics/m-ec-p1-engineering-foundation.md`
 
 ---
 
@@ -163,7 +163,7 @@ Addressed by E-16 m-E16-01 (Compiled Semantic References). See D-2026-04-03-007.
 ### Reference
 - `src/FlowTime.Core/Models/NodeSemantics.cs` (line 21)
 - `src/FlowTime.Core/DataSources/SemanticLoader.cs` (ResolveParallelism method)
-- Phase 1 spec: `work/milestones/m-ec-p1-engineering-foundation.md`
+- Phase 1 spec: `work/epics/E-10-engine-correctness-and-analytics/m-ec-p1-engineering-foundation.md`
 
 ---
 

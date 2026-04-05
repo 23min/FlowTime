@@ -7,10 +7,19 @@ The shared framework lives in `.ai/` (submodule). This directory is repo-local.
 
 ```
 .ai-repo/
+├── config/    ← structured repo-owned artifact layout config
 ├── skills/    ← project-specific skill checklists
 ├── rules/     ← project-specific conventions and constraints
 └── README.md  ← you are here
 ```
+
+## Config
+
+The canonical repo-owned artifact layout lives in `.ai-repo/config/artifact-layout.json`.
+It defines the effective roadmap path, epic spec filename, milestone spec path template,
+tracking doc path template, completed epic archive path, and naming patterns for this repo.
+
+Generated assistant surfaces should mirror the resolved values from this file; they should not be the source of truth for layout.
 
 ## Skills
 

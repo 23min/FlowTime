@@ -1,55 +1,48 @@
 # Epics and Milestones
 
-This document describes how we structure larger chunks of work into **epics** and **milestones** and how that relates to architecture docs and the overall roadmap.
+This document describes how we structure larger chunks of work into **epics** and **milestones** and how that relates to the roadmap and implementation workflow.
 
 ## Epics
 
-- An **epic** captures a coherent architectural or product theme (e.g., class-aware routing, services with buffers).
-- Each epic has a dedicated folder under `docs/architecture/`, for example:
-  - `work/epics/completed/classes/`
-  - `work/epics/completed/service-with-buffer/`
+- An **epic** captures a coherent architectural or product theme (for example, Engine Correctness, Svelte UI, or Formula-First Core Purification).
+- Each epic has a dedicated folder under `work/epics/` (active) or `work/epics/completed/` (historical).
+- Active numbered epics follow `work/epics/E-{NN}-<slug>/` and keep their working artifacts together in that folder.
 - An epic folder typically contains:
-  - A short `README.md` describing the epic at a high level.
-  - One or more detailed architecture / design documents.
-  - Links to the relevant milestones under `work/milestones/`.
-- Once every milestone in an epic ships, move those milestone specs into `work/milestones/completed/` and update links (epic docs should continue to point at the archived paths).
+  - `spec.md` for the epic-level scope and sequencing.
+  - milestone specs and milestone logs for the work inside that epic.
+  - supporting reference or review docs when needed.
 
 ## Milestones
 
 - Epics are divided into one or more **milestones**.
-- Milestones are specified as individual markdown files under `work/milestones/`, following the existing guardrails in:
-  - `docs/development/milestones-guardrails.md`
-  - `docs/development/milestones-overview.md` (if present)
+- Milestone specs live beside the owning epic spec under `work/epics/<epic>/`.
+- Milestone logs live beside the milestone spec as `<milestone-id>-log.md` in that same epic folder.
+- `work/milestones/` remains in the repo only as a compatibility stub for older references; do not create active milestone artifacts there.
 - Each milestone:
-  - Has a clear ID (e.g., `CL-M-04.03.02`, `SB-M-01`).
+  - Has a clear ID (for example, `m-ec-p3b` or `m-E16-03-runtime-analytical-descriptor`).
   - States its status, dependencies, functional requirements, phases, and test plan.
-  - May reference one or more epics via an "Epic" or "Related" field.
+  - References its owning epic explicitly.
 
 ## Relationship to the Roadmap
 
-- The high-level product and architecture **roadmap** lives in `ROADMAP.md`.
-- `ROADMAP.md` should:
-  - Call out major epics (by name and folder) and sequence them over time.
-  - Link to the **Epic Roadmap** document under `docs/architecture/` for more detail.
-- The **Epic Roadmap** in `docs/architecture` (see `work/epics/epic-roadmap.md`) lists:
-  - The epic folders under `docs/architecture/`.
-  - The intended ordering (what we do first/next/later).
-  - A short rationale for each epic.
+- `ROADMAP.md` is the higher-level product roadmap.
+- `work/epics/epic-roadmap.md` is the active sequencing and gating roadmap for implementation work.
+- Epic specs under `work/epics/` carry the detailed scope, milestone list, and local references for that epic.
 
 ## Workflow Summary
 
 1. **Roadmap**: Add or refine high-level items in `ROADMAP.md`.
-2. **Epic**: For a roadmap item that needs deeper design, create an epic folder under `docs/architecture/` and describe its scope and rationale.
-3. **Milestones**: Break the epic into concrete, scoped milestones under `work/milestones/`, following the milestone guardrails.
+2. **Epic**: For a roadmap item that needs deeper design, create an epic folder under `work/epics/` and describe its scope and rationale.
+3. **Milestones**: Break the epic into concrete, scoped milestone specs in that same epic folder, then track progress with epic-local milestone logs.
 
 ## Integration Branches (Recommended)
 
-When `main` is only updated when an epic completes, use a dedicated epic integration branch:
+When an epic needs a shared integration base, use a dedicated epic integration branch:
 
-- Create `epic/<epic-slug>` where `<epic-slug>` matches the epic folder name under `docs/architecture/` (for example, `work/epics/completed/ui-perf/` maps to `epic/ui-perf`).
-- Merge completed milestone branches into the epic branch via PRs.
-- Start new milestone work for that epic by branching from the epic branch (not from `main`).
-- Merge `epic/<epic-slug>` into `main` only when the epic is complete.
+- Create `epic/E-{NN}-<epic-slug>` for the active epic.
+- Create milestone branches as `milestone/<milestone-id>` from the appropriate base branch.
+- Use `feature/<surface>-<milestone-id>/<short-desc>` when a milestone needs parallel feature branches.
+- Merge the epic integration branch back to `main` only when the epic is complete.
 
 For cross-epic "catch-up" trains, use an explicit integration slug (for example, `epic/ft-05-integration`) and treat it as the shared base until the work can be split into per-epic branches.
 

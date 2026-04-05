@@ -23,10 +23,8 @@ All acceptance criteria met, tests passing, build green. User says: "Wrap milest
    - [ ] Mark milestone as complete with final date
    - [ ] Add final test count and build status
 
-4. **Close ADO work item** (see `.ai-repo/rules/ado-traceability.md`)
-   - [ ] Set the milestone's ADO work item State to `Closed`
-   - [ ] Add a closing comment: summary of what was delivered, link to merge commit/PR
-   - [ ] If this is the last milestone in an epic, also close the epic's ADO work item
+4. **Optional tracker wrap-up**
+   - [ ] If the repo uses an external issue tracker, close or update the linked milestone/epic records according to repo-specific rules
 
 5. **Note deferred work**
    - [ ] Any deferred items → `work/gaps.md`
@@ -50,9 +48,9 @@ All acceptance criteria met, tests passing, build green. User says: "Wrap milest
    - [ ] Commit with agreed message
    - [ ] 🛑 **STOP — ask: "Push and merge to [branch]?"**
    - [ ] Merge to base branch (or create PR)
-   - [ ] Update `ROADMAP.md` if milestone was the last in an epic
-   - [ ] Move completed epic folder to `work/epics/completed/E-{NN}-<epic-slug>/` (if last milestone)
-   - [ ] Update references in `ROADMAP.md` and `work/epics/epic-roadmap.md` to new path
+   - [ ] Update the project's roadmap path if the milestone was the last in an epic
+   - [ ] Move the completed epic folder only if the repo actually uses a completed-epics archive path
+   - [ ] Update any repo-specific epic index only if the repo actually uses one
 
 9. **Record learnings** (memory write-back)
    - [ ] Append any new architectural or technical decisions to `work/decisions.md` using this format:

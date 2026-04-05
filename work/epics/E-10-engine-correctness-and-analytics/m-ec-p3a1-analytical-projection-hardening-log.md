@@ -3,7 +3,7 @@
 **Started:** 2026-04-03
 **Completed:** 2026-04-03
 **Branch:** `milestone/m-ec-p3a1` (from `epic/E-10-engine-correctness`)
-**Spec:** `work/milestones/m-ec-p3a1-analytical-projection-hardening.md`
+**Spec:** `work/epics/E-10-engine-correctness-and-analytics/m-ec-p3a1-analytical-projection-hardening.md`
 **Build:** `dotnet build` green
 **Tests:** `dotnet test --nologo` green
 

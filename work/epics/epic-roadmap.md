@@ -1,6 +1,6 @@
 # Architecture Epic Roadmap
 
-This document provides an overview of architecture-level **epics** and how they relate to the broader roadmap (`ROADMAP.md`). Each epic lives in its own folder under `work/epics/` and is implemented via milestones under `work/milestones/`.
+This document provides an overview of architecture-level **epics** and how they relate to the broader roadmap (`ROADMAP.md`). Each epic lives in its own folder under `work/epics/`. Active milestone specs and logs live beside the owning epic spec in that same folder; `work/milestones/` is a compatibility stub only.
 
 ## How to Read This Document
 

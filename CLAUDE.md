@@ -3,6 +3,12 @@
 
 This project uses the AI Framework v2 at `.ai/`. Follow its agents, skills, and rules.
 
+Despite the filename, this file is shared workspace context for both Claude and GitHub Copilot in this repo.
+Keep it assistant-neutral.
+Generated assistant adapter files under `.github/` and `.claude/` are local build outputs by default.
+Keep their source of truth in `.ai/` and `.ai-repo/`, and regenerate them locally with `bash .ai/sync.sh`.
+`CLAUDE.md` remains versioned by default because it carries shared workspace context.
+
 ## Hard Rules
 
 ### Commits — NEVER without explicit human approval
@@ -31,12 +37,13 @@ Read the agent file. Adopt its role and constraints. Follow its skill workflow.
 - No exceptions for logic code unless the user explicitly waives it
 
 ### Branches
-- Epic work: `epic/<slug>` integration branch from `main`
-- Milestone work: `milestone/<id>` branch from epic branch
+- Follow repo-specific branch conventions when they refine the framework defaults.
+- Framework default epic work: `epic/<slug>` integration branch from `main`
+- Framework default milestone work: `milestone/<id>` branch from the repo's configured base branch
 - Do NOT commit milestone work directly to `main`
 
 ### Tracking Artifacts
-- Tracking doc: `work/milestones/tracking/<id>-tracking.md` — update after each AC
+- Tracking doc: use the repo's configured tracking path and naming convention — update after each AC
 - Decisions: `work/decisions.md` — log architectural/technical decisions made
 - Gaps: `work/gaps.md` — log discovered issues deferred for later
 - Agent learnings: `work/agent-history/<agent>.md` — append patterns and pitfalls
@@ -73,6 +80,21 @@ Read the agent file. Adopt its role and constraints. Follow its skill workflow.
 | `.ai/templates/` | Document templates |
 | `.ai-repo/` | Project-specific extensions |
 
+## Resolved Artifact Layout
+
+These values are resolved from framework defaults in .ai/paths.md and repo overrides in .ai-repo/config/artifact-layout.json.
+
+| Field | Value | Purpose |
+|-------|-------|---------|
+| `roadmapPath` | `ROADMAP.md` | High-level roadmap path |
+| `epicRootPath` | `work/epics/` | Root directory containing epic folders |
+| `epicSpecFileName` | `spec.md` | Default epic spec filename inside each epic folder |
+| `milestoneSpecPathTemplate` | `work/epics/<epic>/<milestone-id>.md` | Milestone spec location template |
+| `trackingDocPathTemplate` | `work/epics/<epic>/<milestone-id>-tracking.md` | Milestone tracking doc location template |
+| `completedEpicPathTemplate` | `work/epics/completed/<epic>/` | Completed epic archive template |
+| `epicIdPattern` | `E-{NN}` | Epic ID naming pattern |
+| `milestoneIdPattern` | `m-E{NN}-<MM>-<slug>` | Milestone ID naming pattern |
+
 ## Project-Specific Rules
 
 # FlowTime Project Rules
@@ -93,7 +115,15 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 - `src/FlowTime.UI`, `src/FlowTime.UI.Tests` — Blazor WebAssembly UI.
 - `tests/` mirrors project names (e.g., `tests/FlowTime.Core.Tests`, `tests/FlowTime.Sim.Tests`, `tests/FlowTime.Api.Tests`).
 - `docs/` — Engine/shared documentation. `docs-sim/` is archived — ignore unless explicitly requested.
-- `work/` — AI framework housekeeping: epics, milestones, tracking docs, gaps, decisions.
+- `work/` — AI framework housekeeping: epics, epic-local milestone specs/tracking docs, gaps, decisions.
+
+## Workflow Artifact Layout
+
+- The canonical artifact layout for this repo is defined in `.ai-repo/config/artifact-layout.json`.
+- Older `*-log.md` files are historical and may remain until the related epic/docs are actively migrated.
+- `work/milestones/` is a compatibility stub only. Do not create active specs or logs there.
+- `ROADMAP.md` is the framework roadmap path.
+- `work/epics/epic-roadmap.md` can remain as a supplemental epic index/sequencing document while it is still useful.
 
 ## Coding Conventions
 
@@ -108,7 +138,10 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 
 ## Branching & Versioning
 
-- Branches: `milestone/mX` for integration, `feature/<surface>-mX/<desc>` per feature.
+- Epic integration branches are optional and use `epic/E-{NN}-<slug>` when an epic needs a shared base.
+- Milestone branches use `milestone/<milestone-id>`.
+- Feature branches use `feature/<surface>-<milestone-id>/<desc>` when a milestone needs parallel work.
+- Single-surface quick changes can branch from `main` and PR directly back to `main` when no milestone integration branch is needed.
 - Conventional commits: `feat(api):`, `fix(sim):`, `docs:`, etc.
 - Commit messages: conventional prefix, no icons/emoji; subject + short bullet body capturing the milestone and key work/tests touched.
 - Version format `<major>.<minor>.<patch>[-pre]`; milestone completions typically bump minor (e.g., `0.6.0 → 0.7.0`).
@@ -144,7 +177,7 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 ### Precedence (highest to lowest)
 1. **Code + passing tests** define live truth.
 2. **`work/decisions.md`** defines approved direction.
-3. **Milestone and epic specs** (`work/milestones/`, `work/epics/`) define implementation target, within their scope.
+3. **Epic specs and epic-local milestone specs** under `work/epics/` define implementation target, within their scope.
 4. **Architecture docs** (`docs/`) summarize and connect the above — they never outrank code or decisions.
 5. **Historical and exploration docs** are context only — never implementation authority.
 

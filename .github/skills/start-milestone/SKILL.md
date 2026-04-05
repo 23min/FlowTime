@@ -9,15 +9,15 @@ Approved milestone spec exists. User says: "Start milestone X", "Implement M1"
 ## Checklist
 
 1. **Preflight**
-   - [ ] Read milestone spec from `work/milestones/<milestone-id>.md`
+   - [ ] Read the milestone spec from the project's milestone path
    - [ ] Verify spec is approved (user confirmed)
    - [ ] Check build passes (`dotnet build` / `npm run build` / etc.)
    - [ ] Check existing tests pass
    - [ ] Read prior milestone code if building on previous work
 
-2. **Update ADO work item** (see `.ai-repo/rules/ado-traceability.md`)
-   - [ ] Set the milestone's ADO work item State to `Active`
+2. **Update milestone status**
    - [ ] Update the spec status to `in-progress`
+   - [ ] If the repo uses an external issue tracker, sync status according to repo-specific rules
 
 3. **Branch setup**
    - [ ] If milestone belongs to an epic: ensure epic integration branch exists (`epic/E-{NN}-<epic-slug>`), create from `main` if missing, push to origin
@@ -25,7 +25,7 @@ Approved milestone spec exists. User says: "Start milestone X", "Implement M1"
    - [ ] Verify milestone branch is up to date with its base
 
 4. **Create tracking doc**
-   - [ ] Create `work/milestones/tracking/<milestone-id>-tracking.md` using template
+   - [ ] Create the milestone tracking doc in the project's tracking path using the tracking template
    - [ ] List all acceptance criteria as unchecked boxes
    - [ ] Note start date and initial context
 

@@ -37,7 +37,7 @@ Epic is complete and merged to main. User says: "Release v1.2", "Tag a release",
    - [ ] Mirror to GHE: `git push ghe vX.Y.Z`
 
 5. **Post-release**
-   - [ ] Update `ROADMAP.md` — mark epic as `released`
+   - [ ] Update the project's roadmap path — mark epic as `released`
    - [ ] Verify deployment (if CI/CD auto-deploys on tag)
    - [ ] Run health checks
    - [ ] **Record learnings** — append to `work/agent-history/deployer.md`:
@@ -49,4 +49,4 @@ Epic is complete and merged to main. User says: "Release v1.2", "Tag a release",
 
 - Git tag `vX.Y.Z`
 - Updated `CHANGELOG.md`
-- Updated `ROADMAP.md`
+- Updated project roadmap

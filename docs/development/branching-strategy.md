@@ -85,4 +85,4 @@ Scopes you can use: `api`, `ui`, `cli`, `core`, `repo`, `docs`, `test`, `build`,
 ### Notes
 
 - Tags preserve history; delete feature and milestone branches after merge.
-- Keep `work/milestones/m0/*` updated alongside code.
+- Keep the milestone spec and milestone log in the owning `work/epics/<epic>/` folder updated alongside code.

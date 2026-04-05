@@ -5,13 +5,19 @@
 
 This project uses the AI-Assisted Development Framework v2.
 
+Recent GitHub Copilot versions may also read `CLAUDE.md` and `.claude/` automatically.
+In this repo, those are intentionally assistant-neutral shared surfaces, not Claude-only overrides.
+Generated assistant adapter files under `.github/` and `.claude/` are local build outputs by default.
+Keep their source of truth in `.ai/` and `.ai-repo/`, and regenerate them locally with `bash .ai/sync.sh`.
+
 You work directly in **Agent mode** with full tool access. Use the routing table below to identify the right workflow, then follow the corresponding agent's instructions and skill.
 
 For specific personas with tool restrictions, the user may switch to a named agent: @planner, @builder, @reviewer, @deployer. Otherwise, you operate as the default agent with all tools available.
 
 **Before starting any task**, read these files for context:
 - `.ai/rules.md` — Non-negotiable guardrails
-- `.ai/paths.md` — Where artifacts live
+- `.ai/paths.md` — Framework default artifact locations
+- `.ai-repo/config/artifact-layout.json` — Repo-owned artifact layout config, if it exists
 
 ## Session Start — Load Memory
 
@@ -41,28 +47,28 @@ Each agent below has a dedicated instruction file. Read it for role-specific con
 ### @planner — Planning, specs, architecture, research
 **Activate when:** user says plan, design, scope, epic, architecture, brainstorm, research, spec, break down
 **Steps:**
-1. Read `.github/agents/planner.agent.md` — adopt the planner role and constraints
+1. Read `.claude/agents/planner.md` — adopt the shared planner role and constraints
 2. Read the relevant skill: `.github/skills/plan-epic/SKILL.md`, `.github/skills/plan-milestones/SKILL.md`, `.github/skills/draft-spec/SKILL.md`, or `.github/skills/architect/SKILL.md`
 3. Follow the skill's step-by-step workflow
 
 ### @builder — Implementation, TDD, fixes
 **Activate when:** user says build, implement, code, start, add feature, fix, patch, bug, chore, tweak, hotfix
 **Steps:**
-1. Read `.github/agents/builder.agent.md` — adopt the builder role and constraints
+1. Read `.claude/agents/builder.md` — adopt the shared builder role and constraints
 2. Read the relevant skill: `.github/skills/start-milestone/SKILL.md`, `.github/skills/tdd-cycle/SKILL.md`, or `.github/skills/patch/SKILL.md`
 3. Follow the skill's step-by-step workflow
 
 ### @reviewer — Code review, milestone wrap-up
 **Activate when:** user says review, check, validate, wrap, finish, complete milestone
 **Steps:**
-1. Read `.github/agents/reviewer.agent.md` — adopt the reviewer role and constraints
+1. Read `.claude/agents/reviewer.md` — adopt the shared reviewer role and constraints
 2. Read the relevant skill: `.github/skills/review-code/SKILL.md` or `.github/skills/wrap-milestone/SKILL.md`
 3. Follow the skill's step-by-step workflow
 
 ### @deployer — Releases, deployments, infrastructure
 **Activate when:** user says release, deploy, tag, publish
 **Steps:**
-1. Read `.github/agents/deployer.agent.md` — adopt the deployer role and constraints
+1. Read `.claude/agents/deployer.md` — adopt the shared deployer role and constraints
 2. Read the relevant skill: `.github/skills/release/SKILL.md`
 3. Follow the skill's step-by-step workflow
 
@@ -104,10 +110,10 @@ When unsure, ask: "This looks like a [Quick/Standard/Epic] task. Should I procee
 ## Context Refresh
 
 When the user says **"refresh context"** or **"refresh"**:
-1. Re-read `.ai/rules.md` and `.ai/paths.md` (and `.ai-repo/rules/paths-override.md` if it exists)
-2. Re-read the active agent file if one is invoked (e.g. `.github/agents/builder.agent.md`)
+1. Re-read `.ai/rules.md` and `.ai/paths.md` (and `.ai-repo/config/artifact-layout.json` if it exists)
+2. Re-read the active shared agent file if one is invoked (e.g. `.claude/agents/builder.md`)
 3. Read `CLAUDE.md` "Current Work" section for immediate next steps
-4. Read the roadmap at the path specified by `ROADMAP_PATH` (check paths-override for project-specific location)
+4. Read the roadmap at the path specified by `ROADMAP_PATH` in the resolved artifact layout
 5. Read `work/gaps.md` for known issues and blockers
 6. Read `work/decisions.md` — focus on the most recent decisions for current context
 7. Summarize: current branch, active phase, immediate tasks, known blockers, pending changes
@@ -119,6 +125,21 @@ This re-grounds context during long sessions or after framework updates (e.g. `s
 - TDD by default: write tests first
 - Artifacts gate work, not ceremonies
 - Follow Conventional Commits format
+
+## Resolved Artifact Layout
+
+These values are resolved from framework defaults in .ai/paths.md and repo overrides in .ai-repo/config/artifact-layout.json.
+
+| Field | Value | Purpose |
+|-------|-------|---------|
+| `roadmapPath` | `ROADMAP.md` | High-level roadmap path |
+| `epicRootPath` | `work/epics/` | Root directory containing epic folders |
+| `epicSpecFileName` | `spec.md` | Default epic spec filename inside each epic folder |
+| `milestoneSpecPathTemplate` | `work/epics/<epic>/<milestone-id>.md` | Milestone spec location template |
+| `trackingDocPathTemplate` | `work/epics/<epic>/<milestone-id>-tracking.md` | Milestone tracking doc location template |
+| `completedEpicPathTemplate` | `work/epics/completed/<epic>/` | Completed epic archive template |
+| `epicIdPattern` | `E-{NN}` | Epic ID naming pattern |
+| `milestoneIdPattern` | `m-E{NN}-<MM>-<slug>` | Milestone ID naming pattern |
 
 ## Project-Specific Rules
 
@@ -140,7 +161,15 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 - `src/FlowTime.UI`, `src/FlowTime.UI.Tests` — Blazor WebAssembly UI.
 - `tests/` mirrors project names (e.g., `tests/FlowTime.Core.Tests`, `tests/FlowTime.Sim.Tests`, `tests/FlowTime.Api.Tests`).
 - `docs/` — Engine/shared documentation. `docs-sim/` is archived — ignore unless explicitly requested.
-- `work/` — AI framework housekeeping: epics, milestones, tracking docs, gaps, decisions.
+- `work/` — AI framework housekeeping: epics, epic-local milestone specs/tracking docs, gaps, decisions.
+
+## Workflow Artifact Layout
+
+- The canonical artifact layout for this repo is defined in `.ai-repo/config/artifact-layout.json`.
+- Older `*-log.md` files are historical and may remain until the related epic/docs are actively migrated.
+- `work/milestones/` is a compatibility stub only. Do not create active specs or logs there.
+- `ROADMAP.md` is the framework roadmap path.
+- `work/epics/epic-roadmap.md` can remain as a supplemental epic index/sequencing document while it is still useful.
 
 ## Coding Conventions
 
@@ -155,7 +184,10 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 
 ## Branching & Versioning
 
-- Branches: `milestone/mX` for integration, `feature/<surface>-mX/<desc>` per feature.
+- Epic integration branches are optional and use `epic/E-{NN}-<slug>` when an epic needs a shared base.
+- Milestone branches use `milestone/<milestone-id>`.
+- Feature branches use `feature/<surface>-<milestone-id>/<desc>` when a milestone needs parallel work.
+- Single-surface quick changes can branch from `main` and PR directly back to `main` when no milestone integration branch is needed.
 - Conventional commits: `feat(api):`, `fix(sim):`, `docs:`, etc.
 - Commit messages: conventional prefix, no icons/emoji; subject + short bullet body capturing the milestone and key work/tests touched.
 - Version format `<major>.<minor>.<patch>[-pre]`; milestone completions typically bump minor (e.g., `0.6.0 → 0.7.0`).
@@ -191,7 +223,7 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 ### Precedence (highest to lowest)
 1. **Code + passing tests** define live truth.
 2. **`work/decisions.md`** defines approved direction.
-3. **Milestone and epic specs** (`work/milestones/`, `work/epics/`) define implementation target, within their scope.
+3. **Epic specs and epic-local milestone specs** under `work/epics/` define implementation target, within their scope.
 4. **Architecture docs** (`docs/`) summarize and connect the above — they never outrank code or decisions.
 5. **Historical and exploration docs** are context only — never implementation authority.
 

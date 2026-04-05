@@ -29,13 +29,10 @@ Milestone plan exists. User says: "Write spec for milestone X", "Draft M1"
    - [ ] File paths and names follow project conventions
 
 4. **Save spec**
-   - [ ] Write to `work/milestones/<milestone-id>.md`
+   - [ ] Write to the project's milestone spec path
 
-5. **Create ADO work item** (see `.ai-repo/rules/ado-traceability.md`)
-   - [ ] Create an ADO Task for the milestone with a Description linking to the spec
-   - [ ] Use ADO repo URL format: `https://dev.azure.com/sdctfs/Infrastruktur/_git/Treehouse?path=/work/milestones/<milestone-id>.md&version=GBmain`
-   - [ ] Set parent to the epic's ADO work item
-   - [ ] Record the ADO ID in the spec: `**ADO:** [#NNNNN](...)`
+5. **Optional tracker linkage**
+   - [ ] If the repo uses an external issue tracker, link the milestone spec according to repo-specific rules
 
 6. **User approval**
    - [ ] Review spec with user
@@ -44,8 +41,7 @@ Milestone plan exists. User says: "Write spec for milestone X", "Draft M1"
 
 ## Output
 
-- `work/milestones/<milestone-id>.md` — approved milestone spec (with ADO ID)
-- ADO work item created and linked
+- Approved milestone spec in the project's milestone path
 
 ## Next Step
 
