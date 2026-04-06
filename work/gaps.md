@@ -5,6 +5,32 @@ It is intentionally short, factual, and forward-looking.
 
 ---
 
+## Legacy / Compatibility Surface Cleanup
+
+### Why this was a gap
+
+E-16 owns analytical truth and consumer-fact purification, but broader non-analytical compatibility debt still remains across first-party UI, Sim, docs, schemas, and examples:
+
+- first-party UI endpoint and metrics fallbacks
+- legacy demo/template generation on active surfaces
+- deprecated schema/example material living on current paths instead of archive/historical paths
+- Blazor parallel-support and sync discipline still implicit rather than sequenced work
+
+These do not belong inside E-16's analytical boundary, but they still need an owner.
+
+### Status
+
+Promoted to epic planning as `work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md`.
+
+### Immediate implications
+
+- Do not add new compatibility helpers to first-party UI/Sim/docs/example surfaces without explicit exit criteria.
+- Prefer archive-or-delete over "keep both for now" once replacement surfaces are confirmed.
+- Do not strip supported functionality from Blazor as part of this cleanup; keep it aligned with current Engine/Sim contracts.
+- Treat E-19 as the post-E-16 cleanup lane; it should start after E-16 but does not automatically block E-10 Phase 3 resume.
+
+---
+
 ## Path Analysis / Path Filters
 
 ### Why this is a gap
@@ -164,6 +190,75 @@ Addressed by E-16 m-E16-01 (Compiled Semantic References). See D-2026-04-03-007.
 - `src/FlowTime.Core/Models/NodeSemantics.cs` (line 21)
 - `src/FlowTime.Core/DataSources/SemanticLoader.cs` (ResolveParallelism method)
 - Phase 1 spec: `work/epics/E-10-engine-correctness-and-analytics/m-ec-p1-engineering-foundation.md`
+
+---
+
+## Continuous Prediction / Crystal Ball Usage Pattern
+
+### Why this is a gap
+
+The crystal ball capability — feeding observed arrivals into a calibrated model to predict future system state faster than real time — emerges from the intersection of E-15 (topology inference + telemetry), E-18 (headless evaluation), and streaming (real-time ingestion). But no single epic owns this usage pattern, and design decisions in each epic could accidentally make continuous prediction harder.
+
+The roadmap thesis (Pure → Interactive → Programmable) covers the building blocks but misses this third mode of operation:
+- **E-17** (Interactive) assumes a human adjusting sliders.
+- **E-18** (Programmable) assumes a pipeline running parameter sweeps.
+- **Crystal ball** needs a continuously refreshed model without a human in the loop — a session without a user.
+
+### Immediate implications
+
+- E-18 spec work should consider "continuous evaluation with external data feed" as a first-class use case alongside batch parameter sweeps.
+- Streaming epic promotion from working note to real epic should reference the crystal ball framing as a motivating use case.
+- E-17's session management design should not assume sessions are always human-initiated.
+
+### Reference
+
+- `docs/notes/crystal-ball-predictive-projection.md`
+- `docs/notes/predictive-systems-and-uncertainty.md`
+- `work/epics/streaming/streaming-architecture-working-note.md`
+
+---
+
+## Streaming Epic Not Formalized
+
+### Why this is a gap
+
+The streaming architecture working note (`work/epics/streaming/streaming-architecture-working-note.md`) is a draft with no epic number, no milestones, and no acceptance criteria. For the crystal ball, fresh arrivals data is a hard requirement — without it, predictions use stale data and the prediction horizon is degraded.
+
+A workaround exists: rapid batch ingestion via E-15's batch pipeline (poll every 5 minutes). This gives a useful but degraded crystal ball. True real-time prediction needs the streaming epic to be real.
+
+### When to revisit
+
+After E-15's first dataset path proves batch ingestion works. At that point, the streaming note should be promoted to an epic with milestones.
+
+### Reference
+
+- `work/epics/streaming/streaming-architecture-working-note.md`
+- `docs/notes/crystal-ball-predictive-projection.md` (requirement 2: fresh arrivals data)
+
+---
+
+## E-18 Model Calibration Needs Crystal Ball Design Input
+
+### Why this is a gap
+
+E-18 mentions "model fitting against real telemetry" in scope but defers it to the analysis layer. The crystal ball's prediction accuracy depends fundamentally on calibration — how well the model's capacity, failure rates, and retry kernels match reality.
+
+Unresolved questions that should be design inputs when E-18 fitting milestones are specced:
+- Which model parameters are fittable? (Capacity, failure rate, retry kernel coefficients — but not topology or grid resolution.)
+- What is the objective function? (Minimize series-level MSE between model output and observed telemetry? Per-node? Per-class?)
+- How often does recalibration happen? (Per-run? Sliding window? Triggered by drift detection from anomaly epic?)
+- Should the calibrated model carry provenance about its fit quality? (Residuals, confidence, calibration timestamp.)
+
+### Immediate implications
+
+- E-18 spec work should reference the crystal ball note when designing the fitting/optimization layer.
+- Anomaly detection should consider "model-vs-reality divergence" as a calibration trigger, not just an alert.
+
+### Reference
+
+- `work/epics/E-18-headless-pipeline-and-optimization/spec.md`
+- `docs/notes/crystal-ball-predictive-projection.md`
+- `docs/notes/predictive-systems-and-uncertainty.md`
 
 ---
 
