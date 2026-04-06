@@ -17,6 +17,7 @@ Approved milestone spec exists. User says: "Start milestone X", "Implement M1"
 
 2. **Update milestone status**
    - [ ] Update the spec status to `in-progress`
+   - [ ] Reconcile milestone status across all repo-owned status surfaces for that epic: milestone spec, milestone tracking doc, epic milestone table, roadmap, epic roadmap/index, and `CLAUDE.md` current work
    - [ ] If the repo uses an external issue tracker, sync status according to repo-specific rules
 
 3. **Branch setup**
@@ -28,6 +29,7 @@ Approved milestone spec exists. User says: "Start milestone X", "Implement M1"
    - [ ] Create the milestone tracking doc in the project's tracking path using the tracking template
    - [ ] List all acceptance criteria as unchecked boxes
    - [ ] Note start date and initial context
+   - [ ] If this milestone starts on a continuation branch, explicitly close any previously finished milestone statuses left as `in-progress` / `pending` on the same branch
 
 5. **Update CLAUDE.md current work section**
    - [ ] Update the `## Current Work` section in `CLAUDE.md` with:

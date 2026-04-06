@@ -125,6 +125,12 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 - `ROADMAP.md` is the framework roadmap path.
 - `work/epics/epic-roadmap.md` can remain as a supplemental epic index/sequencing document while it is still useful.
 
+## Milestone Status Sync
+
+- Milestone start and wrap must reconcile status across all repo-owned status surfaces in one pass: milestone spec, milestone tracking doc, epic milestone table (`work/epics/<epic>/spec.md`), `ROADMAP.md`, `work/epics/epic-roadmap.md` when it mentions the epic, and `CLAUDE.md` current work.
+- Do not leave an earlier milestone marked `in-progress` or `pending` once a later milestone in the same epic has started on a continuation branch.
+- Treat status-surface drift as a workflow bug, not optional housekeeping.
+
 ## Coding Conventions
 
 - .NET 9 / C# 13 with implicit usings and nullable enabled.
@@ -217,9 +223,10 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
   - Phases 0-2 complete. Phase 3 bridge complete (m-ec-p3a, m-ec-p3a1 merged to main).
   - **Remaining:** p3b (WIP Limits), p3c (Variability), p3d (Constraint Enforcement) — resume after E-16
 - **E-16** Formula-First Core Purification (`work/epics/E-16-formula-first-core-purification/spec.md`) — **in progress**
-  - **Completed:** m-E16-03 (Runtime Analytical Descriptor)
+  - **Completed:** m-E16-01 through m-E16-04
   - **Branch:** `milestone/m-E16-01-compiled-semantic-references`
-  - **Next:** m-E16-04 (Core analytical evaluation, warning facts cleanup, contract + consumer purification)
+  - **Next:** m-E16-05 (Warning facts cleanup)
+  - Then: contract + consumer purification
 - **E-11** Svelte UI — paused after M6
   - M1-M4 + M6 done, M5/M7/M8 remain
 - **E-12–E-15:** planned, not started

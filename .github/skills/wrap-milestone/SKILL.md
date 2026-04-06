@@ -22,6 +22,7 @@ All acceptance criteria met, tests passing, build green. User says: "Wrap milest
 3. **Update tracking doc**
    - [ ] Mark milestone as complete with final date
    - [ ] Add final test count and build status
+   - [ ] Reconcile completion status across all repo-owned status surfaces for that epic: milestone spec, milestone tracking doc, epic milestone table, roadmap, epic roadmap/index, and `CLAUDE.md` current work
 
 4. **Optional tracker wrap-up**
    - [ ] If the repo uses an external issue tracker, close or update the linked milestone/epic records according to repo-specific rules

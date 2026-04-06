@@ -1,10 +1,10 @@
-# Epic: Svelte UI — Frontend Rewrite
+# Epic: Svelte UI — Parallel Frontend Track
 
 **ID:** E-11
 
 ## Goal
 
-Replace the Blazor WebAssembly frontend with a SvelteKit + shadcn-svelte application that delivers a polished, modern UI for demos while keeping the existing .NET backend APIs untouched.
+Build a SvelteKit + shadcn-svelte application in parallel with the Blazor WebAssembly frontend, delivering a polished, modern UI for demos and future evaluation while keeping the existing .NET backend APIs untouched.
 
 ## Context
 
@@ -22,9 +22,11 @@ The UI was generated iteratively with AI assistance and has accumulated CSS debt
 - The timeline (HTML/SVG) maps naturally to Svelte's reactive SVG bindings
 - The existing `topologyCanvas.js` (2,000+ LOC) can be reused directly — no IJSRuntime bridge needed
 - Full access to the JS/TS component ecosystem (Tailwind, Radix-like primitives via Bits UI)
-- The Blazor UI is already a standalone API client with no project references to the backend — clean swap
+- The Blazor UI is already a standalone API client with no project references to the backend — clean parallel-surface addition without backend refactoring
 
 **Design direction:** Left sidebar navigation (similar to Claude, ChatGPT, Azure Portal) with modern spacing, shadows, and transitions. Not the "MudBlazor default look" — a clean, enterprise-grade aesthetic via shadcn-svelte's design tokens and Tailwind.
+
+Svelte is a parallel UI track, not a committed Blazor retirement plan. `FlowTime.UI` remains supported for debugging, operational use, and as a plan-B surface, so shared Engine/Sim contract changes must keep both UIs current.
 
 ## Scope
 
@@ -49,7 +51,7 @@ The UI was generated iteratively with AI assistance and has accumulated CSS debt
 - ApiDemo page, Simulate page — deferred
 - dag-map topology renderer — deferred (WIP in lib/dag-map, integrate last)
 - Backend API changes — zero changes to FlowTime.API or FlowTime.Sim.Service
-- Blazor UI removal — keep FlowTime.UI running in parallel until Svelte UI reaches parity
+- Blazor UI removal or functional strip-down — `FlowTime.UI` remains a supported parallel surface and must stay aligned with current Engine/Sim behavior
 - Mobile/responsive layout — desktop-first, responsive is a follow-up
 
 ## Constraints
@@ -59,7 +61,7 @@ The UI was generated iteratively with AI assistance and has accumulated CSS debt
 - Canvas JS (`topologyCanvas.js`) reuse is mandatory — no rewrite of the rendering engine
 - shadcn-svelte + Tailwind CSS v4 as the styling foundation
 - TypeScript required (no plain JS)
-- The Blazor UI must remain functional throughout — no breaking the existing app
+- The Blazor UI must remain functional and reasonably current throughout — no breaking the existing app or allowing shared contract drift
 
 ## Success Criteria
 
@@ -70,6 +72,7 @@ The UI was generated iteratively with AI assistance and has accumulated CSS debt
 - [ ] Visual quality is a clear step up from the Blazor UI — clean spacing, consistent elevation, smooth transitions
 - [ ] Lighthouse performance score >= 90 on the topology page
 - [ ] No changes required to any backend project
+- [ ] Shared Engine/Sim contract changes needed for Svelte do not leave Blazor behind on supported workflows
 
 ## Risks & Open Questions
 

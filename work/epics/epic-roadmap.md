@@ -48,13 +48,22 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 #### E-16 — Formula-First Core Purification
 
 - **Folder:** `work/epics/E-16-formula-first-core-purification/`
-- **Status:** In progress (`m-E16-01` active on `milestone/m-E16-01-compiled-semantic-references`)
+- **Status:** In progress (`m-E16-04` completed on `milestone/m-E16-01-compiled-semantic-references`; `m-E16-05` next)
 - **Goal:** Move semantic truth and analytical identity fully into the compiled Core model so the engine remains a deterministic formula evaluator and API/UI layers consume facts rather than reconstructing meaning from strings.
 - **Sequencing:** Runs immediately and before further E-10 Phase 3 expansion, which resumes in the order `p3d` -> `p3c` -> `p3b`.
-- **Key milestones:** m-E16-01 compiled semantic references (in progress) → m-E16-02 class truth boundary → m-E16-03 runtime analytical descriptor → m-E16-04 Core analytical evaluation → m-E16-05 warning facts/primitive cleanup → m-E16-06 analytical contract + consumer purification
+- **Key milestones:** m-E16-01 compiled semantic references (completed) → m-E16-02 class truth boundary (completed) → m-E16-03 runtime analytical descriptor (completed) → m-E16-04 Core analytical evaluation (completed) → m-E16-05 warning facts/primitive cleanup (next) → m-E16-06 analytical contract + consumer purification
 - **Key decisions:** D-2026-04-03-005 (flowLatencyMs to Core), D-2026-04-03-006 (descriptor absorbs AnalyticalCapabilities), D-2026-04-03-007 (Parallelism typing)
 - **Migration:** Forward-only. Runs, fixtures, and approved goldens are regenerated rather than kept compatible.
 - **Reference:** `work/epics/E-16-formula-first-core-purification/reference/formula-first-engine-refactor-plan.md`
+
+#### E-19 — Surface Alignment & Compatibility Cleanup
+
+- **Folder:** `work/epics/E-19-surface-alignment-and-compatibility-cleanup/`
+- **Status:** Planning — starts immediately after E-16 as a post-purification cleanup lane; Blazor remains supported in parallel with E-11
+- **Goal:** Tighten the remaining non-analytical legacy and compatibility surfaces across first-party UI, Sim, docs, schemas, and examples so current product surfaces stay aligned to one set of current contracts
+- **Sequencing:** Runs after E-16, in parallel with resumed E-10 Phase 3 work by default; should not silently replace the `p3d` -> `p3c` -> `p3b` sequence
+- **Key milestones:** supported surface inventory → runtime endpoint/client cleanup → schema/template/example retirement → Blazor support alignment
+- **Reference:** `work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md`
 
 #### dag-map Library Evaluation (Spike)
 
@@ -62,11 +71,11 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 - **Status:** Not started — runs in parallel with Phase 1+2
 - **Goal:** Evaluate and extend the dag-map metro-map layout library for FlowTime topology rendering. ~2-3 days. Determines viability of SVG-based topology and informs UI Analytical Views and UI Layout Motors epics.
 
-#### E-11 — Svelte UI (Frontend Rewrite)
+#### E-11 — Svelte UI (Parallel Frontend Track)
 
 - **Folder:** `work/epics/E-11-svelte-ui/`
 - **Status:** paused after M6 (M1-M4 + M6 done, M5/M7/M8 remain)
-- **Goal:** Replace Blazor WebAssembly UI with SvelteKit + shadcn-svelte for demo-quality visuals. Independent of engine work.
+- **Goal:** Build SvelteKit + shadcn-svelte as a parallel UI surface for demos and future evaluation while Blazor remains supported. Independent of engine work.
 - **dag-map:** M3 (topology rendering), M4 (heatmap mode) delivered. M5 (inspector) will need dag-map edge coloring and click events.
 
 ## Near-Term Epics

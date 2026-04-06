@@ -52,27 +52,35 @@ The milestone IDs are historical; the recommended implementation order above is 
 
 ## E-16 — Formula-First Core Purification (active)
 
-**Epic:** `work/epics/E-16-formula-first-core-purification/spec.md` | **Status:** in progress (`m-E16-03` complete; `m-E16-04` next)
+**Epic:** `work/epics/E-16-formula-first-core-purification/spec.md` | **Status:** in progress (`m-E16-04` complete; `m-E16-05` next)
 
 The immediate architecture gate. Purify the engine so semantic meaning and analytical truth are compiled into Core once and consumed as facts everywhere else.
 
 Six milestones in sequence:
-1. **m-E16-01** — Compiled Semantic References (typed refs replace raw string parsing, Parallelism typing)
-2. **m-E16-02** — Class Truth Boundary (real by-class data vs wildcard fallback made explicit)
+1. **m-E16-01** — Compiled Semantic References (typed refs replace raw string parsing, Parallelism typing) — completed on `milestone/m-E16-01-compiled-semantic-references`
+2. **m-E16-02** — Class Truth Boundary (real by-class data vs wildcard fallback made explicit) — completed on `milestone/m-E16-01-compiled-semantic-references`
 3. **m-E16-03** — Runtime Analytical Descriptor (absorbs AnalyticalCapabilities, compiled by compiler not resolved from strings) — completed on `milestone/m-E16-01-compiled-semantic-references`
-4. **m-E16-04** — Core Analytical Evaluation (all analytical math moves to Core including flowLatencyMs graph propagation) — next
-5. **m-E16-05** — Warning Facts & Primitive Cleanup (backlog/stationarity/overload warnings move to Core analyzers)
+4. **m-E16-04** — Core Analytical Evaluation (all analytical math moves to Core including flowLatencyMs graph propagation) — completed on `milestone/m-E16-01-compiled-semantic-references`
+5. **m-E16-05** — Warning Facts & Primitive Cleanup (backlog/stationarity/overload warnings move to Core analyzers) — next
 6. **m-E16-06** — Contract & Consumer Purification (publish facts in API, delete IsServiceLike/Classify heuristics from UI)
 
 Key decisions: D-2026-04-03-005 (flowLatencyMs to Core), D-2026-04-03-006 (descriptor absorbs AnalyticalCapabilities), D-2026-04-03-007 (Parallelism typing in E-16). See `work/decisions.md`.
 
 Migration is forward-only. Existing runs, fixtures, and approved snapshots are regenerated, not compatibility-layered.
 
-## E-11 — Svelte UI (Frontend Rewrite)
+## E-11 — Svelte UI (Parallel Frontend Track)
 
 **Epic:** `work/epics/E-11-svelte-ui/spec.md` | **Status:** paused after M6 (M1-M4 + M6 done, M5/M7/M8 remain)
 
-Replace the Blazor WebAssembly UI with SvelteKit + shadcn-svelte for demo-quality visuals. Independent of engine work — consumes existing APIs with zero backend changes.
+Build a parallel SvelteKit + shadcn-svelte UI surface for demos and future evaluation while keeping the Blazor UI supported and in sync. Independent of engine work — both UIs consume existing APIs with zero backend changes.
+
+## E-19 — Surface Alignment & Compatibility Cleanup (planning)
+
+**Epic:** `work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md` | **Status:** planning
+
+After E-16 purifies analytical truth, FlowTime still carries broader non-analytical compatibility debt across first-party UI, Sim, docs, examples, and schema surfaces. E-19 removes stale fallback layers and clarifies supported surfaces in a forward-only cut while keeping Blazor current as a supported parallel UI.
+
+This epic starts immediately after E-16 as a cleanup lane, but it does not replace E-10 Phase 3 resume. Runtime/schema/doc cleanup can run in parallel with resumed analytical work, and Blazor alignment runs alongside the E-11 Svelte track rather than behind a replacement cutoff.
 
 ## Near-Term Epics
 
@@ -158,6 +166,10 @@ E-16 Formula-First Core Purification (NOW — 6 milestones)
    |      +--→ E-13 Path Analysis (after p3c + p3b)
    |      +--→ Scenario Overlays (after p3c + p3b)
    |      +--→ Anomaly Detection (after Phase 3 + path/parity basics)
+    |
+   +--→ E-19 Surface Alignment & Compatibility Cleanup (parallel post-purification cleanup lane)
+    |      |
+   |      +--→ shared UI contract discipline across Blazor + Svelte
    |
    +--→ E-15 Telemetry Ingestion
    |      +--→ Telemetry Loop & Parity

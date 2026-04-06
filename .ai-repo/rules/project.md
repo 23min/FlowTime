@@ -26,6 +26,12 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 - `ROADMAP.md` is the framework roadmap path.
 - `work/epics/epic-roadmap.md` can remain as a supplemental epic index/sequencing document while it is still useful.
 
+## Milestone Status Sync
+
+- Milestone start and wrap must reconcile status across all repo-owned status surfaces in one pass: milestone spec, milestone tracking doc, epic milestone table (`work/epics/<epic>/spec.md`), `ROADMAP.md`, `work/epics/epic-roadmap.md` when it mentions the epic, and `CLAUDE.md` current work.
+- Do not leave an earlier milestone marked `in-progress` or `pending` once a later milestone in the same epic has started on a continuation branch.
+- Treat status-surface drift as a workflow bug, not optional housekeeping.
+
 ## Coding Conventions
 
 - .NET 9 / C# 13 with implicit usings and nullable enabled.
