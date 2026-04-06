@@ -17,7 +17,8 @@ public sealed class MetricsServiceTests : IDisposable
 {
     private const string telemetryRunId = "run_metrics_unit";
     private const string simulationRunId = "run_metrics_sim";
-  private const string simulationSeriesRunId = "run_metrics_sim_series";
+    private const string simulationGeneratedRunId = "run_metrics_sim_series";
+    private const string simulationLargeRunId = "run_metrics_sim_large";
 
     private readonly string artifactsRoot;
     private readonly MetricsService metricsService;
@@ -36,7 +37,8 @@ public sealed class MetricsServiceTests : IDisposable
 
         CreateTelemetryRun(telemetryRunId);
         CreateSimulationRun(simulationRunId);
-        CreateSimulationSeriesRun(simulationSeriesRunId);
+        CreateSimulationGeneratedRun(simulationGeneratedRunId);
+        CreateSimulationLargeRun(simulationLargeRunId);
 
         var manifestReader = new RunManifestReader();
         var stateQueryService = new StateQueryService(
@@ -98,7 +100,7 @@ public sealed class MetricsServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetMetricsAsync_SimulationSemanticsResolvedFromModel()
+    public async Task GetMetricsAsync_SimulationArtifactsResolvedFromStateWindow()
     {
         var response = await metricsService.GetMetricsAsync(simulationRunId, 0, 2);
 
@@ -112,9 +114,9 @@ public sealed class MetricsServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetMetricsAsync_SimulationSeriesPrefixedSemanticsResolvedFromFallbackModel()
+    public async Task GetMetricsAsync_SimulationGeneratedArtifactsResolvedFromStateWindow()
     {
-        var response = await metricsService.GetMetricsAsync(simulationSeriesRunId, 0, 2);
+        var response = await metricsService.GetMetricsAsync(simulationGeneratedRunId, 0, 2);
 
         Assert.Equal(3, response.Grid.Bins);
         var service = Assert.Single(response.Services);
@@ -125,46 +127,104 @@ public sealed class MetricsServiceTests : IDisposable
         Assert.Equal(new double?[] { 1d, 0.96, 0.6 }, service.Mini);
     }
 
+    [Fact]
+    public async Task GetMetricsAsync_LargeSimulationRun_DoesNotFallbackWhenStateWindowRejectsWindow()
+    {
+        var ex = await Assert.ThrowsAsync<MetricsQueryException>(() => metricsService.GetMetricsAsync(simulationLargeRunId, null, null));
+
+        Assert.Equal(413, ex.StatusCode);
+        Assert.Contains("maximum supported window size", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     private void CreateTelemetryRun(string identifier)
     {
         var runDir = Path.Combine(artifactsRoot, identifier);
         var modelDir = Path.Combine(runDir, "model");
+        var seriesDir = Path.Combine(runDir, "series");
         Directory.CreateDirectory(modelDir);
+        Directory.CreateDirectory(seriesDir);
 
-        WriteSeries(modelDir, "ServiceA_arrivals.csv", new[] { 10d, 10d, 10d, 10d });
-        WriteSeries(modelDir, "ServiceA_served.csv", new[] { 10d, 6d, 8d, 0d });
-        WriteSeries(modelDir, "ServiceA_errors.csv", new[] { 0d, 1d, 0d, 2d });
+        var seriesEntries = new[]
+        {
+            (id: "ServiceA_arrivals@SERVICEA_ARRIVALS@DEFAULT", fileName: "ServiceA_arrivals.csv", unit: "count", values: (IReadOnlyList<double>)new[] { 10d, 10d, 10d, 10d }),
+            (id: "ServiceA_served@SERVICEA_SERVED@DEFAULT", fileName: "ServiceA_served.csv", unit: "count", values: (IReadOnlyList<double>)new[] { 10d, 6d, 8d, 0d }),
+            (id: "ServiceA_errors@SERVICEA_ERRORS@DEFAULT", fileName: "ServiceA_errors.csv", unit: "count", values: (IReadOnlyList<double>)new[] { 0d, 1d, 0d, 2d }),
+            (id: "ServiceB_arrivals@SERVICEB_ARRIVALS@DEFAULT", fileName: "ServiceB_arrivals.csv", unit: "count", values: (IReadOnlyList<double>)new[] { 8d, 8d, 8d, 8d }),
+            (id: "ServiceB_served@SERVICEB_SERVED@DEFAULT", fileName: "ServiceB_served.csv", unit: "count", values: (IReadOnlyList<double>)new[] { 8d, 8d, 6d, 4d }),
+            (id: "ServiceB_errors@SERVICEB_ERRORS@DEFAULT", fileName: "ServiceB_errors.csv", unit: "count", values: (IReadOnlyList<double>)new[] { 0d, 0d, 0d, 0d })
+        };
 
-        WriteSeries(modelDir, "ServiceB_arrivals.csv", new[] { 8d, 8d, 8d, 8d });
-        WriteSeries(modelDir, "ServiceB_served.csv", new[] { 8d, 8d, 6d, 4d });
-        WriteSeries(modelDir, "ServiceB_errors.csv", new[] { 0d, 0d, 0d, 0d });
-
+        WriteSeriesArtifacts(runDir, seriesEntries);
         File.WriteAllText(Path.Combine(modelDir, "model.yaml"), BuildTelemetryModelYaml(), Encoding.UTF8);
         WriteMetadata(modelDir, identifier, mode: "telemetry");
-        WriteRunJson(runDir, identifier, source: "telemetry", bins: 4);
+        WriteSeriesIndex(seriesDir, bins: 4, binSize: 5, seriesEntries.Select(ToManifestSeries).ToArray());
+        WriteRunJson(runDir, identifier, source: "telemetry", bins: 4, seriesEntries: seriesEntries.Select(ToManifestSeries).ToArray());
     }
 
     private void CreateSimulationRun(string identifier)
     {
         var runDir = Path.Combine(artifactsRoot, identifier);
         var modelDir = Path.Combine(runDir, "model");
+        var seriesDir = Path.Combine(runDir, "series");
         Directory.CreateDirectory(modelDir);
+        Directory.CreateDirectory(seriesDir);
 
+        var seriesEntries = new[]
+        {
+            (id: "base_load@BASE_LOAD@DEFAULT", fileName: "base_load.csv", unit: "count", values: (IReadOnlyList<double>)new[] { 10d, 10d, 10d, 10d, 10d, 10d }),
+            (id: "processed_load@PROCESSED_LOAD@DEFAULT", fileName: "processed_load.csv", unit: "count", values: (IReadOnlyList<double>)new[] { 10d, 9.6d, 6d, 4d, 10d, 10d }),
+            (id: "service_errors@SERVICE_ERRORS@DEFAULT", fileName: "service_errors.csv", unit: "count", values: (IReadOnlyList<double>)new[] { 0d, 0.4d, 4d, 6d, 0d, 0d })
+        };
+
+        WriteSeriesArtifacts(runDir, seriesEntries);
         File.WriteAllText(Path.Combine(modelDir, "model.yaml"), BuildSimulationModelYaml(), Encoding.UTF8);
         WriteMetadata(modelDir, identifier, mode: "simulation");
-        WriteRunJson(runDir, identifier, source: "engine", bins: 6);
+        WriteSeriesIndex(seriesDir, bins: 6, binSize: 5, seriesEntries.Select(ToManifestSeries).ToArray());
+        WriteRunJson(runDir, identifier, source: "engine", bins: 6, seriesEntries: seriesEntries.Select(ToManifestSeries).ToArray());
     }
 
-    private void CreateSimulationSeriesRun(string identifier)
+    private void CreateSimulationGeneratedRun(string identifier)
     {
         var runDir = Path.Combine(artifactsRoot, identifier);
         var modelDir = Path.Combine(runDir, "model");
+        var seriesDir = Path.Combine(runDir, "series");
         Directory.CreateDirectory(modelDir);
+        Directory.CreateDirectory(seriesDir);
 
-        File.WriteAllText(Path.Combine(modelDir, "model.yaml"), BuildSimulationSeriesModelYaml(), Encoding.UTF8);
+        var seriesEntries = new[]
+        {
+            (id: "arrivals@ARRIVALS@DEFAULT", fileName: "arrivals@ARRIVALS@DEFAULT.csv", unit: "count", values: (IReadOnlyList<double>)new[] { 10d, 10d, 10d, 10d, 10d, 10d }),
+            (id: "served@SERVED@DEFAULT", fileName: "served@SERVED@DEFAULT.csv", unit: "count", values: (IReadOnlyList<double>)new[] { 10d, 9.6d, 6d, 4d, 10d, 10d }),
+            (id: "errors@ERRORS@DEFAULT", fileName: "errors@ERRORS@DEFAULT.csv", unit: "count", values: (IReadOnlyList<double>)new[] { 0d, 0.4d, 4d, 6d, 0d, 0d })
+        };
 
-        // Intentionally omit metadata/provenance so MetricsService must use its model fallback path.
-        WriteRunJson(runDir, identifier, source: "engine", bins: 6);
+        WriteSeriesArtifacts(runDir, seriesEntries);
+        File.WriteAllText(Path.Combine(modelDir, "model.yaml"), BuildSimulationGeneratedModelYaml(), Encoding.UTF8);
+        WriteMetadata(modelDir, identifier, mode: "simulation");
+        WriteSeriesIndex(seriesDir, bins: 6, binSize: 5, seriesEntries.Select(ToManifestSeries).ToArray());
+        WriteRunJson(runDir, identifier, source: "engine", bins: 6, seriesEntries: seriesEntries.Select(ToManifestSeries).ToArray());
+    }
+
+    private void CreateSimulationLargeRun(string identifier)
+    {
+        var runDir = Path.Combine(artifactsRoot, identifier);
+        var modelDir = Path.Combine(runDir, "model");
+        var seriesDir = Path.Combine(runDir, "series");
+        Directory.CreateDirectory(modelDir);
+        Directory.CreateDirectory(seriesDir);
+
+        var seriesEntries = new[]
+        {
+            (id: "arrivals@ARRIVALS@DEFAULT", fileName: "arrivals@ARRIVALS@DEFAULT.csv", unit: "count", values: (IReadOnlyList<double>)Enumerable.Repeat(10d, 600).ToArray()),
+            (id: "served@SERVED@DEFAULT", fileName: "served@SERVED@DEFAULT.csv", unit: "count", values: (IReadOnlyList<double>)Enumerable.Repeat(9d, 600).ToArray()),
+            (id: "errors@ERRORS@DEFAULT", fileName: "errors@ERRORS@DEFAULT.csv", unit: "count", values: (IReadOnlyList<double>)Enumerable.Repeat(1d, 600).ToArray())
+        };
+
+        WriteSeriesArtifacts(runDir, seriesEntries);
+        File.WriteAllText(Path.Combine(modelDir, "model.yaml"), BuildSimulationLargeModelYaml(), Encoding.UTF8);
+        WriteMetadata(modelDir, identifier, mode: "simulation");
+        WriteSeriesIndex(seriesDir, bins: 600, binSize: 5, seriesEntries.Select(ToManifestSeries).ToArray());
+        WriteRunJson(runDir, identifier, source: "engine", bins: 600, seriesEntries: seriesEntries.Select(ToManifestSeries).ToArray());
     }
 
     private static string BuildTelemetryModelYaml()
@@ -183,15 +243,15 @@ topology:
     - id: "ServiceA"
       kind: "service"
       semantics:
-        arrivals: "file:ServiceA_arrivals.csv"
-        served: "file:ServiceA_served.csv"
-        errors: "file:ServiceA_errors.csv"
+        arrivals: "file:../series/ServiceA_arrivals.csv"
+        served: "file:../series/ServiceA_served.csv"
+        errors: "file:../series/ServiceA_errors.csv"
     - id: "ServiceB"
       kind: "service"
       semantics:
-        arrivals: "file:ServiceB_arrivals.csv"
-        served: "file:ServiceB_served.csv"
-        errors: "file:ServiceB_errors.csv"
+        arrivals: "file:../series/ServiceB_arrivals.csv"
+        served: "file:../series/ServiceB_served.csv"
+        errors: "file:../series/ServiceB_errors.csv"
   edges: []
 """;
     }
@@ -212,33 +272,14 @@ topology:
     - id: "SimService"
       kind: "service"
       semantics:
-        arrivals: "base_load"
-        served: "processed_load"
-        errors: "service_errors"
+        arrivals: "file:../series/base_load.csv"
+        served: "file:../series/processed_load.csv"
+        errors: "file:../series/service_errors.csv"
   edges: []
-
-nodes:
-  - id: "base_load"
-    kind: "const"
-    values: [10, 10, 10, 10, 10, 10]
-  - id: "processed_load"
-    kind: "const"
-    values: [10, 9.6, 6, 4, 10, 10]
-  - id: "service_errors"
-    kind: "expr"
-    expr: base_load - processed_load
-
-outputs:
-  - series: base_load
-    as: base_load.csv
-  - series: processed_load
-    as: processed_load.csv
-  - series: service_errors
-    as: service_errors.csv
 """;
     }
 
-    private static string BuildSimulationSeriesModelYaml()
+    private static string BuildSimulationGeneratedModelYaml()
     {
         return """
 schemaVersion: 1
@@ -254,36 +295,40 @@ topology:
     - id: "SimService"
       kind: "service"
       semantics:
-        arrivals: "series:base_load"
-        served: "series:processed_load"
-        errors: "series:service_errors"
+        arrivals: "file:../series/arrivals@ARRIVALS@DEFAULT.csv"
+        served: "file:../series/served@SERVED@DEFAULT.csv"
+        errors: "file:../series/errors@ERRORS@DEFAULT.csv"
   edges: []
+""";
+    }
 
-nodes:
-  - id: "base_load"
-    kind: "const"
-    values: [10, 10, 10, 10, 10, 10]
-  - id: "processed_load"
-    kind: "const"
-    values: [10, 9.6, 6, 4, 10, 10]
-  - id: "service_errors"
-    kind: "expr"
-    expr: base_load - processed_load
+    private static string BuildSimulationLargeModelYaml()
+    {
+        return """
+schemaVersion: 1
 
-outputs:
-  - series: base_load
-    as: base_load.csv
-  - series: processed_load
-    as: processed_load.csv
-  - series: service_errors
-    as: service_errors.csv
+grid:
+  bins: 600
+  binSize: 5
+  binUnit: minutes
+  startTimeUtc: "2025-01-01T00:00:00Z"
+
+topology:
+  nodes:
+    - id: "SimService"
+      kind: "service"
+      semantics:
+        arrivals: "file:../series/arrivals@ARRIVALS@DEFAULT.csv"
+        served: "file:../series/served@SERVED@DEFAULT.csv"
+        errors: "file:../series/errors@ERRORS@DEFAULT.csv"
+  edges: []
 """;
     }
 
     private static void WriteMetadata(string modelDirectory, string identifier, string mode)
     {
-      var telemetryMetadata = FlowTime.Core.TimeTravel.TelemetrySourceMetadataExtractor.Extract(
-        File.ReadAllText(Path.Combine(modelDirectory, "model.yaml"), Encoding.UTF8));
+        var telemetryMetadata = FlowTime.Core.TimeTravel.TelemetrySourceMetadataExtractor.Extract(
+            File.ReadAllText(Path.Combine(modelDirectory, "model.yaml"), Encoding.UTF8));
 
         var metadata = new
         {
@@ -292,9 +337,9 @@ outputs:
             templateVersion = "1.0.0",
             schemaVersion = 1,
             mode,
-        modelHash = $"sha256:{identifier}",
-        telemetrySources = telemetryMetadata.TelemetrySources,
-        nodeSources = telemetryMetadata.NodeSources
+            modelHash = $"sha256:{identifier}",
+            telemetrySources = telemetryMetadata.TelemetrySources,
+            nodeSources = telemetryMetadata.NodeSources
         };
 
         var metadataJson = System.Text.Json.JsonSerializer.Serialize(metadata, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web) { WriteIndented = true });
@@ -314,7 +359,12 @@ outputs:
         File.WriteAllText(Path.Combine(modelDirectory, "provenance.json"), provenanceJson, Encoding.UTF8);
     }
 
-    private static void WriteRunJson(string runDirectory, string identifier, string source, int bins)
+    private static void WriteRunJson(
+        string runDirectory,
+        string identifier,
+        string source,
+        int bins,
+        IReadOnlyList<(string id, string path, string unit)> seriesEntries)
     {
         var run = new
         {
@@ -334,11 +384,109 @@ outputs:
             scenarioHash = "sha256:scenario",
             createdUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
             warnings = Array.Empty<string>(),
-            series = Array.Empty<object>()
+            series = seriesEntries.Select(entry => new
+            {
+                id = entry.id,
+                path = entry.path,
+                unit = entry.unit
+            }).ToArray()
         };
 
         var json = System.Text.Json.JsonSerializer.Serialize(run, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web) { WriteIndented = true });
         File.WriteAllText(Path.Combine(runDirectory, "run.json"), json, Encoding.UTF8);
+    }
+
+    private static void WriteSeriesArtifacts(
+        string runDirectory,
+        IReadOnlyCollection<(string id, string fileName, string unit, IReadOnlyList<double> values)> seriesEntries)
+    {
+        var seriesDirectory = Path.Combine(runDirectory, "series");
+        Directory.CreateDirectory(seriesDirectory);
+
+        foreach (var entry in seriesEntries)
+        {
+            WriteSeries(seriesDirectory, entry.fileName, entry.values);
+        }
+    }
+
+    private static void WriteSeriesIndex(
+        string seriesDirectory,
+        int bins,
+        int binSize,
+        IReadOnlyCollection<(string id, string path, string unit)> seriesEntries)
+    {
+        var payload = new
+        {
+            schemaVersion = 1,
+            grid = new
+            {
+                bins,
+                binSize,
+                binUnit = "minutes"
+            },
+            series = seriesEntries.Select(entry => new
+            {
+                id = entry.id,
+                kind = "derived",
+                path = entry.path,
+                unit = entry.unit,
+                componentId = ExtractComponentId(entry.id),
+                @class = ExtractClassId(entry.id),
+                classKind = ExtractClassKind(entry.id),
+                points = bins,
+                hash = $"sha256:{entry.id}"
+            }).ToArray()
+        };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(payload, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)
+        {
+            WriteIndented = true
+        });
+
+        File.WriteAllText(Path.Combine(seriesDirectory, "index.json"), json, Encoding.UTF8);
+    }
+
+    private static (string id, string path, string unit) ToManifestSeries((string id, string fileName, string unit, IReadOnlyList<double> values) entry)
+        => (entry.id, $"series/{entry.fileName}", entry.unit);
+
+    private static string ExtractComponentId(string id)
+    {
+        var firstAt = id.IndexOf('@');
+        if (firstAt < 0 || firstAt == id.Length - 1)
+        {
+            return id;
+        }
+
+        var remainder = id[(firstAt + 1)..];
+        var secondAt = remainder.IndexOf('@');
+        return secondAt < 0 ? remainder : remainder[..secondAt];
+    }
+
+    private static string ExtractClassId(string id)
+    {
+        var firstAt = id.IndexOf('@');
+        if (firstAt < 0)
+        {
+            return "DEFAULT";
+        }
+
+        var remainder = id[(firstAt + 1)..];
+        var secondAt = remainder.IndexOf('@');
+        if (secondAt < 0 || secondAt == remainder.Length - 1)
+        {
+            return "DEFAULT";
+        }
+
+        return remainder[(secondAt + 1)..];
+    }
+
+    private static string ExtractClassKind(string id)
+    {
+        var classId = ExtractClassId(id);
+        return string.Equals(classId, "DEFAULT", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(classId, "*", StringComparison.OrdinalIgnoreCase)
+            ? "fallback"
+            : "specific";
     }
 
     private static void WriteSeries(string directory, string fileName, IReadOnlyList<double> values)

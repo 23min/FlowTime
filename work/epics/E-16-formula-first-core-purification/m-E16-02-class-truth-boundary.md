@@ -2,7 +2,7 @@
 
 **ID:** m-E16-02-class-truth-boundary
 **Epic:** Formula-First Core Purification
-**Status:** in-progress
+**Status:** completed
 
 ## Goal
 

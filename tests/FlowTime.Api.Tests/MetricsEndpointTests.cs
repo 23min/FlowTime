@@ -139,56 +139,73 @@ public sealed class MetricsEndpointTests : IClassFixture<TestWebApplicationFacto
     {
         var runDir = Path.Combine(artifactsRoot, identifier);
         var modelDir = Path.Combine(runDir, "model");
+        var seriesDir = Path.Combine(runDir, "series");
         Directory.CreateDirectory(modelDir);
+        Directory.CreateDirectory(seriesDir);
 
-        WriteBaseSeries(modelDir);
+        var seriesEntries = WriteBaseSeries(seriesDir);
         File.WriteAllText(Path.Combine(modelDir, "model.yaml"), BuildValidModelYaml(), Encoding.UTF8);
         WriteMetadata(modelDir, identifier);
+        WriteSeriesIndex(seriesDir, seriesEntries);
 
-        var runJson = BuildRunJson(identifier);
+        var runJson = BuildRunJson(identifier, seriesEntries);
         File.WriteAllText(Path.Combine(runDir, "run.json"), runJson, Encoding.UTF8);
     }
 
-    private static void WriteBaseSeries(string modelDir)
+    private static (string id, string path, string unit)[] WriteBaseSeries(string seriesDir)
     {
-        WriteSeries(modelDir, "OrderService_arrivals.csv", new double[] { 10, 10, 10, 10 });
-        WriteSeries(modelDir, "OrderService_served.csv", new double[] { 9, 6, 9, 4 });
-        WriteSeries(modelDir, "OrderService_errors.csv", new double[] { 1, 1, 1, 1 });
+        var entries = new[]
+        {
+            (id: "OrderService_arrivals@ORDERSERVICE_ARRIVALS@DEFAULT", path: "series/OrderService_arrivals.csv", unit: "count"),
+            (id: "OrderService_served@ORDERSERVICE_SERVED@DEFAULT", path: "series/OrderService_served.csv", unit: "count"),
+            (id: "OrderService_errors@ORDERSERVICE_ERRORS@DEFAULT", path: "series/OrderService_errors.csv", unit: "count"),
+            (id: "SupportQueue_arrivals@SUPPORTQUEUE_ARRIVALS@DEFAULT", path: "series/SupportQueue_arrivals.csv", unit: "count"),
+            (id: "SupportQueue_served@SUPPORTQUEUE_SERVED@DEFAULT", path: "series/SupportQueue_served.csv", unit: "count"),
+            (id: "SupportQueue_errors@SUPPORTQUEUE_ERRORS@DEFAULT", path: "series/SupportQueue_errors.csv", unit: "count"),
+            (id: "SupportQueue_queue@SUPPORTQUEUE_QUEUE@DEFAULT", path: "series/SupportQueue_queue.csv", unit: "count")
+        };
 
-        WriteSeries(modelDir, "SupportQueue_arrivals.csv", new double[] { 9, 7, 9, 5 });
-        WriteSeries(modelDir, "SupportQueue_served.csv", new double[] { 9, 6, 9, 4 });
-        WriteSeries(modelDir, "SupportQueue_errors.csv", new double[] { 0, 0, 0, 0 });
-        WriteSeries(modelDir, "SupportQueue_queue.csv", new double[] { 2, 10, 20, 0 });
+        WriteSeries(seriesDir, "OrderService_arrivals.csv", new double[] { 10, 10, 10, 10 });
+        WriteSeries(seriesDir, "OrderService_served.csv", new double[] { 9, 6, 9, 4 });
+        WriteSeries(seriesDir, "OrderService_errors.csv", new double[] { 1, 1, 1, 1 });
+
+        WriteSeries(seriesDir, "SupportQueue_arrivals.csv", new double[] { 9, 7, 9, 5 });
+        WriteSeries(seriesDir, "SupportQueue_served.csv", new double[] { 9, 6, 9, 4 });
+        WriteSeries(seriesDir, "SupportQueue_errors.csv", new double[] { 0, 0, 0, 0 });
+        WriteSeries(seriesDir, "SupportQueue_queue.csv", new double[] { 2, 10, 20, 0 });
+
+        return entries;
     }
 
     private static string BuildValidModelYaml()
     {
-        return $"""
-schemaVersion: 1
-
-grid:
-  bins: {binCount}
-  binSize: {binSizeMinutes}
-  binUnit: minutes
-  startTimeUtc: "{startTimeUtc:O}"
-
-topology:
-  nodes:
-    - id: "OrderService"
-      kind: "service"
-      semantics:
-        arrivals: "file:OrderService_arrivals.csv"
-        served: "file:OrderService_served.csv"
-        errors: "file:OrderService_errors.csv"
-        capacity: null
-    - id: "SupportQueue"
-      kind: "queue"
-      semantics:
-        arrivals: "file:SupportQueue_arrivals.csv"
-        served: "file:SupportQueue_served.csv"
-        errors: "file:SupportQueue_errors.csv"
-        queueDepth: "file:SupportQueue_queue.csv"
-""";
+                return string.Join("\n", new[]
+                {
+                        "schemaVersion: 1",
+                        string.Empty,
+                        "grid:",
+                        $"  bins: {binCount}",
+                        $"  binSize: {binSizeMinutes}",
+                        "  binUnit: minutes",
+                        $"  startTimeUtc: \"{startTimeUtc:O}\"",
+                        string.Empty,
+                        "topology:",
+                        "  nodes:",
+                        "    - id: \"OrderService\"",
+                        "      kind: \"service\"",
+                        "      semantics:",
+                        "        arrivals: \"file:../series/OrderService_arrivals.csv\"",
+                        "        served: \"file:../series/OrderService_served.csv\"",
+                        "        errors: \"file:../series/OrderService_errors.csv\"",
+                        "    - id: \"SupportQueue\"",
+                        "      kind: \"queue\"",
+                        "      semantics:",
+                        "        arrivals: \"file:../series/SupportQueue_arrivals.csv\"",
+                        "        served: \"file:../series/SupportQueue_served.csv\"",
+                        "        errors: \"file:../series/SupportQueue_errors.csv\"",
+                        "        queueDepth: \"file:../series/SupportQueue_queue.csv\"",
+                        "  edges: []"
+                });
     }
 
     private static void WriteMetadata(string modelDirectory, string identifier)
@@ -225,7 +242,7 @@ topology:
         File.WriteAllText(Path.Combine(modelDirectory, "provenance.json"), provenanceJson, Encoding.UTF8);
     }
 
-    private static string BuildRunJson(string identifier)
+    private static string BuildRunJson(string identifier, IReadOnlyList<(string id, string path, string unit)> seriesEntries)
     {
         var grid = new
         {
@@ -247,10 +264,88 @@ topology:
             scenarioHash = "sha256:test",
             createdUtc = startTimeUtc.ToString("o", CultureInfo.InvariantCulture),
             warnings = Array.Empty<string>(),
-            series = Array.Empty<object>()
+            series = seriesEntries.Select(entry => new
+            {
+                id = entry.id,
+                path = entry.path,
+                unit = entry.unit
+            }).ToArray()
         };
 
         return JsonSerializer.Serialize(manifest, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
+    }
+
+    private static void WriteSeriesIndex(string seriesDirectory, IReadOnlyCollection<(string id, string path, string unit)> entries)
+    {
+        var payload = new
+        {
+            schemaVersion = 1,
+            grid = new
+            {
+                bins = binCount,
+                binSize = binSizeMinutes,
+                binUnit = "minutes"
+            },
+            series = entries.Select(entry => new
+            {
+                id = entry.id,
+                kind = "derived",
+                path = entry.path,
+                unit = entry.unit,
+                componentId = ExtractComponentId(entry.id),
+                @class = ExtractClassId(entry.id),
+                classKind = ExtractClassKind(entry.id),
+                points = binCount,
+                hash = $"sha256:{entry.id}"
+            }).ToArray()
+        };
+
+        var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            WriteIndented = true
+        });
+
+        File.WriteAllText(Path.Combine(seriesDirectory, "index.json"), json, Encoding.UTF8);
+    }
+
+    private static string ExtractComponentId(string id)
+    {
+        var firstAt = id.IndexOf('@');
+        if (firstAt < 0 || firstAt == id.Length - 1)
+        {
+            return id;
+        }
+
+        var remainder = id[(firstAt + 1)..];
+        var secondAt = remainder.IndexOf('@');
+        return secondAt < 0 ? remainder : remainder[..secondAt];
+    }
+
+    private static string ExtractClassId(string id)
+    {
+        var firstAt = id.IndexOf('@');
+        if (firstAt < 0)
+        {
+            return "DEFAULT";
+        }
+
+        var remainder = id[(firstAt + 1)..];
+        var secondAt = remainder.IndexOf('@');
+        if (secondAt < 0 || secondAt == remainder.Length - 1)
+        {
+            return "DEFAULT";
+        }
+
+        return remainder[(secondAt + 1)..];
+    }
+
+    private static string ExtractClassKind(string id)
+    {
+        var classId = ExtractClassId(id);
+        return string.Equals(classId, "DEFAULT", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(classId, "*", StringComparison.OrdinalIgnoreCase)
+            ? "fallback"
+            : "specific";
     }
 
     private static void WriteSeries(string directory, string fileName, IReadOnlyList<double> values)

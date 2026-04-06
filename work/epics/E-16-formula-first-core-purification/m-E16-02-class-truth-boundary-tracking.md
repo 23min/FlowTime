@@ -1,7 +1,7 @@
 # Tracking: m-E16-02 — Class Truth Boundary
 
 **Started:** 2026-04-06
-**Completed:** pending
+**Completed:** 2026-04-06
 **Branch:** `milestone/m-E16-01-compiled-semantic-references` (continuation branch)
 **Spec:** `work/epics/E-16-formula-first-core-purification/m-E16-02-class-truth-boundary.md`
 

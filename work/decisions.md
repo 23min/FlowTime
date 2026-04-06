@@ -159,3 +159,15 @@ Shared decision log for active architectural and technical decisions.
 **Context:** Deleting `AnalyticalCapabilities` in m-E16-03 left its computation methods (`ComputeBin`, `ComputeWindow`, metadata gates, stationarity checks) without a truthful owner. Waiting until m-E16-04 would have required either keeping the bridge alive or renaming it in place, which would violate the no-coexistence rule.
 **Decision:** Extract the descriptor-backed `RuntimeAnalyticalEvaluator` in m-E16-03 as the minimal owner for the surviving analytical computation surface. m-E16-04 still owns broader evaluator consolidation (flow-latency migration, emitted-series truth, warning fact cleanup), but not the initial extraction itself.
 **Consequences:** `AnalyticalCapabilities` can be deleted cleanly in m-E16-03. The runtime descriptor now carries typed analytical identity and the evaluator consumes descriptor facts directly. m-E16-04 builds on an existing evaluator instead of performing the first bridge cut.
+
+## D-2026-04-06-013: E-16-04 removes legacy analytical run paths forward-only
+**Status:** active
+**Context:** m-E16-04 removes the duplicate analytical fallback in `MetricsService`. One open question was whether unsupported legacy runs should fail with an explicit regeneration message or be tolerated through an upgrade boundary.
+**Decision:** Neither. E-16 remains strictly forward-only: legacy runs that depend on the old analytical/runtime boundary are deleted and replaced with regenerated runs. m-E16-04 removes the fallback path without introducing an "unsupported, regenerate" runtime mode.
+**Consequences:** `MetricsService.ResolveViaModelAsync()` and similar legacy analytical rescue paths are pure cleanup targets, not compatibility seams. Tests, fixtures, and local run directories that still depend on those paths must be regenerated or removed during the milestone.
+
+## D-2026-04-06-014: E-16-04 uses one consolidated internal analytical result surface
+**Status:** active
+**Context:** m-E16-04 must move emitted-series truth, effective capacity, utilization, and graph-level flow latency into Core. An open design question was whether Core should return many narrow result types or one consolidated analytical result.
+**Decision:** Use one consolidated internal Core analytical result surface, with explicit nested sections rather than a flat bag of fields. The result owns snapshot/window/by-class analytical outputs, emitted-series truth, effective-capacity facts, and graph-level flow-latency outputs so adapters project one source of truth instead of recomposing partial answers.
+**Consequences:** This does not require one public contract type, and it does not prevent later milestone-specific refinements. The important constraint is that adapters and query surfaces consume one coherent Core result model instead of rebuilding analytical policy from multiple partial calculators.

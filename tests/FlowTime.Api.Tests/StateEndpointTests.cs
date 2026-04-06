@@ -187,6 +187,25 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     }
 
     [Fact]
+    public async Task GetState_UsesEffectiveCapacity_ForServiceWithBufferParallelism()
+    {
+        var response = await client.GetAsync($"/v1/runs/{serviceWithBufferParallelismRunId}/state?binIndex=0");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<StateSnapshotResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        var node = Assert.Single(payload!.Nodes, n => n.Id == "BufferService");
+
+        Assert.Equal(4d, node.Metrics.Capacity!.Value, 5);
+        Assert.Equal(2d, node.Metrics.Parallelism!.Value, 5);
+        Assert.Equal(0.25d, node.Derived.Utilization!.Value, 5);
+    }
+
+    [Fact]
     public async Task GetStateWindow_IncludesEdgeQuality()
     {
         var response = await client.GetAsync($"/v1/runs/{edgeFlowRunId}/state_window?startBin=0&endBin=3");
@@ -346,11 +365,17 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(6d, vip.Arrivals);
         Assert.Equal(5d, vip.Served);
         Assert.Equal(1d, vip.Errors);
+        Assert.Equal(300d, vip.ServiceTimeMs);
+        Assert.Equal(300d, vip.CycleTimeMs);
+        Assert.Equal(1d, vip.FlowEfficiency);
 
         var standard = orderService.ByClass["standard"];
         Assert.Equal(4d, standard.Arrivals);
         Assert.Equal(3d, standard.Served);
         Assert.Equal(0d, standard.Errors);
+        Assert.Equal(250d, standard.ServiceTimeMs);
+        Assert.Equal(250d, standard.CycleTimeMs);
+        Assert.Equal(1d, standard.FlowEfficiency);
 
         Assert.Equal(10d, orderService.Metrics.Arrivals);
         Assert.Equal(8d, orderService.Metrics.Served);
@@ -571,11 +596,17 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(new double?[] { 6d, 5d }, vip["arrivals"]);
         Assert.Equal(new double?[] { 5d, 4d }, vip["served"]);
         Assert.Equal(new double?[] { 1d, 0d }, vip["errors"]);
+        Assert.Equal(new double?[] { 300d, 300d }, vip["serviceTimeMs"]);
+        Assert.Equal(new double?[] { 300d, 300d }, vip["cycleTimeMs"]);
+        Assert.Equal(new double?[] { 1d, 1d }, vip["flowEfficiency"]);
 
         var standard = orderService.ByClass["standard"];
         Assert.Equal(new double?[] { 4d, 5d }, standard["arrivals"]);
         Assert.Equal(new double?[] { 3d, 4d }, standard["served"]);
         Assert.Equal(new double?[] { 0d, 1d }, standard["errors"]);
+        Assert.Equal(new double?[] { 250d, 250d }, standard["serviceTimeMs"]);
+        Assert.Equal(new double?[] { 250d, 250d }, standard["cycleTimeMs"]);
+        Assert.Equal(new double?[] { 1d, 1d }, standard["flowEfficiency"]);
     }
 
     [Fact]
@@ -600,10 +631,14 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         var vip = queueNode.ByClass!["vip"];
         Assert.Equal(new double?[] { 5d, 4d }, vip["arrivals"]);
         Assert.Equal(new double?[] { 1d, 4d }, vip["queue"]);
+        Assert.Equal(new double?[] { 60_000d, 300_000d }, vip["queueTimeMs"]);
+        Assert.Equal(new double?[] { 60_000d, 300_000d }, vip["cycleTimeMs"]);
 
         var standard = queueNode.ByClass["standard"];
         Assert.Equal(new double?[] { 4d, 3d }, standard["arrivals"]);
         Assert.Equal(new double?[] { 1d, 6d }, standard["queue"]);
+        Assert.Equal(new double?[] { 75_000d, 600_000d }, standard["queueTimeMs"]);
+        Assert.Equal(new double?[] { 75_000d, 600_000d }, standard["cycleTimeMs"]);
     }
 
     [Fact]
@@ -1011,10 +1046,13 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.NotNull(payload);
 
         var node = Assert.Single(payload!.Nodes, n => n.Id == "BufferService");
+        Assert.NotNull(node.SeriesMetadata);
 
         Assert.True(node.Series.ContainsKey("latencyMinutes"));
         Assert.False(node.Series.ContainsKey("utilization"));
         Assert.False(node.Series.ContainsKey("serviceTimeMs"));
+        Assert.False(node.Series.ContainsKey("flowEfficiency"));
+        Assert.False(node.SeriesMetadata!.ContainsKey("flowEfficiency"));
     }
 
     [Fact]
@@ -1926,7 +1964,11 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
             ["OrderService_served@ORDERSERVICE@vip.csv"] = new[] { 5d, 4d, 4d, 3d },
             ["OrderService_served@ORDERSERVICE@standard.csv"] = new[] { 3d, 4d, 3d, 3d },
             ["OrderService_errors@ORDERSERVICE@vip.csv"] = new[] { 1d, 0d, 1d, 0d },
-            ["OrderService_errors@ORDERSERVICE@standard.csv"] = new[] { 0d, 1d, 0d, 1d }
+            ["OrderService_errors@ORDERSERVICE@standard.csv"] = new[] { 0d, 1d, 0d, 1d },
+            ["OrderService_processingTimeMsSum@ORDERSERVICE@vip.csv"] = new[] { 1500d, 1200d, 1200d, 900d },
+            ["OrderService_processingTimeMsSum@ORDERSERVICE@standard.csv"] = new[] { 750d, 1000d, 750d, 750d },
+            ["OrderService_servedCount@ORDERSERVICE@vip.csv"] = new[] { 5d, 4d, 4d, 3d },
+            ["OrderService_servedCount@ORDERSERVICE@standard.csv"] = new[] { 3d, 4d, 3d, 3d }
         };
 
         var manifestSeries = classSeries.Keys
@@ -1948,6 +1990,8 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         {
             ["SupportQueue_arrivals@SUPPORTQUEUE@vip.csv"] = new[] { 5d, 4d, 5d, 3d },
             ["SupportQueue_arrivals@SUPPORTQUEUE@standard.csv"] = new[] { 4d, 3d, 4d, 2d },
+            ["SupportQueue_served@SUPPORTQUEUE@vip.csv"] = new[] { 5d, 4d, 5d, 3d },
+            ["SupportQueue_served@SUPPORTQUEUE@standard.csv"] = new[] { 4d, 3d, 4d, 2d },
             ["SupportQueue_queue@SUPPORTQUEUE@vip.csv"] = new[] { 1d, 4d, 8d, 0d },
             ["SupportQueue_queue@SUPPORTQUEUE@standard.csv"] = new[] { 1d, 6d, 12d, 0d }
         };

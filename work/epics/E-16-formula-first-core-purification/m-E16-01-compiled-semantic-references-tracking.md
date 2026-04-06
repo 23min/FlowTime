@@ -1,7 +1,7 @@
 # Tracking: m-E16-01 — Compiled Semantic References
 
 **Started:** 2026-04-05
-**Completed:** pending
+**Completed:** 2026-04-05
 **Branch:** `milestone/m-E16-01-compiled-semantic-references` (from `main`)
 **Spec:** `work/epics/E-16-formula-first-core-purification/m-E16-01-compiled-semantic-references.md`
 **Build:** `dotnet build` green at milestone start

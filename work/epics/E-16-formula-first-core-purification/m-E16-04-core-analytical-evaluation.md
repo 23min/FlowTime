@@ -2,7 +2,7 @@
 
 **ID:** m-E16-04-core-analytical-evaluation
 **Epic:** Formula-First Core Purification
-**Status:** draft
+**Status:** completed
 
 ## Goal
 
@@ -16,19 +16,19 @@ Additionally, `flowLatencyMs` — the cumulative flow latency from entry to a no
 
 Effective capacity computation (`capacity x parallelism`) is also currently split between `InvariantAnalyzer` (Core) and `StateQueryService.GetEffectiveCapacity` (API). It should have one owner in Core.
 
-Metrics query resolution also still carries a duplicate analytical path: `MetricsService` first asks `StateQueryService` for a window, then falls back to `ResolveViaModelAsync()` and recomputes analytical behavior from the model when state-window resolution fails. That is still a second analytical execution path in the adapter and E-16 must delete it.
+Metrics query resolution also still carries a duplicate analytical path: `MetricsService` first asks `StateQueryService` for a window, then falls back to `ResolveViaModelAsync()` and recomputes analytical behavior from the model when state-window resolution fails. That is still a second analytical execution path in the adapter and E-16 must delete it. E-16 stays forward-only here as well: legacy runs that depended on that path are removed and regenerated rather than supported through a special failure/upgrade mode.
 
 **Supersedes D-2026-04-03-003** for `flowLatencyMs`: that decision was a bridge for m-ec-p3a1 scope. E-16 is the full purification — graph-level analytical computation moves to Core.
 
 ## Acceptance Criteria
 
 1. Core exposes an analytical evaluation surface for snapshot, window, and by-class values driven by the compiled analytical descriptor and explicit class-truth boundary.
-2. The analytical result includes derived values and emitted-derived-keys, emitted-series facts, or equivalent truth metadata sufficient for projection.
+2. Core returns one consolidated internal analytical result surface with explicit nested sections for derived values, emitted-series truth, effective-capacity/utilization facts, and graph-level flow-latency outputs sufficient for projection.
 3. `StateQueryService` no longer computes analytical emission truth or per-node/per-class analytical math locally in the current state paths.
 4. `flowLatencyMs` computation moves to Core as a pure function: `(compiledTopology, perNodeCycleTime[], edgeFlowVolume[]) → perNodeFlowLatency[]`. The adapter passes inputs, Core owns the graph traversal and accumulation.
 5. Effective capacity computation (`capacity x parallelism`) has one owner in Core. The API's `GetEffectiveCapacity` / `GetParallelismValue` / `ComputeUtilizationSeries` delegation is replaced by Core evaluation.
 6. Tests prove analytical evaluation against both real multi-class fixtures and explicit fallback cases without conflating the two.
-7. `MetricsService` and analogous analytical query surfaces consume the same Core evaluation surface instead of maintaining a second model-evaluation fallback path for analytical behavior; unsupported runs fail explicitly or are upgraded at the artifact boundary.
+7. `MetricsService` and analogous analytical query surfaces consume the same Core evaluation surface instead of maintaining a second model-evaluation fallback path for analytical behavior; legacy runs that depended on the fallback path are removed or regenerated as part of the forward-only cut.
 8. `dotnet build` and `dotnet test --nologo` are green.
 
 ## Guards / DO NOT
@@ -37,8 +37,9 @@ Metrics query resolution also still carries a duplicate analytical path: `Metric
 - **DO NOT** leave partial computation in the adapter "for convenience." If the adapter computes any analytical value, that is a regression.
 - **DO NOT** keep `GetEffectiveCapacity()` or `ComputeUtilizationSeries()` in `StateQueryService`. Effective capacity (with parallelism) is a flow algebra concept.
 - **DO NOT** keep `MetricsService.ResolveViaModelAsync()` as a second analytical execution path once the unified Core evaluator exists.
+- **DO NOT** introduce an "unsupported legacy run" mode or regeneration hint path for analytical fallback cleanup. Delete old runs and regenerate future-version runs instead.
 - **DO NOT** make the evaluator depend on adapter types. The evaluator takes compiled descriptors + raw series data and returns analytical results. The adapter projects those results into DTOs.
-- **DO NOT** use ad hoc dictionaries or flag tuples for results. Prefer explicit result types.
+- **DO NOT** use ad hoc dictionaries or flag tuples for results. Prefer explicit result types and one consolidated internal result surface with nested sections over many partial policy-bearing result fragments.
 - **DO NOT** make `flowLatencyMs` depend on implicit node ordering. The Core evaluator should perform explicit topological sorting or receive an explicit order.
 
 ## Deletion Targets
@@ -69,7 +70,7 @@ Metrics query resolution also still carries a duplicate analytical path: `Metric
 ## Technical Notes
 
 - Keep pure math helpers where useful, but move policy composition out of the adapter.
-- Prefer explicit result types over ad hoc dictionaries and flag tuples.
+- Prefer one consolidated internal analytical result model with nested sub-results over many partial adapter-composed results.
 - Warning/analyzer facts are split into the next milestone so this slice stays independently shippable.
 - The flowLatencyMs evaluator should take explicit topological order or compute it from the compiled graph. Do not rely on implicit iteration order.
 - `flowLatencyMs` uses flow-volume-weighted accumulation: `upstream = sum(flow[i] * predLatency[i]) / sum(flow[i])`. This is the right formula — preserve it.

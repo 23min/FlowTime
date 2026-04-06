@@ -2,7 +2,7 @@
 
 **ID:** m-E16-01-compiled-semantic-references
 **Epic:** Formula-First Core Purification
-**Status:** in-progress
+**Status:** completed
 
 ## Goal
 

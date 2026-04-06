@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using FlowTime.Core.Compiler;
 using FlowTime.Core.Metrics;
 using FlowTime.Core.Models;
 using Xunit;
@@ -166,6 +168,176 @@ public class RuntimeAnalyticalEvaluatorTests
     }
 
     [Fact]
+    public void ComputeBin_WithConstantParallelism_ComputesCapacitySection()
+    {
+        var descriptor = Descriptor(
+            category: RuntimeAnalyticalNodeCategory.Service,
+            hasQueueSemantics: true,
+            hasServiceSemantics: true,
+            identity: RuntimeAnalyticalIdentity.ServiceWithBuffer);
+        var semantics = Semantics(parallelism: ParallelismReference.Literal(2d));
+        var data = Data(served: new[] { 5d }, capacity: new[] { 10d });
+
+        var result = RuntimeAnalyticalEvaluator.ComputeBin(descriptor, semantics, data, 0, 60_000);
+
+        Assert.NotNull(result.Capacity);
+        Assert.Equal(10d, result.Capacity!.BaseCapacity);
+        Assert.Equal(2d, result.Capacity.Parallelism);
+        Assert.Equal(20d, result.Capacity.EffectiveCapacity);
+        Assert.Equal(0.25d, result.Capacity.Utilization!.Value, 5);
+    }
+
+    [Fact]
+    public void ComputeWindow_WithServedOverride_ComputesUtilizationFromEffectiveCapacity()
+    {
+        var descriptor = Descriptor(
+            category: RuntimeAnalyticalNodeCategory.Service,
+            hasQueueSemantics: true,
+            hasServiceSemantics: true,
+            identity: RuntimeAnalyticalIdentity.ServiceWithBuffer);
+        var semantics = Semantics(parallelism: ParallelismReference.Literal(2d));
+        var data = Data(served: new[] { 1d, 1d, 1d, 1d }, capacity: new[] { 10d, 10d, 10d, 10d });
+        var servedOverride = new double?[] { 5d, 10d, 2.5d, 5d };
+
+        var result = RuntimeAnalyticalEvaluator.ComputeWindow(descriptor, semantics, data, 0, 4, 60_000, servedOverride);
+
+        Assert.NotNull(result.Capacity);
+        Assert.Equal(new double?[] { 10d, 10d, 10d, 10d }, result.Capacity!.BaseCapacity);
+        Assert.Equal(new double?[] { 2d, 2d, 2d, 2d }, result.Capacity.Parallelism);
+        Assert.Equal(new double?[] { 20d, 20d, 20d, 20d }, result.Capacity.EffectiveCapacity);
+        Assert.Equal(new double?[] { 0.25d, 0.5d, 0.125d, 0.25d }, result.Capacity.Utilization);
+    }
+
+    [Fact]
+    public void ComputeWindow_WithClassEntries_ProjectsByClassAnalyticalValues()
+    {
+        var descriptor = Descriptor(RuntimeAnalyticalNodeCategory.Service);
+        var semantics = Semantics();
+        var data = Data(served: new[] { 8d, 8d });
+        var classEntries = new[]
+        {
+            ClassEntry<NodeClassData>.Specific("vip", new NodeClassData
+            {
+                Arrivals = new[] { 6d, 5d },
+                Served = new[] { 5d, 4d },
+                Errors = new[] { 1d, 0d },
+                ProcessingTimeMsSum = new[] { 1500d, 1200d },
+                ServedCount = new[] { 5d, 4d }
+            }),
+            ClassEntry<NodeClassData>.Specific("standard", new NodeClassData
+            {
+                Arrivals = new[] { 4d, 5d },
+                Served = new[] { 3d, 4d },
+                Errors = new[] { 0d, 1d },
+                ProcessingTimeMsSum = new[] { 750d, 1000d },
+                ServedCount = new[] { 3d, 4d }
+            })
+        };
+
+        var result = RuntimeAnalyticalEvaluator.ComputeWindow(
+            descriptor,
+            semantics,
+            data,
+            0,
+            2,
+            60_000,
+            classEntries: classEntries);
+
+        Assert.NotNull(result.ByClass);
+
+        var vip = Assert.Single(result.ByClass!, entry => entry.ContractKey == "vip").Payload;
+        Assert.Equal(new double?[] { 300d, 300d }, vip.ServiceTimeMs);
+        Assert.Equal(new double?[] { 300d, 300d }, vip.CycleTimeMs);
+        Assert.Equal(new double?[] { 1d, 1d }, vip.FlowEfficiency);
+
+        var standard = Assert.Single(result.ByClass, entry => entry.ContractKey == "standard").Payload;
+        Assert.Equal(new double?[] { 250d, 250d }, standard.ServiceTimeMs);
+        Assert.Equal(new double?[] { 250d, 250d }, standard.CycleTimeMs);
+        Assert.Equal(new double?[] { 1d, 1d }, standard.FlowEfficiency);
+    }
+
+    [Fact]
+    public void ComputeWindow_ServiceWithBufferMissingProcessingInputs_DoesNotEmitFlowEfficiency()
+    {
+        var descriptor = Descriptor(
+            category: RuntimeAnalyticalNodeCategory.Service,
+            hasQueueSemantics: true,
+            hasServiceSemantics: true,
+            identity: RuntimeAnalyticalIdentity.ServiceWithBuffer);
+        var semantics = Semantics();
+        var data = Data(
+            served: new[] { 5d, 4d },
+            queueDepth: new[] { 10d, 8d });
+
+        var result = RuntimeAnalyticalEvaluator.ComputeWindow(descriptor, semantics, data, 0, 2, 60_000);
+
+        Assert.True(result.Emission.EmitCycleTimeMs);
+        Assert.True(result.Emission.EmitQueueTimeMs);
+        Assert.False(result.Emission.EmitServiceTimeMs);
+        Assert.False(result.Emission.EmitFlowEfficiency);
+        Assert.All(result.FlowEfficiency, value => Assert.Null(value));
+    }
+
+    [Fact]
+    public void ComputeFlowLatency_UsesWeightedUpstreamCycleTime()
+    {
+        var topology = new Topology
+        {
+            Nodes = new[]
+            {
+                new Node
+                {
+                    Id = "UpstreamFast",
+                    Kind = "service",
+                    Analytical = Descriptor(RuntimeAnalyticalNodeCategory.Service),
+                    Semantics = Semantics(),
+                },
+                new Node
+                {
+                    Id = "UpstreamSlow",
+                    Kind = "service",
+                    Analytical = Descriptor(RuntimeAnalyticalNodeCategory.Service),
+                    Semantics = Semantics(),
+                },
+                new Node
+                {
+                    Id = "Sink",
+                    Kind = "sink",
+                    Analytical = Descriptor(RuntimeAnalyticalNodeCategory.Sink),
+                    Semantics = Semantics(),
+                }
+            },
+            Edges = new[]
+            {
+                new Edge { Id = "fast_to_sink", Source = "UpstreamFast:out", Target = "Sink:in" },
+                new Edge { Id = "slow_to_sink", Source = "UpstreamSlow:out", Target = "Sink:in" }
+            }
+        };
+
+        var cycleTimeByNode = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["UpstreamFast"] = new double?[] { 1_000d, 1_000d },
+            ["UpstreamSlow"] = new double?[] { 5_000d, 5_000d },
+            ["Sink"] = new double?[] { 200d, 200d }
+        };
+        var edgeFlows = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["fast_to_sink"] = new double?[] { 1d, 1d },
+            ["slow_to_sink"] = new double?[] { 3d, 3d }
+        };
+        var nodeData = new Dictionary<string, NodeData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["UpstreamFast"] = Data(served: new[] { 1d, 1d }, arrivals: new[] { 1d, 1d }),
+            ["UpstreamSlow"] = Data(served: new[] { 3d, 3d }, arrivals: new[] { 3d, 3d }),
+            ["Sink"] = Data(served: new[] { 4d, 4d }, arrivals: new[] { 4d, 4d })
+        };
+
+        var result = RuntimeAnalyticalEvaluator.ComputeFlowLatency(topology, cycleTimeByNode, edgeFlows, nodeData);
+
+        Assert.Equal(new double?[] { 4_200d, 4_200d }, result["Sink"]);
+    }
+
+    [Fact]
     public void ComputeBin_ServiceOnly_NoQueueMetrics()
     {
         var descriptor = Descriptor(RuntimeAnalyticalNodeCategory.Service);
@@ -282,6 +454,38 @@ public class RuntimeAnalyticalEvaluatorTests
             RuntimeAnalyticalNodeCategory.Constant => RuntimeAnalyticalIdentity.Constant,
             RuntimeAnalyticalNodeCategory.Expression => RuntimeAnalyticalIdentity.Expression,
             _ => RuntimeAnalyticalIdentity.Service
+        };
+    }
+
+    private static NodeSemantics Semantics(ParallelismReference? parallelism = null)
+    {
+        return new NodeSemantics
+        {
+            Arrivals = SemanticReferenceResolver.ParseSeriesReference("self"),
+            Served = SemanticReferenceResolver.ParseSeriesReference("self"),
+            Parallelism = parallelism
+        };
+    }
+
+    private static NodeData Data(
+        double[] served,
+        double[]? capacity = null,
+        double[]? parallelism = null,
+        double[]? arrivals = null,
+        double[]? queueDepth = null,
+        double[]? processingTimeMsSum = null,
+        double[]? servedCount = null)
+    {
+        return new NodeData
+        {
+            NodeId = "node",
+            Arrivals = arrivals ?? new double[served.Length],
+            Served = served,
+            Capacity = capacity,
+            Parallelism = parallelism,
+            QueueDepth = queueDepth,
+            ProcessingTimeMsSum = processingTimeMsSum,
+            ServedCount = servedCount
         };
     }
 }
