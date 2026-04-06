@@ -386,6 +386,56 @@ nodes:
     }
 
     [Fact]
+    public async Task GetGraphAsync_FileQueueDepth_DoesNotInferProducerNode()
+    {
+        const string runId = "run_graph_file_queue_depth";
+        CreateRun(runId, """
+schemaVersion: 1
+
+grid:
+  bins: 2
+  binSize: 5
+  binUnit: minutes
+
+topology:
+  nodes:
+    - id: PickerWave
+      kind: queue
+      semantics:
+        arrivals: series:wave_arrivals
+        served: series:wave_served
+        errors: series:wave_errors
+        queueDepth: file:telemetry/picker_wave_backlog.csv
+  edges: []
+
+nodes:
+  - id: wave_arrivals
+    kind: const
+    values: [10, 12]
+  - id: wave_served
+    kind: const
+    values: [8, 9]
+  - id: wave_errors
+    kind: const
+    values: [0, 0]
+  - id: picker_wave_backlog
+    kind: serviceWithBuffer
+    inflow: wave_arrivals
+    outflow: wave_served
+""");
+
+        var response = await service.GetGraphAsync(runId, new GraphQueryOptions { Mode = GraphQueryMode.Full });
+
+        var pickerWave = Assert.Single(response.Nodes, node => node.Id == "PickerWave");
+        Assert.Equal("queue", pickerWave.LogicalType);
+        Assert.DoesNotContain(response.Edges, edge =>
+            string.Equals(edge.EdgeType, "dependency", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(edge.Field, "queue", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(edge.From, "picker_wave_backlog", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(edge.To, "PickerWave", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task GetGraphAsync_MissingRunThrowsNotFound()
     {
         var ex = await Assert.ThrowsAsync<GraphQueryException>(() => service.GetGraphAsync("missing-run"));

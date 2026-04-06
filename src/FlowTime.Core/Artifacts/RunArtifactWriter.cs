@@ -88,6 +88,9 @@ public static class RunArtifactWriter
         public string? GeneratedAtUtc { get; set; }
         public string ReceivedAtUtc { get; set; } = DateTime.UtcNow.ToString("o");
         public Dictionary<string, object?> Parameters { get; set; } = new(StringComparer.Ordinal);
+        public bool HasTelemetrySources { get; set; }
+        public List<string> TelemetrySources { get; set; } = new();
+        public Dictionary<string, string> NodeSources { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     }
 
     private const string aggregatesDirectoryName = "aggregates";
@@ -148,8 +151,9 @@ public static class RunArtifactWriter
         await File.WriteAllTextAsync(canonicalModelPath, normalizedSpecText, Encoding.UTF8);
 
         var metadataContext = ExtractMetadataContext(normalizedSpecText, request.ProvenanceJson);
+        var telemetryMetadata = TelemetrySourceMetadataExtractor.Extract(normalizedSpecText);
         var modelHash = await ComputeFileHashAsync(canonicalModelPath);
-        await WriteMetadataAsync(Path.Combine(modelDir, "metadata.json"), metadataContext, modelHash, jsonOptions);
+        await WriteMetadataAsync(Path.Combine(modelDir, "metadata.json"), metadataContext, telemetryMetadata, modelHash, jsonOptions);
 
         if (!string.IsNullOrWhiteSpace(request.ProvenanceJson))
         {
@@ -223,6 +227,7 @@ public static class RunArtifactWriter
                 Unit = "entities/bin",
                 ComponentId = descriptor.ComponentId,
                 Class = "DEFAULT",
+                ClassKind = "fallback",
                 Points = seriesData.Length,
                 Hash = hash
             });
@@ -250,6 +255,7 @@ public static class RunArtifactWriter
                         Unit = "entities/bin",
                         ComponentId = classDescriptor.ComponentId,
                         Class = classId,
+                        ClassKind = "specific",
                         Points = classValues.Length,
                         Hash = classHash
                     });
@@ -282,6 +288,7 @@ public static class RunArtifactWriter
                     Unit = "entities/bin",
                     ComponentId = descriptor.ComponentId,
                     Class = descriptor.ClassId,
+                    ClassKind = string.Equals(descriptor.ClassId, "DEFAULT", StringComparison.OrdinalIgnoreCase) ? "fallback" : "specific",
                     Points = edgeSeries.Values.Length,
                     Hash = hash
                 });
@@ -871,7 +878,12 @@ public static class RunArtifactWriter
         };
     }
 
-    private static async Task WriteMetadataAsync(string metadataPath, MetadataContext metadata, string modelHash, JsonSerializerOptions options)
+    private static async Task WriteMetadataAsync(
+        string metadataPath,
+        MetadataContext metadata,
+        TelemetrySourceMetadata telemetryMetadata,
+        string modelHash,
+        JsonSerializerOptions options)
     {
         var templateId = string.IsNullOrWhiteSpace(metadata.TemplateId) ? "adhoc-model" : metadata.TemplateId!;
         var templateTitle = string.IsNullOrWhiteSpace(metadata.TemplateTitle) ? templateId : metadata.TemplateTitle!;
@@ -892,6 +904,9 @@ public static class RunArtifactWriter
             ModelId = metadata.ModelId,
             GeneratedAtUtc = metadata.GeneratedAtUtc,
             ReceivedAtUtc = DateTime.UtcNow.ToString("o"),
+            HasTelemetrySources = telemetryMetadata.TelemetrySources.Count > 0,
+            TelemetrySources = telemetryMetadata.TelemetrySources.ToList(),
+            NodeSources = telemetryMetadata.NodeSources.ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase),
             Parameters = metadata.Parameters != null
                 ? new Dictionary<string, object?>(metadata.Parameters, StringComparer.Ordinal)
                 : new Dictionary<string, object?>(StringComparer.Ordinal)
@@ -1267,6 +1282,6 @@ internal sealed record ProvenanceRef
 }
 internal sealed record SeriesIndexJson { public int SchemaVersion { get; set; } public IndexGridJson Grid { get; set; } = new(); public List<SeriesMeta> Series { get; set; } = new(); public FormatsJson Formats { get; set; } = new(); public List<ManifestClassEntry> Classes { get; set; } = new(); public string? ClassCoverage { get; set; } }
 internal sealed record IndexGridJson { public int Bins { get; set; } public int BinSize { get; set; } public string BinUnit { get; set; } = "minutes"; public string Timezone { get; set; } = "UTC"; }
-internal sealed record SeriesMeta { public string Id { get; set; } = ""; public string Kind { get; set; } = "flow"; public string Path { get; set; } = ""; public string Unit { get; set; } = ""; public string ComponentId { get; set; } = ""; public string Class { get; set; } = "DEFAULT"; public int Points { get; set; } public string Hash { get; set; } = ""; }
+internal sealed record SeriesMeta { public string Id { get; set; } = ""; public string Kind { get; set; } = "flow"; public string Path { get; set; } = ""; public string Unit { get; set; } = ""; public string ComponentId { get; set; } = ""; public string Class { get; set; } = "DEFAULT"; public string ClassKind { get; set; } = "fallback"; public int Points { get; set; } public string Hash { get; set; } = ""; }
 internal sealed record FormatsJson { public AggregatesTableJson AggregatesTable { get; set; } = new(); }
 internal sealed record AggregatesTableJson { public string Path { get; set; } = "aggregates/node_time_bin.parquet"; public string[] Dimensions { get; set; } = Array.Empty<string>(); public string[] Measures { get; set; } = Array.Empty<string>(); }

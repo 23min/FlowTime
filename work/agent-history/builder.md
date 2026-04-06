@@ -107,3 +107,26 @@ Accumulated learnings from implementation sessions.
 ### Pitfalls encountered
 - Leaving a bridge milestone with “full purification” wording blocks wrap even when the code is valid for the delivered slice.
 - Class-truth cleanup cannot be sequenced after descriptor/evaluator work that depends on it; move that boundary earlier in the plan.
+
+## 2026-04-05: E-16-01 Typed Reference Cleanup
+
+### Patterns that worked
+- For MetricsService fallback-path tests, omitting `metadata.json` / `provenance.json` is a clean way to force `StateQueryService` to 404 and exercise model-fallback behavior directly.
+- A direct resolver test file (`SemanticReferenceResolverTests`) is the fastest way to close the E-16-01 compiler-boundary coverage gap for `self`, bare node, `series:`, and `file:` references.
+
+### Pitfalls encountered
+- VS Code task output can clip the final `dotnet test` summary; re-run with `dotnet test --no-build | tail -n ...` before claiming a full-suite green gate.
+
+## 2026-04-06: E-16-02 Class Truth Boundary
+
+### Patterns that worked
+- A small explicit entry shape (`ClassEntry<T>` with `Specific`/`Fallback`) is enough to keep real class coverage separate from fallback data without leaking `*` / `DEFAULT` string conventions into runtime logic.
+- The clean regression boundary is: explicit class-series fixtures still project `byClass`, while missing class coverage omits `byClass` entirely and only explicit fallback series project the wildcard contract.
+- When tightening a runtime metadata boundary, update every hand-written test artifact writer in the same pass; otherwise the suite fails for the right reason but in too many places at once.
+- A good deletion regression for forward-only metadata is to strip the new explicit field from one fixture and assert the system refuses to infer the old meaning.
+
+### Pitfalls encountered
+- Synthesizing wildcard `byClass` from aggregate totals hides missing class coverage and creates false parity with real fallback data.
+- File-backed series references must not recover producer node IDs from file stems at runtime; tests that encode that assumption need to be inverted, not preserved.
+- State schema drift can hide behind JSON Schema loader failures; strip `$schema` first, then reconcile the schema against the live DTO contract instead of chasing test-specific payload tweaks.
+- Tightening `RunManifestReader` to explicit telemetry metadata immediately breaks manual `metadata.json` fixtures in API tests unless they emit `telemetrySources` / `nodeSources` too.

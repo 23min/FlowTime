@@ -52,12 +52,12 @@ The milestone IDs are historical; the recommended implementation order above is 
 
 ## E-16 — Formula-First Core Purification (active)
 
-**Epic:** `work/epics/E-16-formula-first-core-purification/spec.md` | **Status:** approved, ready to start
+**Epic:** `work/epics/E-16-formula-first-core-purification/spec.md` | **Status:** in progress (`m-E16-01` active)
 
 The immediate architecture gate. Purify the engine so semantic meaning and analytical truth are compiled into Core once and consumed as facts everywhere else.
 
 Six milestones in sequence:
-1. **m-E16-01** — Compiled Semantic References (typed refs replace raw string parsing, Parallelism typing)
+1. **m-E16-01** — Compiled Semantic References (typed refs replace raw string parsing, Parallelism typing) — in progress on `milestone/m-E16-01-compiled-semantic-references`
 2. **m-E16-02** — Class Truth Boundary (real by-class data vs wildcard fallback made explicit)
 3. **m-E16-03** — Runtime Analytical Descriptor (absorbs AnalyticalCapabilities, compiled by compiler not resolved from strings)
 4. **m-E16-04** — Core Analytical Evaluation (all analytical math moves to Core including flowLatencyMs graph propagation)

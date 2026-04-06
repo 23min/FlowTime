@@ -266,6 +266,9 @@ public sealed class FileSeriesReader : ISeriesReader
             Unit = element.GetProperty("unit").GetString()!,
             ComponentId = element.GetProperty("componentId").GetString()!,
             Class = element.GetProperty("class").GetString()!,
+            ClassKind = element.TryGetProperty("classKind", out var classKindElement) && classKindElement.ValueKind == JsonValueKind.String
+                ? classKindElement.GetString()
+                : null,
             Points = element.GetProperty("points").GetInt32(),
             Hash = element.GetProperty("hash").GetString()!
         };

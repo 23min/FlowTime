@@ -209,7 +209,7 @@ public sealed class MetricsService
             }
         }
 
-        return await ResolveViaModelAsync(runId, manifest, manifestMetadata, startBin, endBin, binCount, cancellationToken).ConfigureAwait(false);
+        return await ResolveViaModelAsync(runId, manifest, startBin, endBin, binCount, cancellationToken).ConfigureAwait(false);
     }
 
     private MetricsResolution ConvertFromStateWindow(StateWindowResponse window, RunManifest manifest, int binCount)
@@ -264,7 +264,6 @@ public sealed class MetricsService
     private async Task<MetricsResolution> ResolveViaModelAsync(
         string runId,
         RunManifest manifest,
-        RunManifestMetadata manifestMetadata,
         int startBin,
         int endBin,
         int binCount,
@@ -296,18 +295,34 @@ public sealed class MetricsService
             throw new MetricsQueryException(412, $"Run '{runId}' does not include topology information required for metrics.");
         }
 
+        ModelMetadata metadata;
+        try
+        {
+            metadata = ModelParser.ParseMetadata(modelDefinition, Path.GetDirectoryName(modelPath));
+        }
+        catch (ModelParseException ex)
+        {
+            logger.LogError(ex, "Failed to parse typed model metadata for metrics evaluation {RunId}", runId);
+            throw new MetricsQueryException(409, $"Model for run '{runId}' could not be projected: {ex.Message}");
+        }
+
+        if (metadata.Topology is null)
+        {
+            throw new MetricsQueryException(412, $"Run '{runId}' does not include topology information required for metrics.");
+        }
+
         var (grid, graph) = ModelParser.ParseModel(modelDefinition);
         var evaluation = graph.Evaluate(grid);
 
-        var nodes = new List<ResolvedNodeSeries>(modelDefinition.Topology.Nodes.Count);
-        foreach (var topologyNode in modelDefinition.Topology.Nodes)
+        var nodes = new List<ResolvedNodeSeries>(metadata.Topology.Nodes.Count);
+        foreach (var topologyNode in metadata.Topology.Nodes)
         {
             var semantics = topologyNode.Semantics;
-            var arrivals = ResolveSeriesSlice(semantics.Arrivals, evaluation, modelPath, startBin, endBin, grid.Bins);
-            var served = ResolveSeriesSlice(semantics.Served, evaluation, modelPath, startBin, endBin, grid.Bins);
-            var errors = ResolveSeriesSlice(semantics.Errors, evaluation, modelPath, startBin, endBin, grid.Bins);
-            var queue = ResolveSeriesSlice(semantics.QueueDepth, evaluation, modelPath, startBin, endBin, grid.Bins);
-            var capacity = ResolveSeriesSlice(semantics.Capacity, evaluation, modelPath, startBin, endBin, grid.Bins);
+            var arrivals = ResolveSeriesSlice(semantics.Arrivals, evaluation, modelPath, topologyNode.Id, startBin, endBin, grid.Bins);
+            var served = ResolveSeriesSlice(semantics.Served, evaluation, modelPath, topologyNode.Id, startBin, endBin, grid.Bins);
+            var errors = ResolveSeriesSlice(semantics.Errors, evaluation, modelPath, topologyNode.Id, startBin, endBin, grid.Bins);
+            var queue = ResolveSeriesSlice(semantics.QueueDepth, evaluation, modelPath, topologyNode.Id, startBin, endBin, grid.Bins);
+            var capacity = ResolveSeriesSlice(semantics.Capacity, evaluation, modelPath, topologyNode.Id, startBin, endBin, grid.Bins);
 
             nodes.Add(new ResolvedNodeSeries(
                 topologyNode.Id,
@@ -335,22 +350,22 @@ public sealed class MetricsService
     }
 
     private static double?[]? ResolveSeriesSlice(
-        string? semantics,
+        CompiledSeriesReference? semantics,
         IReadOnlyDictionary<NodeId, Series> evaluation,
         string modelPath,
+        string ownerNodeId,
         int startBin,
         int endBin,
         int totalBins)
     {
-        if (string.IsNullOrWhiteSpace(semantics))
+        if (semantics is null)
         {
             return null;
         }
 
-        semantics = semantics.Trim();
         double[]? values = null;
 
-        if (semantics.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+        if (semantics.Kind == CompiledSeriesReferenceKind.File)
         {
             var modelDirectory = Path.GetDirectoryName(modelPath);
             if (modelDirectory is null)
@@ -360,7 +375,7 @@ public sealed class MetricsService
 
             try
             {
-                var resolvedPath = UriResolver.ResolveFilePath(semantics, modelDirectory);
+                var resolvedPath = UriResolver.ResolveFilePath(semantics.RawText, modelDirectory);
                 values = CsvReader.ReadTimeSeries(resolvedPath, totalBins);
             }
             catch
@@ -370,8 +385,8 @@ public sealed class MetricsService
         }
         else
         {
-            var nodeId = new NodeId(semantics);
-            if (evaluation.TryGetValue(nodeId, out var series))
+            var nodeId = semantics.ResolveProducerId(ownerNodeId);
+            if (!string.IsNullOrWhiteSpace(nodeId) && evaluation.TryGetValue(new NodeId(nodeId), out var series))
             {
                 values = series.ToArray();
             }

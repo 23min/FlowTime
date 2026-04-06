@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using FlowTime.Core.Metrics;
 using FlowTime.Core.Models;
 
@@ -36,14 +37,15 @@ public class ClassMetricsAggregatorTests
 
         Assert.Equal(ClassCoverage.Full, result.Coverage);
         Assert.Empty(result.Warnings);
-        Assert.Equal(6d, result.ByClass["vip"].Arrivals);
-        Assert.Equal(5d, result.ByClass["vip"].Served);
-        Assert.Equal(1d, result.ByClass["vip"].Errors);
-        Assert.Equal(4d, result.ByClass["standard"].Arrivals);
+        Assert.DoesNotContain(result.ClassEntries, entry => entry.Kind == ClassEntryKind.Fallback);
+        Assert.Equal(6d, result.ClassEntries.Single(entry => entry.ContractKey == "vip").Payload.Arrivals);
+        Assert.Equal(5d, result.ClassEntries.Single(entry => entry.ContractKey == "vip").Payload.Served);
+        Assert.Equal(1d, result.ClassEntries.Single(entry => entry.ContractKey == "vip").Payload.Errors);
+        Assert.Equal(4d, result.ClassEntries.Single(entry => entry.ContractKey == "standard").Payload.Arrivals);
     }
 
     [Fact]
-    public void Aggregate_NoClassData_DefaultsToWildcard()
+    public void Aggregate_NoClassData_ProducesNoClassEntries()
     {
         var data = new NodeData
         {
@@ -56,11 +58,7 @@ public class ClassMetricsAggregatorTests
 
         var result = ClassMetricsAggregator.Aggregate(data, binIndex: 0);
 
-        var entry = Assert.Single(result.ByClass);
-        Assert.Equal("*", entry.Key);
-        Assert.Equal(5d, entry.Value.Arrivals);
-        Assert.Equal(4d, entry.Value.Served);
-        Assert.Equal(1d, entry.Value.Errors);
+        Assert.Empty(result.ClassEntries);
         Assert.Equal(ClassCoverage.Missing, result.Coverage);
     }
 
@@ -97,6 +95,42 @@ public class ClassMetricsAggregatorTests
     }
 
     [Fact]
+    public void Aggregate_MixedRealAndFallback_KeepsFallbackSeparateFromRealClasses()
+    {
+        var data = new NodeData
+        {
+            NodeId = "service",
+            Arrivals = new[] { 10d },
+            Served = new[] { 8d },
+            Errors = new[] { 2d },
+            ClassEntries = new[]
+            {
+                ClassEntry<NodeClassData>.Specific("vip", new NodeClassData
+                {
+                    Arrivals = new[] { 10d },
+                    Served = new[] { 8d },
+                    Errors = new[] { 2d }
+                }),
+                ClassEntry<NodeClassData>.Fallback(new NodeClassData
+                {
+                    Arrivals = new[] { 10d },
+                    Served = new[] { 8d },
+                    Errors = new[] { 2d }
+                })
+            }
+        };
+
+        var result = ClassMetricsAggregator.Aggregate(data, binIndex: 0);
+
+        Assert.Equal(ClassCoverage.Full, result.Coverage);
+        Assert.Single(result.ClassEntries.Where(entry => entry.Kind == ClassEntryKind.Specific));
+        Assert.Contains(result.ClassEntries, entry => entry.Kind == ClassEntryKind.Specific && entry.ContractKey == "vip");
+        Assert.Contains(result.ClassEntries, entry => entry.Kind == ClassEntryKind.Fallback);
+        Assert.DoesNotContain(result.ClassEntries, entry => string.Equals(entry.ContractKey, "DEFAULT", StringComparison.OrdinalIgnoreCase));
+        Assert.Empty(result.Warnings);
+    }
+
+    [Fact]
     public void Aggregate_OrdersClassKeysDeterministically()
     {
         var data = new NodeData
@@ -114,6 +148,6 @@ public class ClassMetricsAggregatorTests
 
         var result = ClassMetricsAggregator.Aggregate(data, binIndex: 0);
 
-        Assert.Equal(new[] { "alpha", "zeta" }, result.ByClass.Keys);
+        Assert.Equal(new[] { "alpha", "zeta" }, result.ClassEntries.Select(entry => entry.ContractKey));
     }
 }

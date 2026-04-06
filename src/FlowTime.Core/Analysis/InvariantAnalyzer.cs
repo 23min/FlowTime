@@ -111,6 +111,12 @@ public static class InvariantAnalyzer
                 classContributions = ClassContributionBuilder.Build(model, classGrid, evaluatedSeries, classAssignments, out _);
             }
         }
+        var runtimeTopologyNodes = classContributions is null
+            ? new Dictionary<string, Node>(StringComparer.OrdinalIgnoreCase)
+            : ModelParser.ParseMetadata(model).Topology?.Nodes
+                .Where(node => !string.IsNullOrWhiteSpace(node.Id))
+                .ToDictionary(node => node.Id, StringComparer.OrdinalIgnoreCase)
+                ?? new Dictionary<string, Node>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var topoNode in model.Topology.Nodes)
         {
@@ -325,10 +331,11 @@ public static class InvariantAnalyzer
                 }
             }
 
-            if (classContributions != null)
+            if (classContributions != null && runtimeTopologyNodes.TryGetValue(nodeId, out var runtimeNode))
             {
-                if (!string.IsNullOrWhiteSpace(semantics.Served) &&
-                    classContributions.TryGetValue(new NodeId(semantics.Served), out var servedByClass) &&
+                var servedSeriesId = ResolveCompiledSeriesId(runtimeNode.Semantics.Served, nodeId);
+                if (!string.IsNullOrWhiteSpace(servedSeriesId) &&
+                    classContributions.TryGetValue(new NodeId(servedSeriesId), out var servedByClass) &&
                     outgoingEdges.TryGetValue(nodeId, out var outgoing))
                 {
                     CheckEdgeClassFlows(
@@ -339,8 +346,9 @@ public static class InvariantAnalyzer
                         applyLag: false);
                 }
 
-                if (!string.IsNullOrWhiteSpace(semantics.Arrivals) &&
-                    classContributions.TryGetValue(new NodeId(semantics.Arrivals), out var arrivalsByClass) &&
+                var arrivalsSeriesId = ResolveCompiledSeriesId(runtimeNode.Semantics.Arrivals, nodeId);
+                if (!string.IsNullOrWhiteSpace(arrivalsSeriesId) &&
+                    classContributions.TryGetValue(new NodeId(arrivalsSeriesId), out var arrivalsByClass) &&
                     incomingEdges.TryGetValue(nodeId, out var incoming))
                 {
                     CheckEdgeClassFlows(
@@ -353,9 +361,9 @@ public static class InvariantAnalyzer
             }
 
             // Soft info: missing prerequisite metrics
-            var expectsCapacity = isServiceKind || !string.IsNullOrWhiteSpace(semantics.Capacity);
-            var expectsServed = isServiceKind || !string.IsNullOrWhiteSpace(semantics.Served);
-            var expectsQueue = isQueueLikeKind || !string.IsNullOrWhiteSpace(semantics.QueueDepth);
+            var expectsCapacity = isServiceKind || semantics.Capacity is not null;
+            var expectsServed = isServiceKind || semantics.Served is not null;
+            var expectsQueue = isQueueLikeKind || semantics.QueueDepth is not null;
             var hasMaxAttempts = semantics.MaxAttempts.HasValue;
 
             if (expectsCapacity && capacity == null)
@@ -448,7 +456,7 @@ public static class InvariantAnalyzer
                         "info"));
                 }
 
-                if (!string.IsNullOrWhiteSpace(semantics.Errors) && hasIncomingEffort)
+                if (semantics.Errors is not null && hasIncomingEffort)
                 {
                     var hasAttempts = dependencyIncoming!.Any(edge =>
                     {
@@ -463,7 +471,7 @@ public static class InvariantAnalyzer
                             return false;
                         }
 
-                        return !string.IsNullOrWhiteSpace(sourceNode.Semantics.Attempts);
+                        return sourceNode.Semantics.Attempts is not null;
                     });
 
                     if (!hasAttempts)
@@ -499,8 +507,8 @@ public static class InvariantAnalyzer
             var processingSeries = TryGetSeries(semantics.ProcessingTimeMsSum, out var proc) ? proc : null;
             var servedCountSeries = TryGetSeries(semantics.ServedCount, out var sc) ? sc : null;
 
-            var expectsProcessing = isServiceKind || !string.IsNullOrWhiteSpace(semantics.ProcessingTimeMsSum);
-            var expectsServedCount = isServiceKind || !string.IsNullOrWhiteSpace(semantics.ServedCount);
+            var expectsProcessing = isServiceKind || semantics.ProcessingTimeMsSum is not null;
+            var expectsServedCount = isServiceKind || semantics.ServedCount is not null;
             if (expectsProcessing && processingSeries == null)
             {
                 warnings.Add(new InvariantWarning(
@@ -672,7 +680,22 @@ public static class InvariantAnalyzer
             return true;
         }
 
-        void ResolveParallelism(object? parallelism, out double[]? series, out double? scalar)
+        string? ResolveCompiledSeriesId(CompiledSeriesReference? reference, string? ownerNodeId)
+        {
+            if (reference is null)
+            {
+                return null;
+            }
+
+            return reference.Kind switch
+            {
+                CompiledSeriesReferenceKind.Node => reference.NodeId,
+                CompiledSeriesReferenceKind.Self when !string.IsNullOrWhiteSpace(ownerNodeId) => ownerNodeId,
+                _ => null
+            };
+        }
+
+        void ResolveParallelism(ParallelismReference? parallelism, out double[]? series, out double? scalar)
         {
             series = null;
             scalar = null;
@@ -682,25 +705,16 @@ public static class InvariantAnalyzer
                 return;
             }
 
-            if (parallelism is string seriesId)
+            if (parallelism.Constant.HasValue)
             {
-                if (double.TryParse(seriesId, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
-                {
-                    scalar = parsed;
-                    return;
-                }
-
-                if (TryGetSeries(seriesId, out var resolved))
-                {
-                    series = resolved;
-                }
-
+                scalar = parallelism.Constant.Value;
                 return;
             }
 
-            if (parallelism is IConvertible)
+            var parallelismSeriesId = ResolveCompiledSeriesId(parallelism.SeriesReference, ownerNodeId: null);
+            if (!string.IsNullOrWhiteSpace(parallelismSeriesId) && TryGetSeries(parallelismSeriesId, out var resolved))
             {
-                scalar = Convert.ToDouble(parallelism, CultureInfo.InvariantCulture);
+                series = resolved;
             }
         }
 

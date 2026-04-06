@@ -43,7 +43,7 @@ public sealed class ModeValidator
             var missingSeries = new List<string>();
             var invalidSeries = new List<string>();
 
-            void ProcessSeries(string? semanticsValue, double[]? series, string label, bool required)
+            void ProcessSeries(CompiledSeriesReference? semanticsValue, double[]? series, string label, bool required)
             {
                 var expectedLength = context.Window.Bins;
                 var isMissing = series == null || series.Length != expectedLength;
@@ -144,30 +144,27 @@ public sealed class ModeValidator
             Assess(semantics.QueueDepth, "queue");
             Assess(semantics.Capacity, "capacity");
             Assess(semantics.ExternalDemand, "external_demand");
-            if (semantics.Parallelism is string parallelismSeries)
+            if (semantics.Parallelism?.SeriesReference is not null)
             {
-                if (!double.TryParse(parallelismSeries, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
-                {
-                    Assess(parallelismSeries, "parallelism");
-                }
+                Assess(semantics.Parallelism.SeriesReference, "parallelism");
             }
 
             return unresolved;
 
-            void Assess(string? value, string label)
+            void Assess(CompiledSeriesReference? value, string label)
             {
-                if (string.IsNullOrWhiteSpace(value))
+                if (value is null)
                 {
                     return;
                 }
 
-                var trimmed = value.Trim();
-                if (trimmed.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+                if (value.Kind == CompiledSeriesReferenceKind.File)
                 {
                     return;
                 }
 
-                if (context.ManifestMetadata.NodeSources.ContainsKey(trimmed))
+                if (context.ManifestMetadata.NodeSources.ContainsKey(value.RawText) ||
+                    context.ManifestMetadata.NodeSources.ContainsKey(value.LookupKey))
                 {
                     return;
                 }

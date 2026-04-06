@@ -23,6 +23,7 @@ public sealed class SeriesMetadata
     public required string Unit { get; init; }
     public required string ComponentId { get; init; }
     public required string Class { get; init; }
+    public string? ClassKind { get; init; }
     public required int Points { get; init; }
     public required string Hash { get; init; }
 }

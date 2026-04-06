@@ -33,194 +33,194 @@ public partial class Program
 	{
 		var builder = WebApplication.CreateBuilder(args);
 
-// Basic services (CORS permissive for dev; tighten later)
-builder.Logging.AddSimpleConsole(o =>
-{
-	o.SingleLine = true;
-	o.TimestampFormat = "HH:mm:ss.fff ";
-});
-builder.Services.AddCors(p => p.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
-
-// Register services
-builder.Services.AddSingleton<IServiceInfoProvider, ServiceInfoProvider>();
-builder.Services.AddSingleton<IEndpointDiscoveryService, EndpointDiscoveryService>();
-builder.Services.AddSingleton<ICapabilitiesDetectionService, CapabilitiesDetectionService>();
-builder.Services.AddSingleton<ITemplateWarningRegistry, TemplateWarningRegistry>();
-builder.Services.AddSingleton<ITemplateService>(provider =>
-{
-	var logger = provider.GetRequiredService<ILogger<TemplateService>>();
-	var templatesDirectory = ServiceHelpers.TemplatesRoot(builder.Configuration);
-	return new TemplateService(templatesDirectory, logger);
-});
-builder.Services.AddSingleton<IStorageBackend>(provider =>
-{
-	var config = provider.GetRequiredService<IConfiguration>();
-	var options = StorageBackendOptions.FromConfiguration(config);
-	return StorageBackendFactory.Create(options);
-});
-builder.Services.AddSingleton<TelemetryBundleBuilder>();
-builder.Services.AddSingleton<RunOrchestrationService>();
-
-var app = builder.Build();
-app.UseCors();
-
-CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
-CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
-
-// Access log (one-liner per request)
-app.Use(async (ctx, next) =>
-{
-	var sw = Stopwatch.StartNew();
-	try
-	{
-		await next();
-	}
-	finally
-	{
-		sw.Stop();
-		var method = ctx.Request.Method;
-		var path = ctx.Request.Path.HasValue ? ctx.Request.Path.Value : "/";
-		var status = ctx.Response?.StatusCode;
-		app.Logger.LogInformation("HTTP {Method} {Path} -> {Status} in {ElapsedMs} ms",
-			method, path, status, sw.ElapsedMilliseconds);
-	}
-});
-
-// Initialize catalogs during startup
-ServiceHelpers.EnsureRuntimeCatalogs(app.Configuration);
-
-app.Lifetime.ApplicationStarted.Register(() =>
-{
-	_ = Task.Run(async () =>
-	{
-		using var scope = app.Services.CreateScope();
-		var templateService = scope.ServiceProvider.GetRequiredService<ITemplateService>();
-		var warningRegistry = scope.ServiceProvider.GetRequiredService<ITemplateWarningRegistry>();
-
-		var templates = await templateService.GetAllTemplatesAsync();
-		foreach (var template in templates)
+		// Basic services (CORS permissive for dev; tighten later)
+		builder.Logging.AddSimpleConsole(o =>
 		{
+			o.SingleLine = true;
+			o.TimestampFormat = "HH:mm:ss.fff ";
+		});
+		builder.Services.AddCors(p => p.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+
+		// Register services
+		builder.Services.AddSingleton<IServiceInfoProvider, ServiceInfoProvider>();
+		builder.Services.AddSingleton<IEndpointDiscoveryService, EndpointDiscoveryService>();
+		builder.Services.AddSingleton<ICapabilitiesDetectionService, CapabilitiesDetectionService>();
+		builder.Services.AddSingleton<ITemplateWarningRegistry, TemplateWarningRegistry>();
+		builder.Services.AddSingleton<ITemplateService>(provider =>
+		{
+			var logger = provider.GetRequiredService<ILogger<TemplateService>>();
+			var templatesDirectory = ServiceHelpers.TemplatesRoot(builder.Configuration);
+			return new TemplateService(templatesDirectory, logger);
+		});
+		builder.Services.AddSingleton<IStorageBackend>(provider =>
+		{
+			var config = provider.GetRequiredService<IConfiguration>();
+			var options = StorageBackendOptions.FromConfiguration(config);
+			return StorageBackendFactory.Create(options);
+		});
+		builder.Services.AddSingleton<TelemetryBundleBuilder>();
+		builder.Services.AddSingleton<RunOrchestrationService>();
+
+		var app = builder.Build();
+		app.UseCors();
+
+		CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+		CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
+
+		// Access log (one-liner per request)
+		app.Use(async (ctx, next) =>
+		{
+			var sw = Stopwatch.StartNew();
 			try
 			{
-				var yaml = await templateService.GenerateEngineModelAsync(template.Metadata.Id, new Dictionary<string, object>(), null);
-				var analysis = TemplateInvariantAnalyzer.Analyze(yaml);
-				warningRegistry.UpdateWarnings(template.Metadata.Id, analysis.Warnings);
-
-				if (analysis.Warnings.Count > 0)
-				{
-					app.Logger.LogWarning("Template {TemplateId} produced {Count} invariant warning(s) at startup", template.Metadata.Id, analysis.Warnings.Count);
-				}
+				await next();
 			}
-			catch (Exception ex)
+			finally
 			{
-				app.Logger.LogWarning(ex, "Invariant analysis failed for template {TemplateId}", template.Metadata.Id);
+				sw.Stop();
+				var method = ctx.Request.Method;
+				var path = ctx.Request.Path.HasValue ? ctx.Request.Path.Value : "/";
+				var status = ctx.Response?.StatusCode;
+				app.Logger.LogInformation("HTTP {Method} {Path} -> {Status} in {ElapsedMs} ms",
+					method, path, status, sw.ElapsedMilliseconds);
 			}
-		}
-	});
-});
+		});
 
-// Health endpoints - simple and factual
-app.MapGet("/healthz", (HttpContext context, IConfiguration config, IEndpointDiscoveryService endpointService, ITemplateWarningRegistry warningRegistry) =>
-{
-    // Check for detailed health parameter
-    var includeDetails = context.Request.Query.ContainsKey("detailed") || 
-                        context.Request.Query.ContainsKey("include-details");
-    
-    var hasWarnings = warningRegistry.HasWarnings;
-    var status = hasWarnings ? "warning" : "ok";
-    
-    if (includeDetails)
-    {
-        // Enhanced but simple health response with only factual information
-        var process = System.Diagnostics.Process.GetCurrentProcess();
-        var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-        var serviceName = assembly.GetName().Name ?? "FlowTime.Sim.Service";
-        var version = assembly.GetName().Version?.ToString(3) ?? "1.0.0";
-        
-        return Results.Ok(new
-        {
-            status,
-            service = serviceName,
-            version = version,
-            timestamp = DateTime.UtcNow,
-            uptime = DateTime.UtcNow - process.StartTime,
-            environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development",
-            dataDirectory = ServiceHelpers.DataRoot(config),
-            system = new
-            {
-                workingSetMB = Math.Round(process.WorkingSet64 / 1024.0 / 1024.0, 1),
-                platform = Environment.OSVersion.Platform.ToString(),
-                architecture = RuntimeInformation.ProcessArchitecture.ToString()
-            },
-            availableEndpoints = endpointService.GetAvailableEndpoints(),
-            templateWarnings = warningRegistry.GetWarnings()
-        });
-    }
-    else
-    {
-        // Legacy basic response
-        return Results.Ok(new { status });
-    }
-});
+		// Initialize catalogs during startup
+		ServiceHelpers.EnsureRuntimeCatalogs(app.Configuration);
 
-// Enhanced health endpoint with service information (v1)
-app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext context, IConfiguration config, ITemplateWarningRegistry warningRegistry) =>
-{
-    // Check for detailed health parameter
-    var includeDetails = context.Request.Query.ContainsKey("detailed") || 
-                        context.Request.Query.ContainsKey("include-details");
-    var hasWarnings = warningRegistry.HasWarnings;
-    var status = hasWarnings ? "warning" : "ok";
-    
-    if (includeDetails)
-    {
-        // Enhanced but simple health response with only factual information
-        var process = System.Diagnostics.Process.GetCurrentProcess();
-        return Results.Ok(new
-        {
-            status,
-            service = "FlowTime.Sim.Service",
-            version = "1.0.0",
-            timestamp = DateTime.UtcNow,
-            uptime = DateTime.UtcNow - process.StartTime,
-            environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development",
-            dataDirectory = ServiceHelpers.DataRoot(config),
-            system = new
-            {
-                workingSetMB = Math.Round(process.WorkingSet64 / 1024.0 / 1024.0, 1),
-                platform = Environment.OSVersion.Platform.ToString(),
-                architecture = RuntimeInformation.ProcessArchitecture.ToString()
-            },
-            availableEndpoints = new[]
-            {
-                "/healthz",
-                "/v1/healthz",
-                "/api/v1/templates",
-                "/api/v1/templates/{id}",
-                "/api/v1/templates/{id}/generate",
-                "/api/v1/templates/refresh",
-                "/api/v1/templates/categories",
-                "/api/v1/models",
-                "/api/v1/models/{templateId}",
-                "/api/v1/catalogs",
-                "/api/v1/catalogs/{id}",
-                "/api/v1/catalogs/validate"
-            },
-            templateWarnings = warningRegistry.GetWarnings()
-        });
-    }
-    else
-    {
-        // Standard v1 health with service info
-        var serviceInfo = serviceInfoProvider.GetServiceInfo();
-        if (warningRegistry.HasWarnings)
-        {
-            serviceInfo.Health.Status = "warning";
-            serviceInfo.Health.Details["templateWarnings"] = warningRegistry.GetWarnings();
-        }
-        return Results.Ok(serviceInfo);
-    }
-});
+		app.Lifetime.ApplicationStarted.Register(() =>
+		{
+			_ = Task.Run(async () =>
+			{
+				using var scope = app.Services.CreateScope();
+				var templateService = scope.ServiceProvider.GetRequiredService<ITemplateService>();
+				var warningRegistry = scope.ServiceProvider.GetRequiredService<ITemplateWarningRegistry>();
+
+				var templates = await templateService.GetAllTemplatesAsync();
+				foreach (var template in templates)
+				{
+					try
+					{
+						var yaml = await templateService.GenerateEngineModelAsync(template.Metadata.Id, new Dictionary<string, object>(), null);
+						var analysis = TemplateInvariantAnalyzer.Analyze(yaml);
+						warningRegistry.UpdateWarnings(template.Metadata.Id, analysis.Warnings);
+
+						if (analysis.Warnings.Count > 0)
+						{
+							app.Logger.LogWarning("Template {TemplateId} produced {Count} invariant warning(s) at startup", template.Metadata.Id, analysis.Warnings.Count);
+						}
+					}
+					catch (Exception ex)
+					{
+						app.Logger.LogWarning(ex, "Invariant analysis failed for template {TemplateId}", template.Metadata.Id);
+					}
+				}
+			});
+		});
+
+		// Health endpoints - simple and factual
+		app.MapGet("/healthz", (HttpContext context, IConfiguration config, IEndpointDiscoveryService endpointService, ITemplateWarningRegistry warningRegistry) =>
+		{
+			// Check for detailed health parameter
+			var includeDetails = context.Request.Query.ContainsKey("detailed") ||
+								context.Request.Query.ContainsKey("include-details");
+
+			var hasWarnings = warningRegistry.HasWarnings;
+			var status = hasWarnings ? "warning" : "ok";
+
+			if (includeDetails)
+			{
+				// Enhanced but simple health response with only factual information
+				var process = System.Diagnostics.Process.GetCurrentProcess();
+				var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+				var serviceName = assembly.GetName().Name ?? "FlowTime.Sim.Service";
+				var version = assembly.GetName().Version?.ToString(3) ?? "1.0.0";
+
+				return Results.Ok(new
+				{
+					status,
+					service = serviceName,
+					version = version,
+					timestamp = DateTime.UtcNow,
+					uptime = DateTime.UtcNow - process.StartTime,
+					environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development",
+					dataDirectory = ServiceHelpers.DataRoot(config),
+					system = new
+					{
+						workingSetMB = Math.Round(process.WorkingSet64 / 1024.0 / 1024.0, 1),
+						platform = Environment.OSVersion.Platform.ToString(),
+						architecture = RuntimeInformation.ProcessArchitecture.ToString()
+					},
+					availableEndpoints = endpointService.GetAvailableEndpoints(),
+					templateWarnings = warningRegistry.GetWarnings()
+				});
+			}
+			else
+			{
+				// Legacy basic response
+				return Results.Ok(new { status });
+			}
+		});
+
+		// Enhanced health endpoint with service information (v1)
+		app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext context, IConfiguration config, ITemplateWarningRegistry warningRegistry) =>
+		{
+			// Check for detailed health parameter
+			var includeDetails = context.Request.Query.ContainsKey("detailed") ||
+								context.Request.Query.ContainsKey("include-details");
+			var hasWarnings = warningRegistry.HasWarnings;
+			var status = hasWarnings ? "warning" : "ok";
+
+			if (includeDetails)
+			{
+				// Enhanced but simple health response with only factual information
+				var process = System.Diagnostics.Process.GetCurrentProcess();
+				return Results.Ok(new
+				{
+					status,
+					service = "FlowTime.Sim.Service",
+					version = "1.0.0",
+					timestamp = DateTime.UtcNow,
+					uptime = DateTime.UtcNow - process.StartTime,
+					environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development",
+					dataDirectory = ServiceHelpers.DataRoot(config),
+					system = new
+					{
+						workingSetMB = Math.Round(process.WorkingSet64 / 1024.0 / 1024.0, 1),
+						platform = Environment.OSVersion.Platform.ToString(),
+						architecture = RuntimeInformation.ProcessArchitecture.ToString()
+					},
+					availableEndpoints = new[]
+					{
+				"/healthz",
+				"/v1/healthz",
+				"/api/v1/templates",
+				"/api/v1/templates/{id}",
+				"/api/v1/templates/{id}/generate",
+				"/api/v1/templates/refresh",
+				"/api/v1/templates/categories",
+				"/api/v1/models",
+				"/api/v1/models/{templateId}",
+				"/api/v1/catalogs",
+				"/api/v1/catalogs/{id}",
+				"/api/v1/catalogs/validate"
+					},
+					templateWarnings = warningRegistry.GetWarnings()
+				});
+			}
+			else
+			{
+				// Standard v1 health with service info
+				var serviceInfo = serviceInfoProvider.GetServiceInfo();
+				if (warningRegistry.HasWarnings)
+				{
+					serviceInfo.Health.Status = "warning";
+					serviceInfo.Health.Details["templateWarnings"] = warningRegistry.GetWarnings();
+				}
+				return Results.Ok(serviceInfo);
+			}
+		});
 
 		// Modern RESTful endpoints under /api/v1
 		var api = app.MapGroup("/api/v1");
@@ -231,7 +231,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		api.MapGet("/templates", async (ITemplateService templateService, string? category) =>
 		{
 			var items = await templateService.GetAllTemplatesAsync();
-			
+
 			var templates = items.Select(t => new
 			{
 				id = t.Metadata.Id,
@@ -243,7 +243,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 				version = t.Metadata.Version,
 				captureKey = t.Metadata.CaptureKey
 			});
-			
+
 			if (!string.IsNullOrEmpty(category))
 			{
 				templates = templates.Where(t => string.Equals(t.category, category, StringComparison.OrdinalIgnoreCase));
@@ -314,20 +314,20 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		});
 
 		// API: GET /api/v1/templates/categories  (list available categories)
-		api.MapGet("/templates/categories", () => 
+		api.MapGet("/templates/categories", () =>
 		{
 			// Node-based templates don't carry category; expose a single 'general' category
 			var categories = new[] { "general" };
 			return Results.Ok(new { categories });
 		});
 
-        // API: POST /api/v1/templates/refresh (clear template cache)
-        api.MapPost("/templates/refresh", async (ITemplateService templateService, ILogger<Program> logger) =>
-        {
-            var count = await templateService.RefreshAsync().ConfigureAwait(false);
-            logger.LogInformation("Template cache refreshed via FlowTime-Sim API. {Count} template(s) reloaded.", count);
-            return Results.Ok(new { status = "refreshed", templates = count });
-        });
+		// API: POST /api/v1/templates/refresh (clear template cache)
+		api.MapPost("/templates/refresh", async (ITemplateService templateService, ILogger<Program> logger) =>
+		{
+			var count = await templateService.RefreshAsync().ConfigureAwait(false);
+			logger.LogInformation("Template cache refreshed via FlowTime-Sim API. {Count} template(s) reloaded.", count);
+			return Results.Ok(new { status = "refreshed", templates = count });
+		});
 
 		// API: POST /api/v1/templates/{id}/generate  (generate model from template with parameter substitution)
 		// SIM-M2.7: Enhanced to return provenance metadata
@@ -346,7 +346,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 				using var reader = new StreamReader(req.Body, System.Text.Encoding.UTF8);
 				var bodyText = await reader.ReadToEndAsync();
 				var parameters = new Dictionary<string, object>();
-				
+
 				if (!string.IsNullOrWhiteSpace(bodyText))
 				{
 					var parametersJson = JsonDocument.Parse(bodyText).RootElement;
@@ -1323,8 +1323,8 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 						var catalog = CatalogIO.ReadCatalogFromFile(filePath);
 						var hash = CatalogIO.ComputeCatalogHash(catalog);
 						var fileId = Path.GetFileNameWithoutExtension(filePath);
-						
-						catalogs.Add(new 
+
+						catalogs.Add(new
 						{
 							id = fileId,
 							title = catalog.Metadata.Title ?? fileId,
@@ -1358,7 +1358,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 
 				var catalogsRoot = ServiceHelpers.CatalogsRoot(config);
 				var filePath = Path.Combine(catalogsRoot, id + ".yaml");
-				
+
 				if (!File.Exists(filePath))
 					return Results.NotFound(new { error = $"Catalog '{id}' not found" });
 
@@ -1407,7 +1407,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 				await File.WriteAllTextAsync(filePath, yaml, System.Text.Encoding.UTF8);
 
 				var hash = CatalogIO.ComputeCatalogHash(catalog);
-				
+
 				return Results.Ok(new
 				{
 					id,
@@ -1451,7 +1451,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 				}
 
 				var hash = CatalogIO.ComputeCatalogHash(catalog);
-				
+
 				return Results.Ok(new
 				{
 					valid = true,
@@ -1502,7 +1502,8 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		var artifact = artifactDeserializer.Deserialize<SimModelArtifact>(modelYaml);
 		var hasWindow = !string.IsNullOrWhiteSpace(artifact.Window?.Start);
 		var hasTopology = artifact.Topology?.Nodes?.Count > 0;
-		var hasTelemetrySources = artifact.Nodes.Any(n => !string.IsNullOrWhiteSpace(n.Source));
+		var telemetryMetadata = FlowTime.Core.TimeTravel.TelemetrySourceMetadataExtractor.Extract(modelYaml);
+		var hasTelemetrySources = telemetryMetadata.TelemetrySources.Count > 0;
 
 		const string hashPrefixLabel = "sha256:";
 		var modelHashValue = modelHash.StartsWith(hashPrefixLabel, StringComparison.OrdinalIgnoreCase)
@@ -1520,6 +1521,8 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 			hasWindow,
 			hasTopology,
 			hasTelemetrySources,
+			telemetrySources = telemetryMetadata.TelemetrySources,
+			nodeSources = telemetryMetadata.NodeSources,
 			modelHash = modelHashValue,
 			parameters = artifact.Provenance.Parameters,
 			generatedAtUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture)
@@ -2304,7 +2307,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		{
 			var dataDir = DataRoot(configuration);
 			var runtimeCatalogsDir = Path.Combine(dataDir, "catalogs");
-			
+
 			// Find workspace root by looking for the solution file
 			var currentDir = Directory.GetCurrentDirectory();
 			var workspaceRoot = currentDir;
@@ -2313,10 +2316,10 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 				workspaceRoot = Directory.GetParent(workspaceRoot)!.FullName;
 			}
 			var sourceCatalogsDir = Path.Combine(workspaceRoot, "catalogs");
-			
+
 			// Create runtime catalogs directory if it doesn't exist
 			Directory.CreateDirectory(runtimeCatalogsDir);
-			
+
 			// Copy demo catalogs if runtime directory is empty or doesn't have .yaml files
 			if (Directory.GetFiles(runtimeCatalogsDir, "*.yaml").Length == 0)
 			{
@@ -2344,10 +2347,10 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		{
 			var dataDir = DataRoot(configuration);
 			var runtimeCatalogsDir = Path.Combine(dataDir, "catalogs");
-			
+
 			// Ensure runtime catalogs are set up
 			EnsureRuntimeCatalogs(configuration);
-			
+
 			return runtimeCatalogsDir;
 		}
 

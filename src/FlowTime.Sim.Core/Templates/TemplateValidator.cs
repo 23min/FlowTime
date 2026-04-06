@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Text.Json;
+using FlowTime.Core.Models;
 using FlowTime.Expressions;
 using FlowTime.Sim.Core.Templates.Exceptions;
 
@@ -691,7 +692,7 @@ internal static class TemplateValidator
         {
             if (semantics.Parallelism is null)
             {
-                semantics.Parallelism = 1;
+                semantics.Parallelism = ParallelismReference.Literal(1d);
             }
             else
             {
@@ -769,45 +770,27 @@ internal static class TemplateValidator
         }
     }
 
-    private static void ValidateParallelism(string topologyNodeId, object parallelism, HashSet<string> nodeIds)
+    private static void ValidateParallelism(string topologyNodeId, ParallelismReference parallelism, HashSet<string> nodeIds)
     {
-        if (parallelism is string seriesId)
+        if (parallelism.SeriesReference is { } seriesReference)
         {
-            if (string.IsNullOrWhiteSpace(seriesId))
+            if (seriesReference.Kind == CompiledSeriesReferenceKind.File)
             {
-                throw new TemplateValidationException($"Topology node '{topologyNodeId}' semantics.parallelism must be a number or series id.");
-            }
-
-            if (double.TryParse(seriesId, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
-            {
-                if (!double.IsFinite(parsed) || parsed < 1)
-                {
-                    throw new TemplateValidationException($"Topology node '{topologyNodeId}' semantics.parallelism must be >= 1.");
-                }
-
                 return;
             }
 
-            if (!nodeIds.Contains(seriesId))
+            var referencedNodeId = seriesReference.ResolveProducerId(topologyNodeId);
+            if (string.IsNullOrWhiteSpace(referencedNodeId) || !nodeIds.Contains(referencedNodeId))
             {
-                throw new TemplateValidationException($"Topology node '{topologyNodeId}' semantics.parallelism references unknown series '{seriesId}'.");
+                throw new TemplateValidationException($"Topology node '{topologyNodeId}' semantics.parallelism references unknown series '{seriesReference.RawText}'.");
             }
 
             return;
         }
 
-        if (parallelism is IConvertible)
+        if (parallelism.Constant.HasValue)
         {
-            double value;
-            try
-            {
-                value = Convert.ToDouble(parallelism, CultureInfo.InvariantCulture);
-            }
-            catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException)
-            {
-                throw new TemplateValidationException($"Topology node '{topologyNodeId}' semantics.parallelism must be a number or series id.");
-            }
-
+            var value = parallelism.Constant.Value;
             if (!double.IsFinite(value) || value < 1)
             {
                 throw new TemplateValidationException($"Topology node '{topologyNodeId}' semantics.parallelism must be >= 1.");

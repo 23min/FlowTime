@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using FlowTime.Core.Compiler;
 using FlowTime.Core.Models;
 using Xunit;
 
@@ -133,21 +134,39 @@ public class TopologyTests
     {
         var semantics = new NodeSemantics
         {
-            Arrivals = "orders_arrivals",
-            Served = "orders_served",
-            Errors = "orders_errors",
+            Arrivals = Ref("orders_arrivals"),
+            Served = Ref("orders_served"),
+            Errors = Ref("orders_errors"),
             ExternalDemand = null,
-            QueueDepth = "orders_queue"
+            QueueDepth = Ref("orders_queue")
         };
 
-        Assert.Equal("orders_queue", semantics.QueueDepth);
+        Assert.Equal("orders_queue", semantics.QueueDepth!.RawText);
         Assert.Null(semantics.ExternalDemand);
+    }
+
+    [Fact]
+    public void NodeSemantics_AllowsTypedParallelismReference()
+    {
+        var semantics = new NodeSemantics
+        {
+            Arrivals = Ref("orders_arrivals"),
+            Served = Ref("orders_served"),
+            Parallelism = ParallelismReference.Literal(2d)
+        };
+
+        Assert.NotNull(semantics.Parallelism);
+        Assert.Equal(2d, semantics.Parallelism!.Constant);
+        Assert.Null(semantics.Parallelism.SeriesReference);
     }
 
     private static NodeSemantics CreateSemantics(string arrivals, string served, string errors) => new()
     {
-        Arrivals = arrivals,
-        Served = served,
-        Errors = errors
+        Arrivals = Ref(arrivals),
+        Served = Ref(served),
+        Errors = Ref(errors)
     };
+
+    private static CompiledSeriesReference Ref(string value) =>
+        SemanticReferenceResolver.ParseSeriesReference(value);
 }

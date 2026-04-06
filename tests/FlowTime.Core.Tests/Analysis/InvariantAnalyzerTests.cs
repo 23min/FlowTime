@@ -528,7 +528,7 @@ public class InvariantAnalyzerTests
                             Served = "served",
                             Errors = "errors",
                             Capacity = "capacity",
-                            Parallelism = 2
+                            Parallelism = ParallelismReference.Literal(2)
                         }
                     }
                 }

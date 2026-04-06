@@ -28,12 +28,8 @@ public class TemplateService : ITemplateService
     {
         this.templatesDirectory = templatesDirectory ?? throw new ArgumentNullException(nameof(templatesDirectory));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        
-        yamlSerializer = new SerializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .WithEventEmitter(next => new FlowSequenceEventEmitter(next))
-            .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull | DefaultValuesHandling.OmitDefaults)
-            .Build();
+
+        yamlSerializer = CreateYamlSerializer();
     }
 
     // Constructor for testing with pre-loaded templates
@@ -50,11 +46,7 @@ public class TemplateService : ITemplateService
             templateCache[kvp.Key] = kvp.Value;
         }
         
-        yamlSerializer = new SerializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .WithEventEmitter(next => new FlowSequenceEventEmitter(next))
-            .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull | DefaultValuesHandling.OmitDefaults)
-            .Build();
+        yamlSerializer = CreateYamlSerializer();
     }
 
     // Constructor for testing with pre-loaded YAML only (avoid strict parsing of nodes)
@@ -71,7 +63,12 @@ public class TemplateService : ITemplateService
             templateCache[kvp.Key] = (header, kvp.Value);
         }
 
-        yamlSerializer = new SerializerBuilder()
+        yamlSerializer = CreateYamlSerializer();
+    }
+
+    private static ISerializer CreateYamlSerializer()
+    {
+        return new SerializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)
             .WithEventEmitter(next => new FlowSequenceEventEmitter(next))
             .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull | DefaultValuesHandling.OmitDefaults)

@@ -84,6 +84,18 @@ public sealed class TelemetryBundleBuilderTests
             Assert.Equal("Telemetry Order System", metadataRoot.GetProperty("templateTitle").GetString());
             Assert.Equal("1.0.0", metadataRoot.GetProperty("templateVersion").GetString());
             Assert.Equal("telemetry", metadataRoot.GetProperty("mode").GetString());
+          Assert.Contains(
+            metadataRoot.GetProperty("telemetrySources").EnumerateArray().Select(element => element.GetString()),
+            source => string.Equals(source, "file://telemetry/OrderService_arrivals.csv", StringComparison.OrdinalIgnoreCase));
+          Assert.Equal(
+            "file://telemetry/OrderService_arrivals.csv",
+            metadataRoot.GetProperty("nodeSources").GetProperty("order_arrivals").GetString());
+          Assert.Equal(
+            "file://telemetry/OrderService_served.csv",
+            metadataRoot.GetProperty("nodeSources").GetProperty("order_served").GetString());
+          Assert.Equal(
+            "file://telemetry/OrderService_errors.csv",
+            metadataRoot.GetProperty("nodeSources").GetProperty("order_errors").GetString());
         }
 
         var canonicalManifestPath = Path.Combine(modelDir, "telemetry", "telemetry-manifest.json");

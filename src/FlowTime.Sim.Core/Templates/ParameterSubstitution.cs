@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using FlowTime.Core.Models;
 using FlowTime.Sim.Core.Templates.Exceptions;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -210,9 +211,12 @@ public static class ParameterSubstitution
                     topologyNode.Semantics.Errors = SubstituteInString(topologyNode.Semantics.Errors, values) ?? topologyNode.Semantics.Errors;
                     topologyNode.Semantics.QueueDepth = SubstituteInString(topologyNode.Semantics.QueueDepth, values) ?? topologyNode.Semantics.QueueDepth;
                     topologyNode.Semantics.Capacity = SubstituteInString(topologyNode.Semantics.Capacity, values) ?? topologyNode.Semantics.Capacity;
-                    if (topologyNode.Semantics.Parallelism is string parallelism)
+                    if (!string.IsNullOrWhiteSpace(topologyNode.Semantics.Parallelism?.SeriesReference?.RawText))
                     {
-                        topologyNode.Semantics.Parallelism = SubstituteInString(parallelism, values) ?? parallelism;
+                        var authoredParallelism = topologyNode.Semantics.Parallelism!.SeriesReference!.RawText;
+                        var substitutedParallelism = SubstituteInString(authoredParallelism, values)
+                            ?? authoredParallelism;
+                        topologyNode.Semantics.Parallelism = ParallelismReference.Parse(substitutedParallelism);
                     }
                     topologyNode.Semantics.ExternalDemand = SubstituteInString(topologyNode.Semantics.ExternalDemand, values) ?? topologyNode.Semantics.ExternalDemand;
                 }

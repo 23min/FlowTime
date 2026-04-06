@@ -33,7 +33,18 @@ public class StateResponseSchemaTests : IClassFixture<TestWebApplicationFactory>
             throw new FileNotFoundException($"State schema file not found at '{schemaPath}'.");
         }
 
-        schema = JsonSchema.FromText(File.ReadAllText(schemaPath));
+        schema = LoadSchema(schemaPath);
+    }
+
+    private static JsonSchema LoadSchema(string schemaPath)
+    {
+        var schemaNode = JsonNode.Parse(File.ReadAllText(schemaPath)) ?? throw new InvalidOperationException("Schema JSON could not be parsed.");
+        if (schemaNode is JsonObject schemaObject)
+        {
+            schemaObject.Remove("$schema");
+        }
+
+        return JsonSchema.FromText(schemaNode.ToJsonString());
     }
 
     [Fact]
@@ -540,6 +551,9 @@ public class StateResponseSchemaTests : IClassFixture<TestWebApplicationFactory>
 
     private static void WriteMetadata(string modelDirectory, string runIdentifier, string mode, string modelHash)
     {
+        var telemetryMetadata = FlowTime.Core.TimeTravel.TelemetrySourceMetadataExtractor.Extract(
+            File.ReadAllText(Path.Combine(modelDirectory, "model.yaml"), System.Text.Encoding.UTF8));
+
         var metadata = new
         {
             templateId = "order-system",
@@ -547,7 +561,9 @@ public class StateResponseSchemaTests : IClassFixture<TestWebApplicationFactory>
             templateVersion = "1.0.0",
             schemaVersion = 1,
             mode,
-            modelHash
+            modelHash,
+            telemetrySources = telemetryMetadata.TelemetrySources,
+            nodeSources = telemetryMetadata.NodeSources
         };
 
         var metadataJson = JsonSerializer.Serialize(metadata, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });

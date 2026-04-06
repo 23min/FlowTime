@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using FlowTime.Core.Compiler;
 using System.Linq;
 using FlowTime.Core.Dispatching;
 using FlowTime.Core.Execution;
@@ -29,17 +30,17 @@ public static class ModelParser
 
         if (model.Grid == null)
             throw new ModelParseException("Model must have a grid definition");
-        
+
         // Require binSize + binUnit (no legacy support)
         if (model.Grid.BinSize <= 0 || string.IsNullOrEmpty(model.Grid.BinUnit))
             throw new ModelParseException("Grid must specify binSize and binUnit");
-        
+
         var unit = TimeUnitExtensions.Parse(model.Grid.BinUnit);
         var grid = new TimeGrid(model.Grid.Bins, model.Grid.BinSize, unit);
-        
+
         var nodes = ParseNodes(model);
         var graph = new Graph(nodes);
-        
+
         return (grid, graph);
     }
 
@@ -100,21 +101,21 @@ public static class ModelParser
                 DispatchSchedule = definition.DispatchSchedule,
                 Semantics = new NodeSemantics
                 {
-                    Arrivals = RequireSemantic(definition.Semantics.Arrivals, definition.Id, "arrivals"),
-                    Served = RequireSemantic(definition.Semantics.Served, definition.Id, "served"),
-                    Errors = OptionalSemantic(definition.Semantics.Errors),
-                    Attempts = definition.Semantics.Attempts,
-                    Failures = definition.Semantics.Failures,
-                    ExhaustedFailures = definition.Semantics.ExhaustedFailures,
-                    RetryEcho = definition.Semantics.RetryEcho,
-                    RetryBudgetRemaining = definition.Semantics.RetryBudgetRemaining,
+                    Arrivals = RequireSeriesReference(definition.Semantics.Arrivals, definition.Id, "arrivals", "node"),
+                    Served = RequireSeriesReference(definition.Semantics.Served, definition.Id, "served", "node"),
+                    Errors = OptionalSeriesReference(definition.Semantics.Errors, definition.Id, "errors", "node"),
+                    Attempts = OptionalSeriesReference(definition.Semantics.Attempts, definition.Id, "attempts", "node"),
+                    Failures = OptionalSeriesReference(definition.Semantics.Failures, definition.Id, "failures", "node"),
+                    ExhaustedFailures = OptionalSeriesReference(definition.Semantics.ExhaustedFailures, definition.Id, "exhaustedFailures", "node"),
+                    RetryEcho = OptionalSeriesReference(definition.Semantics.RetryEcho, definition.Id, "retryEcho", "node"),
+                    RetryBudgetRemaining = OptionalSeriesReference(definition.Semantics.RetryBudgetRemaining, definition.Id, "retryBudgetRemaining", "node"),
                     RetryKernel = definition.Semantics.RetryKernel,
-                    ExternalDemand = definition.Semantics.ExternalDemand,
-                    QueueDepth = definition.Semantics.QueueDepth,
-                    Capacity = definition.Semantics.Capacity,
+                    ExternalDemand = OptionalSeriesReference(definition.Semantics.ExternalDemand, definition.Id, "externalDemand", "node"),
+                    QueueDepth = OptionalSeriesReference(definition.Semantics.QueueDepth, definition.Id, "queueDepth", "node"),
+                    Capacity = OptionalSeriesReference(definition.Semantics.Capacity, definition.Id, "capacity", "node"),
                     Parallelism = definition.Semantics.Parallelism,
-                    ProcessingTimeMsSum = definition.Semantics.ProcessingTimeMsSum,
-                    ServedCount = definition.Semantics.ServedCount,
+                    ProcessingTimeMsSum = OptionalSeriesReference(definition.Semantics.ProcessingTimeMsSum, definition.Id, "processingTimeMsSum", "node"),
+                    ServedCount = OptionalSeriesReference(definition.Semantics.ServedCount, definition.Id, "servedCount", "node"),
                     SlaMinutes = definition.Semantics.SlaMin,
                     MaxAttempts = definition.Semantics.MaxAttempts,
                     BackoffStrategy = definition.Semantics.BackoffStrategy,
@@ -163,10 +164,10 @@ public static class ModelParser
                 Id = definition.Id,
                 Semantics = new ConstraintSemantics
                 {
-                    Arrivals = RequireSemantic(definition.Semantics.Arrivals, definition.Id, "arrivals"),
-                    Served = RequireSemantic(definition.Semantics.Served, definition.Id, "served"),
-                    Errors = OptionalSemantic(definition.Semantics.Errors),
-                    LatencyMinutes = OptionalSemantic(definition.Semantics.LatencyMinutes)
+                    Arrivals = RequireSeriesReference(definition.Semantics.Arrivals, definition.Id, "arrivals", "constraint"),
+                    Served = RequireSeriesReference(definition.Semantics.Served, definition.Id, "served", "constraint"),
+                    Errors = OptionalSeriesReference(definition.Semantics.Errors, definition.Id, "errors", "constraint"),
+                    LatencyMinutes = OptionalSeriesReference(definition.Semantics.LatencyMinutes, definition.Id, "latencyMinutes", "constraint")
                 }
             };
         }
@@ -178,8 +179,34 @@ public static class ModelParser
             return value;
         }
 
-        static string? OptionalSemantic(string? value) =>
-            string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        static CompiledSeriesReference RequireSeriesReference(string value, string ownerId, string name, string ownerKind)
+        {
+            try
+            {
+                return SemanticReferenceResolver.ParseSeriesReference(RequireSemantic(value, ownerId, name));
+            }
+            catch (ArgumentException ex)
+            {
+                throw new ModelParseException($"Topology {ownerKind} '{ownerId}' has invalid semantics.{name}: {ex.Message}", ex);
+            }
+        }
+
+        static CompiledSeriesReference? OptionalSeriesReference(string? value, string ownerId, string name, string ownerKind)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            try
+            {
+                return SemanticReferenceResolver.ParseSeriesReference(value);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new ModelParseException($"Topology {ownerKind} '{ownerId}' has invalid semantics.{name}: {ex.Message}", ex);
+            }
+        }
 
         static IReadOnlyDictionary<string, string>? NormalizeAliases(Dictionary<string, string>? aliases)
         {
@@ -316,10 +343,10 @@ public static class ModelParser
             }
             nodes.Add(node);
         }
-        
+
         return nodes;
     }
-    
+
     /// <summary>
     /// Parse a single node definition into an INode.
     /// </summary>
@@ -327,7 +354,7 @@ public static class ModelParser
     {
         if (string.IsNullOrWhiteSpace(nodeDef.Id))
             throw new ModelParseException("Node must have an id");
-        
+
         var kind = nodeDef.Kind?.Trim();
         if (string.IsNullOrWhiteSpace(kind))
         {
@@ -346,20 +373,20 @@ public static class ModelParser
             _ => throw new ModelParseException($"Unknown node kind: {nodeDef.Kind}")
         };
     }
-    
+
     private static INode ParseConstNode(NodeDefinition nodeDef)
     {
         if (nodeDef.Values == null || nodeDef.Values.Length == 0)
             throw new ModelParseException($"Node {nodeDef.Id}: const nodes require values array");
-            
+
         return new ConstSeriesNode(nodeDef.Id, nodeDef.Values);
     }
-    
+
     private static INode ParseExprNode(NodeDefinition nodeDef)
     {
         if (string.IsNullOrWhiteSpace(nodeDef.Expr))
             throw new ModelParseException($"Node {nodeDef.Id}: expr nodes require expr property");
-            
+
         try
         {
             var parser = new ExpressionParser(nodeDef.Expr);
@@ -391,7 +418,7 @@ public static class ModelParser
 
                 if (distribution.ContainsKey(value))
                     throw new ModelParseException($"Node {nodeDef.Id}: duplicate PMF value '{value}'");
-                    
+
                 distribution[value] = probability;
             }
 
@@ -603,14 +630,14 @@ public class TopologyNodeDefinition
 {
     public string Id { get; set; } = string.Empty;
     public string? Kind { get; set; }
-            public string? NodeRole { get; set; }
-            public string? Group { get; set; }
-            public UiHintsDefinition? Ui { get; set; }
-            public List<string>? Constraints { get; set; }
-            public TopologyNodeSemanticsDefinition Semantics { get; set; } = new();
-            public InitialConditionDefinition? InitialCondition { get; set; }
-            public DispatchScheduleDefinition? DispatchSchedule { get; set; }
-        }
+    public string? NodeRole { get; set; }
+    public string? Group { get; set; }
+    public UiHintsDefinition? Ui { get; set; }
+    public List<string>? Constraints { get; set; }
+    public TopologyNodeSemanticsDefinition Semantics { get; set; } = new();
+    public InitialConditionDefinition? InitialCondition { get; set; }
+    public DispatchScheduleDefinition? DispatchSchedule { get; set; }
+}
 
 public class TopologyNodeSemanticsDefinition
 {
@@ -626,7 +653,7 @@ public class TopologyNodeSemanticsDefinition
     public string? ExternalDemand { get; set; }
     public string? QueueDepth { get; set; }
     public string? Capacity { get; set; }
-    public object? Parallelism { get; set; }
+    public ParallelismReference? Parallelism { get; set; }
     public string? ProcessingTimeMsSum { get; set; }
     public string? ServedCount { get; set; }
     public double? SlaMin { get; set; }

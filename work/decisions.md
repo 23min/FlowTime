@@ -141,3 +141,15 @@ Shared decision log for active architectural and technical decisions.
 **Context:** The headless and optimization story benefits from a pure callable engine quickly, but chunked evaluation for feedback simulation depends on real stateful execution semantics. The current `IStatefulNode` seam is only a stub and is not sufficient to justify bundling chunked/stateful execution into the initial headless foundation.
 **Decision:** Split E-18 into layers. The first cut covers the shared runtime parameter foundation, evaluation SDK, and headless CLI / sidecar. Advanced analysis modes (sweep, sensitivity, optimization, fitting) build on that. Chunked evaluation waits for a dedicated streaming/stateful execution seam.
 **Consequences:** The sidecar/SDK foundation can ship without solving streaming/stateful execution. Reviews should reject attempts to block the headless foundation on chunked evaluation design.
+
+## D-2026-04-06-010: File-backed refs stay opaque and missing class coverage omits byClass
+**Status:** active
+**Context:** E-16 review found two boundary leaks still active after typed semantic references landed: runtime code inferred producer node identity from file stems, and state projection synthesized wildcard `byClass` payloads from aggregate totals even when runs had no explicit class series. Both behaviors blurred the compiler/runtime boundary and made missing class coverage indistinguishable from explicit fallback coverage.
+**Decision:** File-backed compiled references remain opaque at runtime: they provide authored lookup keys, not producer node IDs. State and graph projection only emit wildcard `byClass` when explicit fallback class series exist; runs with missing class coverage omit `byClass` entirely.
+**Consequences:** Logical-type promotion, queue-origin checks, and graph dependency resolution cannot rely on file-name heuristics. Tests and approved snapshots that depended on implicit wildcard totals or file-stem inference must be regenerated forward-only.
+
+## D-2026-04-06-011: E-16 explicitly owns the remaining transitional analytical seams
+**Status:** active
+**Context:** After the E-16-01 and E-16-02 cleanup, three transitional seams still remained visible: `RunManifestReader` could recover telemetry-source facts by reparsing raw YAML text, class ingestion still translated legacy `*` / `DEFAULT` fallback markers, and `MetricsService` still carried a second analytical execution path via model-evaluation fallback when state-window resolution failed.
+**Decision:** These are not acceptable permanent bridges. E-16 explicitly owns removing all three: m-E16-01 removes raw-model-text telemetry-source fallback readers, m-E16-02 removes legacy class-fallback translation helpers once regenerated runtime metadata carries explicit fallback labeling, and m-E16-04 removes the duplicate `MetricsService` analytical fallback path in favor of one Core evaluator surface.
+**Consequences:** Review and wrap should treat any of these helpers surviving beyond their owning milestone as an incomplete E-16 implementation, not a tolerable compatibility layer.

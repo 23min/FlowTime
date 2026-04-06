@@ -1,7 +1,6 @@
 
 using System.Globalization;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -43,12 +42,11 @@ public sealed class RunManifestReader
         }
 
         ModelDocument modelDoc;
-        string yamlContent;
         await using (var modelStream = File.OpenRead(modelPath))
         using (var reader = new StreamReader(modelStream))
         {
-            yamlContent = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
-            modelDoc = yamlDeserializer.Deserialize<ModelDocument>(yamlContent) ?? new ModelDocument();
+            var modelContent = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+            modelDoc = yamlDeserializer.Deserialize<ModelDocument>(modelContent) ?? new ModelDocument();
         }
 
         MetadataDocument metadataDoc;
@@ -75,18 +73,16 @@ public sealed class RunManifestReader
         var templateVersion = metadataDoc.TemplateVersion ?? modelDoc.Metadata?.Version ?? "0.0.0";
         var mode = (metadataDoc.Mode ?? modelDoc.Mode ?? modelDoc.Provenance?.Mode ?? "simulation").ToLowerInvariant();
 
-        var telemetrySources = ExtractTelemetrySources(modelDoc, out var nodeSources);
-        var fallbackSources = ExtractTelemetrySourcesFromText(yamlContent);
-        if (fallbackSources.Count > 0)
-        {
-            var merged = new HashSet<string>(telemetrySources, StringComparer.OrdinalIgnoreCase);
-            foreach (var source in fallbackSources)
-            {
-                merged.Add(source);
-            }
-
-            telemetrySources = merged.Count == 0 ? Array.Empty<string>() : merged.ToArray();
-        }
+        var telemetrySources = metadataDoc.TelemetrySources?
+            .Where(source => !string.IsNullOrWhiteSpace(source))
+            .Select(source => source.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray()
+            ?? Array.Empty<string>();
+        var nodeSources = metadataDoc.NodeSources?
+            .Where(kvp => !string.IsNullOrWhiteSpace(kvp.Key) && !string.IsNullOrWhiteSpace(kvp.Value))
+            .ToDictionary(kvp => kvp.Key.Trim(), kvp => kvp.Value.Trim(), StringComparer.OrdinalIgnoreCase)
+            ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         return new RunManifestMetadata
         {
@@ -122,87 +118,6 @@ public sealed class RunManifestReader
         return $"sha256:{Convert.ToHexString(hash).ToLowerInvariant()}";
     }
 
-    private static IReadOnlyList<string> ExtractTelemetrySources(ModelDocument document, out IReadOnlyDictionary<string, string> nodeSources)
-    {
-        if (document.Nodes is null || document.Nodes.Count == 0)
-        {
-            nodeSources = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            return Array.Empty<string>();
-        }
-
-        var sourcesByNode = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var telemetry = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var node in document.Nodes)
-        {
-            if (string.IsNullOrWhiteSpace(node.Source))
-            {
-                continue;
-            }
-
-            var source = node.Source.Trim();
-            if (source.StartsWith("file://", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(node.Id))
-            {
-                sourcesByNode[node.Id] = source;
-                telemetry.Add(source);
-            }
-        }
-
-        if (document.Topology?.Nodes != null)
-        {
-            foreach (var topoNode in document.Topology.Nodes)
-            {
-                if (topoNode.Semantics == null)
-                {
-                    continue;
-                }
-
-                AddIfTelemetry(topoNode.Semantics.Arrivals);
-                AddIfTelemetry(topoNode.Semantics.Served);
-                AddIfTelemetry(topoNode.Semantics.Errors);
-                AddIfTelemetry(topoNode.Semantics.ExternalDemand);
-                AddIfTelemetry(topoNode.Semantics.Queue);
-                AddIfTelemetry(topoNode.Semantics.QueueDepth);
-                AddIfTelemetry(topoNode.Semantics.Capacity);
-            }
-        }
-
-        nodeSources = sourcesByNode;
-        return telemetry.Count == 0 ? Array.Empty<string>() : telemetry.ToArray();
-
-        void AddIfTelemetry(string? value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return;
-            }
-
-            var trimmed = value.Trim();
-            if (trimmed.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
-            {
-                telemetry.Add(trimmed);
-            }
-        }
-    }
-
-    private static IReadOnlyList<string> ExtractTelemetrySourcesFromText(string yamlContent)
-    {
-        if (string.IsNullOrWhiteSpace(yamlContent))
-        {
-            return Array.Empty<string>();
-        }
-
-        var sources = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (Match match in Regex.Matches(yamlContent, "file:[^\\s\"']+"))
-        {
-            if (!string.IsNullOrWhiteSpace(match.Value))
-            {
-                sources.Add(match.Value);
-            }
-        }
-
-        return sources.Count == 0 ? Array.Empty<string>() : sources.ToArray();
-    }
-
     private static string MapSchemaId(int version) => version switch
     {
         1 => "time-travel/v1",
@@ -221,8 +136,6 @@ public sealed class RunManifestReader
         public string? Mode { get; set; }
         public ModelMetadata? Metadata { get; set; }
         public ModelProvenance? Provenance { get; set; }
-        public List<ModelNode> Nodes { get; set; } = new();
-        public TopologyDocument? Topology { get; set; }
     }
 
     private sealed class ModelMetadata
@@ -236,33 +149,6 @@ public sealed class RunManifestReader
     private sealed class ModelProvenance
     {
         public string? Mode { get; set; }
-    }
-
-    private sealed class ModelNode
-    {
-        public string? Id { get; set; }
-        public string? Source { get; set; }
-    }
-
-    private sealed class TopologyDocument
-    {
-        public List<TopologyNodeDocument> Nodes { get; set; } = new();
-    }
-
-    private sealed class TopologyNodeDocument
-    {
-        public TopologyNodeSemanticsDocument Semantics { get; set; } = new();
-    }
-
-    private sealed class TopologyNodeSemanticsDocument
-    {
-        public string? Arrivals { get; set; }
-        public string? Served { get; set; }
-        public string? Errors { get; set; }
-        public string? ExternalDemand { get; set; }
-        public string? Queue { get; set; }
-        public string? QueueDepth { get; set; }
-        public string? Capacity { get; set; }
     }
 
     private sealed class MetadataDocument
@@ -287,6 +173,12 @@ public sealed class RunManifestReader
 
         [System.Text.Json.Serialization.JsonPropertyName("modelHash")]
         public string? ModelHash { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("telemetrySources")]
+        public List<string>? TelemetrySources { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("nodeSources")]
+        public Dictionary<string, string>? NodeSources { get; set; }
     }
 }
 

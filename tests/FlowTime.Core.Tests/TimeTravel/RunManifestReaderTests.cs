@@ -79,6 +79,16 @@ provenance:
   "schemaVersion": 1,
   "mode": "simulation",
   "modelHash": "sha256:abc12345",
+  "telemetrySources": [
+    "file://telemetry/order-service/arrivals.csv",
+    "file://telemetry/order-service/served.csv",
+    "file://telemetry/order-service/queue.csv"
+  ],
+  "nodeSources": {
+    "service_arrivals": "file://telemetry/order-service/arrivals.csv",
+    "service_served": "file://telemetry/order-service/served.csv",
+    "service_queue": "file://telemetry/order-service/queue.csv"
+  },
   "hasTelemetrySources": true,
   "generatedAtUtc": "2025-10-07T00:00:00Z"
 }
@@ -163,7 +173,7 @@ outputs: []
     }
 
     [Fact]
-    public async Task ReadAsync_DetectsTelemetryUrisFromTopologySemantics()
+    public async Task ReadAsync_DoesNotRecoverTelemetryUrisFromModelWhenMetadataOmitsThem()
     {
         var modelDir = Path.Combine(rootDirectory, "schema-1", "mode-telemetry", "semantics-only");
         Directory.CreateDirectory(modelDir);
@@ -195,9 +205,8 @@ topology:
         var reader = new RunManifestReader();
         var result = await reader.ReadAsync(modelDir, CancellationToken.None);
 
-        Assert.Contains("file:arrivals.csv", result.TelemetrySources);
-        Assert.Contains("file:served.csv", result.TelemetrySources);
-        Assert.True(result.TelemetrySources.Count >= 2);
+        Assert.Empty(result.TelemetrySources);
+        Assert.Empty(result.NodeSources);
     }
 
     public void Dispose()

@@ -16,6 +16,8 @@ Additionally, `flowLatencyMs` — the cumulative flow latency from entry to a no
 
 Effective capacity computation (`capacity x parallelism`) is also currently split between `InvariantAnalyzer` (Core) and `StateQueryService.GetEffectiveCapacity` (API). It should have one owner in Core.
 
+Metrics query resolution also still carries a duplicate analytical path: `MetricsService` first asks `StateQueryService` for a window, then falls back to `ResolveViaModelAsync()` and recomputes analytical behavior from the model when state-window resolution fails. That is still a second analytical execution path in the adapter and E-16 must delete it.
+
 **Supersedes D-2026-04-03-003** for `flowLatencyMs`: that decision was a bridge for m-ec-p3a1 scope. E-16 is the full purification — graph-level analytical computation moves to Core.
 
 ## Acceptance Criteria
@@ -26,13 +28,15 @@ Effective capacity computation (`capacity x parallelism`) is also currently spli
 4. `flowLatencyMs` computation moves to Core as a pure function: `(compiledTopology, perNodeCycleTime[], edgeFlowVolume[]) → perNodeFlowLatency[]`. The adapter passes inputs, Core owns the graph traversal and accumulation.
 5. Effective capacity computation (`capacity x parallelism`) has one owner in Core. The API's `GetEffectiveCapacity` / `GetParallelismValue` / `ComputeUtilizationSeries` delegation is replaced by Core evaluation.
 6. Tests prove analytical evaluation against both real multi-class fixtures and explicit fallback cases without conflating the two.
-7. `dotnet build` and `dotnet test --nologo` are green.
+7. `MetricsService` and analogous analytical query surfaces consume the same Core evaluation surface instead of maintaining a second model-evaluation fallback path for analytical behavior; unsupported runs fail explicitly or are upgraded at the artifact boundary.
+8. `dotnet build` and `dotnet test --nologo` are green.
 
 ## Guards / DO NOT
 
 - **DO NOT** leave `flowLatencyMs` in the adapter. It is graph-level queueing theory — expected sojourn time through a network — not an orchestration concern. The Core is a graph engine; this computation belongs there.
 - **DO NOT** leave partial computation in the adapter "for convenience." If the adapter computes any analytical value, that is a regression.
 - **DO NOT** keep `GetEffectiveCapacity()` or `ComputeUtilizationSeries()` in `StateQueryService`. Effective capacity (with parallelism) is a flow algebra concept.
+- **DO NOT** keep `MetricsService.ResolveViaModelAsync()` as a second analytical execution path once the unified Core evaluator exists.
 - **DO NOT** make the evaluator depend on adapter types. The evaluator takes compiled descriptors + raw series data and returns analytical results. The adapter projects those results into DTOs.
 - **DO NOT** use ad hoc dictionaries or flag tuples for results. Prefer explicit result types.
 - **DO NOT** make `flowLatencyMs` depend on implicit node ordering. The Core evaluator should perform explicit topological sorting or receive an explicit order.
@@ -48,6 +52,7 @@ Effective capacity computation (`capacity x parallelism`) is also currently spli
 | `GetParallelismValue()` | StateQueryService.cs:2666 | Parallelism resolution moves to Core (compiler) |
 | `ComputeUtilizationSeries()` | StateQueryService.cs:2595 | Utilization is derived from effective capacity — Core |
 | `ConvertClassMetrics()` local computation | StateQueryService.cs:1011 | Class analytical math moves to Core evaluator |
+| `ResolveViaModelAsync()` fallback | MetricsService.cs | Duplicate adapter-side analytical execution path must be deleted |
 | `AnalyticalCapabilities.ComputeBin/Window/ClassBin/ClassWindow` | AnalyticalCapabilities.cs (if not deleted in m-E16-03) | These methods become the evaluator |
 | Per-node analytical math in snapshot/window builders | StateQueryService.cs | Replaced by Core evaluator calls |
 
@@ -57,6 +62,7 @@ Effective capacity computation (`capacity x parallelism`) is also currently spli
 - **flowLatencyMs graph tests:** Given a small compiled topology with known cycle times and edge flow volumes, assert correct cumulative latency propagation.
 - **Effective capacity tests:** Given capacity series + parallelism (constant and time-varying), assert correct effective capacity and utilization.
 - **Adapter-is-projector tests:** Assert that `StateQueryService` calls Core evaluator and maps results to DTOs without computing any analytical values locally.
+- **Single analytical path tests:** Assert that metrics queries and state-window queries consume the same Core evaluator surface and do not diverge through an alternate model-fallback path.
 - **Multi-class vs fallback tests:** Evaluator tests must include both real multi-class and fallback-only fixtures as separate test cases.
 - **Parity tests:** End-to-end API tests prove the same analytical outputs as before the migration.
 

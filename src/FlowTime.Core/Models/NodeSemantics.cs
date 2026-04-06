@@ -1,26 +1,24 @@
 using System.Collections.Generic;
 
-using System.Collections.Generic;
-
 namespace FlowTime.Core.Models;
 
 public sealed record NodeSemantics
 {
-    public required string Arrivals { get; init; }
-    public required string Served { get; init; }
-    public string? Errors { get; init; }
-    public string? Attempts { get; init; }
-    public string? Failures { get; init; }
-    public string? ExhaustedFailures { get; init; }
-    public string? RetryEcho { get; init; }
-    public string? RetryBudgetRemaining { get; init; }
+    public required CompiledSeriesReference Arrivals { get; init; }
+    public required CompiledSeriesReference Served { get; init; }
+    public CompiledSeriesReference? Errors { get; init; }
+    public CompiledSeriesReference? Attempts { get; init; }
+    public CompiledSeriesReference? Failures { get; init; }
+    public CompiledSeriesReference? ExhaustedFailures { get; init; }
+    public CompiledSeriesReference? RetryEcho { get; init; }
+    public CompiledSeriesReference? RetryBudgetRemaining { get; init; }
     public IReadOnlyList<double>? RetryKernel { get; init; }
-    public string? ExternalDemand { get; init; }
-    public string? QueueDepth { get; init; }
-    public string? Capacity { get; init; }
-    public object? Parallelism { get; init; }
-    public string? ProcessingTimeMsSum { get; init; }
-    public string? ServedCount { get; init; }
+    public CompiledSeriesReference? ExternalDemand { get; init; }
+    public CompiledSeriesReference? QueueDepth { get; init; }
+    public CompiledSeriesReference? Capacity { get; init; }
+    public ParallelismReference? Parallelism { get; init; }
+    public CompiledSeriesReference? ProcessingTimeMsSum { get; init; }
+    public CompiledSeriesReference? ServedCount { get; init; }
     public double? SlaMinutes { get; init; }
     public double? MaxAttempts { get; init; }
     public string? BackoffStrategy { get; init; }

@@ -39,6 +39,8 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private const string constraintsAttachedRunId = "run_state_constraints_attached";
     private const string classRunId = "run_state_classes";
     private const string queueClassRunId = "run_state_classes_queue";
+    private const string fallbackOnlyRunId = "run_state_fallback_only";
+    private const string legacyFallbackOnlyRunId = "run_state_fallback_legacy";
     private const string serviceWithBufferDerivedRunId = "run_state_servicewithbuffer_derived";
     private const string serviceWithBufferParallelismRunId = "run_state_servicewithbuffer_parallelism";
     private const string serviceWithBufferBehaviorBaselineRunId = "run_state_servicewithbuffer_behavior_base";
@@ -95,6 +97,8 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateConstraintsAttachedRun();
         CreateClassRun();
         CreateServiceWithBufferClassRun();
+        CreateFallbackOnlyRun();
+        CreateLegacyFallbackOnlyRun();
         CreateServiceWithBufferDerivedRun();
         CreateServiceWithBufferParallelismRun();
         CreateServiceWithBufferBehaviorRuns();
@@ -603,6 +607,44 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     }
 
     [Fact]
+    public async Task GetState_ExplicitFallbackClassSeries_ReturnsWildcardByClass()
+    {
+        var response = await client.GetAsync($"/v1/runs/{fallbackOnlyRunId}/state?binIndex=0");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<StateSnapshotResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        var orderService = Assert.Single(payload!.Nodes, n => n.Id == "OrderService");
+        Assert.NotNull(orderService.ByClass);
+        Assert.Single(orderService.ByClass!);
+
+        var fallback = orderService.ByClass["*"];
+        Assert.Equal(10d, fallback.Arrivals);
+        Assert.Equal(8d, fallback.Served);
+        Assert.Equal(1d, fallback.Errors);
+    }
+
+    [Fact]
+    public async Task GetState_LegacyDefaultClassSeriesWithoutClassKind_OmitsByClass()
+    {
+        var response = await client.GetAsync($"/v1/runs/{legacyFallbackOnlyRunId}/state?binIndex=0");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<StateSnapshotResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        var orderService = Assert.Single(payload!.Nodes, n => n.Id == "OrderService");
+        Assert.Null(orderService.ByClass);
+    }
+
+    [Fact]
     public async Task GetStateWindow_DerivesMetrics_ForServiceWithBuffer()
     {
         var response = await client.GetAsync($"/v1/runs/{serviceWithBufferDerivedRunId}/state_window?startBin=0&endBin=3");
@@ -650,7 +692,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     }
 
     [Fact]
-    public async Task GetStateWindow_ServiceWithBuffer_ByClassIncludesAnalyticalFields()
+    public async Task GetState_ServiceWithBufferWithoutClassSeries_OmitsByClass()
     {
         var response = await client.GetAsync($"/v1/runs/{serviceWithBufferDerivedRunId}/state?binIndex=0");
         response.EnsureSuccessStatusCode();
@@ -662,20 +704,47 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.NotNull(payload);
 
         var node = Assert.Single(payload!.Nodes, n => n.Id == "BufferService");
-        Assert.NotNull(node.ByClass);
-
-        // The wildcard class should include analytical derived fields
-        var wildcard = node.ByClass!["*"];
-        Assert.NotNull(wildcard.QueueTimeMs);
-        Assert.NotNull(wildcard.ServiceTimeMs);
-        Assert.NotNull(wildcard.CycleTimeMs);
+        Assert.Null(node.ByClass);
     }
 
     [Fact]
-    public async Task GetStateWindow_LogicalTypeSwb_HasParityWithExplicitSwb()
+    public async Task GetStateWindow_ServiceWithBufferWithoutClassSeries_OmitsByClass()
     {
-        // QueueReader is kind: service but logicalType: serviceWithBuffer
-        // It should produce the same analytical fields as an explicit serviceWithBuffer
+        var response = await client.GetAsync($"/v1/runs/{serviceWithBufferDerivedRunId}/state_window?startBin=0&endBin=3");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        var node = Assert.Single(payload!.Nodes, n => n.Id == "BufferService");
+        Assert.Null(node.ByClass);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_NoExplicitClassSeries_OmitsByClass()
+    {
+        var response = await client.GetAsync($"/v1/runs/{queueLatencyNullRunId}/state_window?startBin=0&endBin=3");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        var orderService = Assert.Single(payload!.Nodes, node => node.Id == "OrderService");
+        var supportQueue = Assert.Single(payload.Nodes, node => node.Id == "SupportQueue");
+
+        Assert.Null(orderService.ByClass);
+        Assert.Null(supportQueue.ByClass);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_FileQueueDepth_DoesNotInferServiceWithBufferLogicalType()
+    {
         var response = await client.GetAsync($"/v1/runs/{logicalTypeSwbRunId}/state_window?startBin=0&endBin=3");
         response.EnsureSuccessStatusCode();
 
@@ -688,38 +757,13 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         var queueReader = Assert.Single(payload!.Nodes, n => n.Id == "QueueReader");
         var bufferNode = Assert.Single(payload.Nodes, n => n.Id == "BufferNode");
 
-        // logicalType should be resolved to serviceWithBuffer
-        Assert.Equal("serviceWithBuffer", queueReader.LogicalType);
+        Assert.Equal("service", queueReader.LogicalType);
+        Assert.False(queueReader.Series.ContainsKey("queueTimeMs"));
+        Assert.False(queueReader.Series.ContainsKey("latencyMinutes"));
 
-        // Analytical series should match the explicit serviceWithBuffer node
-        // (same queue/service data → same derived metrics)
-        Assert.True(queueReader.Series.ContainsKey("queueTimeMs"), "logicalType-resolved node should have queueTimeMs");
-        Assert.True(queueReader.Series.ContainsKey("serviceTimeMs"), "logicalType-resolved node should have serviceTimeMs");
-        Assert.True(queueReader.Series.ContainsKey("cycleTimeMs"), "logicalType-resolved node should have cycleTimeMs");
-        Assert.True(queueReader.Series.ContainsKey("flowEfficiency"), "logicalType-resolved node should have flowEfficiency");
-        Assert.True(queueReader.Series.ContainsKey("latencyMinutes"), "logicalType-resolved node should have latencyMinutes");
-
-        // flowLatencyMs should include queue component (proving Finding 1 fix)
-        Assert.True(queueReader.Series.ContainsKey("flowLatencyMs"), "logicalType-resolved node should have flowLatencyMs");
-
-        // The flowLatencyMs values should be the same as the explicit serviceWithBuffer
-        // since both use the same queue data and the same processing data
-        var qrFlowLatency = queueReader.Series["flowLatencyMs"];
-        var bnFlowLatency = bufferNode.Series["flowLatencyMs"];
-        Assert.Equal(bnFlowLatency.Length, qrFlowLatency.Length);
-
-        // queueTimeMs values should match between the two nodes
-        var qrQueueTime = queueReader.Series["queueTimeMs"];
-        var bnQueueTime = bufferNode.Series["queueTimeMs"];
-        for (var i = 0; i < bnQueueTime.Length; i++)
-        {
-            Assert.Equal(bnQueueTime[i], qrQueueTime[i]);
-        }
-
-        // Metadata should advertise queueTimeMs for the logicalType-resolved node
-        Assert.NotNull(queueReader.SeriesMetadata);
-        Assert.True(queueReader.SeriesMetadata!.ContainsKey("queueTimeMs"),
-            "logicalType-resolved node should advertise queueTimeMs in metadata");
+        Assert.Equal("servicewithbuffer", bufferNode.LogicalType, ignoreCase: true);
+        Assert.True(bufferNode.Series.ContainsKey("queueTimeMs"));
+        Assert.True(bufferNode.Series.ContainsKey("latencyMinutes"));
     }
 
     [Fact]
@@ -1920,6 +1964,50 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
             manifestSeries: manifestSeries);
     }
 
+    private void CreateFallbackOnlyRun()
+    {
+        var classSeries = new Dictionary<string, double[]>
+        {
+            ["OrderService_arrivals@ORDERSERVICE@DEFAULT.csv"] = new[] { 10d, 9d, 8d, 7d },
+            ["OrderService_served@ORDERSERVICE@DEFAULT.csv"] = new[] { 8d, 7d, 6d, 5d },
+            ["OrderService_errors@ORDERSERVICE@DEFAULT.csv"] = new[] { 1d, 1d, 1d, 1d }
+        };
+
+        var manifestSeries = classSeries.Keys
+            .Select(fileName => (id: Path.GetFileNameWithoutExtension(fileName), path: $"series/{fileName}", unit: "entities/bin"))
+            .ToArray();
+
+        CreateRun(
+            fallbackOnlyRunId,
+            BuildValidModelYaml(),
+            mode: "telemetry",
+            seriesOutputs: classSeries,
+            manifestSeries: manifestSeries);
+    }
+
+    private void CreateLegacyFallbackOnlyRun()
+    {
+        var classSeries = new Dictionary<string, double[]>
+        {
+            ["OrderService_arrivals@ORDERSERVICE@DEFAULT.csv"] = new[] { 10d, 9d, 8d, 7d },
+            ["OrderService_served@ORDERSERVICE@DEFAULT.csv"] = new[] { 8d, 7d, 6d, 5d },
+            ["OrderService_errors@ORDERSERVICE@DEFAULT.csv"] = new[] { 1d, 1d, 1d, 1d }
+        };
+
+        var manifestSeries = classSeries.Keys
+            .Select(fileName => (id: Path.GetFileNameWithoutExtension(fileName), path: $"series/{fileName}", unit: "entities/bin"))
+            .ToArray();
+
+        CreateRun(
+            legacyFallbackOnlyRunId,
+            BuildValidModelYaml(),
+            mode: "telemetry",
+            seriesOutputs: classSeries,
+            manifestSeries: manifestSeries);
+
+        StripClassKinds(legacyFallbackOnlyRunId);
+    }
+
     private void CreateServiceWithBufferDerivedRun()
     {
         var overrides = new Dictionary<string, double[]>
@@ -2608,6 +2696,7 @@ private static void WriteSeries(string directory, string fileName, IReadOnlyList
                 unit = entry.unit,
                 componentId = ExtractComponentId(entry.id),
                 @class = ExtractClassId(entry.id),
+                classKind = ExtractClassKind(entry.id),
                 points = binCount,
                 hash = $"sha256:{entry.id}"
             }).ToArray(),
@@ -2656,6 +2745,40 @@ private static void WriteSeries(string directory, string fileName, IReadOnlyList
         return remainder[(secondAt + 1)..];
     }
 
+    private static string ExtractClassKind(string id)
+    {
+        var classId = ExtractClassId(id);
+        return string.Equals(classId, "DEFAULT", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(classId, "*", StringComparison.OrdinalIgnoreCase)
+            ? "fallback"
+            : "specific";
+    }
+
+    private void StripClassKinds(string runIdentifier)
+    {
+        var indexPath = Path.Combine(artifactsRoot, runIdentifier, "series", "index.json");
+        var root = JsonNode.Parse(File.ReadAllText(indexPath)) as JsonObject
+            ?? throw new XunitException($"Failed to parse series index for run '{runIdentifier}'.");
+
+        if (root["series"] is not JsonArray series)
+        {
+            throw new XunitException($"Series index for run '{runIdentifier}' is missing the series array.");
+        }
+
+        foreach (var item in series)
+        {
+            if (item is JsonObject entry)
+            {
+                entry.Remove("classKind");
+            }
+        }
+
+        File.WriteAllText(indexPath, root.ToJsonString(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            WriteIndented = true
+        }));
+    }
+
     private static void AssertGoldenResponse<T>(string fileName, T payload)
     {
         ArgumentNullException.ThrowIfNull(payload);
@@ -2700,6 +2823,9 @@ private static void WriteSeries(string directory, string fileName, IReadOnlyList
 
     private static void WriteMetadata(string modelDirectory, string runIdentifier, string mode)
     {
+        var telemetryMetadata = TelemetrySourceMetadataExtractor.Extract(
+            File.ReadAllText(Path.Combine(modelDirectory, "model.yaml"), System.Text.Encoding.UTF8));
+
         var metadata = new
         {
             templateId = "order-system",
@@ -2707,7 +2833,9 @@ private static void WriteSeries(string directory, string fileName, IReadOnlyList
             templateVersion = "1.0.0",
             schemaVersion = 1,
             mode,
-            modelHash = $"sha256:{runIdentifier}"
+            modelHash = $"sha256:{runIdentifier}",
+            telemetrySources = telemetryMetadata.TelemetrySources,
+            nodeSources = telemetryMetadata.NodeSources
         };
 
         var metadataJson = JsonSerializer.Serialize(metadata, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });

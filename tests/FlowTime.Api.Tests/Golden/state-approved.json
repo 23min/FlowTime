@@ -69,19 +69,6 @@
           "origin": "derived"
         }
       },
-      "byClass": {
-        "*": {
-          "arrivals": 10,
-          "served": 6,
-          "errors": 1,
-          "capacity": 7,
-          "processingTimeMsSum": 1800,
-          "servedCount": 6,
-          "serviceTimeMs": 300,
-          "cycleTimeMs": 300,
-          "flowEfficiency": 1
-        }
-      },
       "derived": {
         "utilization": 0.857143,
         "serviceTimeMs": 300,
@@ -154,16 +141,6 @@
         },
         "queue": {
           "origin": "explicit"
-        }
-      },
-      "byClass": {
-        "*": {
-          "arrivals": 7,
-          "served": 6,
-          "errors": 0,
-          "queue": 10,
-          "queueTimeMs": 500000,
-          "cycleTimeMs": 500000
         }
       },
       "derived": {

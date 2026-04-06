@@ -1,4 +1,5 @@
 using FlowTime.Core;
+using FlowTime.Core.Compiler;
 using FlowTime.Core.Models;
 using FlowTime.Core.TimeTravel;
 
@@ -24,10 +25,10 @@ public sealed class ModeValidatorTests
                 Kind = "service",
                 Semantics = new NodeSemantics
                 {
-                    Arrivals = "arrivals",
-                    Served = "served",
-                    Errors = "errors",
-                    Capacity = "capacity"
+                    Arrivals = Ref("arrivals"),
+                    Served = Ref("served"),
+                    Errors = Ref("errors"),
+                    Capacity = Ref("capacity")
                 }
             }
         },
@@ -122,4 +123,7 @@ public sealed class ModeValidatorTests
             }
         };
     }
+
+    private static CompiledSeriesReference Ref(string value) =>
+        SemanticReferenceResolver.ParseSeriesReference(value);
 }

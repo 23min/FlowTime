@@ -30,22 +30,25 @@ public static class ModelCompiler
         {
             var semantics = topoNode.Semantics ?? new TopologyNodeSemanticsDefinition();
             topoNode.Semantics = semantics;
+            var queueReference = SemanticReferenceResolver.ParseOptionalSeriesReference(semantics.QueueDepth);
+            var retryEchoReference = SemanticReferenceResolver.ParseOptionalSeriesReference(semantics.RetryEcho);
 
             if (IsQueueLikeKind(topoNode.Kind))
             {
-                var queueSeries = semantics.QueueDepth?.Trim();
-                if (!IsFileReference(queueSeries))
+                if (queueReference?.Kind != CompiledSeriesReferenceKind.File)
                 {
-                    var needsQueueNode = string.IsNullOrWhiteSpace(queueSeries) ||
-                                         queueSeries.Equals("self", StringComparison.OrdinalIgnoreCase) ||
-                                         !existingNodeIds.Contains(queueSeries);
+                    var requestedQueueId = queueReference?.ResolveProducerId(topoNode.Id);
+                    var needsQueueNode = queueReference is null ||
+                                         queueReference.Kind == CompiledSeriesReferenceKind.Self ||
+                                         string.IsNullOrWhiteSpace(requestedQueueId) ||
+                                         !existingNodeIds.Contains(requestedQueueId);
 
                     if (needsQueueNode)
                     {
                         var inflow = RequireSeries(semantics.Arrivals, topoNode.Id, "semantics.arrivals");
                         var outflow = ResolveQueueOutflow(semantics, topoNode.Id);
                         var loss = string.IsNullOrWhiteSpace(semantics.Errors) ? null : semantics.Errors.Trim();
-                        var queueNodeId = DetermineQueueNodeId(topoNode.Id, queueSeries, existingNodeIds);
+                        var queueNodeId = DetermineQueueNodeId(topoNode.Id, queueReference, existingNodeIds);
 
                         semantics.QueueDepth = queueNodeId;
                         nodes.Add(new NodeDefinition
@@ -68,9 +71,9 @@ public static class ModelCompiler
                 }
             }
 
-            var retryEchoSeries = semantics.RetryEcho?.Trim();
+            var retryEchoSeries = retryEchoReference?.ResolveProducerId(topoNode.Id);
             if (!string.IsNullOrWhiteSpace(retryEchoSeries) &&
-                !IsFileReference(retryEchoSeries) &&
+                retryEchoReference?.Kind != CompiledSeriesReferenceKind.File &&
                 !existingNodeIds.Contains(retryEchoSeries))
             {
                 var failuresSeries = !string.IsNullOrWhiteSpace(semantics.Failures)
@@ -137,9 +140,6 @@ public static class ModelCompiler
         return queueLikeKinds.Contains(kind.Trim());
     }
 
-    private static bool IsFileReference(string? value) =>
-        !string.IsNullOrWhiteSpace(value) && value.Trim().StartsWith("file:", StringComparison.OrdinalIgnoreCase);
-
     private static string RequireSeries(string? value, string nodeId, string field)
     {
         if (!string.IsNullOrWhiteSpace(value))
@@ -166,11 +166,18 @@ public static class ModelCompiler
             $"Topology node '{nodeId}' must define semantics.served (or capacity) to synthesize queue depth.");
     }
 
-    private static string DetermineQueueNodeId(string topologyNodeId, string? requestedId, HashSet<string> existingNodeIds)
+    private static string DetermineQueueNodeId(
+        string topologyNodeId,
+        CompiledSeriesReference? requestedReference,
+        HashSet<string> existingNodeIds)
     {
-        if (!string.IsNullOrWhiteSpace(requestedId) && !requestedId.Equals("self", StringComparison.OrdinalIgnoreCase))
+        if (requestedReference is { Kind: CompiledSeriesReferenceKind.Node })
         {
-            return requestedId;
+            var requestedId = requestedReference.ResolveProducerId(topologyNodeId);
+            if (!string.IsNullOrWhiteSpace(requestedId))
+            {
+                return requestedId;
+            }
         }
 
         var baseId = ToSnakeCase(topologyNodeId);

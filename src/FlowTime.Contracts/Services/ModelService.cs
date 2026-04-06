@@ -39,9 +39,9 @@ public static class ModelService
     {
         var definition = new ModelDefinition
         {
-            Grid = new GridDefinition 
-            { 
-                Bins = model.Grid.Bins, 
+            Grid = new GridDefinition
+            {
+                Bins = model.Grid.Bins,
                 BinSize = model.Grid.BinSize,
                 BinUnit = model.Grid.BinUnit,
                 StartTimeUtc = model.Grid.StartTimeUtc
@@ -68,11 +68,11 @@ public static class ModelService
                         }
                     }).ToList()
                 },
-            Nodes = model.Nodes.Select(n => new NodeDefinition 
-            { 
-                Id = n.Id, 
-                Kind = n.Kind, 
-                Values = n.Values, 
+            Nodes = model.Nodes.Select(n => new NodeDefinition
+            {
+                Id = n.Id,
+                Kind = n.Kind,
+                Values = n.Values,
                 Expr = n.Expr,
                 Pmf = n.Pmf == null ? null : new PmfDefinition
                 {
@@ -108,10 +108,10 @@ public static class ModelService
                         }).ToList()
                     }
             }).ToList(),
-            Outputs = model.Outputs.Select(o => new OutputDefinition 
-            { 
-                Series = o.Series, 
-                As = o.As 
+            Outputs = model.Outputs.Select(o => new OutputDefinition
+            {
+                Series = o.Series,
+                As = o.As
             }).ToList()
         };
 

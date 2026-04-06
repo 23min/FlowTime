@@ -6,6 +6,7 @@ public sealed record NodeData
     public required double[] Arrivals { get; init; }
     public required double[] Served { get; init; }
     public double[]? Errors { get; init; }
+    public IReadOnlyList<ClassEntry<NodeClassData>>? ClassEntries { get; init; }
     public IReadOnlyDictionary<string, NodeClassData>? ByClass { get; init; }
     public double[]? Attempts { get; init; }
     public double[]? Failures { get; init; }

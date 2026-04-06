@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
+using FlowTime.Core.Models;
 using YamlDotNet.Serialization;
 
 namespace FlowTime.Contracts.Dtos;
@@ -144,7 +146,8 @@ public sealed class TopologySemanticsDto
     // canonical queue binding (no legacy 'queue' alias)
     public string? QueueDepth { get; set; }
     public string? Capacity { get; set; }
-    public object? Parallelism { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ParallelismReference? Parallelism { get; set; }
     public string? ProcessingTimeMsSum { get; set; }
     public string? ServedCount { get; set; }
     public double? SlaMin { get; set; }

@@ -1,7 +1,7 @@
 # Epic: Formula-First Core Purification
 
 **ID:** E-16
-**Status:** Approved
+**Status:** In Progress
 
 ## Goal
 
@@ -32,6 +32,7 @@ This work should therefore be treated as a dedicated epic, not hidden inside ano
 - Purification of `/state`, `/state_window`, and `/graph` contracts so clients can consume authoritative analytical and categorical facts
 - Removal of analytical identity reconstruction from `StateQueryService`
 - Separation of real by-class truth from wildcard fallback projection
+- Removal of raw-model-text metadata recovery and duplicate analytical fallback paths once regenerated runtime metadata and evaluator surfaces exist
 - Deletion audits and review gates that prevent reintroduction of heuristics
 
 ### Out of Scope
@@ -57,6 +58,7 @@ This work should therefore be treated as a dedicated epic, not hidden inside ano
 - [ ] Core owns analytical evaluation, emitted derived keys, and warning eligibility facts for snapshot, window, and by-class outputs.
 - [ ] API contracts publish authoritative analytical and node-category facts across current state and graph surfaces so first-party consumers stop classifying behavior from `kind + logicalType`.
 - [ ] Fallback wildcard class data is explicit and distinguishable from real by-class truth.
+- [ ] Runtime metadata readers and analytical query surfaces no longer recover required facts from raw model text or maintain duplicate model-evaluation fallback paths for analytical behavior.
 - [ ] Remaining E-10 Phase 3 milestones can build on compiled facts instead of adapter heuristics.
 - [ ] End-to-end pipeline validation proves Sim → Compiler → Runtime → API → Consumer works correctly: Sim-produced YAML (unchanged authoring surface) compiles through the new typed-reference compiler, evaluates correctly, and projects through purified contracts to consumers.
 
@@ -90,8 +92,8 @@ Each milestone is individually shippable, but the final milestone (m-E16-06) mus
 
 | ID | Title | Summary | Depends On | Status |
 |----|-------|---------|------------|--------|
-| [m-E16-01-compiled-semantic-references](m-E16-01-compiled-semantic-references.md) | Compiled Semantic References | Replace raw runtime semantic strings with typed references and regenerate dependent runs/fixtures forward-only. | none | draft |
-| [m-E16-02-class-truth-boundary](m-E16-02-class-truth-boundary.md) | Class Truth Boundary | Separate real by-class truth from wildcard fallback before descriptor and evaluator work depend on it. | m-E16-01 | draft |
+| [m-E16-01-compiled-semantic-references](m-E16-01-compiled-semantic-references.md) | Compiled Semantic References | Replace raw runtime semantic strings with typed references and regenerate dependent runs/fixtures forward-only. | none | in-progress |
+| [m-E16-02-class-truth-boundary](m-E16-02-class-truth-boundary.md) | Class Truth Boundary | Separate real by-class truth from wildcard fallback before descriptor and evaluator work depend on it. | m-E16-01 | in-progress |
 | [m-E16-03-runtime-analytical-descriptor](m-E16-03-runtime-analytical-descriptor.md) | Runtime Analytical Descriptor | Compile authoritative analytical identity onto runtime nodes and delete adapter-side logical-type reconstruction. | m-E16-02 | draft |
 | [m-E16-04-core-analytical-evaluation](m-E16-04-core-analytical-evaluation.md) | Core Analytical Evaluation | Move analytical values and emitted-series truth into a pure Core evaluator for snapshot, window, and by-class outputs. | m-E16-03 | draft |
 | [m-E16-05-analytical-warning-facts-and-primitive-cleanup](m-E16-05-analytical-warning-facts-and-primitive-cleanup.md) | Analytical Warning Facts & Primitive Cleanup | Move warning facts into Core analyzers and finish analytical primitive ownership cleanup. | m-E16-04 | draft |

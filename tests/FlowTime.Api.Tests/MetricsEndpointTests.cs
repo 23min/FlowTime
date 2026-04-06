@@ -193,6 +193,9 @@ topology:
 
     private static void WriteMetadata(string modelDirectory, string identifier)
     {
+        var telemetryMetadata = FlowTime.Core.TimeTravel.TelemetrySourceMetadataExtractor.Extract(
+            File.ReadAllText(Path.Combine(modelDirectory, "model.yaml"), Encoding.UTF8));
+
         var metadata = new
         {
             templateId = "order-system",
@@ -200,7 +203,9 @@ topology:
             templateVersion = "1.0.0",
             schemaVersion = 1,
             mode = "telemetry",
-            modelHash = $"sha256:{identifier}"
+            modelHash = $"sha256:{identifier}",
+            telemetrySources = telemetryMetadata.TelemetrySources,
+            nodeSources = telemetryMetadata.NodeSources
         };
 
         var json = JsonSerializer.Serialize(metadata, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });

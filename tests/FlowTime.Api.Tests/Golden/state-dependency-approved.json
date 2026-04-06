@@ -69,19 +69,6 @@
           "origin": "derived"
         }
       },
-      "byClass": {
-        "*": {
-          "arrivals": 10,
-          "served": 6,
-          "errors": 1,
-          "capacity": 7,
-          "processingTimeMsSum": 1800,
-          "servedCount": 6,
-          "serviceTimeMs": 300,
-          "cycleTimeMs": 300,
-          "flowEfficiency": 1
-        }
-      },
       "derived": {
         "utilization": 0.857143,
         "serviceTimeMs": 300,
@@ -133,13 +120,6 @@
         "throughputRatio": {
           "aggregation": "unknown",
           "origin": "derived"
-        }
-      },
-      "byClass": {
-        "*": {
-          "arrivals": 6,
-          "served": 6,
-          "errors": 0
         }
       },
       "derived": {

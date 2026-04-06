@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using FlowTime.Contracts.Services;
@@ -82,6 +81,22 @@ public sealed class GraphService
             throw new GraphQueryException(412, $"Run '{runId}' does not include topology information.");
         }
 
+        ModelMetadata metadata;
+        try
+        {
+            metadata = ModelParser.ParseMetadata(modelDefinition, Path.GetDirectoryName(modelPath));
+        }
+        catch (ModelParseException ex)
+        {
+            logger.LogError(ex, "Failed to parse typed topology metadata for run {RunId}", runId);
+            throw new GraphQueryException(409, $"Model for run '{runId}' could not be projected: {ex.Message}");
+        }
+
+        if (metadata.Topology is null)
+        {
+            throw new GraphQueryException(412, $"Run '{runId}' does not include topology information.");
+        }
+
         options ??= GraphQueryOptions.Default;
         var mode = options.Mode;
 
@@ -112,7 +127,7 @@ public sealed class GraphService
         }
 
         // Operational topology nodes
-        foreach (var topoNode in modelDefinition.Topology.Nodes)
+        foreach (var topoNode in metadata.Topology.Nodes)
         {
             nodeDefinitionsById.TryGetValue(topoNode.Id, out var nodeDefinition);
             var kind = string.IsNullOrWhiteSpace(topoNode.Kind)
@@ -124,20 +139,19 @@ public sealed class GraphService
                 continue;
             }
 
-            var parallelismReference = NormalizeParallelismReference(topoNode.Semantics?.Parallelism);
             var semantics = new GraphNodeSemantics
             {
-                Arrivals = topoNode.Semantics?.Arrivals ?? string.Empty,
-                Served = topoNode.Semantics?.Served ?? string.Empty,
-                Errors = topoNode.Semantics?.Errors ?? string.Empty,
-                Attempts = topoNode.Semantics?.Attempts,
-                Failures = topoNode.Semantics?.Failures,
-                ExhaustedFailures = topoNode.Semantics?.ExhaustedFailures,
-                RetryEcho = topoNode.Semantics?.RetryEcho,
-                RetryBudgetRemaining = topoNode.Semantics?.RetryBudgetRemaining,
-                Queue = topoNode.Semantics?.QueueDepth,
-                Capacity = topoNode.Semantics?.Capacity,
-                Parallelism = parallelismReference,
+                Arrivals = ToAuthoredReference(topoNode.Semantics?.Arrivals) ?? string.Empty,
+                Served = ToAuthoredReference(topoNode.Semantics?.Served) ?? string.Empty,
+                Errors = ToAuthoredReference(topoNode.Semantics?.Errors) ?? string.Empty,
+                Attempts = ToAuthoredReference(topoNode.Semantics?.Attempts),
+                Failures = ToAuthoredReference(topoNode.Semantics?.Failures),
+                ExhaustedFailures = ToAuthoredReference(topoNode.Semantics?.ExhaustedFailures),
+                RetryEcho = ToAuthoredReference(topoNode.Semantics?.RetryEcho),
+                RetryBudgetRemaining = ToAuthoredReference(topoNode.Semantics?.RetryBudgetRemaining),
+                Queue = ToAuthoredReference(topoNode.Semantics?.QueueDepth),
+                Capacity = ToAuthoredReference(topoNode.Semantics?.Capacity),
+                Parallelism = topoNode.Semantics?.Parallelism?.ToAuthoredValue(),
                 Aliases = topoNode.Semantics?.Aliases,
                 Metadata = topoNode.Semantics?.Metadata,
                 MaxAttempts = topoNode.Semantics?.MaxAttempts,
@@ -176,7 +190,7 @@ public sealed class GraphService
         }
 
         // Topology edges
-        foreach (var topoEdge in modelDefinition.Topology.Edges)
+        foreach (var topoEdge in metadata.Topology.Edges)
         {
             var fromNodeId = ExtractNodeId(topoEdge.Source);
             var toNodeId = ExtractNodeId(topoEdge.Target);
@@ -190,9 +204,9 @@ public sealed class GraphService
                 ? $"{topoEdge.Source}->{topoEdge.Target}"
                 : topoEdge.Id!;
 
-            var edgeType = string.IsNullOrWhiteSpace(topoEdge.Type)
+            var edgeType = string.IsNullOrWhiteSpace(topoEdge.EdgeType)
                 ? edgeTypeTopology
-                : topoEdge.Type!;
+                : topoEdge.EdgeType!;
 
             TryAddEdge(new GraphEdge
             {
@@ -201,7 +215,7 @@ public sealed class GraphService
                 To = topoEdge.Target,
                 Weight = topoEdge.Weight,
                 EdgeType = edgeType,
-                Field = topoEdge.Measure,
+                Field = topoEdge.Field,
                 Multiplier = topoEdge.Multiplier,
                 Lag = topoEdge.Lag
             });
@@ -318,7 +332,7 @@ public sealed class GraphService
             }
 
             // Service/queue dependency edges from producers.
-            foreach (var topoNode in modelDefinition.Topology.Nodes)
+            foreach (var topoNode in metadata.Topology.Nodes)
             {
                 if (!graphNodes.ContainsKey(topoNode.Id))
                 {
@@ -333,12 +347,12 @@ public sealed class GraphService
                 AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.RetryEcho, "retryEcho");
                 AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.QueueDepth, "queue");
                 AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.Capacity, "capacity");
-                AddSemanticsDependencyEdge(topoNode.Id, NormalizeParallelismReference(topoNode.Semantics?.Parallelism), "parallelism");
+                AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.Parallelism?.SeriesReference, "parallelism");
             }
 
-            void AddSemanticsDependencyEdge(string consumerId, string? reference, string field)
+            void AddSemanticsDependencyEdge(string consumerId, CompiledSeriesReference? reference, string field)
             {
-                if (string.IsNullOrWhiteSpace(reference))
+                if (reference is null)
                 {
                     return;
                 }
@@ -348,7 +362,7 @@ public sealed class GraphService
                     return;
                 }
 
-                var producerCandidate = TryResolveProducerId(reference);
+                var producerCandidate = reference.ResolveProducerId(consumerId);
                 if (producerCandidate is null)
                 {
                     return;
@@ -446,43 +460,6 @@ public sealed class GraphService
         return colon < 0 ? value.Trim() : value[..colon].Trim();
     }
 
-    private static readonly Regex seriesFileRegex = new(@"(?<name>[^/\\]+?)(?:\.csv)?$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
-
-    private static string? TryResolveProducerId(string reference)
-    {
-        if (string.IsNullOrWhiteSpace(reference))
-        {
-            return null;
-        }
-
-        var value = reference.Trim();
-
-        if (value.StartsWith("series:", StringComparison.OrdinalIgnoreCase))
-        {
-            value = value["series:".Length..];
-        }
-        else if (value.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
-        {
-            var match = seriesFileRegex.Match(value);
-            if (match.Success)
-            {
-                value = match.Groups["name"].Value;
-            }
-        }
-
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        var at = value.IndexOf('@');
-        if (at > 0)
-        {
-            value = value[..at];
-        }
-
-        return value.Trim();
-    }
     private static DispatchScheduleDescriptor? TryBuildDispatchSchedule(
         IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
         string nodeId)
@@ -525,7 +502,7 @@ public sealed class GraphService
 
     private static string DetermineLogicalType(
         string kind,
-        TopologyNodeDefinition node,
+        Node node,
         IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
         out NodeDefinition? serviceWithBufferDefinition)
     {
@@ -534,7 +511,7 @@ public sealed class GraphService
 
         if (normalizedKind is "queue" or "service")
         {
-            serviceWithBufferDefinition = TryResolveServiceWithBufferDefinition(nodeDefinitions, node.Semantics?.QueueDepth);
+            serviceWithBufferDefinition = TryResolveServiceWithBufferDefinition(nodeDefinitions, node.Semantics?.QueueDepth, node.Id);
             if (serviceWithBufferDefinition is not null)
             {
                 return "serviceWithBuffer";
@@ -546,14 +523,10 @@ public sealed class GraphService
 
     private static NodeDefinition? TryResolveServiceWithBufferDefinition(
         IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
-        string? reference)
+        CompiledSeriesReference? reference,
+        string ownerNodeId)
     {
-        if (string.IsNullOrWhiteSpace(reference))
-        {
-            return null;
-        }
-
-        var candidateId = TryResolveProducerId(reference);
+        var candidateId = reference?.ResolveProducerId(ownerNodeId);
         if (string.IsNullOrWhiteSpace(candidateId))
         {
             return null;
@@ -568,27 +541,7 @@ public sealed class GraphService
     private static string NormalizeKind(string? kind) =>
         string.IsNullOrWhiteSpace(kind) ? "service" : kind.Trim().ToLowerInvariant();
 
-    private static string? NormalizeParallelismReference(object? value)
-    {
-        if (value is null)
-        {
-            return null;
-        }
-
-        if (value is string text)
-        {
-            return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
-        }
-
-        if (value is IFormattable formattable)
-        {
-            var formatted = formattable.ToString(null, CultureInfo.InvariantCulture);
-            return string.IsNullOrWhiteSpace(formatted) ? null : formatted;
-        }
-
-        var fallback = value.ToString();
-        return string.IsNullOrWhiteSpace(fallback) ? null : fallback;
-    }
+    private static string? ToAuthoredReference(CompiledSeriesReference? value) => value?.RawText;
 }
 
 public sealed class GraphQueryException : Exception

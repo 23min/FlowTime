@@ -61,7 +61,7 @@ namespace FlowTime.Sim.Cli
 
                 // Load configuration from files and environment
                 var config = CliConfig.Load();
-                
+
                 // Debug: Show loaded config
                 if (args.Contains("--debug-config"))
                 {
@@ -71,9 +71,9 @@ namespace FlowTime.Sim.Cli
                     Console.WriteLine($"  Format: {config.DefaultFormat}");
                     return 0;
                 }
-                
+
                 var opts = ArgParser.ParseArgs(args);
-                
+
                 if (string.IsNullOrWhiteSpace(opts.Verb))
                 {
                     PrintHelp();
@@ -128,25 +128,25 @@ namespace FlowTime.Sim.Cli
                 {
                     // list templates (default for 'list' or explicit 'list templates')
                     ("list", "" or "templates") => await ExecuteListTemplatesCommand(templateService, opts, cts.Token),
-                    
+
                     // list models
                     ("list", "models") => await ExecuteListModelsCommand(opts),
-                    
+
                     // show template
                     ("show", "template") => await ExecuteShowTemplateCommand(templateService, opts, cts.Token),
-                    
+
                     // show model
                     ("show", "model") => await Task.FromResult(ExecuteShowModelCommand(opts)),
-                    
+
                     // generate (model from template)
                     ("generate", "" or "model") => await ExecuteGenerateCommand(templateService, opts, cts.Token),
-                    
+
                     // validate (template parameters)
                     ("validate", "" or "template" or "params") => await ExecuteValidateCommand(templateService, opts, cts.Token),
 
                     // refresh template cache
                     ("refresh", "templates") => await ExecuteRefreshTemplatesCommand(templateService, opts, cts.Token),
-                    
+
                     _ => HandleUnknownCommand(verb, noun)
                 };
             }
@@ -165,7 +165,7 @@ namespace FlowTime.Sim.Cli
         static async Task<int> ExecuteListTemplatesCommand(ITemplateService service, CliOptions opts, CancellationToken ct)
         {
             var templates = await service.GetAllTemplatesAsync();
-            
+
             if (!templates.Any())
             {
                 Console.WriteLine("No templates found.");
@@ -174,7 +174,8 @@ namespace FlowTime.Sim.Cli
 
             if (opts.Format.Equals("json", StringComparison.OrdinalIgnoreCase))
             {
-                var json = JsonSerializer.Serialize(templates.Select(t => new {
+                var json = JsonSerializer.Serialize(templates.Select(t => new
+                {
                     t.Metadata.Id,
                     t.Metadata.Title,
                     t.Metadata.Description,
@@ -242,7 +243,7 @@ namespace FlowTime.Sim.Cli
                 Console.WriteLine($"\nTitle: {template.Metadata.Title}");
                 if (!string.IsNullOrEmpty(template.Metadata.Description))
                     Console.WriteLine($"Description: {template.Metadata.Description}\n");
-                
+
                 if (template.Parameters.Any())
                 {
                     Console.WriteLine("Parameters:");
@@ -372,7 +373,7 @@ namespace FlowTime.Sim.Cli
             }
 
             var provenance = artifact.Provenance;
-            
+
             // Write model output
             if (string.IsNullOrWhiteSpace(opts.OutputPath))
             {
@@ -384,9 +385,9 @@ namespace FlowTime.Sim.Cli
                 var dir = Path.GetDirectoryName(outputPath);
                 if (!string.IsNullOrEmpty(dir))
                     Directory.CreateDirectory(dir);
-                    
+
                 await File.WriteAllTextAsync(outputPath, model, Encoding.UTF8, ct);
-                
+
                 if (opts.Verbose)
                     Console.WriteLine($"Model written to: {outputPath}");
             }
@@ -404,9 +405,9 @@ namespace FlowTime.Sim.Cli
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
                     WriteIndented = true
                 });
-                
+
                 await File.WriteAllTextAsync(provenancePath, provenanceJson, Encoding.UTF8, ct);
-                
+
                 if (opts.Verbose)
                     Console.WriteLine($"Provenance written to: {provenancePath}");
             }
@@ -491,7 +492,7 @@ namespace FlowTime.Sim.Cli
             }
 
             var result = await service.ValidateParametersAsync(opts.TemplateId, parameters);
-            
+
             if (result.IsValid)
             {
                 Console.WriteLine("✓ Parameters valid");
@@ -518,193 +519,193 @@ namespace FlowTime.Sim.Cli
             return 2;
         }
 
-    static int ExecuteInitCommand(CliOptions opts)
-    {
-        var configPath = Path.Combine(Directory.GetCurrentDirectory(), ".flow-sim.yaml");
-        
-        if (File.Exists(configPath))
+        static int ExecuteInitCommand(CliOptions opts)
         {
-            Console.WriteLine($"Configuration file already exists: {configPath}");
-            Console.WriteLine("Remove it first if you want to recreate it.");
-            return 1;
-        }
+            var configPath = Path.Combine(Directory.GetCurrentDirectory(), ".flow-sim.yaml");
 
-        // Determine paths (use provided options or smart defaults)
-        var templatesDir = opts.TemplatesDir ?? Path.Combine(Directory.GetCurrentDirectory(), "templates");
-        var modelsDir = opts.ModelsDir ?? Path.Combine(Directory.GetCurrentDirectory(), "data/models");
-        var defaultFormat = opts.Format;
-        var defaultVerbose = opts.Verbose;
-
-        // Create config content
-        var configContent = new StringBuilder();
-        configContent.AppendLine("# FlowTime-Sim CLI Configuration");
-        configContent.AppendLine();
-        configContent.AppendLine("templates:");
-        configContent.AppendLine($"  directory: {templatesDir}");
-        configContent.AppendLine();
-        configContent.AppendLine("data:");
-        configContent.AppendLine($"  models: {modelsDir}");
-        configContent.AppendLine();
-        configContent.AppendLine("defaults:");
-        configContent.AppendLine($"  format: {defaultFormat}");
-        configContent.AppendLine($"  verbose: {defaultVerbose.ToString().ToLowerInvariant()}");
-
-        // Write config file
-        File.WriteAllText(configPath, configContent.ToString());
-
-        // Show what was configured
-        Console.WriteLine($"Created configuration file: {configPath}\n");
-        Console.WriteLine("Configured values:");
-        Console.WriteLine($"  Templates directory: {templatesDir}");
-        Console.WriteLine($"  Models directory:    {modelsDir}");
-        Console.WriteLine($"  Default format:      {defaultFormat}");
-        Console.WriteLine($"  Default verbose:     {defaultVerbose}");
-        Console.WriteLine();
-        
-        // Check if directories exist
-        var warnings = new List<string>();
-        if (!Directory.Exists(templatesDir))
-            warnings.Add($"⚠️  Templates directory does not exist: {templatesDir}");
-        if (!Directory.Exists(modelsDir))
-            warnings.Add($"⚠️  Models directory does not exist: {modelsDir}");
-
-        if (warnings.Count > 0)
-        {
-            Console.WriteLine("Warnings:");
-            foreach (var warning in warnings)
-                Console.WriteLine($"  {warning}");
-            Console.WriteLine();
-            Console.WriteLine("Directories will be created automatically when needed.");
-        }
-        else
-        {
-            Console.WriteLine("✓ All directories exist.");
-        }
-
-        return 0;
-    }
-
-    static int ExecuteShowModelCommand(CliOptions opts)
-    {
-        if (string.IsNullOrWhiteSpace(opts.TemplateId))
-        {
-            Console.Error.WriteLine("Error: --id is required for 'show model'");
-            Console.Error.WriteLine("Usage: flow-sim show model --id <model-name>");
-            return 1;
-        }
-
-        var config = CliConfig.Load();
-        var modelsDir = opts.ModelsDir ?? config.ModelsDirectory ?? "./data/models";
-        var modelDir = Path.Combine(modelsDir, opts.TemplateId);
-
-        if (!Directory.Exists(modelDir))
-        {
-            Console.Error.WriteLine($"Model not found: {opts.TemplateId}");
-            Console.Error.WriteLine($"Looked in: {modelsDir}");
-            Console.Error.WriteLine();
-            Console.Error.WriteLine("Use 'flow-sim list models' to see available models.");
-            return 1;
-        }
-
-        var metadataPath = Path.Combine(modelDir, "metadata.json");
-        var modelPath = Path.Combine(modelDir, "model.yaml");
-
-        // Display model information
-        Console.WriteLine($"Model: {opts.TemplateId}");
-        Console.WriteLine($"Location: {modelDir}\n");
-
-        // Read and display metadata
-        if (File.Exists(metadataPath))
-        {
-            try
+            if (File.Exists(configPath))
             {
-                var metadataJson = File.ReadAllText(metadataPath);
-                var metadata = JsonSerializer.Deserialize<JsonElement>(metadataJson);
+                Console.WriteLine($"Configuration file already exists: {configPath}");
+                Console.WriteLine("Remove it first if you want to recreate it.");
+                return 1;
+            }
 
-                Console.WriteLine("Metadata:");
-                if (metadata.TryGetProperty("templateId", out var templateId))
-                    Console.WriteLine($"  Template ID:      {templateId.GetString()}");
-                if (metadata.TryGetProperty("generatedAtUtc", out var generatedAt))
-                    Console.WriteLine($"  Generated:        {generatedAt.GetString()}");
-                if (metadata.TryGetProperty("modelHash", out var hash))
-                    Console.WriteLine($"  Model Hash:       {hash.GetString()}");
-                if (metadata.TryGetProperty("parameters", out var parameters))
+            // Determine paths (use provided options or smart defaults)
+            var templatesDir = opts.TemplatesDir ?? Path.Combine(Directory.GetCurrentDirectory(), "templates");
+            var modelsDir = opts.ModelsDir ?? Path.Combine(Directory.GetCurrentDirectory(), "data/models");
+            var defaultFormat = opts.Format;
+            var defaultVerbose = opts.Verbose;
+
+            // Create config content
+            var configContent = new StringBuilder();
+            configContent.AppendLine("# FlowTime-Sim CLI Configuration");
+            configContent.AppendLine();
+            configContent.AppendLine("templates:");
+            configContent.AppendLine($"  directory: {templatesDir}");
+            configContent.AppendLine();
+            configContent.AppendLine("data:");
+            configContent.AppendLine($"  models: {modelsDir}");
+            configContent.AppendLine();
+            configContent.AppendLine("defaults:");
+            configContent.AppendLine($"  format: {defaultFormat}");
+            configContent.AppendLine($"  verbose: {defaultVerbose.ToString().ToLowerInvariant()}");
+
+            // Write config file
+            File.WriteAllText(configPath, configContent.ToString());
+
+            // Show what was configured
+            Console.WriteLine($"Created configuration file: {configPath}\n");
+            Console.WriteLine("Configured values:");
+            Console.WriteLine($"  Templates directory: {templatesDir}");
+            Console.WriteLine($"  Models directory:    {modelsDir}");
+            Console.WriteLine($"  Default format:      {defaultFormat}");
+            Console.WriteLine($"  Default verbose:     {defaultVerbose}");
+            Console.WriteLine();
+
+            // Check if directories exist
+            var warnings = new List<string>();
+            if (!Directory.Exists(templatesDir))
+                warnings.Add($"⚠️  Templates directory does not exist: {templatesDir}");
+            if (!Directory.Exists(modelsDir))
+                warnings.Add($"⚠️  Models directory does not exist: {modelsDir}");
+
+            if (warnings.Count > 0)
+            {
+                Console.WriteLine("Warnings:");
+                foreach (var warning in warnings)
+                    Console.WriteLine($"  {warning}");
+                Console.WriteLine();
+                Console.WriteLine("Directories will be created automatically when needed.");
+            }
+            else
+            {
+                Console.WriteLine("✓ All directories exist.");
+            }
+
+            return 0;
+        }
+
+        static int ExecuteShowModelCommand(CliOptions opts)
+        {
+            if (string.IsNullOrWhiteSpace(opts.TemplateId))
+            {
+                Console.Error.WriteLine("Error: --id is required for 'show model'");
+                Console.Error.WriteLine("Usage: flow-sim show model --id <model-name>");
+                return 1;
+            }
+
+            var config = CliConfig.Load();
+            var modelsDir = opts.ModelsDir ?? config.ModelsDirectory ?? "./data/models";
+            var modelDir = Path.Combine(modelsDir, opts.TemplateId);
+
+            if (!Directory.Exists(modelDir))
+            {
+                Console.Error.WriteLine($"Model not found: {opts.TemplateId}");
+                Console.Error.WriteLine($"Looked in: {modelsDir}");
+                Console.Error.WriteLine();
+                Console.Error.WriteLine("Use 'flow-sim list models' to see available models.");
+                return 1;
+            }
+
+            var metadataPath = Path.Combine(modelDir, "metadata.json");
+            var modelPath = Path.Combine(modelDir, "model.yaml");
+
+            // Display model information
+            Console.WriteLine($"Model: {opts.TemplateId}");
+            Console.WriteLine($"Location: {modelDir}\n");
+
+            // Read and display metadata
+            if (File.Exists(metadataPath))
+            {
+                try
                 {
-                    var paramsJson = JsonSerializer.Serialize(parameters, new JsonSerializerOptions { WriteIndented = true });
-                    if (paramsJson != "{}")
+                    var metadataJson = File.ReadAllText(metadataPath);
+                    var metadata = JsonSerializer.Deserialize<JsonElement>(metadataJson);
+
+                    Console.WriteLine("Metadata:");
+                    if (metadata.TryGetProperty("templateId", out var templateId))
+                        Console.WriteLine($"  Template ID:      {templateId.GetString()}");
+                    if (metadata.TryGetProperty("generatedAtUtc", out var generatedAt))
+                        Console.WriteLine($"  Generated:        {generatedAt.GetString()}");
+                    if (metadata.TryGetProperty("modelHash", out var hash))
+                        Console.WriteLine($"  Model Hash:       {hash.GetString()}");
+                    if (metadata.TryGetProperty("parameters", out var parameters))
                     {
-                        Console.WriteLine($"  Parameters:       {paramsJson}");
+                        var paramsJson = JsonSerializer.Serialize(parameters, new JsonSerializerOptions { WriteIndented = true });
+                        if (paramsJson != "{}")
+                        {
+                            Console.WriteLine($"  Parameters:       {paramsJson}");
+                        }
+                        else
+                        {
+                            Console.WriteLine("  Parameters:       (none - using template defaults)");
+                        }
                     }
-                    else
-                    {
-                        Console.WriteLine("  Parameters:       (none - using template defaults)");
-                    }
+                    Console.WriteLine();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️  Could not read metadata: {ex.Message}\n");
+                }
+            }
+
+            // Display model preview
+            if (File.Exists(modelPath))
+            {
+                Console.WriteLine("Model Preview:");
+                var lines = File.ReadAllLines(modelPath);
+                var previewLines = Math.Min(20, lines.Length);
+                for (int i = 0; i < previewLines; i++)
+                {
+                    Console.WriteLine($"  {lines[i]}");
+                }
+                if (lines.Length > previewLines)
+                {
+                    Console.WriteLine($"  ... ({lines.Length - previewLines} more lines)");
                 }
                 Console.WriteLine();
+                Console.WriteLine($"Full model: {modelPath}");
             }
-            catch (Exception ex)
+            else
             {
-                Console.WriteLine($"⚠️  Could not read metadata: {ex.Message}\n");
+                Console.WriteLine("⚠️  Model file not found: model.yaml");
             }
+
+            return 0;
         }
 
-        // Display model preview
-        if (File.Exists(modelPath))
+        static Task<int> ExecuteListModelsCommand(CliOptions opts)
         {
-            Console.WriteLine("Model Preview:");
-            var lines = File.ReadAllLines(modelPath);
-            var previewLines = Math.Min(20, lines.Length);
-            for (int i = 0; i < previewLines; i++)
+            var config = CliConfig.Load();
+            var modelsDir = opts.ModelsDir ?? config.ModelsDirectory ?? "./data/models";
+
+            if (!Directory.Exists(modelsDir))
             {
-                Console.WriteLine($"  {lines[i]}");
+                Console.WriteLine($"Models directory not found: {modelsDir}");
+                Console.WriteLine("No models have been generated yet.");
+                Console.WriteLine("Generate a model using: flow-sim generate --id <template-id> --out <file>");
+                return Task.FromResult(1);
             }
-            if (lines.Length > previewLines)
+
+            var modelDirs = Directory.GetDirectories(modelsDir);
+            if (modelDirs.Length == 0)
             {
-                Console.WriteLine($"  ... ({lines.Length - previewLines} more lines)");
+                Console.WriteLine("No models generated yet.");
+                Console.WriteLine("Generate a model using: flow-sim generate --id <template-id> --out <file>");
+                return Task.FromResult(0);
             }
-            Console.WriteLine();
-            Console.WriteLine($"Full model: {modelPath}");
-        }
-        else
-        {
-            Console.WriteLine("⚠️  Model file not found: model.yaml");
-        }
 
-        return 0;
-    }
+            Console.WriteLine($"Available models in {modelsDir}:\n");
+            foreach (var dir in modelDirs)
+            {
+                var modelName = Path.GetFileName(dir);
+                Console.WriteLine($"  {modelName}");
+            }
 
-    static Task<int> ExecuteListModelsCommand(CliOptions opts)
-    {
-        var config = CliConfig.Load();
-        var modelsDir = opts.ModelsDir ?? config.ModelsDirectory ?? "./data/models";
-
-        if (!Directory.Exists(modelsDir))
-        {
-            Console.WriteLine($"Models directory not found: {modelsDir}");
-            Console.WriteLine("No models have been generated yet.");
-            Console.WriteLine("Generate a model using: flow-sim generate --id <template-id> --out <file>");
-            return Task.FromResult(1);
-        }
-
-        var modelDirs = Directory.GetDirectories(modelsDir);
-        if (modelDirs.Length == 0)
-        {
-            Console.WriteLine("No models generated yet.");
-            Console.WriteLine("Generate a model using: flow-sim generate --id <template-id> --out <file>");
             return Task.FromResult(0);
         }
 
-        Console.WriteLine($"Available models in {modelsDir}:\n");
-        foreach (var dir in modelDirs)
-        {
-            var modelName = Path.GetFileName(dir);
-            Console.WriteLine($"  {modelName}");
-        }
-
-        return Task.FromResult(0);
-    }
-
-    public static void PrintHelp()
+        public static void PrintHelp()
         {
             Console.WriteLine("FlowTime-Sim CLI - Charter-compliant model authoring tool\n");
             Console.WriteLine("Usage: flow-sim <verb> <noun> [options]\n");
@@ -755,7 +756,7 @@ namespace FlowTime.Sim.Cli
     public static class ProgramWrapper
     {
         public static Task<int> InvokeMain(string[] args) => Program.Main(args);
-        
+
         // SIM-M2.7: Expose ExecuteGenerateCommand for testing
         public static Task<int> ExecuteGenerate(ITemplateService service, CliOptions opts, CancellationToken ct = default)
             => Program.ExecuteGenerateCommand(service, opts, ct);
@@ -771,14 +772,14 @@ namespace FlowTime.Sim.Cli
             if (args.Length > 0 && !args[0].StartsWith("--") && !args[0].StartsWith("-"))
             {
                 opts = opts with { Verb = args[0] };
-                
+
                 // Second positional argument is the noun (optional)
                 if (args.Length > 1 && !args[1].StartsWith("--") && !args[1].StartsWith("-"))
                 {
                     opts = opts with { Noun = args[1] };
                 }
             }
-            
+
             for (int i = 0; i < args.Length; i++)
             {
                 var a = args[i];

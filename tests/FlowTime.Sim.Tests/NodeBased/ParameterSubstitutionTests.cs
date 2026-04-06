@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using FlowTime.Core.Models;
 using FlowTime.Sim.Core.Templates;
 using FlowTime.Sim.Core.Templates.Exceptions;
 using Xunit;
@@ -164,6 +165,54 @@ outputs:
         Assert.Equal(75.0, pmfNode.Pmf!.Values[0]);
         Assert.Equal(150.0, pmfNode.Pmf.Values[1]);
         Assert.Equal(200.0, pmfNode.Pmf.Values[2]);
+    }
+
+    [Fact]
+    public void Template_With_Parallelism_Parameter_ParsesTypedLiteral()
+    {
+        var yaml = """
+metadata:
+  id: param-parallelism-test
+  title: Parameter Parallelism Test
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
+parameters:
+  - name: workers
+    type: integer
+    title: Worker Count
+    default: 3
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: ServiceNode
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arrivals
+        served: served
+        parallelism: ${workers}
+  edges: []
+nodes:
+  - id: arrivals
+    kind: const
+    values: [100, 150, 200]
+  - id: served
+    kind: const
+    values: [90, 120, 180]
+outputs:
+  - id: arrival_series
+    series: arrivals
+""";
+
+        var substitutedTemplate = ParameterSubstitution.ParseWithSubstitution(yaml, new Dictionary<string, object>());
+
+        var parallelism = Assert.IsType<ParallelismReference>(substitutedTemplate.Topology.Nodes[0].Semantics.Parallelism);
+        Assert.Equal(3d, parallelism.Constant);
+        Assert.Null(parallelism.SeriesReference);
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using FlowTime.Core.Models;
 using System.Linq;
 using FlowTime.Sim.Core.Templates;
 using FlowTime.Sim.Core.Templates.Exceptions;
@@ -493,6 +494,57 @@ outputs:
     }
 
     [Fact]
+    public void Template_With_ParallelismSeries_ParsesTypedReference()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: parallelism-series
+  title: Parallelism Series
+  version: 1.0.0
+window:
+  start: 2025-03-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: DispatchQueue
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: dispatch_arrivals
+        served: dispatch_served
+        parallelism: worker_count
+  edges: []
+nodes:
+  - id: dispatch_arrivals
+    kind: const
+    values: [10, 10, 10]
+  - id: dispatch_served
+    kind: const
+    values: [8, 8, 8]
+  - id: worker_count
+    kind: const
+    values: [2, 3, 4]
+outputs:
+  - series: "*"
+""";
+
+        var template = TemplateParser.ParseFromYaml(yaml);
+
+        var topologyNode = Assert.Single(
+            template.Topology.Nodes,
+            node => string.Equals(node.Id, "DispatchQueue", StringComparison.OrdinalIgnoreCase));
+        var parallelism = Assert.IsType<ParallelismReference>(topologyNode.Semantics.Parallelism);
+        Assert.NotNull(parallelism.SeriesReference);
+        Assert.Equal("worker_count", parallelism.SeriesReference!.RawText);
+        Assert.Null(parallelism.Constant);
+    }
+
+    [Fact]
     public void Template_With_Queue_SelfQueueDepth_Parses()
     {
         var yaml = """
@@ -826,27 +878,6 @@ outputs:
         var topologyNode = Assert.Single(
             template.Topology.Nodes,
             n => string.Equals(n.Id, topologyNodeId, StringComparison.OrdinalIgnoreCase));
-        var parallelism = topologyNode.Semantics.Parallelism;
-        if (parallelism is null)
-        {
-            return null;
-        }
-
-        return parallelism switch
-        {
-            byte value => value,
-            sbyte value => value,
-            short value => value,
-            ushort value => value,
-            int value => value,
-            uint value => value,
-            long value => value,
-            ulong value => value,
-            float value => value,
-            double value => value,
-            decimal value => (double)value,
-            string value => double.Parse(value, CultureInfo.InvariantCulture),
-            _ => Convert.ToDouble(parallelism, CultureInfo.InvariantCulture)
-        };
+      return topologyNode.Semantics.Parallelism?.Constant;
     }
 }

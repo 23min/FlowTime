@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using FlowTime.Core.Models;
 using FlowTime.Core.TimeTravel;
 
@@ -22,7 +23,7 @@ public sealed record ClassMetricsSnapshot(
 
 public sealed class ClassAggregationResult
 {
-    public required IReadOnlyDictionary<string, ClassMetricsSnapshot> ByClass { get; init; }
+    public required IReadOnlyList<ClassEntry<ClassMetricsSnapshot>> ClassEntries { get; init; }
     public required ClassCoverage Coverage { get; init; }
     public required IReadOnlyList<ModeValidationWarning> Warnings { get; init; }
 }
@@ -40,52 +41,60 @@ public static class ClassMetricsAggregator
         }
 
         var warnings = new List<ModeValidationWarning>();
-        var byClassSnapshots = BuildSnapshots(data, binIndex);
-        var hasClassData = byClassSnapshots.Count > 0 && !(byClassSnapshots.Count == 1 && byClassSnapshots.ContainsKey("*"));
+        var classEntries = BuildSnapshotEntries(data, binIndex);
+        var specificSnapshots = classEntries
+            .Where(entry => entry.Kind == ClassEntryKind.Specific)
+            .ToDictionary(
+                entry => entry.ContractKey,
+                entry => entry.Payload,
+                StringComparer.OrdinalIgnoreCase);
+        var hasClassData = specificSnapshots.Count > 0;
 
         if (hasClassData)
         {
-            CheckConservation("arrivals", Sample(data.Arrivals, binIndex), byClassSnapshots, snapshot => snapshot.Arrivals, warnings);
-            CheckConservation("served", Sample(data.Served, binIndex), byClassSnapshots, snapshot => snapshot.Served, warnings);
-            CheckConservation("errors", Sample(data.Errors, binIndex), byClassSnapshots, snapshot => snapshot.Errors, warnings);
+            CheckConservation("arrivals", Sample(data.Arrivals, binIndex), specificSnapshots, snapshot => snapshot.Arrivals, warnings);
+            CheckConservation("served", Sample(data.Served, binIndex), specificSnapshots, snapshot => snapshot.Served, warnings);
+            CheckConservation("errors", Sample(data.Errors, binIndex), specificSnapshots, snapshot => snapshot.Errors, warnings);
         }
 
         var coverage = ResolveCoverage(hasClassData, warnings);
 
         return new ClassAggregationResult
         {
-            ByClass = byClassSnapshots,
+            ClassEntries = classEntries,
             Coverage = coverage,
             Warnings = warnings
         };
     }
 
-    private static IReadOnlyDictionary<string, ClassMetricsSnapshot> BuildSnapshots(NodeData data, int binIndex)
+    public static IReadOnlyList<ClassEntry<NodeClassData>> BuildClassEntries(NodeData data)
     {
-        if (data.ByClass is null || data.ByClass.Count == 0)
-        {
-            var wildcard = new SortedDictionary<string, ClassMetricsSnapshot>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["*"] = new ClassMetricsSnapshot(
-                    Arrivals: Sample(data.Arrivals, binIndex),
-                    Served: Sample(data.Served, binIndex),
-                    Errors: Sample(data.Errors, binIndex),
-                    Queue: Sample(data.QueueDepth, binIndex),
-                    Capacity: Sample(data.Capacity, binIndex),
-                    ProcessingTimeMsSum: Sample(data.ProcessingTimeMsSum, binIndex),
-                    ServedCount: Sample(data.ServedCount, binIndex))
-            };
+        _ = data ?? throw new ArgumentNullException(nameof(data));
 
-            return wildcard;
+        if (data.ClassEntries is { Count: > 0 } explicitEntries)
+        {
+            return NormalizeEntries(explicitEntries);
         }
 
-        var result = new SortedDictionary<string, ClassMetricsSnapshot>(StringComparer.OrdinalIgnoreCase);
-        foreach (var kvp in data.ByClass)
+        if (data.ByClass is null || data.ByClass.Count == 0)
         {
-            var classId = string.IsNullOrWhiteSpace(kvp.Key) ? "*" : kvp.Key.Trim();
-            var classData = kvp.Value ?? new NodeClassData();
+            return Array.Empty<ClassEntry<NodeClassData>>();
+        }
 
-            result[classId] = new ClassMetricsSnapshot(
+        return data.ByClass
+            .OrderBy(entry => entry.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(entry => ClassEntry<NodeClassData>.Specific(entry.Key, entry.Value ?? new NodeClassData()))
+            .ToArray();
+    }
+
+    private static IReadOnlyList<ClassEntry<ClassMetricsSnapshot>> BuildSnapshotEntries(NodeData data, int binIndex)
+    {
+        var snapshotEntries = new List<ClassEntry<ClassMetricsSnapshot>>();
+
+        foreach (var entry in BuildClassEntries(data))
+        {
+            var classData = entry.Payload ?? new NodeClassData();
+            var snapshot = new ClassMetricsSnapshot(
                 Arrivals: Sample(classData.Arrivals, binIndex),
                 Served: Sample(classData.Served, binIndex),
                 Errors: Sample(classData.Errors, binIndex),
@@ -93,9 +102,36 @@ public static class ClassMetricsAggregator
                 Capacity: Sample(classData.Capacity, binIndex),
                 ProcessingTimeMsSum: Sample(classData.ProcessingTimeMsSum, binIndex),
                 ServedCount: Sample(classData.ServedCount, binIndex));
+
+            if (entry.Kind == ClassEntryKind.Fallback)
+            {
+                snapshotEntries.Add(ClassEntry<ClassMetricsSnapshot>.Fallback(snapshot));
+                continue;
+            }
+
+            snapshotEntries.Add(ClassEntry<ClassMetricsSnapshot>.Specific(entry.ClassId!, snapshot));
         }
 
-        return result;
+        return NormalizeEntries(snapshotEntries);
+    }
+
+    private static IReadOnlyList<ClassEntry<TPayload>> NormalizeEntries<TPayload>(IEnumerable<ClassEntry<TPayload>> entries)
+    {
+        var specificEntries = entries
+            .Where(entry => entry.Kind == ClassEntryKind.Specific)
+            .OrderBy(entry => entry.ContractKey, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var fallbackEntry = entries.FirstOrDefault(entry => entry.Kind == ClassEntryKind.Fallback);
+
+        if (fallbackEntry is null)
+        {
+            return specificEntries;
+        }
+
+        var normalized = new List<ClassEntry<TPayload>>(specificEntries.Count + 1);
+        normalized.AddRange(specificEntries);
+        normalized.Add(fallbackEntry);
+        return normalized;
     }
 
     private static void CheckConservation(

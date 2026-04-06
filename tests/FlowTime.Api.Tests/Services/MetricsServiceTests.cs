@@ -17,6 +17,7 @@ public sealed class MetricsServiceTests : IDisposable
 {
     private const string telemetryRunId = "run_metrics_unit";
     private const string simulationRunId = "run_metrics_sim";
+  private const string simulationSeriesRunId = "run_metrics_sim_series";
 
     private readonly string artifactsRoot;
     private readonly MetricsService metricsService;
@@ -35,6 +36,7 @@ public sealed class MetricsServiceTests : IDisposable
 
         CreateTelemetryRun(telemetryRunId);
         CreateSimulationRun(simulationRunId);
+        CreateSimulationSeriesRun(simulationSeriesRunId);
 
         var manifestReader = new RunManifestReader();
         var stateQueryService = new StateQueryService(
@@ -109,6 +111,20 @@ public sealed class MetricsServiceTests : IDisposable
         Assert.Equal(new double?[] { 1d, 0.96, 0.6 }, service.Mini);
     }
 
+    [Fact]
+    public async Task GetMetricsAsync_SimulationSeriesPrefixedSemanticsResolvedFromFallbackModel()
+    {
+        var response = await metricsService.GetMetricsAsync(simulationSeriesRunId, 0, 2);
+
+        Assert.Equal(3, response.Grid.Bins);
+        var service = Assert.Single(response.Services);
+        Assert.Equal("SimService", service.Id);
+        Assert.Equal(2, service.BinsMet);
+        Assert.Equal(3, service.BinsTotal);
+        Assert.Equal(2d / 3d, service.SlaPct, 6);
+        Assert.Equal(new double?[] { 1d, 0.96, 0.6 }, service.Mini);
+    }
+
     private void CreateTelemetryRun(string identifier)
     {
         var runDir = Path.Combine(artifactsRoot, identifier);
@@ -136,6 +152,18 @@ public sealed class MetricsServiceTests : IDisposable
 
         File.WriteAllText(Path.Combine(modelDir, "model.yaml"), BuildSimulationModelYaml(), Encoding.UTF8);
         WriteMetadata(modelDir, identifier, mode: "simulation");
+        WriteRunJson(runDir, identifier, source: "engine", bins: 6);
+    }
+
+    private void CreateSimulationSeriesRun(string identifier)
+    {
+        var runDir = Path.Combine(artifactsRoot, identifier);
+        var modelDir = Path.Combine(runDir, "model");
+        Directory.CreateDirectory(modelDir);
+
+        File.WriteAllText(Path.Combine(modelDir, "model.yaml"), BuildSimulationSeriesModelYaml(), Encoding.UTF8);
+
+        // Intentionally omit metadata/provenance so MetricsService must use its model fallback path.
         WriteRunJson(runDir, identifier, source: "engine", bins: 6);
     }
 
@@ -210,8 +238,53 @@ outputs:
 """;
     }
 
+    private static string BuildSimulationSeriesModelYaml()
+    {
+        return """
+schemaVersion: 1
+
+grid:
+  bins: 6
+  binSize: 5
+  binUnit: minutes
+  startTimeUtc: "2025-01-01T00:00:00Z"
+
+topology:
+  nodes:
+    - id: "SimService"
+      kind: "service"
+      semantics:
+        arrivals: "series:base_load"
+        served: "series:processed_load"
+        errors: "series:service_errors"
+  edges: []
+
+nodes:
+  - id: "base_load"
+    kind: "const"
+    values: [10, 10, 10, 10, 10, 10]
+  - id: "processed_load"
+    kind: "const"
+    values: [10, 9.6, 6, 4, 10, 10]
+  - id: "service_errors"
+    kind: "expr"
+    expr: base_load - processed_load
+
+outputs:
+  - series: base_load
+    as: base_load.csv
+  - series: processed_load
+    as: processed_load.csv
+  - series: service_errors
+    as: service_errors.csv
+""";
+    }
+
     private static void WriteMetadata(string modelDirectory, string identifier, string mode)
     {
+      var telemetryMetadata = FlowTime.Core.TimeTravel.TelemetrySourceMetadataExtractor.Extract(
+        File.ReadAllText(Path.Combine(modelDirectory, "model.yaml"), Encoding.UTF8));
+
         var metadata = new
         {
             templateId = "unit-template",
@@ -219,7 +292,9 @@ outputs:
             templateVersion = "1.0.0",
             schemaVersion = 1,
             mode,
-            modelHash = $"sha256:{identifier}"
+        modelHash = $"sha256:{identifier}",
+        telemetrySources = telemetryMetadata.TelemetrySources,
+        nodeSources = telemetryMetadata.NodeSources
         };
 
         var metadataJson = System.Text.Json.JsonSerializer.Serialize(metadata, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web) { WriteIndented = true });

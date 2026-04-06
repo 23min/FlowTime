@@ -307,9 +307,13 @@ outputs: []
         using var indexJson = JsonDocument.Parse(await File.ReadAllTextAsync(indexPath));
         var seriesArray = indexJson.RootElement.GetProperty("series");
         Assert.Contains(seriesArray.EnumerateArray(), element =>
+          element.GetProperty("class").GetString() == "DEFAULT" &&
+          element.GetProperty("classKind").GetString() == "fallback");
+        Assert.Contains(seriesArray.EnumerateArray(), element =>
             element.TryGetProperty("class", out var classProp) &&
-            classProp.GetString() is { } value &&
-            !string.Equals(value, "DEFAULT", StringComparison.OrdinalIgnoreCase));
+          classProp.GetString() is { } value &&
+          !string.Equals(value, "DEFAULT", StringComparison.OrdinalIgnoreCase) &&
+          element.GetProperty("classKind").GetString() == "specific");
 
         var runJsonPath = Path.Combine(result.RunDirectory, "run.json");
         using var runJson = JsonDocument.Parse(await File.ReadAllTextAsync(runJsonPath));

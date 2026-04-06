@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using FlowTime.Core.Compiler;
 using FlowTime.Core.Models;
 using FlowTime.Core.DataSources;
 using Xunit;
@@ -30,9 +31,9 @@ public class SemanticLoaderTests
             Id = "OrderService",
             Semantics = new NodeSemantics
             {
-                Arrivals = "file:arrivals.csv",
-                Served = "file:served.csv",
-                Errors = "file:errors.csv"
+                Arrivals = Ref("file:arrivals.csv"),
+                Served = Ref("file:served.csv"),
+                Errors = Ref("file:errors.csv")
             }
         };
 
@@ -77,11 +78,11 @@ public class SemanticLoaderTests
             Id = "OrderQueue",
             Semantics = new NodeSemantics
             {
-                Arrivals = "file:arrivals.csv",
-                Served = "file:served.csv",
-                Errors = "file:errors.csv",
-                ExternalDemand = "file:external.csv",
-                QueueDepth = "file:queue.csv"
+                Arrivals = Ref("file:arrivals.csv"),
+                Served = Ref("file:served.csv"),
+                Errors = Ref("file:errors.csv"),
+                ExternalDemand = Ref("file:external.csv"),
+                QueueDepth = Ref("file:queue.csv")
             }
         };
 
@@ -90,6 +91,70 @@ public class SemanticLoaderTests
 
         Assert.Equal(new[] { 12d, 22d }, data.ExternalDemand);
         Assert.Equal(new[] { 5d, 7d }, data.QueueDepth);
+    }
+
+    [Fact]
+    public void LoadNodeData_ExpandsConstantParallelismReference()
+    {
+        using var temp = TempDirectory.Create();
+        temp.Write("arrivals.csv", @"bin_index,value
+0,10
+1,20
+");
+        temp.Write("served.csv", @"bin_index,value
+0,8
+1,18
+");
+
+        var node = new Node
+        {
+            Id = "OrderQueue",
+            Semantics = new NodeSemantics
+            {
+                Arrivals = Ref("file:arrivals.csv"),
+                Served = Ref("file:served.csv"),
+                Parallelism = ParallelismReference.Literal(3d)
+            }
+        };
+
+        var loader = new SemanticLoader(temp.Path);
+        var data = loader.LoadNodeData(node, 2);
+
+        Assert.Equal(new[] { 3d, 3d }, data.Parallelism);
+    }
+
+    [Fact]
+    public void LoadNodeData_LoadsParallelismSeriesFromReference()
+    {
+        using var temp = TempDirectory.Create();
+        temp.Write("arrivals.csv", @"bin_index,value
+0,10
+1,20
+");
+        temp.Write("served.csv", @"bin_index,value
+0,8
+1,18
+");
+        temp.Write("parallelism.csv", @"bin_index,value
+0,2
+1,4
+");
+
+        var node = new Node
+        {
+            Id = "OrderQueue",
+            Semantics = new NodeSemantics
+            {
+                Arrivals = Ref("file:arrivals.csv"),
+                Served = Ref("file:served.csv"),
+                Parallelism = ParallelismReference.Series("file:parallelism.csv")
+            }
+        };
+
+        var loader = new SemanticLoader(temp.Path);
+        var data = loader.LoadNodeData(node, 2);
+
+        Assert.Equal(new[] { 2d, 4d }, data.Parallelism);
     }
 
     [Fact]
@@ -106,9 +171,9 @@ public class SemanticLoaderTests
             Id = "OrderService",
             Semantics = new NodeSemantics
             {
-                Arrivals = "file:arrivals.csv",
-                Served = "file:missing.csv",
-                Errors = "file:errors.csv"
+                Arrivals = Ref("file:arrivals.csv"),
+                Served = Ref("file:missing.csv"),
+                Errors = Ref("file:errors.csv")
             }
         };
 
@@ -116,6 +181,9 @@ public class SemanticLoaderTests
 
         Assert.Throws<FileNotFoundException>(() => loader.LoadNodeData(node, 2));
     }
+
+    private static CompiledSeriesReference Ref(string value) =>
+        SemanticReferenceResolver.ParseSeriesReference(value);
 
     private sealed class TempDirectory : IDisposable
     {

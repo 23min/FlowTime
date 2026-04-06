@@ -2,7 +2,7 @@
 
 **ID:** m-E16-01-compiled-semantic-references
 **Epic:** Formula-First Core Purification
-**Status:** draft
+**Status:** in-progress
 
 ## Goal
 
@@ -17,6 +17,9 @@ Reference parsing is currently duplicated across four sites:
 - `ModelCompiler.IsFileReference()` — Core, reference detection only
 - `StateQueryService.TryResolveSeriesNodeId()` — API, extracts node IDs from references for logicalType promotion
 - `RunArtifactReader.NormalizeSeriesIdentifier()` — Generator, normalizes references during capture
+
+Runtime metadata recovery also still leaks across the authoring/runtime boundary:
+- `RunManifestReader.ExtractTelemetrySourcesFromText()` — Core, reparses raw YAML text to recover telemetry-source facts when artifact metadata is missing
 
 Before analytical purity can be enforced, the compiler must own semantic reference resolution once. This cut is forward-only: old runs, fixtures, and approved snapshots can be regenerated once the compiled runtime shape changes.
 
@@ -39,7 +42,8 @@ Before implementation begins, confirm these invariants are testable and will gat
 6. `Parallelism` becomes a typed reference (numeric constant or series ref) resolved at compile time. The `object?` type on `NodeSemantics.Parallelism` is replaced.
 7. `SemanticLoader` is split: reference resolution moves to the compiler; data loading stays as I/O and takes typed references as input instead of raw strings.
 8. A grep-based audit confirms no `file:` / `series:` string parsing remains in API or adapter code for runtime analytical behavior.
-9. `dotnet build` and `dotnet test --nologo` are green.
+9. Runtime metadata readers no longer recover telemetry-source facts by reparsing raw YAML/model text once regenerated artifacts can carry those facts explicitly; raw-text fallback readers are deleted in the same forward-only cut.
+10. `dotnet build` and `dotnet test --nologo` are green.
 
 ## Guards / DO NOT
 
@@ -49,6 +53,7 @@ Before implementation begins, confirm these invariants are testable and will gat
 - **DO NOT** make SemanticLoader parse raw strings itself. After this milestone, SemanticLoader receives typed refs for I/O.
 - **DO NOT** preserve raw-string parsing helpers such as `TryResolveSeriesNodeId` or `seriesFileRegex` as "temporary" helpers. Descriptor-driven logical-type deletion belongs to m-E16-03; do not blur the slice by pulling that milestone forward.
 - **DO NOT** introduce adapter-side reference resolution "for convenience." The compiler owns reference resolution.
+- **DO NOT** keep raw-YAML fallback extraction in runtime metadata readers once regenerated artifacts can carry telemetry-source facts explicitly.
 
 ## Deletion Targets
 
@@ -62,6 +67,7 @@ These specific code paths must be removed or replaced by this milestone's comple
 | `IsFileReference()` | ModelCompiler.cs:140 | Collapses into typed reference resolution in the compiler |
 | `ParseParallelismScalar()` | StateQueryService.cs | Runtime parsing of `object?` parallelism — compiler resolves it |
 | `BuildParallelismSeries()` | StateQueryService.cs:1694 | Runtime conversion of parallelism to series — compiler resolves it |
+| `ExtractTelemetrySourcesFromText()` fallback | RunManifestReader.cs | Runtime metadata must not recover telemetry facts by reparsing raw YAML |
 
 ## Test Strategy
 
@@ -69,6 +75,7 @@ These specific code paths must be removed or replaced by this milestone's comple
 - **Round-trip parity tests:** Prove that compiled typed references produce the same runtime data loading as the old raw-string path, then delete the old path.
 - **Negative tests:** Verify that `StateQueryService` and adapter code do not contain reference-parsing helpers post-migration (grep-based audit as AC).
 - **Fixture regeneration:** All existing approved snapshots that depend on the old runtime shape are regenerated and re-approved.
+- **Runtime-metadata migration tests:** Regenerated runs prove telemetry-source facts are loaded from explicit artifact metadata, not raw-YAML fallback extraction.
 
 ## Execution Checklist
 
@@ -87,6 +94,7 @@ Work these slices in order. Do not pull descriptor-era cleanup forward from m-E1
 - [ ] Move runtime-relevant reference parsing/resolution into `src/FlowTime.Core/Compiler/ModelCompiler.cs`.
 - [ ] Narrow `src/FlowTime.Core/DataSources/SemanticLoader.cs` so it performs typed-ref I/O only, not reference interpretation.
 - [ ] Audit generator/run-orchestration call sites that currently depend on normalized raw references, including `src/FlowTime.Generator/Orchestration/RunOrchestrationService.cs`.
+- [ ] Remove raw-YAML telemetry-source fallback from `src/FlowTime.Core/TimeTravel/RunManifestReader.cs` once regenerated runtime metadata carries those facts explicitly.
 - Review gate: round-trip parity tests prove typed refs load the same runtime data as the old raw-string path before the old path is deleted.
 
 ### Slice 3: API stops reparsing semantics

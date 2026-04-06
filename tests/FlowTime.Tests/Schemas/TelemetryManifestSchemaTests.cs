@@ -80,7 +80,12 @@ public class TelemetryManifestSchemaTests
     private static JsonSchema LoadTelemetryManifestSchema()
     {
         var schemaPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "docs", "schemas", "telemetry-manifest.schema.json"));
-        var schemaText = File.ReadAllText(schemaPath);
-        return JsonSchema.FromText(schemaText);
+        var schemaNode = JsonNode.Parse(File.ReadAllText(schemaPath)) ?? throw new InvalidOperationException("Schema JSON could not be parsed.");
+        if (schemaNode is JsonObject schemaObject)
+        {
+            schemaObject.Remove("$schema");
+        }
+
+        return JsonSchema.FromText(schemaNode.ToJsonString());
     }
 }

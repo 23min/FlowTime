@@ -71,6 +71,7 @@
                 "storage": { "$ref": "#/$defs/storageDescriptor" },
                 "classCoverage": { "type": ["string", "null"], "enum": ["full", "partial", "missing", null] },
                 "edgeQuality": { "type": "string", "enum": ["exact", "approx", "missing", "partialClass"] },
+                "inputHash": { "$ref": "#/$defs/hash" },
                 "rng": {
                     "anyOf": [
                         { "type": "null" },
@@ -187,6 +188,20 @@
                     "type": "object",
                     "additionalProperties": { "$ref": "#/$defs/numericSeries" }
                 },
+                "queueLatencyStatus": {
+                    "anyOf": [
+                        { "type": "null" },
+                        {
+                            "type": "array",
+                            "items": {
+                                "anyOf": [
+                                    { "type": "null" },
+                                    { "$ref": "#/$defs/queueLatencyStatusDescriptor" }
+                                ]
+                            }
+                        }
+                    ]
+                },
                 "telemetry": { "$ref": "#/$defs/nodeTelemetryInfo" },
                 "aliases": { "$ref": "#/$defs/aliasDictionary" },
                 "dispatchSchedule": {
@@ -271,7 +286,22 @@
                 "capacity": { "$ref": "#/$defs/nullableNumber" },
                 "parallelism": { "$ref": "#/$defs/nullableNumber" },
                 "externalDemand": { "$ref": "#/$defs/nullableNumber" },
-                "maxAttempts": { "$ref": "#/$defs/nullableNumber" }
+                "maxAttempts": { "$ref": "#/$defs/nullableNumber" },
+                "queueLatencyStatus": {
+                    "anyOf": [
+                        { "type": "null" },
+                        { "$ref": "#/$defs/queueLatencyStatusDescriptor" }
+                    ]
+                }
+            }
+        },
+        "queueLatencyStatusDescriptor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["code", "message"],
+            "properties": {
+                "code": { "type": "string", "minLength": 1 },
+                "message": { "type": "string", "minLength": 1 }
             }
         },
         "classMetrics": {
@@ -284,7 +314,11 @@
                 "queue": { "$ref": "#/$defs/nullableNumber" },
                 "capacity": { "$ref": "#/$defs/nullableNumber" },
                 "processingTimeMsSum": { "$ref": "#/$defs/nullableNumber" },
-                "servedCount": { "$ref": "#/$defs/nullableNumber" }
+                "servedCount": { "$ref": "#/$defs/nullableNumber" },
+                "queueTimeMs": { "$ref": "#/$defs/nullableNumber" },
+                "serviceTimeMs": { "$ref": "#/$defs/nullableNumber" },
+                "cycleTimeMs": { "$ref": "#/$defs/nullableNumber" },
+                "flowEfficiency": { "$ref": "#/$defs/nullableNumber" }
             }
         },
         "nodeDerivedMetrics": {
@@ -294,7 +328,10 @@
                 "utilization": { "$ref": "#/$defs/nullableNumber" },
                 "latencyMinutes": { "$ref": "#/$defs/nullableNumber" },
                 "serviceTimeMs": { "$ref": "#/$defs/nullableNumber" },
+                "queueTimeMs": { "$ref": "#/$defs/nullableNumber" },
+                "cycleTimeMs": { "$ref": "#/$defs/nullableNumber" },
                 "flowLatencyMs": { "$ref": "#/$defs/nullableNumber" },
+                "flowEfficiency": { "$ref": "#/$defs/nullableNumber" },
                 "throughputRatio": { "$ref": "#/$defs/nullableNumber" },
                 "retryTax": { "$ref": "#/$defs/nullableNumber" },
                 "color": { "type": ["string", "null"], "minLength": 1 }

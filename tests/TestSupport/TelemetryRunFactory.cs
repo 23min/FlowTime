@@ -154,6 +154,7 @@ public static class TelemetryRunFactory
             unit = "entities/bin",
             componentId = series.ComponentId,
             @class = "DEFAULT",
+            classKind = "fallback",
             points = bins,
             hash = "sha256:placeholder"
         };

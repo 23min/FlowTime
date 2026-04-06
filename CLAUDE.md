@@ -212,8 +212,9 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 - **E-10** Engine Correctness (`work/epics/E-10-engine-correctness-and-analytics/spec.md`) — **gated on E-16**
   - Phases 0-2 complete. Phase 3 bridge complete (m-ec-p3a, m-ec-p3a1 merged to main).
   - **Remaining:** p3b (WIP Limits), p3c (Variability), p3d (Constraint Enforcement) — resume after E-16
-- **E-16** Formula-First Core Purification (`work/epics/E-16-formula-first-core-purification/spec.md`) — **approved, ready to start**
-  - **Next:** m-E16-01 (Compiled Semantic References)
+- **E-16** Formula-First Core Purification (`work/epics/E-16-formula-first-core-purification/spec.md`) — **in progress**
+  - **Current milestone:** m-E16-02 (Class Truth Boundary) — in progress
+  - **Branch:** `milestone/m-E16-01-compiled-semantic-references`
   - Then: class truth boundary, runtime analytical descriptor, Core analytical evaluation, warning facts cleanup, contract + consumer purification
 - **E-11** Svelte UI — paused after M6
   - M1-M4 + M6 done, M5/M7/M8 remain
