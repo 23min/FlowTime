@@ -4,6 +4,7 @@ public sealed record Node
 {
     public required string Id { get; init; }
     public string Kind { get; init; } = "service";
+    public required RuntimeAnalyticalDescriptor Analytical { get; init; }
     public string? NodeRole { get; init; }
     public string? Group { get; init; }
     public UiHints? Ui { get; init; }

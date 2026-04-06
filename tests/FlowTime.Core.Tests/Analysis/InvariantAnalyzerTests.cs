@@ -549,6 +549,57 @@ public class InvariantAnalyzerTests
     }
 
     [Fact]
+    public void Analyze_UsesCompiledDescriptor_ForReferenceResolvedQueueBackedService()
+    {
+        var model = new ModelDefinition
+        {
+            Nodes =
+            {
+                new NodeDefinition
+                {
+                    Id = "queue_helper",
+                    Kind = "serviceWithBuffer",
+                    Inflow = "arrivals",
+                    Outflow = "served"
+                }
+            },
+            Topology = new TopologyDefinition
+            {
+                Nodes =
+                {
+                    new TopologyNodeDefinition
+                    {
+                        Id = "ReferencedQueueService",
+                        Kind = "service",
+                        InitialCondition = new InitialConditionDefinition
+                        {
+                            QueueDepth = 1d
+                        },
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "arrivals",
+                            Served = "served",
+                            QueueDepth = "queue_helper"
+                        }
+                    }
+                }
+            }
+        };
+
+        var evaluated = new Dictionary<NodeId, double[]>
+        {
+            [new NodeId("arrivals")] = new[] { 0d, 0d },
+            [new NodeId("served")] = new[] { 1d, 0d },
+            [new NodeId("queue_helper")] = new[] { 0d, 0d }
+        };
+
+        var result = InvariantAnalyzer.Analyze(model, evaluated);
+
+        Assert.DoesNotContain(result.Warnings, warning => warning.Code == "served_exceeds_arrivals");
+        Assert.DoesNotContain(result.Warnings, warning => warning.Code == "queue_depth_mismatch");
+    }
+
+    [Fact]
     public void DetectServiceWithBufferClassCoverageGaps_WarnsWhenOutflowOrLossMissingClasses()
     {
         var nodeDefinitions = new Dictionary<string, NodeDefinition>(StringComparer.OrdinalIgnoreCase)

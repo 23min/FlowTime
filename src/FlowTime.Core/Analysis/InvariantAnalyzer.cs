@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Linq;
 using FlowTime.Core.Artifacts;
+using FlowTime.Core.Compiler;
 using FlowTime.Core.Dispatching;
 using FlowTime.Core.Execution;
 using FlowTime.Core.Models;
@@ -41,6 +42,7 @@ public static class InvariantAnalyzer
         var topologyNodeLookup = model.Topology.Nodes
             .Where(n => !string.IsNullOrWhiteSpace(n.Id))
             .ToDictionary(n => n.Id!, n => n, StringComparer.OrdinalIgnoreCase);
+        var topologyAnalyticalDescriptors = BuildTopologyAnalyticalDescriptors(model.Topology.Nodes, nodeDefinitions);
         var constraintLookup = model.Topology.Constraints
             .Where(constraint => !string.IsNullOrWhiteSpace(constraint.Id))
             .ToDictionary(constraint => constraint.Id, constraint => constraint, StringComparer.OrdinalIgnoreCase);
@@ -127,13 +129,15 @@ public static class InvariantAnalyzer
 
             var semantics = topoNode.Semantics;
             var nodeId = topoNode.Id;
-            var nodeKind = (topoNode.Kind ?? string.Empty).Trim().ToLowerInvariant();
-            var isServiceWithBuffer = nodeKind == "servicewithbuffer";
-            var isServiceKind = nodeKind == "service" || nodeKind == "router";
-            var isQueueKind = nodeKind == "queue";
-            var isQueueLikeKind = nodeKind is "queue" or "dlq";
-            var isDlqKind = nodeKind == "dlq";
-            var isDependencyKind = nodeKind == "dependency";
+            var analyticalDescriptor = topologyAnalyticalDescriptors.TryGetValue(nodeId, out var descriptor)
+                ? descriptor
+                : RuntimeAnalyticalDescriptorCompiler.Compile(nodeId, topoNode.Kind, topoNode.NodeRole, semantics, nodeDefinitions);
+            var isServiceWithBuffer = analyticalDescriptor.Identity == RuntimeAnalyticalIdentity.ServiceWithBuffer;
+            var isServiceKind = analyticalDescriptor.Category is RuntimeAnalyticalNodeCategory.Service or RuntimeAnalyticalNodeCategory.Router;
+            var isQueueKind = analyticalDescriptor.Category == RuntimeAnalyticalNodeCategory.Queue;
+            var isQueueLikeKind = analyticalDescriptor.Category is RuntimeAnalyticalNodeCategory.Queue or RuntimeAnalyticalNodeCategory.Dlq;
+            var isDlqKind = analyticalDescriptor.Category == RuntimeAnalyticalNodeCategory.Dlq;
+            var isDependencyKind = analyticalDescriptor.Category == RuntimeAnalyticalNodeCategory.Dependency;
             var isTerminalQueue = isQueueKind &&
                                   incomingEdges.TryGetValue(nodeId, out var terminalInbound) &&
                                   terminalInbound.Count > 0 &&
@@ -580,7 +584,7 @@ public static class InvariantAnalyzer
 
         AppendRouterDiagnostics(model, evaluatedSeries, warnings);
         AppendServiceWithBufferClassCoverageWarnings(nodeDefinitions, model, evaluatedSeries, warnings);
-        AppendTopologyClassCoverageWarnings(model, evaluatedSeries, warnings);
+        AppendTopologyClassCoverageWarnings(model, nodeDefinitions, evaluatedSeries, warnings);
 
         return warnings.Count == 0
             ? new InvariantAnalysisResult(Array.Empty<InvariantWarning>())
@@ -1509,6 +1513,7 @@ public static class InvariantAnalyzer
 
     private static void AppendTopologyClassCoverageWarnings(
         ModelDefinition model,
+        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
         IReadOnlyDictionary<NodeId, double[]> evaluatedSeries,
         List<InvariantWarning> warnings)
     {
@@ -1531,11 +1536,12 @@ public static class InvariantAnalyzer
         try
         {
             var contributions = ClassContributionBuilder.Build(model, grid, evaluatedSeries, classAssignments, out _);
-            foreach (var warning in DetectTopologyServiceWithBufferClassCoverageGaps(model.Topology.Nodes, evaluatedSeries, contributions))
+            var topologyAnalyticalDescriptors = BuildTopologyAnalyticalDescriptors(model.Topology.Nodes, nodeDefinitions);
+            foreach (var warning in DetectTopologyServiceWithBufferClassCoverageGaps(model.Topology.Nodes, topologyAnalyticalDescriptors, evaluatedSeries, contributions))
             {
                 warnings.Add(warning);
             }
-            foreach (var warning in DetectTopologyNodeClassCoverageGaps(model.Topology.Nodes, evaluatedSeries, contributions))
+            foreach (var warning in DetectTopologyNodeClassCoverageGaps(model.Topology.Nodes, topologyAnalyticalDescriptors, evaluatedSeries, contributions))
             {
                 warnings.Add(warning);
             }
@@ -1589,11 +1595,30 @@ public static class InvariantAnalyzer
         IReadOnlyDictionary<NodeId, double[]> evaluatedSeries,
         IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> contributions)
     {
+        var topologyAnalyticalDescriptors = BuildTopologyAnalyticalDescriptors(
+            topologyNodes,
+            new Dictionary<string, NodeDefinition>(StringComparer.OrdinalIgnoreCase));
+
+        return DetectTopologyServiceWithBufferClassCoverageGaps(
+            topologyNodes,
+            topologyAnalyticalDescriptors,
+            evaluatedSeries,
+            contributions);
+    }
+
+    internal static IReadOnlyList<InvariantWarning> DetectTopologyServiceWithBufferClassCoverageGaps(
+        IReadOnlyList<TopologyNodeDefinition> topologyNodes,
+        IReadOnlyDictionary<string, RuntimeAnalyticalDescriptor> topologyAnalyticalDescriptors,
+        IReadOnlyDictionary<NodeId, double[]> evaluatedSeries,
+        IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> contributions)
+    {
         var warnings = new List<InvariantWarning>();
 
         foreach (var node in topologyNodes)
         {
-            if (!string.Equals(node.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(node.Id) ||
+                !topologyAnalyticalDescriptors.TryGetValue(node.Id, out var descriptor) ||
+                descriptor.Identity != RuntimeAnalyticalIdentity.ServiceWithBuffer)
             {
                 continue;
             }
@@ -1616,11 +1641,30 @@ public static class InvariantAnalyzer
         IReadOnlyDictionary<NodeId, double[]> evaluatedSeries,
         IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> contributions)
     {
+        var topologyAnalyticalDescriptors = BuildTopologyAnalyticalDescriptors(
+            topologyNodes,
+            new Dictionary<string, NodeDefinition>(StringComparer.OrdinalIgnoreCase));
+
+        return DetectTopologyNodeClassCoverageGaps(
+            topologyNodes,
+            topologyAnalyticalDescriptors,
+            evaluatedSeries,
+            contributions);
+    }
+
+    internal static IReadOnlyList<InvariantWarning> DetectTopologyNodeClassCoverageGaps(
+        IReadOnlyList<TopologyNodeDefinition> topologyNodes,
+        IReadOnlyDictionary<string, RuntimeAnalyticalDescriptor> topologyAnalyticalDescriptors,
+        IReadOnlyDictionary<NodeId, double[]> evaluatedSeries,
+        IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> contributions)
+    {
         var warnings = new List<InvariantWarning>();
 
         foreach (var node in topologyNodes)
         {
-            if (string.Equals(node.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(node.Id) ||
+                (topologyAnalyticalDescriptors.TryGetValue(node.Id, out var descriptor) &&
+                 descriptor.Identity == RuntimeAnalyticalIdentity.ServiceWithBuffer))
             {
                 continue;
             }
@@ -1636,6 +1680,30 @@ public static class InvariantAnalyzer
         }
 
         return warnings;
+    }
+
+    private static Dictionary<string, RuntimeAnalyticalDescriptor> BuildTopologyAnalyticalDescriptors(
+        IReadOnlyList<TopologyNodeDefinition> topologyNodes,
+        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions)
+    {
+        var descriptors = new Dictionary<string, RuntimeAnalyticalDescriptor>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var node in topologyNodes)
+        {
+            if (string.IsNullOrWhiteSpace(node.Id) || node.Semantics is null)
+            {
+                continue;
+            }
+
+            descriptors[node.Id] = RuntimeAnalyticalDescriptorCompiler.Compile(
+                node.Id,
+                node.Kind,
+                node.NodeRole,
+                node.Semantics,
+                nodeDefinitions);
+        }
+
+        return descriptors;
     }
 
     private static HashSet<string> ResolveClasses(

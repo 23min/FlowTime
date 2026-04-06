@@ -10,6 +10,7 @@ using FlowTime.Contracts.Services;
 using FlowTime.Contracts.TimeTravel;
 using FlowTime.Core.DataSources;
 using FlowTime.Core.Execution;
+using FlowTime.Core.Metrics;
 using FlowTime.Core.Models;
 using FlowTime.Core.Nodes;
 using FlowTime.Core.TimeTravel;
@@ -226,6 +227,7 @@ public sealed class MetricsService
             nodes.Add(new ResolvedNodeSeries(
                 node.Id,
                 node.Kind,
+                node.LogicalType,
                 ClipSeries(arrivals, binCount),
                 ClipSeries(served, binCount),
                 ClipSeries(errors, binCount),
@@ -327,6 +329,7 @@ public sealed class MetricsService
             nodes.Add(new ResolvedNodeSeries(
                 topologyNode.Id,
                 topologyNode.Kind ?? "service",
+                topologyNode.Analytical.ToLogicalType(),
                 arrivals,
                 served,
                 errors,
@@ -419,7 +422,7 @@ public sealed class MetricsService
 
         foreach (var node in resolution.Nodes)
         {
-            if (string.Equals(node.Kind, "dlq", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(node.LogicalType, "dlq", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
@@ -485,6 +488,7 @@ internal sealed record MetricsResolution(
 internal sealed record ResolvedNodeSeries(
     string Id,
     string Kind,
+    string? LogicalType,
     double?[]? Arrivals,
     double?[]? Served,
     double?[]? Errors,

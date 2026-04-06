@@ -23,6 +23,15 @@ public sealed class ModeValidatorTests
             {
                 Id = "Service",
                 Kind = "service",
+                Analytical = new RuntimeAnalyticalDescriptor
+                {
+                    Identity = RuntimeAnalyticalIdentity.Service,
+                    Category = RuntimeAnalyticalNodeCategory.Service,
+                    HasQueueSemantics = false,
+                    HasServiceSemantics = true,
+                    HasCycleTimeDecomposition = false,
+                    StationarityWarningApplicable = false
+                },
                 Semantics = new NodeSemantics
                 {
                     Arrivals = Ref("arrivals"),
@@ -100,6 +109,65 @@ public sealed class ModeValidatorTests
         Assert.Contains(result.Warnings, w => w.Code == "telemetry_sources_missing");
         Assert.True(result.NodeWarnings.ContainsKey("Service"));
         Assert.Contains(result.NodeWarnings["Service"], w => w.Code == "telemetry_sources_unresolved");
+    }
+
+    [Fact]
+    public void Validate_SimulationQueueBackedServiceMissingQueueDepth_ReturnsError()
+    {
+        var topology = new Topology
+        {
+            Nodes = new List<Node>
+            {
+                new()
+                {
+                    Id = "BufferedService",
+                    Kind = "service",
+                    Analytical = new RuntimeAnalyticalDescriptor
+                    {
+                        Identity = RuntimeAnalyticalIdentity.ServiceWithBuffer,
+                        Category = RuntimeAnalyticalNodeCategory.Service,
+                        HasQueueSemantics = true,
+                        HasServiceSemantics = true,
+                        HasCycleTimeDecomposition = true,
+                        StationarityWarningApplicable = true,
+                        QueueSourceNodeId = "queue_helper"
+                    },
+                    Semantics = new NodeSemantics
+                    {
+                        Arrivals = Ref("arrivals"),
+                        Served = Ref("served"),
+                        QueueDepth = Ref("queue_helper")
+                    }
+                }
+            },
+            Edges = new List<Edge>()
+        };
+
+        var nodeData = new Dictionary<string, NodeData>(StringComparer.Ordinal)
+        {
+            ["BufferedService"] = new NodeData
+            {
+                NodeId = "BufferedService",
+                Arrivals = new[] { 1.0, 1.0, 1.0, 1.0 },
+                Served = new[] { 1.0, 1.0, 1.0, 1.0 },
+                QueueDepth = Array.Empty<double>()
+            }
+        };
+
+        var context = new ModeValidationContext(
+            CreateMetadata(mode: "simulation"),
+            testWindow,
+            topology,
+            nodeData,
+            Array.Empty<ModeValidationWarning>(),
+            new Dictionary<string, IReadOnlyList<ModeValidationWarning>>());
+        var validator = new ModeValidator();
+
+        var result = validator.Validate(context);
+
+        Assert.True(result.HasErrors);
+        Assert.Equal("mode_validation_failed", result.ErrorCode);
+        Assert.Contains("queue", result.ErrorMessage);
     }
 
     private static RunManifestMetadata CreateMetadata(string mode)

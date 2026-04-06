@@ -130,3 +130,18 @@ Accumulated learnings from implementation sessions.
 - File-backed series references must not recover producer node IDs from file stems at runtime; tests that encode that assumption need to be inverted, not preserved.
 - State schema drift can hide behind JSON Schema loader failures; strip `$schema` first, then reconcile the schema against the live DTO contract instead of chasing test-specific payload tweaks.
 - Tightening `RunManifestReader` to explicit telemetry metadata immediately breaks manual `metadata.json` fixtures in API tests unless they emit `telemetrySources` / `nodeSources` too.
+
+## 2026-04-06: E-16-03 Bridge Deletion
+
+### Patterns that worked
+- When a bridge abstraction still owns live math, extract the real successor surface immediately instead of deleting the name and leaving the same abstraction behind under a new wrapper.
+- A typed runtime identity enum is a cleaner replacement for normalized string bridges like `EffectiveKind`; it preserves projection needs without reopening heuristic classification.
+
+## 2026-04-06: E-16-03 AC-7 Audit
+
+### Patterns that worked
+- When a runtime purity audit seems finished, do one repo-wide grep for the exact `kind` classifications you removed. Small follow-on consumers like `MetricsService` are easy to miss after the main Core blockers are fixed.
+- If a validation path cannot depend on full `ParseMetadata()` because preconditions differ, add a compiler overload that works directly from raw topology semantics instead of reintroducing ad hoc string classification.
+
+### Pitfalls encountered
+- Milestone specs that say "delete the bridge now, move the math later" can force an impossible coexistence window. If the code proves that tension, record the sequencing change explicitly in decisions and tracking rather than pretending the old scope split still holds.

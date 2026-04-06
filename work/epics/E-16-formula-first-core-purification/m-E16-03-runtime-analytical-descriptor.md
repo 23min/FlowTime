@@ -2,7 +2,7 @@
 
 **ID:** m-E16-03-runtime-analytical-descriptor
 **Epic:** Formula-First Core Purification
-**Status:** draft
+**Status:** completed
 
 ## Goal
 
@@ -12,7 +12,7 @@ Compile an authoritative analytical descriptor onto runtime nodes and make all a
 
 `AnalyticalCapabilities` is currently a useful bridge abstraction resolved at query time from `kind + logicalType` strings. Once typed semantic references exist and class truth is explicit, runtime nodes can carry an analytical descriptor that is authoritative instead of forcing `StateQueryService` to infer one from strings and fallback behavior.
 
-The descriptor absorbs `AnalyticalCapabilities` rather than sitting alongside it. `AnalyticalCapabilities.Resolve(kind, logicalType)` was the right bridge for m-ec-p3a1, but string-based resolution is exactly what E-16 eliminates. The descriptor is produced by the compiler using typed semantic references. The computation methods currently on `AnalyticalCapabilities` (`ComputeBin`, `ComputeWindow`, etc.) move to the analytical evaluator in m-E16-04.
+The descriptor absorbs `AnalyticalCapabilities` rather than sitting alongside it. `AnalyticalCapabilities.Resolve(kind, logicalType)` was the right bridge for m-ec-p3a1, but string-based resolution is exactly what E-16 eliminates. The descriptor is produced by the compiler using typed semantic references. The computation methods formerly on `AnalyticalCapabilities` (`ComputeBin`, `ComputeWindow`, etc.) now live on the analytical evaluator; broader evaluator consolidation continues in m-E16-04.
 
 ## Structural Decision: Descriptor absorbs AnalyticalCapabilities
 
@@ -20,8 +20,8 @@ The descriptor absorbs `AnalyticalCapabilities` rather than sitting alongside it
 |--------|----------------------------------|-------------------------------|
 | Resolution | `Resolve(string? kind, string? logicalType)` at query time | Produced by compiler at compile time from typed refs |
 | Capability flags | `HasQueueSemantics`, `HasServiceSemantics`, etc. | Same flags, now compiled facts |
-| `EffectiveKind` | String normalization bridge | Removed — the descriptor captures identity without string mapping |
-| Computation methods | `ComputeBin`, `ComputeWindow`, etc. | Move to analytical evaluator (m-E16-04) |
+| `EffectiveKind` | String normalization bridge | Removed — replaced by typed analytical identity on the descriptor |
+| Computation methods | `ComputeBin`, `ComputeWindow`, etc. | Owned by the descriptor-backed analytical evaluator; extended further in m-E16-04 |
 | Queue origin | Not captured — recovered by `TryResolveSeriesNodeId` in API | Compiled fact: source-node identity for queue depth |
 | Node category | Not captured — `GraphMapper.Classify()` and `TopologyCanvas.ClassifyNode()` reconstruct it | Compiled fact: expression / constant / service / queue / dlq / router |
 | Parallelism | Not captured — resolved at runtime from `object?` | Compiled fact: resolved from typed parallelism reference |
@@ -31,7 +31,7 @@ The descriptor absorbs `AnalyticalCapabilities` rather than sitting alongside it
 1. Runtime nodes carry a compiled analytical descriptor that captures: effective analytical identity, queue/service semantics, cycle-time applicability, warning applicability, queue-origin/source-node facts, node category, and resolved parallelism.
 2. Explicit `serviceWithBuffer` nodes and reference-resolved queue-backed nodes produce identical descriptors using typed references and real fixture shapes, not basename heuristics.
 3. Snapshot/window analytical paths, backlog warnings, flow-latency base composition, SLA helper logic, and internal state/graph projection paths consume the descriptor rather than reconstructing analytical identity from strings.
-4. `AnalyticalCapabilities` is deleted. Its capability flags are absorbed into the descriptor. Its computation methods move to the evaluator (m-E16-04 scope, but the descriptor must be designed to support that move).
+4. `AnalyticalCapabilities` is deleted. Its capability flags are absorbed into the descriptor. Its computation methods live on the descriptor-backed evaluator surface.
 5. Adapter-side logical-type inference helpers used for runtime analytical behavior are deleted.
 6. Core and targeted API tests prove parity for both explicit and reference-resolved cases.
 7. Node category (expression/constant/service/queue/dlq) is a compiled descriptor field. No downstream code re-derives it from `kind` strings.
@@ -69,6 +69,7 @@ The descriptor absorbs `AnalyticalCapabilities` rather than sitting alongside it
 ## Technical Notes
 
 - Separate authoring `kind` from runtime analytical category. `kind` remains on the authored model; the descriptor owns the runtime truth.
+- Effective analytical identity is a typed descriptor fact, not a normalized string bridge.
 - Descriptor fields should be facts, not deferred computations.
 - Queue origin and source-node identity should come from compiled references rather than file-name or string-shape inference.
 - Consider an enum for node category rather than strings: `NodeCategory { Expression, Constant, Service, Queue, Dlq, Router }`.
@@ -78,7 +79,6 @@ The descriptor absorbs `AnalyticalCapabilities` rather than sitting alongside it
 
 - Public contract publication of the descriptor (m-E16-06)
 - Consolidation of emitted-series truth and warning facts into the evaluator (m-E16-04, m-E16-05)
-- Moving computation methods — the descriptor is designed to support the evaluator, but the evaluator is m-E16-04
 
 ## Dependencies
 

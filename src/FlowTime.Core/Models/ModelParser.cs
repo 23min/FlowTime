@@ -61,6 +61,9 @@ public static class ModelParser
             BinUnit = unit,
             StartTime = ParseStartTime(model.Grid.StartTimeUtc)
         };
+        var nodeDefinitionsById = (model.Nodes ?? new List<NodeDefinition>())
+            .Where(definition => !string.IsNullOrWhiteSpace(definition.Id))
+            .ToDictionary(definition => definition.Id, StringComparer.OrdinalIgnoreCase);
 
         Topology? topology = null;
         if (model.Topology != null)
@@ -90,39 +93,47 @@ public static class ModelParser
             if (definition.Semantics == null)
                 throw new ModelParseException($"Topology node '{definition.Id}' must include semantics");
 
+            var semantics = new NodeSemantics
+            {
+                Arrivals = RequireSeriesReference(definition.Semantics.Arrivals, definition.Id, "arrivals", "node"),
+                Served = RequireSeriesReference(definition.Semantics.Served, definition.Id, "served", "node"),
+                Errors = OptionalSeriesReference(definition.Semantics.Errors, definition.Id, "errors", "node"),
+                Attempts = OptionalSeriesReference(definition.Semantics.Attempts, definition.Id, "attempts", "node"),
+                Failures = OptionalSeriesReference(definition.Semantics.Failures, definition.Id, "failures", "node"),
+                ExhaustedFailures = OptionalSeriesReference(definition.Semantics.ExhaustedFailures, definition.Id, "exhaustedFailures", "node"),
+                RetryEcho = OptionalSeriesReference(definition.Semantics.RetryEcho, definition.Id, "retryEcho", "node"),
+                RetryBudgetRemaining = OptionalSeriesReference(definition.Semantics.RetryBudgetRemaining, definition.Id, "retryBudgetRemaining", "node"),
+                RetryKernel = definition.Semantics.RetryKernel,
+                ExternalDemand = OptionalSeriesReference(definition.Semantics.ExternalDemand, definition.Id, "externalDemand", "node"),
+                QueueDepth = OptionalSeriesReference(definition.Semantics.QueueDepth, definition.Id, "queueDepth", "node"),
+                Capacity = OptionalSeriesReference(definition.Semantics.Capacity, definition.Id, "capacity", "node"),
+                Parallelism = definition.Semantics.Parallelism,
+                ProcessingTimeMsSum = OptionalSeriesReference(definition.Semantics.ProcessingTimeMsSum, definition.Id, "processingTimeMsSum", "node"),
+                ServedCount = OptionalSeriesReference(definition.Semantics.ServedCount, definition.Id, "servedCount", "node"),
+                SlaMinutes = definition.Semantics.SlaMin,
+                MaxAttempts = definition.Semantics.MaxAttempts,
+                BackoffStrategy = definition.Semantics.BackoffStrategy,
+                ExhaustedPolicy = definition.Semantics.ExhaustedPolicy,
+                Metadata = definition.Semantics.Metadata,
+                Aliases = NormalizeAliases(definition.Semantics.Aliases)
+            };
+
             return new Node
             {
                 Id = definition.Id,
                 Kind = string.IsNullOrWhiteSpace(definition.Kind) ? "service" : definition.Kind,
+                Analytical = RuntimeAnalyticalDescriptorCompiler.Compile(
+                    definition.Id,
+                    definition.Kind,
+                    definition.NodeRole,
+                    semantics,
+                    nodeDefinitionsById),
                 NodeRole = string.IsNullOrWhiteSpace(definition.NodeRole) ? null : definition.NodeRole,
                 Group = definition.Group,
                 Ui = definition.Ui != null ? new UiHints { X = definition.Ui.X, Y = definition.Ui.Y } : null,
                 Constraints = definition.Constraints,
                 DispatchSchedule = definition.DispatchSchedule,
-                Semantics = new NodeSemantics
-                {
-                    Arrivals = RequireSeriesReference(definition.Semantics.Arrivals, definition.Id, "arrivals", "node"),
-                    Served = RequireSeriesReference(definition.Semantics.Served, definition.Id, "served", "node"),
-                    Errors = OptionalSeriesReference(definition.Semantics.Errors, definition.Id, "errors", "node"),
-                    Attempts = OptionalSeriesReference(definition.Semantics.Attempts, definition.Id, "attempts", "node"),
-                    Failures = OptionalSeriesReference(definition.Semantics.Failures, definition.Id, "failures", "node"),
-                    ExhaustedFailures = OptionalSeriesReference(definition.Semantics.ExhaustedFailures, definition.Id, "exhaustedFailures", "node"),
-                    RetryEcho = OptionalSeriesReference(definition.Semantics.RetryEcho, definition.Id, "retryEcho", "node"),
-                    RetryBudgetRemaining = OptionalSeriesReference(definition.Semantics.RetryBudgetRemaining, definition.Id, "retryBudgetRemaining", "node"),
-                    RetryKernel = definition.Semantics.RetryKernel,
-                    ExternalDemand = OptionalSeriesReference(definition.Semantics.ExternalDemand, definition.Id, "externalDemand", "node"),
-                    QueueDepth = OptionalSeriesReference(definition.Semantics.QueueDepth, definition.Id, "queueDepth", "node"),
-                    Capacity = OptionalSeriesReference(definition.Semantics.Capacity, definition.Id, "capacity", "node"),
-                    Parallelism = definition.Semantics.Parallelism,
-                    ProcessingTimeMsSum = OptionalSeriesReference(definition.Semantics.ProcessingTimeMsSum, definition.Id, "processingTimeMsSum", "node"),
-                    ServedCount = OptionalSeriesReference(definition.Semantics.ServedCount, definition.Id, "servedCount", "node"),
-                    SlaMinutes = definition.Semantics.SlaMin,
-                    MaxAttempts = definition.Semantics.MaxAttempts,
-                    BackoffStrategy = definition.Semantics.BackoffStrategy,
-                    ExhaustedPolicy = definition.Semantics.ExhaustedPolicy,
-                    Metadata = definition.Semantics.Metadata,
-                    Aliases = NormalizeAliases(definition.Semantics.Aliases)
-                },
+                Semantics = semantics,
                 InitialCondition = definition.InitialCondition != null
                     ? new InitialCondition { QueueDepth = definition.InitialCondition.QueueDepth }
                     : null

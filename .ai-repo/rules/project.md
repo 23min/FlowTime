@@ -96,6 +96,10 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 - Do not restate a canonical contract in many places from memory — point to the owning doc.
 - Do not let adapter/UI projection become the only place where semantics exist.
 - Do not keep "temporary" compatibility shims without explicit deletion criteria.
+- When a milestone explicitly owns a bridge or cleanup seam, do not preserve the bridge helper past that milestone as a tolerated coexistence state. Treat the surviving helper as incomplete work.
+- Do not reconstruct semantic or analytical identity in adapters or clients from `kind`, `logicalType`, file stems, or similar heuristics when compiled/runtime facts can own that truth.
+- When a runtime boundary changes, prefer forward-only regeneration of runs, fixtures, and approved outputs over compatibility readers that recover missing facts.
+- Do not keep both a bridge abstraction and its compiled replacement once the replacement milestone is active unless the spec explicitly allows a coexistence window.
 - Do not treat aspirational docs as implementation authority.
 
 ## Documentation

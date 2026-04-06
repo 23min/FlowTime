@@ -67,8 +67,8 @@ public sealed class ModeValidator
             }
 
             ProcessSeries(node.Semantics.Arrivals, data.Arrivals, "arrivals", required: true);
-            ProcessSeries(node.Semantics.Served, data.Served, "served", required: IsServiceNode(node));
-            ProcessSeries(node.Semantics.QueueDepth, data.QueueDepth, "queue", required: IsQueueNode(node));
+            ProcessSeries(node.Semantics.Served, data.Served, "served", required: RequiresServedSeries(node));
+            ProcessSeries(node.Semantics.QueueDepth, data.QueueDepth, "queue", required: RequiresQueueSeries(node));
             ProcessSeries(node.Semantics.Attempts, data.Attempts, "attempts", required: false);
             ProcessSeries(node.Semantics.Failures, data.Failures, "failures", required: false);
             ProcessSeries(node.Semantics.RetryEcho, data.RetryEcho, "retryEcho", required: false);
@@ -174,19 +174,12 @@ public sealed class ModeValidator
         }
     }
 
-    private static bool IsServiceNode(Node node) =>
-        string.Equals(node.Kind, "service", StringComparison.OrdinalIgnoreCase);
+    private static bool RequiresServedSeries(Node node) =>
+        node.Analytical.HasServiceSemantics;
 
-    private static bool IsQueueNode(Node node)
-    {
-        if (string.IsNullOrWhiteSpace(node.Kind))
-        {
-            return false;
-        }
-
-        return string.Equals(node.Kind, "queue", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(node.Kind, "dlq", StringComparison.OrdinalIgnoreCase);
-    }
+    private static bool RequiresQueueSeries(Node node) =>
+        node.Analytical.HasQueueSemantics ||
+        node.Analytical.Category is RuntimeAnalyticalNodeCategory.Queue or RuntimeAnalyticalNodeCategory.Dlq;
 }
 
 public sealed class ModeValidationContext

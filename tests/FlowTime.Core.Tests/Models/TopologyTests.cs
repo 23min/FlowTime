@@ -15,8 +15,8 @@ public class TopologyTests
         {
             Nodes = new[]
             {
-                new Node { Id = "A", Semantics = CreateSemantics("a_in", "a_out", "a_err") },
-                new Node { Id = "B", Semantics = CreateSemantics("b_in", "b_out", "b_err") }
+                CreateNode("A", "a_in", "a_out", "a_err"),
+                CreateNode("B", "b_in", "b_out", "b_err")
             },
             Edges = Array.Empty<Edge>()
         };
@@ -33,7 +33,7 @@ public class TopologyTests
         {
             Nodes = new[]
             {
-                new Node { Id = "A", Semantics = CreateSemantics("a_in", "a_out", "a_err") }
+                CreateNode("A", "a_in", "a_out", "a_err")
             },
             Edges = Array.Empty<Edge>()
         };
@@ -48,8 +48,8 @@ public class TopologyTests
         {
             Nodes = new[]
             {
-                new Node { Id = "A", Semantics = CreateSemantics("a_in", "a_out", "a_err") },
-                new Node { Id = "B", Semantics = CreateSemantics("b_in", "b_out", "b_err") }
+                CreateNode("A", "a_in", "a_out", "a_err"),
+                CreateNode("B", "b_in", "b_out", "b_err")
             },
             Edges = new[]
             {
@@ -72,8 +72,8 @@ public class TopologyTests
         {
             Nodes = new[]
             {
-                new Node { Id = "A", Semantics = CreateSemantics("a_in", "a_out", "a_err") },
-                new Node { Id = "B", Semantics = CreateSemantics("b_in", "b_out", "b_err") }
+                CreateNode("A", "a_in", "a_out", "a_err"),
+                CreateNode("B", "b_in", "b_out", "b_err")
             },
             Edges = new[]
             {
@@ -96,7 +96,7 @@ public class TopologyTests
         {
             Nodes = new[]
             {
-                new Node { Id = "A", Semantics = CreateSemantics("a_in", "a_out", "a_err") }
+                CreateNode("A", "a_in", "a_out", "a_err")
             },
             Edges = new[]
             {
@@ -116,7 +116,7 @@ public class TopologyTests
         {
             Nodes = new[]
             {
-                new Node { Id = "A", Semantics = CreateSemantics("a_in", "a_out", "a_err") }
+                CreateNode("A", "a_in", "a_out", "a_err")
             },
             Edges = new[]
             {
@@ -165,6 +165,21 @@ public class TopologyTests
         Arrivals = Ref(arrivals),
         Served = Ref(served),
         Errors = Ref(errors)
+    };
+
+    private static Node CreateNode(string id, string arrivals, string served, string errors) => new()
+    {
+        Id = id,
+        Analytical = new RuntimeAnalyticalDescriptor
+        {
+            Identity = RuntimeAnalyticalIdentity.Service,
+            Category = RuntimeAnalyticalNodeCategory.Service,
+            HasQueueSemantics = false,
+            HasServiceSemantics = true,
+            HasCycleTimeDecomposition = false,
+            StationarityWarningApplicable = false
+        },
+        Semantics = CreateSemantics(arrivals, served, errors)
     };
 
     private static CompiledSeriesReference Ref(string value) =>

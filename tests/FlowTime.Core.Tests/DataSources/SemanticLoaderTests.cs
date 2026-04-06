@@ -29,6 +29,7 @@ public class SemanticLoaderTests
         var node = new Node
         {
             Id = "OrderService",
+            Analytical = CreateDescriptor(),
             Semantics = new NodeSemantics
             {
                 Arrivals = Ref("file:arrivals.csv"),
@@ -76,6 +77,7 @@ public class SemanticLoaderTests
         var node = new Node
         {
             Id = "OrderQueue",
+            Analytical = CreateDescriptor(hasQueueSemantics: true),
             Semantics = new NodeSemantics
             {
                 Arrivals = Ref("file:arrivals.csv"),
@@ -109,6 +111,7 @@ public class SemanticLoaderTests
         var node = new Node
         {
             Id = "OrderQueue",
+            Analytical = CreateDescriptor(),
             Semantics = new NodeSemantics
             {
                 Arrivals = Ref("file:arrivals.csv"),
@@ -143,6 +146,7 @@ public class SemanticLoaderTests
         var node = new Node
         {
             Id = "OrderQueue",
+            Analytical = CreateDescriptor(),
             Semantics = new NodeSemantics
             {
                 Arrivals = Ref("file:arrivals.csv"),
@@ -169,6 +173,7 @@ public class SemanticLoaderTests
         var node = new Node
         {
             Id = "OrderService",
+            Analytical = CreateDescriptor(),
             Semantics = new NodeSemantics
             {
                 Arrivals = Ref("file:arrivals.csv"),
@@ -184,6 +189,16 @@ public class SemanticLoaderTests
 
     private static CompiledSeriesReference Ref(string value) =>
         SemanticReferenceResolver.ParseSeriesReference(value);
+
+    private static RuntimeAnalyticalDescriptor CreateDescriptor(bool hasQueueSemantics = false) => new()
+    {
+        Identity = hasQueueSemantics ? RuntimeAnalyticalIdentity.ServiceWithBuffer : RuntimeAnalyticalIdentity.Service,
+        Category = RuntimeAnalyticalNodeCategory.Service,
+        HasQueueSemantics = hasQueueSemantics,
+        HasServiceSemantics = true,
+        HasCycleTimeDecomposition = hasQueueSemantics,
+        StationarityWarningApplicable = hasQueueSemantics
+    };
 
     private sealed class TempDirectory : IDisposable
     {
