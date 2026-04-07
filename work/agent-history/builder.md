@@ -145,3 +145,14 @@ Accumulated learnings from implementation sessions.
 
 ### Pitfalls encountered
 - Milestone specs that say "delete the bridge now, move the math later" can force an impossible coexistence window. If the code proves that tension, record the sequencing change explicitly in decisions and tracking rather than pretending the old scope split still holds.
+
+## 2026-04-06: E-16-05 Warning Facts Projection
+
+### Patterns that worked
+- When a large single-file refactor goes structurally wrong, recover by diffing the live file against `HEAD` and restoring whole helper blocks in one pass before resuming behavior changes.
+- For analytical-warning purification, keep Core as the fact owner and let the API only project those facts; queue-like gating should come from Core emission truth (`HasAnyQueueTimeValue`), not a second adapter-local warning detector.
+- Reflection-based tests against the public surface are a clean way to lock ownership boundaries when friend assemblies still allow internal helper access during refactors.
+
+### Pitfalls encountered
+- Removing adapter-local analytical helpers piecemeal from `StateQueryService` can leave duplicate method bodies stranded inside unrelated helpers; parser errors far from the real edit site are a sign to restore blocks, not keep patching locally.
+- Projecting overload and age-risk warnings for every analytical node breaks existing API goldens; backlog-style warnings still need the queue-like emission boundary even after the warning facts move to Core.

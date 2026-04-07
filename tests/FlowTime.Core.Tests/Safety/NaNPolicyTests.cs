@@ -126,25 +126,25 @@ public class NaNPolicyTests
     [Fact]
     public void Tier2_Latency_ZeroServed_ReturnsNull()
     {
-        Assert.Null(LatencyComputer.Calculate(queue: 10, served: 0, binMinutes: 60));
+        Assert.Null(ComputeLatencyMinutes(queue: 10, served: 0, binMinutes: 60));
     }
 
     [Fact]
     public void Tier2_Latency_NegativeServed_ReturnsNull()
     {
-        Assert.Null(LatencyComputer.Calculate(queue: 10, served: -1, binMinutes: 60));
+        Assert.Null(ComputeLatencyMinutes(queue: 10, served: -1, binMinutes: 60));
     }
 
     [Fact]
     public void Tier2_Latency_ZeroBinMinutes_ReturnsNull()
     {
-        Assert.Null(LatencyComputer.Calculate(queue: 10, served: 5, binMinutes: 0));
+        Assert.Null(ComputeLatencyMinutes(queue: 10, served: 5, binMinutes: 0));
     }
 
     [Fact]
     public void Tier2_Latency_ValidInputs_ReturnsValue()
     {
-        Assert.Equal(120.0, LatencyComputer.Calculate(queue: 10, served: 5, binMinutes: 60));
+        Assert.Equal(120.0, ComputeLatencyMinutes(queue: 10, served: 5, binMinutes: 60));
     }
 
     [Fact]
@@ -280,5 +280,26 @@ public class NaNPolicyTests
         }
 
         return exprNode.Evaluate(grid, GetInput).ToArray();
+    }
+
+    private static double? ComputeLatencyMinutes(double queue, double served, double binMinutes)
+    {
+        var result = RuntimeAnalyticalEvaluator.ComputeBin(
+            new RuntimeAnalyticalDescriptor
+            {
+                Identity = RuntimeAnalyticalIdentity.Queue,
+                Category = RuntimeAnalyticalNodeCategory.Queue,
+                HasQueueSemantics = true,
+                HasServiceSemantics = false,
+                HasCycleTimeDecomposition = false,
+                StationarityWarningApplicable = true
+            },
+            queueDepth: queue,
+            served: served,
+            processingTimeMsSum: null,
+            servedCount: null,
+            binMs: binMinutes * 60_000);
+
+        return result.LatencyMinutes;
     }
 }

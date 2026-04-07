@@ -68,11 +68,13 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
 
     private readonly string artifactsRoot;
     private readonly HttpClient client;
+    private readonly TestWebApplicationFactory factory;
     private readonly TestLogCollector logCollector;
     private readonly bool deleteArtifactsOnDispose;
 
     public StateEndpointTests(TestWebApplicationFactory factory)
     {
+        this.factory = factory;
         var overrideRoot = Environment.GetEnvironmentVariable("FLOWTIME_TEST_ARTIFACT_ROOT");
         deleteArtifactsOnDispose = string.IsNullOrWhiteSpace(overrideRoot);
         artifactsRoot = string.IsNullOrWhiteSpace(overrideRoot)
@@ -1218,6 +1220,32 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         if (service.Telemetry?.Warnings is not null)
         {
             Assert.DoesNotContain(service.Telemetry.Warnings, w => w.Code == "littles-law-non-stationary");
+        }
+    }
+
+    [Fact]
+    public async Task GetStateWindow_StationarityWarning_RespectsConfiguredTolerance()
+    {
+        using var customizedFactory = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("ArtifactsDirectory", artifactsRoot);
+            builder.UseSetting("Analytics:StationarityTolerance", "0.80");
+        });
+        using var customizedClient = customizedFactory.CreateClient();
+
+        var response = await customizedClient.GetAsync($"/v1/runs/{stationarityRunId}/state_window?startBin=0&endBin=3");
+        Assert.True(response.IsSuccessStatusCode, $"Expected 200 but got {(int)response.StatusCode}");
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        var queue = Assert.Single(payload!.Nodes, n => n.Id == "SupportQueue");
+        if (queue.Telemetry?.Warnings is not null)
+        {
+            Assert.DoesNotContain(queue.Telemetry.Warnings, w => w.Code == "littles-law-non-stationary");
         }
     }
 

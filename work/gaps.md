@@ -137,8 +137,6 @@ The FlowTime `/v1/runs/{id}/graph` endpoint returns node `kind` (service, queue,
 
 See dag-map ROADMAP.md “Planned” sections.
 
----
-
 ## Svelte UI: SVG Performance at Scale
 
 The “all dependencies” non-operational view has ~60-80 nodes and 200+ edges. SVG should handle this (est. ~600 DOM elements), but hasn't been tested. If it struggles:

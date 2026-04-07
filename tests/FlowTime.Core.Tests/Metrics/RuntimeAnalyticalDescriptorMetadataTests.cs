@@ -1,3 +1,4 @@
+using System.Reflection;
 using FlowTime.Core.Metrics;
 using FlowTime.Core.Models;
 using Xunit;
@@ -154,6 +155,22 @@ public class RuntimeAnalyticalDescriptorMetadataTests
         double[] arrivals = [10, 10, 50, 50];
 
         Assert.True(RuntimeAnalyticalEvaluator.CheckStationarity(descriptor, arrivals, tolerance: 0.25));
+    }
+
+    [Fact]
+    public void LatencyComputer_IsNotExposedAsPublicCoreSurface()
+    {
+        var latencyComputerType = typeof(RuntimeAnalyticalEvaluator).Assembly.GetType("FlowTime.Core.Metrics.LatencyComputer", throwOnError: false);
+
+        Assert.True(latencyComputerType is null || !latencyComputerType.IsPublic);
+    }
+
+    [Fact]
+    public void CycleTimeComputer_DoesNotExposePublicStationarityCheck()
+    {
+        var method = typeof(CycleTimeComputer).GetMethod("CheckNonStationary", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.Null(method);
     }
 
     [Fact]

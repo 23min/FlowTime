@@ -41,44 +41,4 @@ public static class CycleTimeComputer
 
         return serviceTimeMs.Value / cycleTimeMs.Value;
     }
-
-    /// <summary>
-    /// Checks whether arrival rates are non-stationary across a window,
-    /// which makes Little's Law (Q/λ × binMs) potentially unreliable.
-    /// Compares the average arrival rate in the first half of the window
-    /// to the second half. Returns true if divergence exceeds tolerance.
-    /// </summary>
-    public static bool CheckNonStationary(double[] arrivals, double tolerance = 0.25)
-    {
-        if (arrivals.Length < 2)
-        {
-            return false;
-        }
-
-        var mid = arrivals.Length / 2;
-
-        double sumFirst = 0;
-        for (var i = 0; i < mid; i++)
-        {
-            sumFirst += arrivals[i];
-        }
-
-        double sumSecond = 0;
-        for (var i = mid; i < arrivals.Length; i++)
-        {
-            sumSecond += arrivals[i];
-        }
-
-        var avgFirst = sumFirst / mid;
-        var avgSecond = sumSecond / (arrivals.Length - mid);
-
-        var baseline = Math.Max(avgFirst, avgSecond);
-        if (baseline <= 0)
-        {
-            return false;
-        }
-
-        var divergence = Math.Abs(avgFirst - avgSecond) / baseline;
-        return divergence > tolerance;
-    }
 }

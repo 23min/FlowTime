@@ -38,9 +38,6 @@ public sealed class StateQueryService
     private const int maxWindowBins = 500;
     private static readonly EventId stateSnapshotEvent = new(3001, "StateSnapshotObservability");
     private static readonly EventId stateWindowEvent = new(3002, "StateWindowObservability");
-    private const int backlogGrowthStreakBins = 3;
-    private const int backlogOverloadStreakBins = 3;
-    private const int backlogAgeRiskStreakBins = 3;
     private static readonly double[] fallbackRetryKernel = RetryKernelPolicy.DefaultKernel;
     private static readonly QueueLatencyStatusDescriptor pausedGateClosedStatus = new()
     {
@@ -191,6 +188,7 @@ public sealed class StateQueryService
 
         var flowLatency = ComputeFlowLatency(context);
         var seriesList = new List<NodeSeries>(capacity: topologyNodes.Count);
+        var analyticalWarnings = new List<ModeValidationWarning>();
         var classCoverageStates = new List<ClassCoverage>(topologyNodes.Count);
         var coverageDiagnostics = new List<ClassCoverageDiagnostic>(topologyNodes.Count);
         foreach (var topologyNode in topologyNodes)
@@ -209,7 +207,9 @@ public sealed class StateQueryService
             }
             classCoverageStates.Add(classAggregation.Coverage);
             var mergedWarnings = MergeWarnings(GetNodeWarnings(validation, topologyNode.Id), classAggregation.Warnings, topologyNode.Id);
-            seriesList.Add(BuildNodeSeries(topologyNode, data, context, startBin, count, mergedWarnings, nodeFlowLatency));
+            var nodeSeries = BuildNodeSeries(topologyNode, data, context, startBin, count, mergedWarnings, nodeFlowLatency);
+            seriesList.Add(nodeSeries.Series);
+            analyticalWarnings.AddRange(nodeSeries.WindowWarnings);
         }
         if (coverageDiagnostics.Count > 0)
         {
@@ -248,8 +248,7 @@ public sealed class StateQueryService
 
         var edgeSeries = ApplyEdgeFilters(BuildEdgeSeries(context, startBin, count), edgeFilter);
         var edgeWarnings = ApplyEdgeWarningFilter(BuildEdgeWarnings(context), edgeFilter);
-        var backlogWarnings = BuildBacklogWarnings(context, topologyNodes, startBin, count);
-        var combinedWarnings = MergeWarnings(validation.Warnings, backlogWarnings);
+        var combinedWarnings = MergeWarnings(validation.Warnings, analyticalWarnings);
 
         logger.LogInformation(
             stateWindowEvent,
@@ -1081,218 +1080,6 @@ public sealed class StateQueryService
         return merged;
     }
 
-    private static IReadOnlyList<ModeValidationWarning> BuildBacklogWarnings(
-        StateRunContext context,
-        IEnumerable<Node> nodes,
-        int startBin,
-        int count)
-    {
-        var warnings = new List<ModeValidationWarning>();
-        var endBin = startBin + count - 1;
-        var binMinutes = context.Window.BinDuration.TotalMinutes;
-
-        foreach (var node in nodes)
-        {
-            if (!node.Analytical.HasQueueSemantics)
-            {
-                continue;
-            }
-
-            if (!context.NodeData.TryGetValue(node.Id, out var data))
-            {
-                continue;
-            }
-
-            var growth = FindQueueGrowthStreak(data.QueueDepth, startBin, endBin);
-            if (growth.HasValue && growth.Value.Length >= backlogGrowthStreakBins)
-            {
-                warnings.Add(new ModeValidationWarning
-                {
-                    Code = "backlog_growth_streak",
-                    Message = $"Queue depth increased for {growth.Value.Length} consecutive bins (bins {growth.Value.Start}–{growth.Value.End}).",
-                    NodeId = node.Id,
-                    StartBin = growth.Value.Start,
-                    EndBin = growth.Value.End,
-                    Signal = "queueDepth"
-                });
-            }
-
-            var overload = FindOverloadStreak(node.Semantics, data, startBin, endBin);
-            if (overload.HasValue && overload.Value.Length >= backlogOverloadStreakBins)
-            {
-                warnings.Add(new ModeValidationWarning
-                {
-                    Code = "backlog_overload_ratio",
-                    Message = $"Arrivals exceeded effective capacity for {overload.Value.Length} consecutive bins (bins {overload.Value.Start}–{overload.Value.End}).",
-                    NodeId = node.Id,
-                    StartBin = overload.Value.Start,
-                    EndBin = overload.Value.End,
-                    Signal = "overloadRatio"
-                });
-            }
-
-            var ageRisk = FindAgeRiskStreak(data.QueueDepth, data.Served, binMinutes, node.Semantics?.SlaMinutes, startBin, endBin);
-            if (ageRisk.HasValue && ageRisk.Value.Length >= backlogAgeRiskStreakBins)
-            {
-                warnings.Add(new ModeValidationWarning
-                {
-                    Code = "backlog_age_risk",
-                    Message = $"Queue latency exceeded SLA for {ageRisk.Value.Length} consecutive bins (bins {ageRisk.Value.Start}–{ageRisk.Value.End}).",
-                    NodeId = node.Id,
-                    StartBin = ageRisk.Value.Start,
-                    EndBin = ageRisk.Value.End,
-                    Signal = "latencyMinutes"
-                });
-            }
-        }
-
-        return warnings;
-    }
-
-    private static (int Start, int End, int Length)? FindQueueGrowthStreak(
-        double[]? queueSeries,
-        int startBin,
-        int endBin)
-    {
-        if (queueSeries is null || endBin - startBin < 1)
-        {
-            return null;
-        }
-
-        int? bestStart = null;
-        int? bestEnd = null;
-        var bestLength = 0;
-        int? currentStart = null;
-        var currentLength = 0;
-
-        for (var i = startBin + 1; i <= endBin; i++)
-        {
-            var previous = GetOptionalValue(queueSeries, i - 1);
-            var current = GetOptionalValue(queueSeries, i);
-
-            if (previous.HasValue && current.HasValue && current.Value > previous.Value)
-            {
-                if (currentLength == 0)
-                {
-                    currentStart = i - 1;
-                }
-
-                currentLength++;
-                if (currentLength > bestLength)
-                {
-                    bestLength = currentLength;
-                    bestStart = currentStart;
-                    bestEnd = i;
-                }
-            }
-            else
-            {
-                currentLength = 0;
-                currentStart = null;
-            }
-        }
-
-        return bestLength > 0 && bestStart.HasValue && bestEnd.HasValue
-            ? (bestStart.Value, bestEnd.Value, bestLength)
-            : null;
-    }
-
-    private static (int Start, int End, int Length)? FindOverloadStreak(
-        NodeSemantics? semantics,
-        NodeData data,
-        int startBin,
-        int endBin)
-    {
-        if (data.Arrivals is null || data.Capacity is null)
-        {
-            return null;
-        }
-
-        return FindStreak(startBin, endBin, bin =>
-        {
-            var arrivals = GetOptionalValue(data.Arrivals, bin);
-            var baseCapacity = GetOptionalValue(data.Capacity, bin);
-            var capacity = semantics is null
-                ? baseCapacity
-                : RuntimeAnalyticalEvaluator.ComputeCapacityBin(semantics, data, bin).EffectiveCapacity;
-            if (!arrivals.HasValue || !capacity.HasValue || capacity.Value <= 0d)
-            {
-                return false;
-            }
-
-            var ratio = arrivals.Value / capacity.Value;
-            return ratio > 1d;
-        });
-    }
-
-    private static (int Start, int End, int Length)? FindAgeRiskStreak(
-        double[]? queueSeries,
-        double[]? servedSeries,
-        double binMinutes,
-        double? slaMinutes,
-        int startBin,
-        int endBin)
-    {
-        if (!slaMinutes.HasValue || slaMinutes.Value <= 0d || queueSeries is null || servedSeries is null || binMinutes <= 0d)
-        {
-            return null;
-        }
-
-        var threshold = slaMinutes.Value;
-        return FindStreak(startBin, endBin, bin =>
-        {
-            var queue = GetOptionalValue(queueSeries, bin);
-            var served = GetOptionalValue(servedSeries, bin);
-            if (!queue.HasValue || !served.HasValue)
-            {
-                return false;
-            }
-
-            var latency = LatencyComputer.Calculate(queue.Value, served.Value, binMinutes);
-            return latency.HasValue && latency.Value > threshold;
-        });
-    }
-
-    private static (int Start, int End, int Length)? FindStreak(
-        int startBin,
-        int endBin,
-        Func<int, bool> predicate)
-    {
-        int? bestStart = null;
-        int? bestEnd = null;
-        var bestLength = 0;
-        int? currentStart = null;
-        var currentLength = 0;
-
-        for (var i = startBin; i <= endBin; i++)
-        {
-            if (predicate(i))
-            {
-                if (currentLength == 0)
-                {
-                    currentStart = i;
-                }
-
-                currentLength++;
-                if (currentLength > bestLength)
-                {
-                    bestLength = currentLength;
-                    bestStart = currentStart;
-                    bestEnd = i;
-                }
-            }
-            else
-            {
-                currentLength = 0;
-                currentStart = null;
-            }
-        }
-
-        return bestLength > 0 && bestStart.HasValue && bestEnd.HasValue
-            ? (bestStart.Value, bestEnd.Value, bestLength)
-            : null;
-    }
-
     private static string? ResolveClassCoverage(IReadOnlyList<ClassCoverage> coverages)
     {
         if (coverages is null || coverages.Count == 0)
@@ -1408,7 +1195,9 @@ public sealed class StateQueryService
 
     private sealed record ClassCoverageDiagnostic(string NodeId, ClassCoverage Coverage, IReadOnlyList<ModeValidationWarning> Warnings);
 
-    private static NodeSeries BuildNodeSeries(Node node, NodeData data, StateRunContext context, int startBin, int count, IReadOnlyList<ModeValidationWarning> nodeWarnings, double?[]? flowLatencyForNode = null)
+    private sealed record NodeSeriesBuildResult(NodeSeries Series, IReadOnlyList<ModeValidationWarning> WindowWarnings);
+
+    private static NodeSeriesBuildResult BuildNodeSeries(Node node, NodeData data, StateRunContext context, int startBin, int count, IReadOnlyList<ModeValidationWarning> nodeWarnings, double?[]? flowLatencyForNode = null)
     {
         var kind = NormalizeKind(node.Kind);
         var logicalType = node.Analytical.ToLogicalType();
@@ -1510,7 +1299,8 @@ public sealed class StateQueryService
             binMs,
             servedWasConstrained ? servedSlice : null,
             classEntries,
-            flowLatencySlice);
+            flowLatencySlice,
+            context.AnalyticsOptions.StationarityTolerance);
 
         double?[]? utilizationSeries = null;
         if (data.Capacity != null)
@@ -1619,10 +1409,11 @@ public sealed class StateQueryService
         var constraintSeries = BuildConstraintSeries(node, data, context, startBin, count);
         var constraintStatus = BuildConstraintStatusSeries(node, data, context, startBin, count);
 
-        // Stationarity warnings: only if queueTimeMs has at least one non-null value in this window
-        var stationarityWarnings = BuildStationarityWarnings(nodeWarnings, data, node.Id, startBin, count, descriptor, context.AnalyticsOptions.StationarityTolerance, analyticalWindow.Emission.HasAnyQueueTimeValue);
+        var projectedAnalyticalWarnings = ProjectAnalyticalWarnings(node.Id, analyticalWindow.WarningFacts, analyticalWindow.Emission.HasAnyQueueTimeValue);
+        var stationarityWarnings = MergeWarnings(nodeWarnings, projectedAnalyticalWarnings.NodeWarnings);
 
-        return new NodeSeries
+        return new NodeSeriesBuildResult(
+            new NodeSeries
         {
             Id = node.Id,
             Kind = kind,
@@ -1637,46 +1428,75 @@ public sealed class StateQueryService
             DispatchSchedule = dispatchSchedule,
             QueueLatencyStatus = queueLatencyStatuses,
             Sla = slaSeries
-        };
+        }, projectedAnalyticalWarnings.WindowWarnings);
     }
 
-    private static IReadOnlyList<ModeValidationWarning> BuildStationarityWarnings(
-        IReadOnlyList<ModeValidationWarning> existing,
-        NodeData data,
+    private sealed record ProjectedAnalyticalWarnings(
+        IReadOnlyList<ModeValidationWarning> NodeWarnings,
+        IReadOnlyList<ModeValidationWarning> WindowWarnings);
+
+    private static ProjectedAnalyticalWarnings ProjectAnalyticalWarnings(
         string nodeId,
-        int startBin,
-        int count,
-        RuntimeAnalyticalDescriptor descriptor,
-        double stationarityTolerance,
+        AnalyticalWindowWarningFacts warningFacts,
         bool hasQueueTimeMsInPayload)
     {
-        // Only warn if queueTimeMs was actually emitted in this window's payload
-        if (!hasQueueTimeMsInPayload || data.Arrivals is null || count < 2)
+        var nodeWarnings = new List<ModeValidationWarning>();
+        var windowWarnings = new List<ModeValidationWarning>();
+
+        if (hasQueueTimeMsInPayload && warningFacts.NonStationary)
         {
-            return existing;
+            nodeWarnings.Add(new ModeValidationWarning
+            {
+                Code = "littles-law-non-stationary",
+                Message = "Arrival rates are not stationary across this window; cycle time estimates (queueTimeMs) may be unreliable.",
+                NodeId = nodeId,
+                Signal = "queueTimeMs"
+            });
         }
 
-        var slice = new double[count];
-        for (var i = 0; i < count; i++)
+        if (hasQueueTimeMsInPayload)
         {
-            var idx = startBin + i;
-            slice[i] = idx < data.Arrivals.Length ? data.Arrivals[idx] : 0;
+            if (warningFacts.BacklogGrowth is not null)
+            {
+                windowWarnings.Add(new ModeValidationWarning
+                {
+                    Code = "backlog_growth_streak",
+                    Message = $"Queue depth increased for {warningFacts.BacklogGrowth.Length} consecutive bins (bins {warningFacts.BacklogGrowth.StartBin}–{warningFacts.BacklogGrowth.EndBin}).",
+                    NodeId = nodeId,
+                    StartBin = warningFacts.BacklogGrowth.StartBin,
+                    EndBin = warningFacts.BacklogGrowth.EndBin,
+                    Signal = "queueDepth"
+                });
+            }
+
+            if (warningFacts.Overload is not null)
+            {
+                windowWarnings.Add(new ModeValidationWarning
+                {
+                    Code = "backlog_overload_ratio",
+                    Message = $"Arrivals exceeded effective capacity for {warningFacts.Overload.Length} consecutive bins (bins {warningFacts.Overload.StartBin}–{warningFacts.Overload.EndBin}).",
+                    NodeId = nodeId,
+                    StartBin = warningFacts.Overload.StartBin,
+                    EndBin = warningFacts.Overload.EndBin,
+                    Signal = "overloadRatio"
+                });
+            }
+
+            if (warningFacts.AgeRisk is not null)
+            {
+                windowWarnings.Add(new ModeValidationWarning
+                {
+                    Code = "backlog_age_risk",
+                    Message = $"Queue latency exceeded SLA for {warningFacts.AgeRisk.Length} consecutive bins (bins {warningFacts.AgeRisk.StartBin}–{warningFacts.AgeRisk.EndBin}).",
+                    NodeId = nodeId,
+                    StartBin = warningFacts.AgeRisk.StartBin,
+                    EndBin = warningFacts.AgeRisk.EndBin,
+                    Signal = "latencyMinutes"
+                });
+            }
         }
 
-        if (!RuntimeAnalyticalEvaluator.CheckStationarity(descriptor, slice, tolerance: stationarityTolerance))
-        {
-            return existing;
-        }
-
-        var merged = new List<ModeValidationWarning>(existing);
-        merged.Add(new ModeValidationWarning
-        {
-            Code = "littles-law-non-stationary",
-            Message = "Arrival rates are not stationary across this window; cycle time estimates (queueTimeMs) may be unreliable.",
-            NodeId = nodeId,
-            Signal = "queueTimeMs"
-        });
-        return merged;
+        return new ProjectedAnalyticalWarnings(nodeWarnings, windowWarnings);
     }
 
     private static double[]? BuildParallelismSeries(ParallelismReference? parallelism, int bins)
@@ -1924,6 +1744,7 @@ public sealed class StateQueryService
                     shortfall[i] = null;
                 }
             }
+
             series["shortfall"] = shortfall;
             var metadataMap = metadata is null
                 ? new Dictionary<string, SeriesSemanticsMetadata>(StringComparer.OrdinalIgnoreCase)
@@ -2063,6 +1884,7 @@ public sealed class StateQueryService
             {
                 metrics["shortfall"] = null;
             }
+
             var metadataMap = metadata is null
                 ? new Dictionary<string, SeriesSemanticsMetadata>(StringComparer.OrdinalIgnoreCase)
                 : new Dictionary<string, SeriesSemanticsMetadata>(metadata, StringComparer.OrdinalIgnoreCase);
@@ -3746,6 +3568,7 @@ public sealed class StateQueryService
             }
 
             sum += failure * kernel[k];
+
             hasContribution = true;
         }
 

@@ -221,12 +221,11 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 - **Immediate gate:** E-16 Formula-First Core Purification must complete before remaining E-10 Phase 3 milestones resume (`work/epics/epic-roadmap.md`)
 - **E-10** Engine Correctness (`work/epics/E-10-engine-correctness-and-analytics/spec.md`) — **gated on E-16**
   - Phases 0-2 complete. Phase 3 bridge complete (m-ec-p3a, m-ec-p3a1 merged to main).
-  - **Remaining:** p3b (WIP Limits), p3c (Variability), p3d (Constraint Enforcement) — resume after E-16
+  - **Remaining:** p3d (Constraint Enforcement), p3c (Variability), p3b (WIP Limits) — resume after E-16
 - **E-16** Formula-First Core Purification (`work/epics/E-16-formula-first-core-purification/spec.md`) — **in progress**
-  - **Completed:** m-E16-01 through m-E16-04
-  - **Branch:** `milestone/m-E16-01-compiled-semantic-references`
-  - **Next:** m-E16-05 (Warning facts cleanup)
-  - Then: contract + consumer purification
+  - **Completed:** m-E16-01 through m-E16-05
+  - **Current branch:** `milestone/m-E16-05-analytical-warning-facts-and-primitive-cleanup`
+  - **Next milestone:** m-E16-06 (Contract + consumer purification)
 - **E-11** Svelte UI — paused after M6
   - M1-M4 + M6 done, M5/M7/M8 remain
 - **E-12–E-15:** planned, not started

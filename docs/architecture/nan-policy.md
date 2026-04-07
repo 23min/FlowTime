@@ -42,7 +42,7 @@ When a derived metric (utilization, latency) cannot be meaningfully computed bec
 | File | Guard | Rationale |
 |------|-------|-----------|
 | `UtilizationComputer.cs` | `capacity is null \|\| capacity <= 0 → return null` | Utilization = served/capacity; zero or null capacity means utilization is undefined |
-| `LatencyComputer.cs` | `served <= 0 \|\| binMinutes <= 0 → return null` | Latency = (queue/served) * binMinutes; zero served means no items processed, latency undefined |
+| `RuntimeAnalyticalEvaluator.cs` | `served <= 0 \|\| binMs <= 0 → return null` | Latency = (queue/served) * binDuration; zero served means no items processed, latency undefined |
 
 **Key invariant**: Tier 2 sites return `double?`. Callers must handle `null` (typically by omitting the metric from output or displaying "N/A").
 

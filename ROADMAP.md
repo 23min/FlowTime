@@ -52,7 +52,7 @@ The milestone IDs are historical; the recommended implementation order above is 
 
 ## E-16 — Formula-First Core Purification (active)
 
-**Epic:** `work/epics/E-16-formula-first-core-purification/spec.md` | **Status:** in progress (`m-E16-04` complete; `m-E16-05` next)
+**Epic:** `work/epics/E-16-formula-first-core-purification/spec.md` | **Status:** in progress (`m-E16-05` complete on `milestone/m-E16-05-analytical-warning-facts-and-primitive-cleanup`; `m-E16-06` next)
 
 The immediate architecture gate. Purify the engine so semantic meaning and analytical truth are compiled into Core once and consumed as facts everywhere else.
 
@@ -61,8 +61,8 @@ Six milestones in sequence:
 2. **m-E16-02** — Class Truth Boundary (real by-class data vs wildcard fallback made explicit) — completed on `milestone/m-E16-01-compiled-semantic-references`
 3. **m-E16-03** — Runtime Analytical Descriptor (absorbs AnalyticalCapabilities, compiled by compiler not resolved from strings) — completed on `milestone/m-E16-01-compiled-semantic-references`
 4. **m-E16-04** — Core Analytical Evaluation (all analytical math moves to Core including flowLatencyMs graph propagation) — completed on `milestone/m-E16-01-compiled-semantic-references`
-5. **m-E16-05** — Warning Facts & Primitive Cleanup (backlog/stationarity/overload warnings move to Core analyzers) — next
-6. **m-E16-06** — Contract & Consumer Purification (publish facts in API, delete IsServiceLike/Classify heuristics from UI)
+5. **m-E16-05** — Warning Facts & Primitive Cleanup (backlog/stationarity/overload warnings move to Core analyzers) — completed on `milestone/m-E16-05-analytical-warning-facts-and-primitive-cleanup`
+6. **m-E16-06** — Contract & Consumer Purification (publish facts in API, delete IsServiceLike/Classify heuristics from UI) — next
 
 Key decisions: D-2026-04-03-005 (flowLatencyMs to Core), D-2026-04-03-006 (descriptor absorbs AnalyticalCapabilities), D-2026-04-03-007 (Parallelism typing in E-16). See `work/decisions.md`.
 

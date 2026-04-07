@@ -4,6 +4,10 @@ namespace FlowTime.Core.Metrics;
 
 public static class RuntimeAnalyticalEvaluator
 {
+    private const int backlogGrowthStreakBins = 3;
+    private const int backlogOverloadStreakBins = 3;
+    private const int backlogAgeRiskStreakBins = 3;
+
     public static AnalyticalResult ComputeBin(
         RuntimeAnalyticalDescriptor descriptor,
         NodeSemantics semantics,
@@ -79,8 +83,7 @@ public static class RuntimeAnalyticalEvaluator
         if (descriptor.HasQueueSemantics && queueDepth.HasValue && served.HasValue
             && IsFinite(queueDepth.Value) && IsFinite(served.Value))
         {
-            var binMinutes = binMs / 60_000.0;
-            latencyMinutes = Sanitize(LatencyComputer.Calculate(queueDepth.Value, served.Value, binMinutes));
+            latencyMinutes = Sanitize(ComputeLatencyMinutes(queueDepth.Value, served.Value, binMs));
         }
 
         return new AnalyticalResult
@@ -102,7 +105,8 @@ public static class RuntimeAnalyticalEvaluator
         double binMs,
         double?[]? servedOverride = null,
         IReadOnlyList<ClassEntry<NodeClassData>>? classEntries = null,
-        double?[]? flowLatencyMs = null)
+        double?[]? flowLatencyMs = null,
+        double stationarityTolerance = 0.25)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
         ArgumentNullException.ThrowIfNull(semantics);
@@ -114,7 +118,8 @@ public static class RuntimeAnalyticalEvaluator
             Capacity = ComputeCapacityWindow(semantics, data, startBin, count, servedOverride),
             Emission = BuildWindowEmission(descriptor, data, result, flowLatencyMs),
             ByClass = ComputeClassWindows(descriptor, classEntries ?? ClassMetricsAggregator.BuildClassEntries(data), startBin, count, binMs),
-            FlowLatencyMs = SanitizeSeries(flowLatencyMs)
+            FlowLatencyMs = SanitizeSeries(flowLatencyMs),
+            WarningFacts = BuildWindowWarningFacts(descriptor, semantics, data, startBin, count, binMs, stationarityTolerance)
         };
     }
 
@@ -441,7 +446,263 @@ public static class RuntimeAnalyticalEvaluator
             return false;
         }
 
-        return CycleTimeComputer.CheckNonStationary(arrivals, tolerance);
+        return IsNonStationary(arrivals, tolerance);
+    }
+
+    private static double? ComputeLatencyMinutes(double queueDepth, double served, double binMs)
+    {
+        var queueTimeMs = CycleTimeComputer.CalculateQueueTime(queueDepth, served, binMs);
+        return queueTimeMs.HasValue ? queueTimeMs.Value / 60_000.0 : null;
+    }
+
+    private static bool IsNonStationary(double[] arrivals, double tolerance = 0.25)
+    {
+        if (arrivals.Length < 2)
+        {
+            return false;
+        }
+
+        var mid = arrivals.Length / 2;
+
+        double sumFirst = 0;
+        for (var i = 0; i < mid; i++)
+        {
+            sumFirst += arrivals[i];
+        }
+
+        double sumSecond = 0;
+        for (var i = mid; i < arrivals.Length; i++)
+        {
+            sumSecond += arrivals[i];
+        }
+
+        var avgFirst = sumFirst / mid;
+        var avgSecond = sumSecond / (arrivals.Length - mid);
+
+        var baseline = Math.Max(avgFirst, avgSecond);
+        if (baseline <= 0)
+        {
+            return false;
+        }
+
+        var divergence = Math.Abs(avgFirst - avgSecond) / baseline;
+        return divergence > tolerance;
+    }
+
+    private static AnalyticalWindowWarningFacts BuildWindowWarningFacts(
+        RuntimeAnalyticalDescriptor descriptor,
+        NodeSemantics semantics,
+        NodeData data,
+        int startBin,
+        int count,
+        double binMs,
+        double stationarityTolerance)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        ArgumentNullException.ThrowIfNull(semantics);
+        ArgumentNullException.ThrowIfNull(data);
+
+        var endBin = startBin + count - 1;
+        var facts = new AnalyticalWindowWarningFacts();
+
+        if (data.Arrivals is not null && count >= 2)
+        {
+            var arrivals = new double[count];
+            for (var i = 0; i < count; i++)
+            {
+                var idx = startBin + i;
+                arrivals[i] = idx < data.Arrivals.Length ? data.Arrivals[idx] : 0d;
+            }
+
+            facts = facts with
+            {
+                NonStationary = CheckStationarity(descriptor, arrivals, stationarityTolerance)
+            };
+        }
+
+        var growth = FindQueueGrowthStreak(data.QueueDepth, startBin, endBin);
+        if (growth.HasValue && growth.Value.Length >= backlogGrowthStreakBins)
+        {
+            facts = facts with
+            {
+                BacklogGrowth = new AnalyticalStreakWarningFact
+                {
+                    StartBin = growth.Value.Start,
+                    EndBin = growth.Value.End,
+                    Length = growth.Value.Length
+                }
+            };
+        }
+
+        var overload = FindOverloadStreak(semantics, data, startBin, endBin);
+        if (overload.HasValue && overload.Value.Length >= backlogOverloadStreakBins)
+        {
+            facts = facts with
+            {
+                Overload = new AnalyticalStreakWarningFact
+                {
+                    StartBin = overload.Value.Start,
+                    EndBin = overload.Value.End,
+                    Length = overload.Value.Length
+                }
+            };
+        }
+
+        var ageRisk = FindAgeRiskStreak(data.QueueDepth, data.Served, binMs / 60_000.0, semantics.SlaMinutes, startBin, endBin);
+        if (ageRisk.HasValue && ageRisk.Value.Length >= backlogAgeRiskStreakBins)
+        {
+            facts = facts with
+            {
+                AgeRisk = new AnalyticalStreakWarningFact
+                {
+                    StartBin = ageRisk.Value.Start,
+                    EndBin = ageRisk.Value.End,
+                    Length = ageRisk.Value.Length
+                }
+            };
+        }
+
+        return facts;
+    }
+
+    private static (int Start, int End, int Length)? FindQueueGrowthStreak(
+        double[]? queueSeries,
+        int startBin,
+        int endBin)
+    {
+        if (queueSeries is null || endBin - startBin < 1)
+        {
+            return null;
+        }
+
+        int? bestStart = null;
+        int? bestEnd = null;
+        var bestLength = 0;
+        int? currentStart = null;
+        var currentLength = 0;
+
+        for (var i = startBin + 1; i <= endBin; i++)
+        {
+            var previous = SampleSeries(queueSeries, i - 1);
+            var current = SampleSeries(queueSeries, i);
+
+            if (previous.HasValue && current.HasValue && current.Value > previous.Value)
+            {
+                if (currentLength == 0)
+                {
+                    currentStart = i - 1;
+                }
+
+                currentLength++;
+                if (currentLength > bestLength)
+                {
+                    bestLength = currentLength;
+                    bestStart = currentStart;
+                    bestEnd = i;
+                }
+            }
+            else
+            {
+                currentLength = 0;
+                currentStart = null;
+            }
+        }
+
+        return bestLength > 0 && bestStart.HasValue && bestEnd.HasValue
+            ? (bestStart.Value, bestEnd.Value, bestLength)
+            : null;
+    }
+
+    private static (int Start, int End, int Length)? FindOverloadStreak(
+        NodeSemantics semantics,
+        NodeData data,
+        int startBin,
+        int endBin)
+    {
+        if (data.Arrivals is null || data.Capacity is null)
+        {
+            return null;
+        }
+
+        return FindStreak(startBin, endBin, bin =>
+        {
+            var arrivals = SampleSeries(data.Arrivals, bin);
+            var capacity = ComputeCapacityBin(semantics, data, bin).EffectiveCapacity;
+            if (!arrivals.HasValue || !capacity.HasValue || capacity.Value <= 0d)
+            {
+                return false;
+            }
+
+            return arrivals.Value / capacity.Value > 1d;
+        });
+    }
+
+    private static (int Start, int End, int Length)? FindAgeRiskStreak(
+        double[]? queueSeries,
+        double[]? servedSeries,
+        double binMinutes,
+        double? slaMinutes,
+        int startBin,
+        int endBin)
+    {
+        if (!slaMinutes.HasValue || slaMinutes.Value <= 0d || queueSeries is null || servedSeries is null || binMinutes <= 0d)
+        {
+            return null;
+        }
+
+        var threshold = slaMinutes.Value;
+        return FindStreak(startBin, endBin, bin =>
+        {
+            var queue = SampleSeries(queueSeries, bin);
+            var served = SampleSeries(servedSeries, bin);
+            if (!queue.HasValue || !served.HasValue)
+            {
+                return false;
+            }
+
+            var latency = ComputeLatencyMinutes(queue.Value, served.Value, binMinutes * 60_000.0);
+            return latency.HasValue && latency.Value > threshold;
+        });
+    }
+
+    private static (int Start, int End, int Length)? FindStreak(
+        int startBin,
+        int endBin,
+        Func<int, bool> predicate)
+    {
+        int? bestStart = null;
+        int? bestEnd = null;
+        var bestLength = 0;
+        int? currentStart = null;
+        var currentLength = 0;
+
+        for (var i = startBin; i <= endBin; i++)
+        {
+            if (predicate(i))
+            {
+                if (currentLength == 0)
+                {
+                    currentStart = i;
+                }
+
+                currentLength++;
+                if (currentLength > bestLength)
+                {
+                    bestLength = currentLength;
+                    bestStart = currentStart;
+                    bestEnd = i;
+                }
+            }
+            else
+            {
+                currentLength = 0;
+                currentStart = null;
+            }
+        }
+
+        return bestLength > 0 && bestStart.HasValue && bestEnd.HasValue
+            ? (bestStart.Value, bestEnd.Value, bestLength)
+            : null;
     }
 
     private static double? SampleSeries(double[]? series, int index)
@@ -837,6 +1098,7 @@ public sealed record AnalyticalResult
     public AnalyticalEmissionTruth Emission { get; init; } = new();
     public IReadOnlyList<ClassEntry<AnalyticalClassResult>>? ByClass { get; init; }
     public double? FlowLatencyMs { get; init; }
+    public AnalyticalWindowWarningFacts WarningFacts { get; init; } = new();
 }
 
 public sealed record AnalyticalWindowResult
@@ -850,6 +1112,22 @@ public sealed record AnalyticalWindowResult
     public AnalyticalEmissionTruth Emission { get; init; } = new();
     public IReadOnlyList<ClassEntry<AnalyticalClassWindowResult>>? ByClass { get; init; }
     public double?[]? FlowLatencyMs { get; init; }
+    public AnalyticalWindowWarningFacts WarningFacts { get; init; } = new();
+}
+
+public sealed record AnalyticalWindowWarningFacts
+{
+    public bool NonStationary { get; init; }
+    public AnalyticalStreakWarningFact? BacklogGrowth { get; init; }
+    public AnalyticalStreakWarningFact? Overload { get; init; }
+    public AnalyticalStreakWarningFact? AgeRisk { get; init; }
+}
+
+public sealed record AnalyticalStreakWarningFact
+{
+    public required int StartBin { get; init; }
+    public required int EndBin { get; init; }
+    public required int Length { get; init; }
 }
 
 public sealed record AnalyticalCapacityResult

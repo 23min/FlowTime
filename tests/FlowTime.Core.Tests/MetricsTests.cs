@@ -1,4 +1,5 @@
 using FlowTime.Core.Metrics;
+using FlowTime.Core.Models;
 using Xunit;
 
 namespace FlowTime.Core.Tests;
@@ -22,16 +23,30 @@ public class MetricsTests
     [Fact]
     public void Latency_WithServed_ComputesLittleLaw()
     {
-        var latency = LatencyComputer.Calculate(queue: 8, served: 140, binMinutes: 5);
-        Assert.NotNull(latency);
-        Assert.Equal(0.2857142857142857, latency.Value, 8);
+        var result = RuntimeAnalyticalEvaluator.ComputeBin(
+            QueueDescriptor(),
+            queueDepth: 8,
+            served: 140,
+            processingTimeMsSum: null,
+            servedCount: null,
+            binMs: 300_000);
+
+        Assert.NotNull(result.LatencyMinutes);
+        Assert.Equal(0.2857142857142857, result.LatencyMinutes!.Value, 8);
     }
 
     [Fact]
     public void Latency_NoServed_ReturnsNull()
     {
-        var latency = LatencyComputer.Calculate(queue: 8, served: 0, binMinutes: 5);
-        Assert.Null(latency);
+        var result = RuntimeAnalyticalEvaluator.ComputeBin(
+            QueueDescriptor(),
+            queueDepth: 8,
+            served: 0,
+            processingTimeMsSum: null,
+            servedCount: null,
+            binMs: 300_000);
+
+        Assert.Null(result.LatencyMinutes);
     }
 
     [Theory]
@@ -238,5 +253,18 @@ public class MetricsTests
     {
         var fe = CycleTimeComputer.CalculateFlowEfficiency(serviceTimeMs: null, cycleTimeMs: null);
         Assert.Null(fe);
+    }
+
+    private static RuntimeAnalyticalDescriptor QueueDescriptor()
+    {
+        return new RuntimeAnalyticalDescriptor
+        {
+            Identity = RuntimeAnalyticalIdentity.Queue,
+            Category = RuntimeAnalyticalNodeCategory.Queue,
+            HasQueueSemantics = true,
+            HasServiceSemantics = false,
+            HasCycleTimeDecomposition = false,
+            StationarityWarningApplicable = true
+        };
     }
 }
