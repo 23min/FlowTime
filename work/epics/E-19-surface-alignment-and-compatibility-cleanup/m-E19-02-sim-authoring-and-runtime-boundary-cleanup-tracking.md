@@ -9,7 +9,7 @@
 
 - [ ] AC1. Stored drafts CRUD retired (A2): delete `/api/v1/drafts` GET/PUT/POST/DELETE/list routes, `StorageKind.Draft`, `data/storage/drafts/`, and `DraftEndpointsTests.cs` CRUD tests.
 - [ ] AC2. `POST /api/v1/drafts/run` narrowed to inline-source only (A1/A2): remove `draftId` resolution branch; inline tests survive.
-- [ ] AC3. `POST /api/v1/drafts/validate` deleted (A6): remove endpoint handler and its tests; preserve `ModelSchemaValidator`, `ModelValidator`, `ModelCompiler`, `ModelParser`, `TemplateInvariantAnalyzer`, `InvariantAnalyzer` unchanged.
+- [x] AC3. `POST /api/v1/drafts/validate` deleted (A6): remove endpoint handler and its tests; preserve `ModelSchemaValidator`, `ModelValidator`, `ModelCompiler`, `ModelParser`, `TemplateInvariantAnalyzer`, `InvariantAnalyzer` unchanged.
 - [ ] AC4. Sim ZIP archive layer deleted (A3): remove `StorageKind.Run` writes in `RunOrchestrationService`, `BundleRef`/`StorageRef` on `RunCreateResponse`, `data/storage/runs/` backend write path, and the `StorageKind.Run` enum value.
 - [ ] AC5. Engine `POST /v1/runs` deleted outright (A4): remove handler, bundle-import branches (`BundlePath`, `BundleArchiveBase64`, `BundleRef`), `ExtractArchiveAsync` helpers, and bundle-import tests. No 410 stub. `GET /v1/runs` and `GET /v1/runs/{runId}` preserved.
 - [ ] AC6. Engine debug/direct-eval routes deleted: `GET /v1/debug/scan-directory/{dirName}`, `POST /v1/run`, `POST /v1/graph`.
@@ -23,7 +23,7 @@
 Per milestone spec Technical Notes — each step must leave build green and tests passing before the next begins.
 
 - [x] Step 1: Catalogs (AC7) — lowest coupling, highest confidence
-- [ ] Step 2: `/api/v1/drafts/validate` (AC3) — trivial unused route
+- [x] Step 2: `/api/v1/drafts/validate` (AC3) — trivial unused route
 - [ ] Step 3: Stored drafts CRUD (AC1)
 - [ ] Step 4: Narrow `/api/v1/drafts/run` (AC2)
 - [ ] Step 5: Sim ZIP archive layer (AC4)
@@ -40,7 +40,7 @@ Each must return zero matches in `src/` and `tests/` at wrap time.
 - [ ] `drafts/{draftId` (draft CRUD handlers gone)
 - [ ] `StorageKind.Draft`
 - [ ] `data/storage/drafts`
-- [ ] `drafts/validate` handler literal
+- [x] `drafts/validate` handler literal
 - [ ] `StorageKind.Run`
 - [ ] `BundleRef`
 - [ ] `StorageRef`
@@ -103,3 +103,23 @@ Each must return zero matches in `src/` and `tests/` at wrap time.
 - `data/catalogs/`
 
 Remaining repo references to "catalog" (preserved on purpose): `ClassCatalogEntry` / `BuildClassCatalog` in `StateQueryService.cs` (state-schema class list, purified by E-16) and the `MetricProvenanceCatalog` UI helper family. Both are unrelated to the runtime catalog concept that A5 retired.
+
+## AC3 implementation log
+
+**Status:** complete. Build green, 1258 tests pass (0 failed, 9 skipped).
+
+**Files edited:**
+- `src/FlowTime.Sim.Service/Program.cs` — deleted the `POST /api/v1/drafts/validate` endpoint handler (previously ~77 lines wrapping compile + evaluate + analyse through `TemplateInvariantAnalyzer`).
+- `tests/FlowTime.Sim.Tests/Service/DraftEndpointsTests.cs` — deleted `ValidateDraftInline_ReturnsValidPayload` and `ValidateDraftId_ReturnsValidPayload` (the only tests exercising the route).
+
+**Preserved unchanged (A6 library contract):**
+- `FlowTime.Core.Models.ModelSchemaValidator`
+- `FlowTime.Core.Models.ModelValidator`
+- `FlowTime.Core.Compiler.ModelCompiler`
+- `FlowTime.Core.Models.ModelParser`
+- `FlowTime.Sim.Core.Analysis.TemplateInvariantAnalyzer`
+- `FlowTime.Core.Analysis.InvariantAnalyzer`
+
+These become the tier 1/2/3 ingredients for the future Time Machine validation operation per D-2026-04-07-017 / E-18 m-E18-01b.
+
+**Grep guard verified zero-match after deletion:** `drafts/validate`.
