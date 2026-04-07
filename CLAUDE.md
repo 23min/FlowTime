@@ -218,16 +218,17 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
-- **Immediate next step:** wrap the completed E-19 supported-surface inventory branch and begin m-E19-02 cleanup planning while E-10 Phase 3 remains ready to resume (`work/epics/epic-roadmap.md`)
+- **Immediate next step:** execute m-E19-02 Sim Authoring & Runtime Boundary Cleanup on `milestone/m-E19-02-sim-authoring-and-runtime-boundary-cleanup` (off `epic/E-19`), starting with catalogs (AC7) per the spec's recommended sequence; E-10 Phase 3 remains ready to resume (`work/epics/epic-roadmap.md`)
 - **E-10** Engine Correctness (`work/epics/E-10-engine-correctness-and-analytics/spec.md`) — **ready to resume**
   - Phases 0-2 complete. Phase 3 bridge complete (m-ec-p3a, m-ec-p3a1 merged to main).
   - **Next:** p3d (Constraint Enforcement), then p3c (Variability), then p3b (WIP Limits)
 - **E-16** Formula-First Core Purification (`work/epics/E-16-formula-first-core-purification/spec.md`) — **completed**
   - **Completed:** m-E16-01 through m-E16-06
   - **Completion branch:** `milestone/m-E16-06-analytical-contract-and-consumer-purification`
-- **E-19** Surface Alignment & Compatibility Cleanup (`work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md`) — **m-E19-01 completed, m-E19-02 next**
+- **E-19** Surface Alignment & Compatibility Cleanup (`work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md`) — **m-E19-01 completed, m-E19-02 in-progress**
+  - **Branch topology:** `epic/E-19` (integration branch, advances as milestones merge in); `milestone/m-E19-01-supported-surface-inventory` (frozen pointer at wrap tip); `milestone/m-E19-02-sim-authoring-and-runtime-boundary-cleanup` (active); epic→main merge deferred until all E-19 milestones complete
   - **Completed:** supported-surfaces matrix, boundary ADR extension, decision log sync, roadmap/current-work sync
-  - **Next:** m-E19-02 Sim Authoring & Runtime Boundary Cleanup
+  - **In progress:** m-E19-02 Sim Authoring & Runtime Boundary Cleanup — spec drafted, implementation starting with catalogs (AC7)
 - **E-11** Svelte UI — paused after M6
   - M1-M4 + M6 done, M5/M7/M8 remain
 - **E-12–E-15:** planned, not started
