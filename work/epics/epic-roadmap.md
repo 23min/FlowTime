@@ -60,9 +60,9 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 
 - **Folder:** `work/epics/E-19-surface-alignment-and-compatibility-cleanup/`
 - **Status:** Planning — starts immediately after E-16 as a post-purification cleanup lane; Blazor remains supported in parallel with E-11
-- **Goal:** Tighten the remaining non-analytical legacy and compatibility surfaces across first-party UI, Sim, docs, schemas, and examples so current product surfaces stay aligned to one set of current contracts
+- **Goal:** Tighten the remaining non-analytical legacy and compatibility surfaces across first-party UI, Sim, docs, schemas, and examples so current product surfaces stay aligned to one set of current contracts and do not harden today's Sim orchestration path into the future headless contract
 - **Sequencing:** Runs after E-16, in parallel with resumed E-10 Phase 3 work by default; should not silently replace the `p3d` -> `p3c` -> `p3b` sequence
-- **Key milestones:** supported surface inventory → runtime endpoint/client cleanup → schema/template/example retirement → Blazor support alignment
+- **Key milestones:** supported surface inventory + boundary ADR → Sim authoring/runtime boundary cleanup → schema/template/example retirement → Blazor support alignment
 - **Reference:** `work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md`
 
 #### dag-map Library Evaluation (Spike)

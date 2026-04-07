@@ -80,6 +80,8 @@ Build a parallel SvelteKit + shadcn-svelte UI surface for demos and future evalu
 
 After E-16 purifies analytical truth, FlowTime still carries broader non-analytical compatibility debt across first-party UI, Sim, docs, examples, and schema surfaces. E-19 removes stale fallback layers and clarifies supported surfaces in a forward-only cut while keeping Blazor current as a supported parallel UI.
 
+This cleanup lane also draws the boundary between today's Sim authoring/orchestration residue and the future E-18 headless foundation, so the current Sim path does not harden into the default programmable contract.
+
 This epic starts immediately after E-16 as a cleanup lane, but it does not replace E-10 Phase 3 resume. Runtime/schema/doc cleanup can run in parallel with resumed analytical work, and Blazor alignment runs alongside the E-11 Svelte track rather than behind a replacement cutoff.
 
 ## Near-Term Epics
