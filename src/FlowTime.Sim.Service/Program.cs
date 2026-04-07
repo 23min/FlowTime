@@ -86,9 +86,6 @@ public partial class Program
 			}
 		});
 
-		// Initialize catalogs during startup
-		ServiceHelpers.EnsureRuntimeCatalogs(app.Configuration);
-
 		app.Lifetime.ApplicationStarted.Register(() =>
 		{
 			_ = Task.Run(async () =>
@@ -201,10 +198,7 @@ public partial class Program
 				"/api/v1/templates/refresh",
 				"/api/v1/templates/categories",
 				"/api/v1/models",
-				"/api/v1/models/{templateId}",
-				"/api/v1/catalogs",
-				"/api/v1/catalogs/{id}",
-				"/api/v1/catalogs/validate"
+				"/api/v1/models/{templateId}"
 					},
 					templateWarnings = warningRegistry.GetWarnings()
 				});
@@ -1302,170 +1296,6 @@ public partial class Program
 			}
 		});
 
-		// API: GET /api/v1/catalogs (list all catalogs)
-		api.MapGet("/catalogs", (IConfiguration config) =>
-		{
-			try
-			{
-				var catalogsRoot = ServiceHelpers.CatalogsRoot(config);
-				if (!Directory.Exists(catalogsRoot))
-				{
-					return Results.Ok(new { catalogs = Array.Empty<object>() });
-				}
-
-				var catalogFiles = Directory.GetFiles(catalogsRoot, "*.yaml", SearchOption.TopDirectoryOnly);
-				var catalogs = new List<object>();
-
-				foreach (var filePath in catalogFiles)
-				{
-					try
-					{
-						var catalog = CatalogIO.ReadCatalogFromFile(filePath);
-						var hash = CatalogIO.ComputeCatalogHash(catalog);
-						var fileId = Path.GetFileNameWithoutExtension(filePath);
-
-						catalogs.Add(new
-						{
-							id = fileId,
-							title = catalog.Metadata.Title ?? fileId,
-							description = catalog.Metadata.Description,
-							hash = hash,
-							componentCount = catalog.Components.Count,
-							connectionCount = catalog.Connections.Count
-						});
-					}
-					catch (Exception ex)
-					{
-						app.Logger.LogWarning("Failed to read catalog {FilePath}: {Message}", filePath, ex.Message);
-					}
-				}
-
-				return Results.Ok(catalogs);
-			}
-			catch (Exception ex)
-			{
-				return Results.Problem($"Failed to list catalogs: {ex.Message}");
-			}
-		});
-
-		// API: GET /api/v1/catalogs/{id} (get specific catalog)
-		api.MapGet("/catalogs/{id}", (string id, IConfiguration config) =>
-		{
-			try
-			{
-				if (!ServiceHelpers.IsSafeCatalogId(id))
-					return Results.BadRequest(new { error = "Invalid catalog id" });
-
-				var catalogsRoot = ServiceHelpers.CatalogsRoot(config);
-				var filePath = Path.Combine(catalogsRoot, id + ".yaml");
-
-				if (!File.Exists(filePath))
-					return Results.NotFound(new { error = $"Catalog '{id}' not found" });
-
-				var catalog = CatalogIO.ReadCatalogFromFile(filePath);
-				return Results.Ok(catalog);
-			}
-			catch (Exception ex)
-			{
-				return Results.BadRequest(new { error = "Failed to read catalog", detail = ex.Message });
-			}
-		});
-
-		// API: PUT /api/v1/catalogs/{id} (create/update catalog)
-		api.MapPut("/catalogs/{id}", async (string id, HttpRequest req, IConfiguration config) =>
-		{
-			try
-			{
-				if (!ServiceHelpers.IsSafeCatalogId(id))
-					return Results.BadRequest(new { error = "Invalid catalog id" });
-
-				using var reader = new StreamReader(req.Body, System.Text.Encoding.UTF8);
-				var yaml = await reader.ReadToEndAsync();
-				if (string.IsNullOrWhiteSpace(yaml))
-				{
-					return Results.BadRequest(new { error = "Empty body" });
-				}
-
-				Catalog catalog;
-				try
-				{
-					catalog = CatalogIO.ParseCatalogFromYaml(yaml);
-				}
-				catch (Exception ex)
-				{
-					return Results.BadRequest(new { error = "YAML parse failed", detail = ex.Message });
-				}
-
-				var validation = catalog.Validate();
-				if (!validation.IsValid)
-				{
-					return Results.BadRequest(new { error = "Catalog validation failed", errors = validation.Errors });
-				}
-
-				var catalogsRoot = ServiceHelpers.CatalogsRoot(config);
-				var filePath = Path.Combine(catalogsRoot, id + ".yaml");
-				await File.WriteAllTextAsync(filePath, yaml, System.Text.Encoding.UTF8);
-
-				var hash = CatalogIO.ComputeCatalogHash(catalog);
-
-				return Results.Ok(new
-				{
-					id,
-					hash,
-					componentCount = catalog.Components.Count,
-					connectionCount = catalog.Connections.Count
-				});
-			}
-			catch (Exception ex)
-			{
-				return Results.BadRequest(new { error = ex.Message });
-			}
-		});
-
-		// API: POST /api/v1/catalogs/validate (validate catalog without saving)
-		api.MapPost("/catalogs/validate", async (HttpRequest req) =>
-		{
-			try
-			{
-				using var reader = new StreamReader(req.Body, System.Text.Encoding.UTF8);
-				var yaml = await reader.ReadToEndAsync();
-				if (string.IsNullOrWhiteSpace(yaml))
-				{
-					return Results.BadRequest(new { valid = false, errors = new[] { "Empty body" } });
-				}
-
-				Catalog catalog;
-				try
-				{
-					catalog = CatalogIO.ParseCatalogFromYaml(yaml);
-				}
-				catch (Exception ex)
-				{
-					return Results.BadRequest(new { valid = false, errors = new[] { $"YAML parse failed: {ex.Message}" } });
-				}
-
-				var validation = catalog.Validate();
-				if (!validation.IsValid)
-				{
-					return Results.BadRequest(new { valid = false, errors = validation.Errors });
-				}
-
-				var hash = CatalogIO.ComputeCatalogHash(catalog);
-
-				return Results.Ok(new
-				{
-					valid = true,
-					hash,
-					componentCount = catalog.Components.Count,
-					connectionCount = catalog.Connections.Count
-				});
-			}
-			catch (Exception ex)
-			{
-				return Results.BadRequest(new { valid = false, errors = new[] { ex.Message } });
-			}
-		});
-
 		app.Lifetime.ApplicationStarted.Register(() =>
 		{
 			var urls = string.Join(", ", app.Urls);
@@ -1671,7 +1501,7 @@ public partial class Program
 				return (null, Results.BadRequest(new { error = "source.id is required for draftId." }));
 			}
 
-			if (!ServiceHelpers.IsSafeCatalogId(source.Id))
+			if (!ServiceHelpers.IsSafeId(source.Id))
 			{
 				return (null, Results.BadRequest(new { error = "Invalid draft id." }));
 			}
@@ -1698,7 +1528,7 @@ public partial class Program
 				return (null, Results.BadRequest(new { error = "source.content is required for inline drafts." }));
 			}
 
-			if (!ServiceHelpers.IsSafeCatalogId(source.Id))
+			if (!ServiceHelpers.IsSafeId(source.Id))
 			{
 				return (null, Results.BadRequest(new { error = "Invalid draft id." }));
 			}
@@ -2175,7 +2005,7 @@ public partial class Program
 	public static class ServiceHelpers
 	{
 		/// <summary>
-		/// Gets the root data directory (parent of runs and catalogs).
+		/// Gets the root data directory (parent of runs).
 		/// Order of precedence:
 		/// 1. Environment variable FLOWTIME_SIM_DATA_DIR
 		/// 2. Configuration FlowTimeSim:DataDir
@@ -2299,64 +2129,8 @@ public partial class Program
 			return seriesDir;
 		}
 
-		/// <summary>
-		/// Ensures runtime catalogs directory exists and is populated with demo catalogs if empty.
-		/// Copies source catalogs to runtime location during startup for consistent behavior.
-		/// </summary>
-		public static void EnsureRuntimeCatalogs(IConfiguration? configuration = null)
-		{
-			var dataDir = DataRoot(configuration);
-			var runtimeCatalogsDir = Path.Combine(dataDir, "catalogs");
-
-			// Find workspace root by looking for the solution file
-			var currentDir = Directory.GetCurrentDirectory();
-			var workspaceRoot = currentDir;
-			while (!File.Exists(Path.Combine(workspaceRoot, "FlowTimeSim.sln")) && Directory.GetParent(workspaceRoot) != null)
-			{
-				workspaceRoot = Directory.GetParent(workspaceRoot)!.FullName;
-			}
-			var sourceCatalogsDir = Path.Combine(workspaceRoot, "catalogs");
-
-			// Create runtime catalogs directory if it doesn't exist
-			Directory.CreateDirectory(runtimeCatalogsDir);
-
-			// Copy demo catalogs if runtime directory is empty or doesn't have .yaml files
-			if (Directory.GetFiles(runtimeCatalogsDir, "*.yaml").Length == 0)
-			{
-				if (Directory.Exists(sourceCatalogsDir))
-				{
-					foreach (var sourceFile in Directory.GetFiles(sourceCatalogsDir, "*.yaml"))
-					{
-						var fileName = Path.GetFileName(sourceFile);
-						var destFile = Path.Combine(runtimeCatalogsDir, fileName);
-						// Don't overwrite existing user customizations
-						if (!File.Exists(destFile))
-						{
-							File.Copy(sourceFile, destFile);
-						}
-					}
-				}
-			}
-		}
-
-		/// <summary>
-		/// Gets the root directory for catalogs.
-		/// Always returns the runtime catalogs directory after ensuring it's populated.
-		/// </summary>
-		public static string CatalogsRoot(IConfiguration? configuration = null)
-		{
-			var dataDir = DataRoot(configuration);
-			var runtimeCatalogsDir = Path.Combine(dataDir, "catalogs");
-
-			// Ensure runtime catalogs are set up
-			EnsureRuntimeCatalogs(configuration);
-
-			return runtimeCatalogsDir;
-		}
-
 		public static bool IsSafeId(string id) => !string.IsNullOrWhiteSpace(id) && id.Length < 128 && id.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-');
 		public static bool IsSafeSeriesId(string id) => !string.IsNullOrWhiteSpace(id) && id.Length < 128 && id.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-' or '@');
-		public static bool IsSafeCatalogId(string id) => !string.IsNullOrWhiteSpace(id) && id.Length < 128 && id.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-' or '.');
 	}
 
 	public sealed record DraftSourceResolution(string DraftId, string Content);

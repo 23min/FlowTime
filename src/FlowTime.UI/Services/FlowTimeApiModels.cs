@@ -38,8 +38,7 @@ public record HealthInfo(
 
 public record HealthDetails(
     [property: JsonPropertyName("dataDirectory")] string? DataDirectory,
-    [property: JsonPropertyName("runsDirectory")] string? RunsDirectory,
-    [property: JsonPropertyName("catalogsDirectory")] string? CatalogsDirectory);
+    [property: JsonPropertyName("runsDirectory")] string? RunsDirectory);
 
 // Alternative simple health format
 public record SimpleHealthResponse(

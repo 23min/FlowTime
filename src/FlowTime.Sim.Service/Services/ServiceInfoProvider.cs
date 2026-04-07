@@ -67,8 +67,7 @@ public class ServiceInfoProvider : IServiceInfoProvider
                 Details = new Dictionary<string, object>
                 {
                     { "dataDirectory", Program.ServiceHelpers.DataRoot(configuration) },
-                    { "modelsDirectory", Program.ServiceHelpers.ModelsRoot(configuration) },
-                    { "catalogsDirectory", Program.ServiceHelpers.CatalogsRoot(configuration) }
+                    { "modelsDirectory", Program.ServiceHelpers.ModelsRoot(configuration) }
                 }
             }
         };

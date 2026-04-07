@@ -96,28 +96,6 @@ GET {{baseUrl}}/api/v1/models HTTP/1.1
 GET {{baseUrl}}/api/v1/models/{{templateId}} HTTP/1.1
 
 ###############################################################################
-# Catalog Operations (for reference)
-###############################################################################
-
-### List all catalogs
-GET {{baseUrl}}/api/v1/catalogs HTTP/1.1
-
-### Get specific catalog
-GET {{baseUrl}}/api/v1/catalogs/demo-system HTTP/1.1
-
-### Create/update catalog
-PUT {{baseUrl}}/api/v1/catalogs/test-catalog HTTP/1.1
-Content-Type: application/x-yaml
-
-name: test-catalog
-description: Test catalog for verification
-version: 1.0.0
-nodes:
-  - id: test_node
-    kind: const
-    values: [1, 2, 3]
-
-###############################################################################
 # Verification Workflow
 ###############################################################################
 
