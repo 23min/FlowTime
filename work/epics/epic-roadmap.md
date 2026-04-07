@@ -42,7 +42,7 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 - **Status:** Phases 0-2 complete, p3a and p3a1 merged to main, remaining Phase 3 resumes with p3d -> p3c -> p3b
 - **Goal:** Fix P0 correctness bugs, harden engineering quality, align documentation with code, and build the analytical primitives layer (bottleneck ID, cycle time, WIP limits, variability, constraint enforcement, starvation detection) that downstream epics depend on.
 - **Phases:** 0 (bugs) → 1+2 (engineering + docs, parallel) → 3 (analytical primitives)
-- **Key dependency:** With E-16 complete, resume Phase 3 in the order p3d → p3c → p3b. See `ROADMAP.md` dependency graph.
+- **Key dependency:** After E-16, resume Phase 3 in the order p3d → p3c → p3b. See `ROADMAP.md` dependency graph.
 - **Reference:** `docs/architecture/reviews/review-sequenced-plan-2026-03.md` (historical rationale)
 
 #### E-16 — Formula-First Core Purification
@@ -59,10 +59,10 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 #### E-19 — Surface Alignment & Compatibility Cleanup
 
 - **Folder:** `work/epics/E-19-surface-alignment-and-compatibility-cleanup/`
-- **Status:** Planning — starts immediately after E-16 as a post-purification cleanup lane; Blazor remains supported in parallel with E-11
-- **Goal:** Tighten the remaining non-analytical legacy and compatibility surfaces across first-party UI, Sim, docs, schemas, and examples so current product surfaces stay aligned to one set of current contracts and do not harden today's Sim orchestration path into the future headless contract
+- **Status:** m-E19-01 completed, m-E19-02 next; Blazor remains supported in parallel with E-11
+- **Goal:** Tighten the remaining non-analytical legacy and compatibility surfaces across first-party UI, Sim, docs, schemas, and examples so current product surfaces stay aligned to one set of current contracts
 - **Sequencing:** Runs after E-16, in parallel with resumed E-10 Phase 3 work by default; should not silently replace the `p3d` -> `p3c` -> `p3b` sequence
-- **Key milestones:** supported surface inventory + boundary ADR → Sim authoring/runtime boundary cleanup → schema/template/example retirement → Blazor support alignment
+- **Key milestones:** supported surface inventory (completed) → runtime endpoint/client cleanup (next) → schema/template/example retirement → Blazor support alignment
 - **Reference:** `work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md`
 
 #### dag-map Library Evaluation (Spike)
@@ -139,18 +139,18 @@ These are the lowest-risk leverage layers after the E-16 truth gate. They increa
 - **Goal:** Live interactive recalculation. Change a parameter via UI slider, see all metrics/charts/heatmaps update instantly (sub-50ms). No recompilation for parameter value changes. The spreadsheet comes alive.
 - **Key milestones:** consume shared runtime parameter foundation, session & push channel, UI parameter controls
 - **Shared foundation:** one runtime parameter model + reevaluation API, owned once and reused by E-18 and E-17.
-- **Depends on:** E-16 plus the shared runtime parameter foundation (built in E-18 m-E18-01/02)
+- **Depends on:** E-16 plus the shared runtime parameter foundation (built in E-18 m-E18-01a/b/c)
 
-#### E-18 — Headless Pipeline & Optimization
+#### E-18 — Time Machine
 
 - **Folder:** `work/epics/E-18-headless-pipeline-and-optimization/`
 - **Status:** Future — depends on E-16
-- **Goal:** FlowTime as a callable pure function for pipelines, optimization loops, model fitting against real telemetry, sensitivity analysis, and digital twin architectures. SPICE-inspired analysis modes.
-- **Key milestones:** shared runtime parameter foundation + evaluation SDK, headless CLI / sidecar, parameter sweep & sensitivity, optimization & fitting, chunked evaluation, telemetry I/O
+- **Goal:** FlowTime as a client-agnostic callable machine for pipelines, optimization loops, model fitting against real telemetry, sensitivity analysis, AI iteration, and digital twin architectures.
+- **Key milestones:** m-E18-01a Time Machine creation + Generator extraction, m-E18-01b tiered validation + telemetry source contract, m-E18-01c runtime parameter foundation + reevaluation, then CLI/sidecar, sweep & sensitivity, optimization & fitting, chunked evaluation, and telemetry source adapters
 - **Depends on:** E-16 (pure compiled engine as evaluation function)
 - **Analysis modes:** sweep, optimize, fit, sensitivity, Monte Carlo, feedback/chunked
-- **Recommended sequencing:** m-E18-01/02 foundation first, then E-17 session/push UX, then E-18's richer analysis modes.
-- **Stateful extension note:** chunked evaluation belongs after a dedicated streaming/stateful seam exists; do not make it part of the first headless cut.
+- **Recommended sequencing:** m-E18-01a/b/c first, then E-17 session/push UX, then E-18's richer analysis modes.
+- **Stateful extension note:** chunked evaluation belongs after a dedicated streaming/stateful seam exists; do not make it part of the first Time Machine cut.
 
 ## UI Paradigm Epics (draft — unnumbered until sequenced)
 

@@ -1,11 +1,13 @@
 # Template, Draft, Model, Run, and Bundle Boundary
 
-**Status:** proposed
-**Related epics:** E-19, E-18, E-17
+**Status:** accepted baseline for E-19 and E-18 handoff
+**Related epic:** [E-19](../../work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md)
+**Related milestone:** [m-E19-01-supported-surface-inventory](../../work/epics/E-19-surface-alignment-and-compatibility-cleanup/m-E19-01-supported-surface-inventory.md)
+**Related inventory:** [supported-surfaces.md](./supported-surfaces.md)
 
 ## Purpose
 
-Clarify the meaning and ownership of template, draft, model, run, bundle, and catalog surfaces so current Sim authoring/orchestration paths do not become the accidental headless/programmatic contract.
+Clarify the meaning and ownership of template, draft, model, run, bundle, and catalog surfaces so the current Sim authoring/orchestration path does not harden into the future programmable contract.
 
 ## Problem
 
@@ -19,100 +21,187 @@ FlowTime currently mixes several artifact types and service roles:
 - Engine-side bundle import endpoints
 - catalog-era runtime seeding and UI/catalog clients
 
-Those surfaces were introduced for different reasons, but the current first-party flow makes them easy to confuse. The result is that today's Sim orchestration path can be mistaken for the future headless path even though E-18 is meant to replace it with a cleaner programmable foundation.
+Those surfaces were introduced for different reasons, but on the current first-party path they are easy to confuse. That ambiguity makes it too easy to treat today's Sim orchestration path as the default programmable contract even though E-18 is meant to replace it with `FlowTime.TimeMachine`.
 
 ## Terms
 
-| Term | Meaning | Current Owner | Canonical Location | Notes |
+| Term | Meaning | Current owner | Canonical location | Notes |
 |------|---------|---------------|--------------------|-------|
-| Template | Versioned authored source with parameter metadata used to generate engine models | Sim authoring surface | `templates/` | Long-lived source material checked into the repo |
-| Draft | Mutable saved working copy of template-like YAML | Sim authoring surface if retained | `data/storage/drafts/<draftId>` | User working state, not canonical runtime truth |
-| Model | Generated engine model YAML after parameter substitution and template expansion | Sim generation/orchestration surface | transient response; optional storage model archive | Intermediate artifact for preview, validation, or transport |
-| Run | Canonical evaluated execution result with manifest, model, series, and aggregates | Shared Engine/Sim runtime contract; queried by Engine API | `data/runs/<runId>/` | Authoritative current execution artifact |
-| Bundle | Portable archive of a model or run for transfer/import/reuse | Interchange surface | `data/storage/runs/<runId>` and model refs | Archive, not authoritative live runtime state |
-| Catalog | Component library / earlier authoring direction; not required by the current run path | Legacy or optional Sim authoring surface | `catalogs/` and `data/catalogs/` | E-19 must decide whether this remains supported |
+| Template | Versioned authored source with parameter metadata used to generate engine models | Sim authoring surface | `templates/` | Long-lived repo-backed source material |
+| Draft | Mutable saved working copy of template-like YAML | Sim authoring surface only if explicitly retained | `data/storage/drafts/<draftId>` | User working state, never canonical runtime truth |
+| Model | Materialised engine model YAML after template expansion and parameter substitution | Sim generation/orchestration surface | transient response, optional model storage | Intermediate artifact for preview, validation side effects, or transport |
+| Run | Canonical evaluated execution result with manifest, model, series, and aggregates | Shared runtime contract, queried by Engine API | `data/runs/<runId>/` | Authoritative runtime/query truth |
+| Bundle | Portable interchange artifact derived from a run or model | Interchange surface | canonical bundle output, not canonical run truth | Portable artifact with a different purpose from the in-place run directory |
+| Catalog | Component-library residue from an older authoring direction | Legacy or optional Sim authoring surface | `catalogs/`, `data/catalogs/` | E-19 decides whether this survives at all |
 
-## Ownership Boundary
+## Responsibility Clarification
 
-### Sim Owns
+### `FlowTime.Core`
 
-- template discovery and authoring-facing template metadata
-- any explicitly supported draft lifecycle
-- template-to-model generation
-- current template-driven orchestration until E-19 narrows or replaces that surface
+`FlowTime.Core` is the pure evaluation library. It owns schema validation, compile, parse, evaluate, and invariant analysis as pure computational operations. It does not own HTTP, orchestration, storage, or client-specific logic.
 
-### Engine API Owns
+### `FlowTime.Generator`
 
-- querying canonical run artifacts (`/runs/{runId}/graph`, `/state`, `/state_window`, `/metrics`, `/index`, `/series/...`)
-- importing canonical bundles when import is explicitly supported
+`FlowTime.Generator` is today's shared orchestration layer between Sim and API. It stays frozen during E-19. Its forward fate is already decided: E-18 Path B extracts its execution-pipeline responsibilities into `FlowTime.TimeMachine` and deletes `FlowTime.Generator` in the same cut.
 
-### E-19 Owns
+### `FlowTime.API`
 
-- defining which of the current Sim/catalog/storage surfaces remain supported
-- deleting or archiving transitional residue on active first-party paths
-- making the supported-vs-historical boundary explicit across docs, UI, Sim, schemas, and examples
+`FlowTime.API` is the query and operator surface over canonical run artifacts. It reads canonical run artifacts and exposes the current read/query surface. It does not become the template-driven execution host, and E-19 deletes obsolete API write endpoints instead of preserving rejection stubs.
 
-### E-18 Owns
+### `FlowTime.Sim.Service`
 
-- the future headless foundation: runtime parameter identity, deterministic overrides, reevaluation/evaluation APIs, evaluation SDK, and headless CLI/sidecar over compiled graphs
+`FlowTime.Sim.Service` owns template authoring, authoring metadata, and template-materialisation flows. It hosts execution only as a transitional first-party UI bridge until the Time Machine exists.
 
-E-18 does **not** inherit the current Sim draft/catalog/bundle choreography as its baseline API.
+### `FlowTime.TimeMachine`
 
-## Current Sequence
+`FlowTime.TimeMachine` is a new component owned by E-18. It is the future client-agnostic execution component for tiered validation, compile, evaluate, reevaluate, parameter override, and artifact write. It depends on Core; Core does not depend on it.
+
+### Validation Principle
+
+Validation is a first-class client-agnostic operation. No client is privileged. Sim UI, Blazor UI, Svelte UI, MCP servers, external AI agents, tests, and CI are all equal callers of the future Time Machine validation surface.
+
+The tiered validation requirement is fixed:
+
+- Tier 1: schema-only validation
+- Tier 2: compile/parse validation without execution
+- Tier 3: full analyse validation including deterministic evaluation and invariant analysis
+
+E-19 removes the current Sim-only `POST /api/v1/drafts/validate` wrapper. E-18 owns the replacement Time Machine validation surface.
+
+## Current
 
 ```mermaid
 sequenceDiagram
     actor User
-    participant UI as FlowTime.UI
+    participant UI as Blazor or Svelte UI
     participant Sim as FlowTime.Sim.Service
+    participant Tpl as TemplateService
     participant Orch as RunOrchestrationService
-    participant Core as Engine/Core Evaluation
-    participant Runs as data/runs/<runId>
-    participant Store as data/storage
+    participant Core as FlowTime.Core
+    participant Runs as data/runs/<runId>/
+    participant Store as data/storage/
     participant API as FlowTime.API
 
     User->>UI: Choose template and click Run
     UI->>Sim: POST /api/v1/orchestration/runs
+    Sim->>Tpl: Load template and metadata
+    Tpl-->>Sim: Template YAML and parameters
     Sim->>Orch: CreateRunAsync(templateId, params, mode)
-    Orch->>Core: Compile and evaluate
+    Orch->>Core: Compile and evaluate graph
     Core-->>Orch: Canonical run artifacts
-    Orch->>Runs: Write live run directory
-    Orch->>Store: Archive zipped run bundle
+    Orch->>Runs: Write canonical run directory
+    Orch->>Store: Write archived run bundle ZIP
     Sim-->>UI: RunCreateResponse(metadata, bundleRef)
 
-    UI->>API: Query /v1/runs/{runId}/graph|state_window|metrics
+    UI->>API: GET /v1/runs/{runId}/graph
+    UI->>API: GET /v1/runs/{runId}/state_window
+    UI->>API: GET /v1/runs/{runId}/metrics
     API->>Runs: Read canonical run artifacts
     Runs-->>API: Query data
     API-->>UI: Time-travel responses
 
-    opt Draft path
-        UI->>Sim: POST/PUT /api/v1/drafts
-        Sim->>Store: Save YAML draft
+    opt Narrower inline-YAML path
         UI->>Sim: POST /api/v1/drafts/run
-        Sim->>Store: Read draft YAML
-        Sim->>Orch: Same CreateRunAsync flow
+        Sim->>Orch: Same orchestration flow
     end
+
+    opt Residual draft storage
+        UI->>Sim: POST or PUT /api/v1/drafts
+        Sim->>Store: Save YAML under data/storage/drafts/
+    end
+
+    opt Residual Engine import path
+        Note over API,Store: POST /v1/runs still carries bundle import branches used only by tests
+    end
+```
+
+## Transitional (end of E-19)
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant UI as Blazor or Svelte UI
+    participant Sim as FlowTime.Sim.Service
+    participant Tpl as TemplateService
+    participant Orch as RunOrchestrationService
+    participant Core as FlowTime.Core
+    participant Runs as data/runs/<runId>/
+    participant API as FlowTime.API
+
+    User->>UI: Choose template and click Run
+    UI->>Sim: POST /api/v1/orchestration/runs
+    Sim->>Tpl: Load template and metadata
+    Tpl-->>Sim: Template YAML and parameters
+    Sim->>Orch: CreateRunAsync(templateId, params, mode)
+    Orch->>Core: Compile and evaluate graph
+    Core-->>Orch: Canonical run artifacts
+    Orch->>Runs: Write canonical run directory only
+    Sim-->>UI: RunCreateResponse(metadata)
+
+    UI->>API: Query /v1/runs/{runId}/graph, state, state_window, metrics, index, series
+    API->>Runs: Read canonical run artifacts
+    Runs-->>API: Query data
+    API-->>UI: Time-travel responses
+
+    opt Explicit inline-YAML path only
+        UI->>Sim: POST /api/v1/drafts/run with inline source
+        Sim->>Orch: Same orchestration flow
+    end
+
+    Note over Sim: No stored draft CRUD remains
+    Note over Sim: No catalog endpoints remain
+    Note over API: No POST /v1/runs route remains
+```
+
+## Target (post-E-18)
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant UI as Blazor or Svelte UI
+    participant Sim as FlowTime.Sim.Service
+    participant TM as FlowTime.TimeMachine
+    participant Core as FlowTime.Core
+    participant Runs as data/runs/<runId>/
+    participant Bundle as Canonical bundle output
+    participant API as FlowTime.API
+    participant AI as MCP, AI agents, tests, CI
+
+    User->>UI: Choose template, edit parameters, request run
+    UI->>Sim: GET /api/v1/templates or POST /api/v1/templates/{id}/generate
+    Sim-->>UI: Template metadata or materialised model
+
+    UI->>TM: Validate, compile, evaluate, or reevaluate
+    AI->>TM: Validate, compile, evaluate, or reevaluate
+    TM->>Core: Tier 1 schema, Tier 2 compile, Tier 3 analyse, evaluate
+    Core-->>TM: Deterministic validation and execution results
+    TM->>Runs: Write canonical run directory
+
+    opt Portable interchange requested
+        TM->>Bundle: Write canonical bundle
+    end
+
+    UI->>API: Query /v1/runs/{runId}/graph, state, state_window, metrics, index, series
+    API->>Runs: Read canonical run artifacts
+    Runs-->>API: Query data
+    API-->>UI: Time-travel responses
+
+    Note over TM,AI: Validation and execution are client-agnostic Time Machine operations
+    Note over Runs,Bundle: Run directory and canonical bundle remain distinct artifacts with different purposes
 ```
 
 ## Decision
 
 1. Treat `data/runs/<runId>/` as the canonical runtime truth for first-party run querying.
-2. Treat storage-backed drafts as authoring state, not as runtime truth.
-3. Treat storage-backed run bundles and bundle refs as interchange/import artifacts, not as the default evaluation API.
-4. Use E-19 to decide which current Sim/catalog/storage surfaces stay supported and to remove the rest from active first-party paths.
-5. Use E-18 to build the actual headless/programmatic foundation instead of normalizing today's Sim orchestration path.
+2. Treat drafts as authoring state only. Stored drafts are not canonical runtime truth and are removed from the current supported surface by E-19.
+3. Treat the canonical bundle as a portable interchange artifact distinct from the canonical run directory. It is not the primary runtime/query truth.
+4. Use E-19 to inventory, narrow, delete, or archive current Sim/catalog/storage residue on active first-party surfaces.
+5. Use E-18 to build the actual client-agnostic programmable foundation in `FlowTime.TimeMachine` instead of normalizing today's Sim orchestration path.
 
 ## Consequences
 
-- New callers should not be built on catalog endpoints, bundle-ref import flows, or draft-only orchestration paths unless E-19 explicitly retains them.
-- Docs should describe the current Sim path as the present authoring/orchestration surface, not as the target headless architecture.
-- If draft authoring remains supported, it stays an authoring feature. It does not define the programmable evaluation boundary.
-- If bundle import remains supported, it stays an import/interchange feature. It does not define template-driven run creation.
-
-## Near-Term Use In E-19
-
-`m-E19-01-supported-surface-inventory` should use this document to:
-
-- publish the supported compatibility matrix
-- classify each current Sim/catalog/storage surface as retain, decide, or delete
-- prevent new consumers of transitional residue while the cleanup lane is in flight
+- New callers should not be built on catalog endpoints, stored-draft CRUD, bundle-ref import flows, or Sim orchestration as a future-facing programmable contract.
+- Docs should describe Sim orchestration as the current first-party authoring bridge, not as the target execution architecture.
+- The current Sim validation endpoint is deleted, but the underlying validation libraries remain and become the basis of Time Machine tiered validation.
+- Canonical bundle writing survives as a Time Machine capability, but the in-place run directory remains the runtime/query truth.
+- The supported/deleted/archive decisions for each current surface are recorded in [supported-surfaces.md](./supported-surfaces.md).

@@ -20,7 +20,7 @@ The strategic arc is three phases:
 
 3. **Make it programmable (E-18).** Once the engine is a callable pure function, embed it in pipelines. Parameter sweeps, optimization loops, model fitting against real telemetry, sensitivity analysis, digital twin architectures. FlowTime becomes an instrument, not just a simulator.
 
-This arc describes the product capability ladder, not strict implementation order. In implementation, the shared runtime parameter foundation lands first in the E-18 headless layer and is then consumed by E-17's session/push UX. E-16 completes first, then E-10 resumes, then E-12-E-15 build on the analytical layer.
+This arc describes the product capability ladder, not strict implementation order. In implementation, the shared runtime parameter foundation lands first in the E-18 Time Machine foundation and is then consumed by E-17's session/push UX. E-16 completes first, then E-10 resumes, then E-12-E-15 build on the analytical layer.
 
 ## Delivered (Completed Epics)
 
@@ -76,11 +76,11 @@ Build a parallel SvelteKit + shadcn-svelte UI surface for demos and future evalu
 
 ## E-19 — Surface Alignment & Compatibility Cleanup (planning)
 
-**Epic:** `work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md` | **Status:** planning
+**Epic:** `work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md` | **Status:** m-E19-01 completed, m-E19-02 next
 
 After E-16 purifies analytical truth, FlowTime still carries broader non-analytical compatibility debt across first-party UI, Sim, docs, examples, and schema surfaces. E-19 removes stale fallback layers and clarifies supported surfaces in a forward-only cut while keeping Blazor current as a supported parallel UI.
 
-This cleanup lane also draws the boundary between today's Sim authoring/orchestration residue and the future E-18 headless foundation, so the current Sim path does not harden into the default programmable contract.
+This cleanup lane also draws the boundary between today's Sim authoring/orchestration residue and the future E-18 Time Machine foundation, so the current Sim path does not harden into the default programmable contract.
 
 This epic starts immediately after E-16 as a cleanup lane, but it does not replace E-10 Phase 3 resume. Runtime/schema/doc cleanup can run in parallel with resumed analytical work, and Blazor alignment runs alongside the E-11 Svelte track rather than behind a replacement cutoff.
 
@@ -118,19 +118,19 @@ Once E-16 makes the engine a pure compiled evaluator, live interactive recalcula
 
 Requires: runtime parameter model, server-side session management, WebSocket/SignalR push channel, auto-generated UI parameter controls.
 
-Recommended engineering order: build the shared runtime parameter foundation in the E-18 headless layer first, then add E-17 session management, push delivery, and UI controls.
+Recommended engineering order: build the shared runtime parameter foundation in the E-18 Time Machine first, then add E-17 session management, push delivery, and UI controls.
 
 **Depends on:** E-16
 
-## E-18 — Headless Pipeline & Optimization (future)
+## E-18 — Time Machine (future)
 
 **Epic:** `work/epics/E-18-headless-pipeline-and-optimization/spec.md` | **Status:** future
 
-Make FlowTime usable as a pure callable function in pipelines, optimization loops, model discovery workflows, and digital twin architectures. SPICE-inspired analysis modes: parameter sweep, optimization, sensitivity analysis, Monte Carlo, model fitting against real telemetry, chunked evaluation for feedback simulation.
+Make FlowTime usable as a client-agnostic callable machine in pipelines, optimization loops, model discovery workflows, digital twin architectures, and AI-assisted iteration. SPICE-inspired analysis modes still sit on top, but the first responsibility is the new `FlowTime.TimeMachine` execution component.
 
-Requires: headless CLI with pipeline-friendly I/O, iteration protocol, evaluation SDK, optimization framework, telemetry I/O in standard formats.
+Requires: `FlowTime.TimeMachine`, tiered validation, in-process SDK, reevaluation/parameter override foundation, CLI/sidecar surfaces, optimization framework, and telemetry source adapters.
 
-Recommended execution layers: (1) shared runtime parameter foundation + evaluation SDK + headless CLI/sidecar, (2) sweep/sensitivity/optimization/fitting, (3) chunked/stateful extensions only after a dedicated streaming/stateful execution seam exists.
+Recommended execution layers: (1) m-E18-01a Path B extraction cut, m-E18-01b tiered validation + `ITelemetrySource`, m-E18-01c runtime parameter foundation + reevaluation, (2) CLI/sidecar and richer sweep/optimization/fitting work, (3) chunked/stateful extensions only after a dedicated streaming/stateful execution seam exists.
 
 **Depends on:** E-16
 
@@ -177,7 +177,7 @@ E-16 Formula-First Core Purification (NOW — 6 milestones)
    |      +--→ Telemetry Loop & Parity
    |             +--→ E-18 fit / optimization against real telemetry
    |
-   +--→ E-18 foundation: runtime parameter model + evaluation SDK + headless CLI
+   +--→ E-18 Time Machine foundation: runtime parameter model + evaluation SDK + CLI/sidecar
              |
              +--→ E-17 Interactive What-If
              +--→ E-18 advanced modes (sweep / optimize / fit)
