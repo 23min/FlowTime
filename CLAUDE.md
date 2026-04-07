@@ -218,14 +218,15 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
-- **Immediate gate:** E-16 Formula-First Core Purification must complete before remaining E-10 Phase 3 milestones resume (`work/epics/epic-roadmap.md`)
-- **E-10** Engine Correctness (`work/epics/E-10-engine-correctness-and-analytics/spec.md`) — **gated on E-16**
+- **Immediate next step:** merge E-16 Formula-First Core Purification to `main`, then resume E-10 Phase 3 with `m-ec-p3d` (`work/epics/epic-roadmap.md`)
+- **E-10** Engine Correctness (`work/epics/E-10-engine-correctness-and-analytics/spec.md`) — **ready to resume**
   - Phases 0-2 complete. Phase 3 bridge complete (m-ec-p3a, m-ec-p3a1 merged to main).
-  - **Remaining:** p3d (Constraint Enforcement), p3c (Variability), p3b (WIP Limits) — resume after E-16
-- **E-16** Formula-First Core Purification (`work/epics/E-16-formula-first-core-purification/spec.md`) — **in progress**
-  - **Completed:** m-E16-01 through m-E16-05
-  - **Current branch:** `milestone/m-E16-05-analytical-warning-facts-and-primitive-cleanup`
-  - **Next milestone:** m-E16-06 (Contract + consumer purification)
+  - **Next:** p3d (Constraint Enforcement), then p3c (Variability), then p3b (WIP Limits)
+- **E-16** Formula-First Core Purification (`work/epics/E-16-formula-first-core-purification/spec.md`) — **completed**
+  - **Completed:** m-E16-01 through m-E16-06
+  - **Current branch:** `milestone/m-E16-06-analytical-contract-and-consumer-purification` — ready to merge
 - **E-11** Svelte UI — paused after M6
   - M1-M4 + M6 done, M5/M7/M8 remain
+- **E-19** Surface Alignment & Compatibility Cleanup (`work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md`) — planning
+  - Starts after E-16 as a cleanup lane, in parallel with resumed E-10 Phase 3 work
 - **E-12–E-15:** planned, not started

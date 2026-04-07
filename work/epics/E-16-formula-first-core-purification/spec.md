@@ -1,7 +1,7 @@
 # Epic: Formula-First Core Purification
 
 **ID:** E-16
-**Status:** In Progress
+**Status:** Completed
 
 ## Goal
 
@@ -53,14 +53,14 @@ This work should therefore be treated as a dedicated epic, not hidden inside ano
 
 ## Success Criteria
 
-- [ ] Runtime nodes carry compiled semantic references and an authoritative analytical descriptor.
-- [ ] `StateQueryService` no longer parses raw semantic references or reconstructs analytical identity for runtime behavior.
-- [ ] Core owns analytical evaluation, emitted derived keys, and warning eligibility facts for snapshot, window, and by-class outputs.
-- [ ] API contracts publish authoritative analytical and node-category facts across current state and graph surfaces so first-party consumers stop classifying behavior from `kind + logicalType`.
-- [ ] Fallback wildcard class data is explicit and distinguishable from real by-class truth.
-- [ ] Runtime metadata readers and analytical query surfaces no longer recover required facts from raw model text or maintain duplicate model-evaluation fallback paths for analytical behavior.
-- [ ] Remaining E-10 Phase 3 milestones can build on compiled facts instead of adapter heuristics.
-- [ ] End-to-end pipeline validation proves Sim → Compiler → Runtime → API → Consumer works correctly: Sim-produced YAML (unchanged authoring surface) compiles through the new typed-reference compiler, evaluates correctly, and projects through purified contracts to consumers.
+- [x] Runtime nodes carry compiled semantic references and an authoritative analytical descriptor.
+- [x] `StateQueryService` no longer parses raw semantic references or reconstructs analytical identity for runtime behavior.
+- [x] Core owns analytical evaluation, emitted derived keys, and warning eligibility facts for snapshot, window, and by-class outputs.
+- [x] API contracts publish authoritative analytical and node-category facts across current state and graph surfaces so first-party consumers stop classifying behavior from `kind + logicalType`.
+- [x] Fallback wildcard class data is explicit and distinguishable from real by-class truth.
+- [x] Runtime metadata readers and analytical query surfaces no longer recover required facts from raw model text or maintain duplicate model-evaluation fallback paths for analytical behavior.
+- [x] Remaining E-10 Phase 3 milestones can build on compiled facts instead of adapter heuristics.
+- [x] End-to-end pipeline validation proves Sim → Compiler → Runtime → API → Consumer works correctly: Sim-produced YAML (unchanged authoring surface) compiles through the new typed-reference compiler, evaluates correctly, and projects through purified contracts to consumers.
 
 ## End-to-End Validation Strategy
 
@@ -97,7 +97,7 @@ Each milestone is individually shippable, but the final milestone (m-E16-06) mus
 | [m-E16-03-runtime-analytical-descriptor](m-E16-03-runtime-analytical-descriptor.md) | Runtime Analytical Descriptor | Compile authoritative analytical identity onto runtime nodes and delete adapter-side logical-type reconstruction. | m-E16-02 | completed |
 | [m-E16-04-core-analytical-evaluation](m-E16-04-core-analytical-evaluation.md) | Core Analytical Evaluation | Move analytical values and emitted-series truth into a pure Core evaluator for snapshot, window, and by-class outputs. | m-E16-03 | completed |
 | [m-E16-05-analytical-warning-facts-and-primitive-cleanup](m-E16-05-analytical-warning-facts-and-primitive-cleanup.md) | Analytical Warning Facts & Primitive Cleanup | Move warning facts into Core analyzers and finish analytical primitive ownership cleanup. | m-E16-04 | completed |
-| [m-E16-06-analytical-contract-and-consumer-purification](m-E16-06-analytical-contract-and-consumer-purification.md) | Analytical Contract & Consumer Purification | Publish authoritative analytical facts and delete named current-state consumer heuristics in one forward-only cut. | m-E16-05 | draft |
+| [m-E16-06-analytical-contract-and-consumer-purification](m-E16-06-analytical-contract-and-consumer-purification.md) | Analytical Contract & Consumer Purification | Publish authoritative analytical facts and delete named current-state consumer heuristics in one forward-only cut. | m-E16-05 | completed |
 
 **Forward-only rule:** old run directories, generated fixtures, and approved golden snapshots are not compatibility obligations for this epic. When the runtime boundary changes, regenerate them.
 

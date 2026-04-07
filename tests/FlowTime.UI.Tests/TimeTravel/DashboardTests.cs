@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using FlowTime.UI.Pages.TimeTravel;
@@ -119,6 +120,140 @@ public class DashboardTests
     }
 
     [Fact]
+    public async Task MetricsClient_Fallback_UsesAnalyticalFactsInsteadOfKindHints()
+    {
+        var api = new StubFlowTimeApiClient
+        {
+            MetricsHandler = (_, _) => Task.FromResult(ApiCallResult<TimeTravelMetricsResponseDto>.Fail(404, "not found")),
+            IndexHandler = (_, _) => Task.FromResult(ApiCallResult<SeriesIndex>.Ok(new SeriesIndex
+            {
+                Grid = new SimGridInfo { Bins = 2, BinSize = 60, BinUnit = "minutes" },
+                Series = new List<SeriesInfo>()
+            }, 200))
+        };
+
+        var stateWindow = new TimeTravelStateWindowDto
+        {
+            Metadata = new TimeTravelStateMetadataDto
+            {
+                RunId = "run-analytical-facts",
+                TemplateId = "template",
+                Mode = "simulation",
+                TelemetrySourcesResolved = true,
+                Schema = new TimeTravelSchemaMetadataDto { Id = "1", Version = "1", Hash = "hash" },
+                Storage = new TimeTravelStorageDescriptorDto()
+            },
+            Window = new TimeTravelWindowSliceDto { StartBin = 0, EndBin = 1, BinCount = 2 },
+            TimestampsUtc = new[] { DateTimeOffset.Parse("2025-01-01T00:00:00Z", CultureInfo.InvariantCulture) },
+            Nodes = new[]
+            {
+                new TimeTravelNodeSeriesDto
+                {
+                    Id = "OrderService",
+                    Kind = "const",
+                    Category = "service",
+                    Analytical = new TimeTravelNodeAnalyticalFactsDto
+                    {
+                        Identity = "service",
+                        HasQueueSemantics = false,
+                        HasServiceSemantics = true,
+                        HasCycleTimeDecomposition = false,
+                        StationarityWarningApplicable = false
+                    },
+                    Series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["arrivals"] = new double?[] { 100, 120 },
+                        ["served"] = new double?[] { 100, 100 }
+                    }
+                }
+            }
+        };
+
+        var data = new StubTimeTravelDataService
+        {
+            StateWindowHandler = (_, _, _, _, _) => Task.FromResult(ApiCallResult<TimeTravelStateWindowDto>.Ok(stateWindow, 200))
+        };
+
+        var client = new TimeTravelMetricsClient(api, data, NullLogger<TimeTravelMetricsClient>.Instance);
+
+        var result = await client.GetMetricsAsync("run-analytical-facts", CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.NotNull(result.Value);
+        Assert.Single(result.Value.Payload.Services);
+        Assert.Equal("OrderService", result.Value.Payload.Services[0].Id);
+    }
+
+    [Fact]
+    public async Task Dashboard_ClassContext_DoesNotInferClassesFromByClassWithoutMetadataCatalog()
+    {
+        var dashboard = new Dashboard();
+        var data = new StubTimeTravelDataService
+        {
+            SeriesIndexHandler = (_, _) => Task.FromResult(ApiCallResult<SeriesIndex>.Ok(new SeriesIndex
+            {
+                Grid = new SimGridInfo { Bins = 2, BinSize = 60, BinUnit = "minutes" },
+                Series = new List<SeriesInfo>()
+            }, 200)),
+            StateWindowHandler = (_, _, _, _, _) => Task.FromResult(ApiCallResult<TimeTravelStateWindowDto>.Ok(new TimeTravelStateWindowDto
+            {
+                Metadata = new TimeTravelStateMetadataDto
+                {
+                    RunId = "run-class-strict",
+                    TemplateId = "template",
+                    Mode = "simulation",
+                    TelemetrySourcesResolved = true,
+                    Schema = new TimeTravelSchemaMetadataDto { Id = "1", Version = "1", Hash = "hash" },
+                    Storage = new TimeTravelStorageDescriptorDto()
+                },
+                Window = new TimeTravelWindowSliceDto { StartBin = 0, EndBin = 1, BinCount = 2 },
+                Nodes = new[]
+                {
+                    new TimeTravelNodeSeriesDto
+                    {
+                        Id = "OrderService",
+                        Kind = "service",
+                        Category = "service",
+                        Analytical = new TimeTravelNodeAnalyticalFactsDto
+                        {
+                            Identity = "service",
+                            HasServiceSemantics = true
+                        },
+                        ClassTruth = new TimeTravelNodeClassTruthFactsDto
+                        {
+                            Coverage = "missing"
+                        },
+                        Series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase),
+                        ByClass = new Dictionary<string, IReadOnlyDictionary<string, double?[]>>(StringComparer.OrdinalIgnoreCase)
+                        {
+                            ["Retail"] = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+                            {
+                                ["arrivals"] = new double?[] { 1d, 2d }
+                            }
+                        }
+                    }
+                }
+            }, 200))
+        };
+
+        typeof(Dashboard)
+            .GetProperty("DataService", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(dashboard, data);
+
+        var method = typeof(Dashboard).GetMethod("LoadClassContextAsync", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        var task = (Task)method!.Invoke(dashboard, new object[] { "run-class-strict", CancellationToken.None })!;
+        await task;
+
+        var availableClasses = (IReadOnlyList<string>)typeof(Dashboard)
+            .GetField("availableClasses", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(dashboard)!;
+
+        Assert.Empty(availableClasses);
+    }
+
+    [Fact]
     public async Task MetricsClient_ReturnsFailure_WhenFallbackUnavailable()
     {
         var api = new StubFlowTimeApiClient
@@ -209,6 +344,15 @@ public class DashboardTests
                 {
                     Id = "OrderService",
                     Kind = "service",
+                    Category = "service",
+                    Analytical = new TimeTravelNodeAnalyticalFactsDto
+                    {
+                        Identity = "service",
+                        HasQueueSemantics = false,
+                        HasServiceSemantics = true,
+                        HasCycleTimeDecomposition = false,
+                        StationarityWarningApplicable = false
+                    },
                     Series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
                     {
                         ["arrivals"] = arrivals,
@@ -271,6 +415,9 @@ public class DashboardTests
 
     private sealed class StubTimeTravelDataService : ITimeTravelDataService
     {
+        public Func<string, CancellationToken, Task<ApiCallResult<SeriesIndex>>> SeriesIndexHandler { get; set; } =
+            (_, _) => Task.FromResult(ApiCallResult<SeriesIndex>.Fail(404, "not implemented"));
+
         public Func<string, int, int, string?, CancellationToken, Task<ApiCallResult<TimeTravelStateWindowDto>>> StateWindowHandler { get; set; } =
             (_, _, _, _, _) => Task.FromResult(ApiCallResult<TimeTravelStateWindowDto>.Fail(404, "not implemented"));
 
@@ -287,7 +434,7 @@ public class DashboardTests
             => throw new NotImplementedException();
 
         public Task<ApiCallResult<SeriesIndex>> GetSeriesIndexAsync(string runId, CancellationToken ct = default)
-            => throw new NotImplementedException();
+            => SeriesIndexHandler(runId, ct);
 
         public Task<ApiCallResult<Stream>> GetSeriesAsync(string runId, string seriesId, CancellationToken ct = default)
             => throw new NotImplementedException();

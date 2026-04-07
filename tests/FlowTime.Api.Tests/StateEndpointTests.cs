@@ -54,7 +54,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private const string sinkRunId = "run_state_sink";
     private const string sinkPathLatencyRunId = "run_state_sink_path_latency";
     private const string stationarityRunId = "run_state_stationarity";
-    private const string logicalTypeSwbRunId = "run_state_logicaltype_swb";
+    private const string analyticalSwbRunId = "run_state_analytical_swb";
     private const int binCount = 4;
     private const int binSizeMinutes = 5;
     private static readonly DateTime startTimeUtc = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -113,7 +113,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateSinkRun();
         CreateSinkPathLatencyRun();
         CreateStationarityRun();
-        CreateLogicalTypeSwbRun();
+        CreateAnalyticalSwbRun();
 
         logCollector = new TestLogCollector();
         client = factory.WithWebHostBuilder(builder =>
@@ -780,12 +780,21 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     }
 
     [Fact]
-    public async Task GetStateWindow_FileQueueDepth_DoesNotInferServiceWithBufferLogicalType()
+    public async Task GetStateWindow_FileQueueDepth_DoesNotInferQueueSemanticsFromLegacyHints()
     {
-        var response = await client.GetAsync($"/v1/runs/{logicalTypeSwbRunId}/state_window?startBin=0&endBin=3");
+        var response = await client.GetAsync($"/v1/runs/{analyticalSwbRunId}/state_window?startBin=0&endBin=3");
         response.EnsureSuccessStatusCode();
 
-        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        var json = await response.Content.ReadAsStringAsync();
+        var raw = JsonNode.Parse(json);
+        Assert.NotNull(raw);
+
+        foreach (var node in raw!["nodes"]!.AsArray())
+        {
+            Assert.Null(node?["nodeLogicalType"]);
+        }
+
+        var payload = JsonSerializer.Deserialize<StateWindowResponse>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web)
         {
             PropertyNameCaseInsensitive = true
         });
@@ -794,11 +803,13 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         var queueReader = Assert.Single(payload!.Nodes, n => n.Id == "QueueReader");
         var bufferNode = Assert.Single(payload.Nodes, n => n.Id == "BufferNode");
 
-        Assert.Equal("service", queueReader.LogicalType);
+        Assert.Equal("service", queueReader.Analytical.Identity, ignoreCase: true);
+        Assert.False(queueReader.Analytical.HasQueueSemantics);
         Assert.False(queueReader.Series.ContainsKey("queueTimeMs"));
         Assert.False(queueReader.Series.ContainsKey("latencyMinutes"));
 
-        Assert.Equal("servicewithbuffer", bufferNode.LogicalType, ignoreCase: true);
+        Assert.Equal("servicewithbuffer", bufferNode.Analytical.Identity, ignoreCase: true);
+        Assert.True(bufferNode.Analytical.HasQueueSemantics);
         Assert.True(bufferNode.Series.ContainsKey("queueTimeMs"));
         Assert.True(bufferNode.Series.ContainsKey("latencyMinutes"));
     }
@@ -2319,10 +2330,10 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateRun(stationarityRunId, BuildValidModelYaml(), mode: "telemetry", overrides);
     }
 
-    private void CreateLogicalTypeSwbRun()
+    private void CreateAnalyticalSwbRun()
     {
-        // A "service" node whose queueDepth uses "series:BufferNode" reference,
-        // so it gets promoted to logicalType "serviceWithBuffer" at query time.
+        // A "service" node whose queueDepth points at the BufferNode telemetry file.
+        // The response must use only the published analytical facts instead of a legacy hint field.
         var overrides = new Dictionary<string, double[]>
         {
             // The explicit serviceWithBuffer node (referenced by QueueReader)
@@ -2335,9 +2346,9 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
             ["BufferNode_servedCount.csv"] = new[] { 2d, 4d, 1d, 2d },
             // BufferNode.csv is the queue depth file read by QueueReader.
             // The resolver extracts "BufferNode" from "file:BufferNode.csv" and finds
-            // the serviceWithBuffer node, promoting QueueReader's logicalType.
+            // the serviceWithBuffer node so the response can publish analytical facts directly.
             ["BufferNode.csv"] = new[] { 10d, 5d, 0d, 4d },
-            // The logicalType-resolved node (kind: service, queueDepth → BufferNode)
+            // The service node whose queueDepth points at BufferNode telemetry.
             ["QueueReader_arrivals.csv"] = new[] { 5d, 4d, 3d, 2d },
             ["QueueReader_served.csv"] = new[] { 2d, 4d, 1d, 2d },
             ["QueueReader_errors.csv"] = new[] { 0d, 0d, 0d, 0d },
@@ -2346,10 +2357,10 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
             ["QueueReader_servedCount.csv"] = new[] { 2d, 4d, 1d, 2d }
         };
 
-        CreateRun(logicalTypeSwbRunId, BuildLogicalTypeSwbModelYaml(), mode: "telemetry", overrides);
+        CreateRun(analyticalSwbRunId, BuildAnalyticalSwbModelYaml(), mode: "telemetry", overrides);
     }
 
-    private static string BuildLogicalTypeSwbModelYaml()
+    private static string BuildAnalyticalSwbModelYaml()
     {
         return $"""
 schemaVersion: 1

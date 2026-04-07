@@ -39,19 +39,19 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 #### E-10 — Engine Correctness & Analytical Primitives
 
 - **Folder:** `work/epics/E-10-engine-correctness-and-analytics/`
-- **Status:** Phases 0-2 complete, p3a and p3a1 merged to main, remaining Phase 3 gated on E-16
+- **Status:** Phases 0-2 complete, p3a and p3a1 merged to main, remaining Phase 3 resumes with p3d -> p3c -> p3b
 - **Goal:** Fix P0 correctness bugs, harden engineering quality, align documentation with code, and build the analytical primitives layer (bottleneck ID, cycle time, WIP limits, variability, constraint enforcement, starvation detection) that downstream epics depend on.
 - **Phases:** 0 (bugs) → 1+2 (engineering + docs, parallel) → 3 (analytical primitives)
-- **Key dependency:** After E-16, resume Phase 3 in the order p3d → p3c → p3b. See `ROADMAP.md` dependency graph.
+- **Key dependency:** With E-16 complete, resume Phase 3 in the order p3d → p3c → p3b. See `ROADMAP.md` dependency graph.
 - **Reference:** `docs/architecture/reviews/review-sequenced-plan-2026-03.md` (historical rationale)
 
 #### E-16 — Formula-First Core Purification
 
 - **Folder:** `work/epics/E-16-formula-first-core-purification/`
-- **Status:** In progress (`m-E16-05` completed on `milestone/m-E16-05-analytical-warning-facts-and-primitive-cleanup`; `m-E16-06` is next)
+- **Status:** Completed (`m-E16-06` completed on `milestone/m-E16-06-analytical-contract-and-consumer-purification`)
 - **Goal:** Move semantic truth and analytical identity fully into the compiled Core model so the engine remains a deterministic formula evaluator and API/UI layers consume facts rather than reconstructing meaning from strings.
 - **Sequencing:** Runs immediately and before further E-10 Phase 3 expansion, which resumes in the order `p3d` -> `p3c` -> `p3b`.
-- **Key milestones:** m-E16-01 compiled semantic references (completed) → m-E16-02 class truth boundary (completed) → m-E16-03 runtime analytical descriptor (completed) → m-E16-04 Core analytical evaluation (completed) → m-E16-05 warning facts/primitive cleanup (completed) → m-E16-06 analytical contract + consumer purification (next)
+- **Key milestones:** m-E16-01 compiled semantic references (completed) → m-E16-02 class truth boundary (completed) → m-E16-03 runtime analytical descriptor (completed) → m-E16-04 Core analytical evaluation (completed) → m-E16-05 warning facts/primitive cleanup (completed) → m-E16-06 analytical contract + consumer purification (completed)
 - **Key decisions:** D-2026-04-03-005 (flowLatencyMs to Core), D-2026-04-03-006 (descriptor absorbs AnalyticalCapabilities), D-2026-04-03-007 (Parallelism typing)
 - **Migration:** Forward-only. Runs, fixtures, and approved goldens are regenerated rather than kept compatible.
 - **Reference:** `work/epics/E-16-formula-first-core-purification/reference/formula-first-engine-refactor-plan.md`

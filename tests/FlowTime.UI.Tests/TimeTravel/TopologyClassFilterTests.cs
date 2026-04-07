@@ -17,7 +17,7 @@ public sealed class TopologyClassFilterTests
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+                CreateTopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
             },
             Array.Empty<TopologyEdge>()));
 
@@ -38,7 +38,7 @@ public sealed class TopologyClassFilterTests
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+                CreateTopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
             },
             Array.Empty<TopologyEdge>()));
 
@@ -64,7 +64,7 @@ public sealed class TopologyClassFilterTests
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+                CreateTopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
             },
             Array.Empty<TopologyEdge>()));
 
@@ -95,7 +95,7 @@ public sealed class TopologyClassFilterTests
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("queue", "serviceWithBuffer", "serviceWithBuffer", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+                CreateTopologyNode("queue", "serviceWithBuffer", "serviceWithBuffer", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
             },
             Array.Empty<TopologyEdge>()));
 
@@ -138,6 +138,8 @@ public sealed class TopologyClassFilterTests
                 {
                     Id = "queue",
                     Kind = "serviceWithBuffer",
+                    Category = ResolveCategory("serviceWithBuffer"),
+                    Analytical = CreateAnalyticalFacts("serviceWithBuffer"),
                     Series = new Dictionary<string, double?[]>
                     {
                         ["arrivals"] = new double?[] { 8 },
@@ -167,7 +169,7 @@ public sealed class TopologyClassFilterTests
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+                CreateTopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
             },
             Array.Empty<TopologyEdge>()));
 
@@ -192,7 +194,7 @@ public sealed class TopologyClassFilterTests
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+                CreateTopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
             },
             Array.Empty<TopologyEdge>()));
 
@@ -216,7 +218,7 @@ public sealed class TopologyClassFilterTests
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+                CreateTopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
             },
             Array.Empty<TopologyEdge>()));
 
@@ -236,7 +238,7 @@ public sealed class TopologyClassFilterTests
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+                CreateTopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
             },
             Array.Empty<TopologyEdge>()));
 
@@ -256,7 +258,7 @@ public sealed class TopologyClassFilterTests
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+                CreateTopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
             },
             Array.Empty<TopologyEdge>()));
 
@@ -322,6 +324,8 @@ public sealed class TopologyClassFilterTests
                 {
                     Id = "svc",
                     Kind = "service",
+                    Category = ResolveCategory("service"),
+                    Analytical = CreateAnalyticalFacts("service"),
                     Series = new Dictionary<string, double?[]>
                     {
                         ["arrivals"] = new double?[] { totalArrivals },
@@ -361,6 +365,8 @@ public sealed class TopologyClassFilterTests
                 {
                     Id = "svc",
                     Kind = "service",
+                    Category = ResolveCategory("service"),
+                    Analytical = CreateAnalyticalFacts("service"),
                     Series = new Dictionary<string, double?[]>
                     {
                         ["arrivals"] = new double?[] { totalArrivals },
@@ -389,4 +395,77 @@ public sealed class TopologyClassFilterTests
         Distribution: null,
         InlineValues: null,
         Aliases: null);
+
+    private static TopologyNode CreateTopologyNode(
+        string id,
+        string kind,
+        string semanticKind,
+        IReadOnlyList<string> inputs,
+        IReadOnlyList<string> outputs,
+        int layer,
+        int index,
+        double x,
+        double y,
+        bool isPositionFixed,
+        TopologyNodeSemantics semantics,
+        int lane = 0,
+        GraphDispatchScheduleModel? DispatchSchedule = null,
+        string? NodeRole = null)
+    {
+        return new TopologyNode(id, kind, inputs, outputs, layer, index, x, y, isPositionFixed, semantics, lane, DispatchSchedule, NodeRole)
+        {
+            Category = ResolveCategory(semanticKind),
+            Analytical = CreateAnalytical(semanticKind)
+        };
+    }
+
+    private static string ResolveCategory(string kind)
+    {
+        return kind.ToLowerInvariant() switch
+        {
+            "queue" => "queue",
+            "dlq" => "dlq",
+            "router" => "router",
+            "dependency" => "dependency",
+            "sink" => "sink",
+            "const" or "constant" or "pmf" => "constant",
+            "expr" or "expression" => "expression",
+            _ => "service"
+        };
+    }
+
+    private static GraphNodeAnalyticalModel CreateAnalytical(string kind)
+    {
+        var normalized = kind.ToLowerInvariant();
+        var category = ResolveCategory(kind);
+        var hasQueueSemantics = normalized is "queue" or "dlq" or "servicewithbuffer";
+        var hasServiceSemantics = category == "service";
+
+        return new GraphNodeAnalyticalModel
+        {
+            Identity = normalized switch
+            {
+                "const" => "constant",
+                "expr" => "expression",
+                _ => kind
+            },
+            HasQueueSemantics = hasQueueSemantics,
+            HasServiceSemantics = hasServiceSemantics,
+            HasCycleTimeDecomposition = hasQueueSemantics && hasServiceSemantics,
+            StationarityWarningApplicable = hasQueueSemantics
+        };
+    }
+
+    private static TimeTravelNodeAnalyticalFactsDto CreateAnalyticalFacts(string kind)
+    {
+        var analytical = CreateAnalytical(kind);
+        return new TimeTravelNodeAnalyticalFactsDto
+        {
+            Identity = analytical.Identity,
+            HasQueueSemantics = analytical.HasQueueSemantics,
+            HasServiceSemantics = analytical.HasServiceSemantics,
+            HasCycleTimeDecomposition = analytical.HasCycleTimeDecomposition,
+            StationarityWarningApplicable = analytical.StationarityWarningApplicable
+        };
+    }
 }

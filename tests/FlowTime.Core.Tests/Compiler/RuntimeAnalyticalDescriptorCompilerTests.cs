@@ -34,7 +34,7 @@ public sealed class RuntimeAnalyticalDescriptorCompilerTests
         var node = Assert.Single(metadata.Topology!.Nodes);
 
         Assert.Equal(RuntimeAnalyticalIdentity.ServiceWithBuffer, node.Analytical.Identity);
-        Assert.Equal("servicewithbuffer", node.Analytical.ToLogicalType());
+        Assert.Equal("serviceWithBuffer", node.Analytical.ToContractIdentity());
         Assert.Equal(RuntimeAnalyticalNodeCategory.Service, node.Analytical.Category);
         Assert.True(node.Analytical.HasQueueSemantics);
         Assert.True(node.Analytical.HasServiceSemantics);
@@ -115,14 +115,14 @@ public sealed class RuntimeAnalyticalDescriptorCompilerTests
         Assert.Equal(explicitNode.Analytical.StationarityWarningApplicable, referencedNode.Analytical.StationarityWarningApplicable);
         Assert.Equal(RuntimeAnalyticalIdentity.ServiceWithBuffer, explicitNode.Analytical.Identity);
         Assert.Equal(RuntimeAnalyticalIdentity.ServiceWithBuffer, referencedNode.Analytical.Identity);
-        Assert.Equal("servicewithbuffer", explicitNode.Analytical.ToLogicalType());
-        Assert.Equal("servicewithbuffer", referencedNode.Analytical.ToLogicalType());
+        Assert.Equal("serviceWithBuffer", explicitNode.Analytical.ToContractIdentity());
+        Assert.Equal("serviceWithBuffer", referencedNode.Analytical.ToContractIdentity());
 
         Assert.Equal("ExplicitQueueService", explicitNode.Analytical.QueueSourceNodeId);
         Assert.Equal("queue_helper", referencedNode.Analytical.QueueSourceNodeId);
 
         Assert.Equal(RuntimeAnalyticalIdentity.Service, fileNode.Analytical.Identity);
-        Assert.Equal("service", fileNode.Analytical.ToLogicalType());
+    Assert.Equal("service", fileNode.Analytical.ToContractIdentity());
         Assert.Equal(RuntimeAnalyticalNodeCategory.Service, fileNode.Analytical.Category);
         Assert.False(fileNode.Analytical.HasQueueSemantics);
         Assert.True(fileNode.Analytical.HasServiceSemantics);
@@ -175,10 +175,10 @@ public sealed class RuntimeAnalyticalDescriptorCompilerTests
         Assert.Equal(RuntimeAnalyticalIdentity.Dependency, nodes["DependencyNode"].Analytical.Identity);
         Assert.Equal(RuntimeAnalyticalIdentity.Dlq, nodes["DeadLetter"].Analytical.Identity);
         Assert.Equal(RuntimeAnalyticalIdentity.Sink, nodes["Terminal"].Analytical.Identity);
-        Assert.Equal("router", nodes["RouterNode"].Analytical.ToLogicalType());
-        Assert.Equal("dependency", nodes["DependencyNode"].Analytical.ToLogicalType());
-        Assert.Equal("dlq", nodes["DeadLetter"].Analytical.ToLogicalType());
-        Assert.Equal("sink", nodes["Terminal"].Analytical.ToLogicalType());
+        Assert.Equal("router", nodes["RouterNode"].Analytical.ToContractIdentity());
+        Assert.Equal("dependency", nodes["DependencyNode"].Analytical.ToContractIdentity());
+        Assert.Equal("dlq", nodes["DeadLetter"].Analytical.ToContractIdentity());
+        Assert.Equal("sink", nodes["Terminal"].Analytical.ToContractIdentity());
         Assert.Equal(RuntimeAnalyticalNodeCategory.Router, nodes["RouterNode"].Analytical.Category);
         Assert.Equal(RuntimeAnalyticalNodeCategory.Dependency, nodes["DependencyNode"].Analytical.Category);
         Assert.Equal(RuntimeAnalyticalNodeCategory.Dlq, nodes["DeadLetter"].Analytical.Category);
@@ -216,7 +216,7 @@ public sealed class RuntimeAnalyticalDescriptorCompilerTests
 
         Assert.Equal(RuntimeAnalyticalIdentity.ServiceWithBuffer, node.Analytical.Identity);
         Assert.Equal(RuntimeAnalyticalNodeCategory.Service, node.Analytical.Category);
-        Assert.Equal("servicewithbuffer", node.Analytical.ToLogicalType());
+        Assert.Equal("serviceWithBuffer", node.Analytical.ToContractIdentity());
     }
 
     [Fact]
@@ -247,6 +247,6 @@ public sealed class RuntimeAnalyticalDescriptorCompilerTests
 
         Assert.Equal(RuntimeAnalyticalIdentity.Service, node.Analytical.Identity);
         Assert.Equal(RuntimeAnalyticalNodeCategory.Service, node.Analytical.Category);
-        Assert.Equal("service", node.Analytical.ToLogicalType());
+        Assert.Equal("service", node.Analytical.ToContractIdentity());
     }
 }

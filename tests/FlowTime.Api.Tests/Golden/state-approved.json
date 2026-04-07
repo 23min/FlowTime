@@ -30,7 +30,19 @@
     {
       "id": "OrderService",
       "kind": "service",
-      "nodeLogicalType": "service",
+      "category": "service",
+      "analytical": {
+        "identity": "service",
+        "hasQueueSemantics": false,
+        "hasServiceSemantics": true,
+        "hasCycleTimeDecomposition": false,
+        "stationarityWarningApplicable": false
+      },
+      "classTruth": {
+        "coverage": "missing",
+        "hasSpecificClasses": false,
+        "hasFallbackClass": false
+      },
       "metrics": {
         "arrivals": 10,
         "served": 6,
@@ -111,7 +123,19 @@
     {
       "id": "SupportQueue",
       "kind": "queue",
-      "nodeLogicalType": "queue",
+      "category": "queue",
+      "analytical": {
+        "identity": "queue",
+        "hasQueueSemantics": true,
+        "hasServiceSemantics": false,
+        "hasCycleTimeDecomposition": false,
+        "stationarityWarningApplicable": true
+      },
+      "classTruth": {
+        "coverage": "missing",
+        "hasSpecificClasses": false,
+        "hasFallbackClass": false
+      },
       "metrics": {
         "arrivals": 7,
         "served": 6,

@@ -192,7 +192,8 @@ public sealed class MetricsService
             nodes.Add(new ResolvedNodeSeries(
                 node.Id,
                 node.Kind,
-                node.LogicalType,
+                node.Category,
+                node.Analytical,
                 ClipSeries(arrivals, binCount),
                 ClipSeries(served, binCount),
                 ClipSeries(errors, binCount),
@@ -234,7 +235,7 @@ public sealed class MetricsService
 
         foreach (var node in resolution.Nodes)
         {
-            if (string.Equals(node.LogicalType, "dlq", StringComparison.OrdinalIgnoreCase))
+            if (!node.Analytical.HasServiceSemantics && !node.Analytical.HasQueueSemantics)
             {
                 continue;
             }
@@ -300,7 +301,8 @@ internal sealed record MetricsResolution(
 internal sealed record ResolvedNodeSeries(
     string Id,
     string Kind,
-    string? LogicalType,
+    string Category,
+    NodeAnalyticalFacts Analytical,
     double?[]? Arrivals,
     double?[]? Served,
     double?[]? Errors,

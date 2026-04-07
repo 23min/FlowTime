@@ -20,7 +20,7 @@ internal static class TooltipFormatter
 
         var lines = new List<string>();
 
-        var kindLabel = FormatKind(metrics.NodeKind);
+        var kindLabel = FormatKind(ResolveKindLabel(metrics));
         var profileName = TryGetMetadataValue(metrics.Metadata, "profile.name");
         var decoratedKind = string.IsNullOrWhiteSpace(profileName)
             ? kindLabel
@@ -48,14 +48,13 @@ internal static class TooltipFormatter
         {
             lines.Add($"Kind: {decoratedKind}");
 
-            var nodeKind = metrics.NodeKind;
-            if (IsDependencyKind(nodeKind))
+            if (HasCategory(metrics, "dependency"))
             {
                 lines.Add($"Arrivals {FormatNumber(TryGetRawMetric(metrics.RawMetrics, "arrivals"))}");
                 lines.Add($"Served {FormatNumber(TryGetRawMetric(metrics.RawMetrics, "served"))}");
                 lines.Add($"Errors {FormatNumber(TryGetRawMetric(metrics.RawMetrics, "errors"))}");
             }
-            else if (IsSinkKind(nodeKind))
+            else if (HasCategory(metrics, "sink"))
             {
                 var hasSchedule = HasRawMetric(metrics.RawMetrics, "scheduleAdherence");
                 var slaLabel = FormatPercent(metrics.SuccessRate);
@@ -68,7 +67,7 @@ internal static class TooltipFormatter
                 lines.Add($"Errors {FormatPercent(metrics.ErrorRate)}");
                 lines.Add(FormatFlowLatencyLine(metrics));
             }
-            else if (IsServiceWithBufferKind(nodeKind))
+            else if (HasIdentity(metrics, "serviceWithBuffer"))
             {
                 lines.Add($"SLA {FormatPercent(metrics.SuccessRate)}");
                 AppendCompletionSlaLine(metrics, lines);
@@ -79,7 +78,7 @@ internal static class TooltipFormatter
                 lines.Add($"Queue latency {FormatMinutes(metrics.LatencyMinutes)}");
                 lines.Add(FormatFlowLatencyLine(metrics));
             }
-            else if (IsQueueKind(nodeKind))
+            else if (HasCategory(metrics, "queue") || HasCategory(metrics, "dlq"))
             {
                 lines.Add($"SLA {FormatPercent(metrics.SuccessRate)}");
                 AppendCompletionSlaLine(metrics, lines);
@@ -88,7 +87,7 @@ internal static class TooltipFormatter
                 lines.Add($"Queue latency {FormatMinutes(metrics.LatencyMinutes)}");
                 lines.Add(FormatFlowLatencyLine(metrics));
             }
-            else if (IsServiceKind(nodeKind))
+            else if (metrics.HasServiceSemantics)
             {
                 lines.Add($"SLA {FormatPercent(metrics.SuccessRate)}");
                 AppendCompletionSlaLine(metrics, lines);
@@ -97,7 +96,7 @@ internal static class TooltipFormatter
                 lines.Add($"Service time {FormatServiceTime(metrics.ServiceTimeMs)}");
                 lines.Add(FormatFlowLatencyLine(metrics));
             }
-            else if (IsRouterKind(nodeKind))
+            else if (HasCategory(metrics, "router"))
             {
                 lines.Add($"SLA {FormatPercent(metrics.SuccessRate)}");
                 AppendCompletionSlaLine(metrics, lines);
@@ -162,6 +161,21 @@ internal static class TooltipFormatter
         };
     }
 
+    private static string? ResolveKindLabel(NodeBinMetrics metrics)
+    {
+        if (!string.IsNullOrWhiteSpace(metrics.AnalyticalIdentity))
+        {
+            return metrics.AnalyticalIdentity;
+        }
+
+        if (!string.IsNullOrWhiteSpace(metrics.NodeCategory))
+        {
+            return metrics.NodeCategory;
+        }
+
+        return metrics.NodeKind;
+    }
+
     private static string? TryGetMetadataValue(IReadOnlyDictionary<string, string>? metadata, string key)
     {
         if (metadata is null)
@@ -192,35 +206,14 @@ internal static class TooltipFormatter
         }
     }
 
-    private static bool IsSinkKind(string? kind)
+    private static bool HasCategory(NodeBinMetrics metrics, string category)
     {
-        return string.Equals(kind, "sink", StringComparison.OrdinalIgnoreCase);
+        return string.Equals(metrics.NodeCategory, category, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool IsQueueKind(string? kind)
+    private static bool HasIdentity(NodeBinMetrics metrics, string identity)
     {
-        return string.Equals(kind, "queue", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(kind, "dlq", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsServiceWithBufferKind(string? kind)
-    {
-        return string.Equals(kind, "servicewithbuffer", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsServiceKind(string? kind)
-    {
-        return string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsRouterKind(string? kind)
-    {
-        return string.Equals(kind, "router", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsDependencyKind(string? kind)
-    {
-        return string.Equals(kind, "dependency", StringComparison.OrdinalIgnoreCase);
+        return string.Equals(metrics.AnalyticalIdentity, identity, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string FormatLatency(double? latencyMs)
@@ -253,7 +246,7 @@ internal static class TooltipFormatter
             return $"Flow latency {FormatLatency(flowLatency)}";
         }
 
-        var isSink = IsSinkKind(metrics.NodeKind);
+        var isSink = HasCategory(metrics, "sink");
         var arrivals = TryGetRawMetric(metrics.RawMetrics, "arrivals");
         if (isSink && arrivals.HasValue && arrivals.Value <= 0)
         {

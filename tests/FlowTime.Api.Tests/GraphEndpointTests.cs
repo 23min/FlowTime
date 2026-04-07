@@ -39,7 +39,15 @@ public sealed class GraphEndpointTests : IClassFixture<TestWebApplicationFactory
         var response = await client.GetAsync($"/v1/runs/{runId}/graph");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var payload = await response.Content.ReadFromJsonAsync<GraphResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        var json = await response.Content.ReadAsStringAsync();
+        var raw = JsonNode.Parse(json);
+        Assert.NotNull(raw);
+        foreach (var node in raw!["nodes"]!.AsArray())
+        {
+            Assert.Null(node?["nodeLogicalType"]);
+        }
+
+        var payload = JsonSerializer.Deserialize<GraphResponse>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web)
         {
             PropertyNameCaseInsensitive = true
         });

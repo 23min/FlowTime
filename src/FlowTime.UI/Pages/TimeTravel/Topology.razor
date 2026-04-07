@@ -495,12 +495,14 @@
                             var metricsHaveSeries = allMetricBlocks.Any(block => !block.IsPlaceholder);
                             var hasSparklineSeries = allMetricBlocks.Any(block => !block.IsPlaceholder && block.Sparkline is not null);
                             var topoNodeInfo = FindTopologyNode(nodeId);
-                            var nodeKind = topoNodeInfo?.Kind;
-                            var nodeRoleLabel = ResolveNodeRoleLabel(topoNodeInfo);
+                            var nodeCategory = ResolveNodeCategory(topoNodeInfo, seriesNode);
+                            var nodeIdentity = ResolveAnalyticalIdentity(topoNodeInfo, seriesNode);
+                            var nodeKind = ResolveNodeDisplayKind(topoNodeInfo, seriesNode);
+                            var nodeRoleLabel = ResolveNodeRoleLabel(topoNodeInfo, seriesNode);
                             var expressionText = topoNodeInfo?.Semantics?.Expression;
                             var hasExpressionText = !string.IsNullOrWhiteSpace(expressionText);
-                            var showExpressionSection = IsExpressionKind(nodeKind);
-                            var isComputedNode = IsComputedKind(nodeKind);
+                            var showExpressionSection = IsExpressionNode(nodeCategory, nodeIdentity);
+                            var isComputedNode = IsComputedCategory(nodeCategory);
                             var dependencyRows = BuildInspectorDependencies(nodeId);
                             var inspectorWarnings = GetInspectorWarnings(nodeId);
                             var inspectorTabs = GetInspectorTabs(showExpressionSection);
@@ -1712,37 +1714,38 @@ private const string pmfExpectationLabel = "Value";
         canvasComponent?.FocusNode(nodeId);
     }
 
-    private void EnsureFallbackClassMetadataFromWindow(TimeTravelStateWindowDto window)
+    private void UpdateClassMetadataFromWindow(TimeTravelStateWindowDto window)
     {
-        if (availableClasses.Count > 0 || window.Nodes.Count == 0)
+        if (availableClasses.Count > 0)
         {
             return;
         }
 
-        var fallback = window.Nodes
-            .Where(node => node.ByClass is not null && node.ByClass.Count > 0)
-            .SelectMany(node => node.ByClass.Keys)
-            .Where(key => !string.IsNullOrWhiteSpace(key) &&
-                          !string.Equals(key, "DEFAULT", StringComparison.OrdinalIgnoreCase))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(key => classDisplayNames.TryGetValue(key, out var label) && !string.IsNullOrWhiteSpace(label) ? label : key,
-                     StringComparer.OrdinalIgnoreCase)
+        var publishedClasses = window.Metadata.Classes?
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Id))
+            .OrderBy(entry => entry.DisplayName ?? entry.Id, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        if (fallback.Length == 0)
+        if (publishedClasses is not { Length: > 0 })
         {
             return;
         }
 
-        availableClasses = fallback;
-        if (classDisplayNames == emptyClassLabels)
-        {
-            classDisplayNames = fallback.ToDictionary(id => id, id => id, StringComparer.OrdinalIgnoreCase);
-        }
+        availableClasses = publishedClasses.Select(entry => entry.Id).ToArray();
+        classDisplayNames = publishedClasses.ToDictionary(entry => entry.Id, entry => entry.DisplayName ?? entry.Id, StringComparer.OrdinalIgnoreCase);
+        classMetadata = publishedClasses.ToDictionary(
+            entry => entry.Id,
+            entry => new ManifestClassEntry
+            {
+                Id = entry.Id,
+                DisplayName = entry.DisplayName ?? entry.Id,
+                Description = entry.Description
+            },
+            StringComparer.OrdinalIgnoreCase);
 
-        Logger?.LogInformation("Topology fallback class metadata from window {RunId}: {Classes}",
+        Logger?.LogInformation("Topology class metadata from state window {RunId}: {Classes}",
             RunId,
-            string.Join(", ", fallback));
+            string.Join(", ", availableClasses));
     }
 
     private static string BuildRunStateKey(string runId) => $"{runStateStoragePrefix}:{runId}";
@@ -1903,7 +1906,7 @@ private const string pmfExpectationLabel = "Value";
             {
                 classCoverageState ??= windowData.Metadata.ClassCoverage;
             }
-            EnsureFallbackClassMetadataFromWindow(windowData);
+            UpdateClassMetadataFromWindow(windowData);
             windowWarnings = FilterWindowWarnings(windowData.Warnings);
             UpdateNodeWarningMap();
             UpdateEdgeWarningMap();
@@ -2578,9 +2581,13 @@ private const string pmfExpectationLabel = "Value";
             double? Get(string key) => GetSeriesValueSnapshot(node, key, localIndex, ref classDataFound, ref classVolume, context.HasClassSelection, context.SelectedClasses);
 
             var topoNode = context.FindNode(node.Id);
-            var displayKind = string.IsNullOrWhiteSpace(topoNode?.Kind) ? node.Kind : topoNode!.Kind;
-            var isPmf = IsPmfKind(displayKind);
-            var isComputed = IsComputedKind(displayKind);
+            var nodeCategory = ResolveNodeCategory(topoNode, node);
+            var nodeIdentity = ResolveAnalyticalIdentity(topoNode, node);
+            var hasQueueSemantics = ResolveHasQueueSemantics(topoNode, node);
+            var hasServiceSemantics = ResolveHasServiceSemantics(topoNode, node);
+            var displayKind = ResolveNodeDisplayKind(topoNode, node);
+            var isPmf = IsPmfIdentity(nodeIdentity);
+            var isComputed = IsComputedCategory(nodeCategory);
             var distribution = topoNode?.Semantics?.Distribution;
             var (modeProbability, modeValue) = ComputePmfMode(distribution);
             var arrivals = Get("arrivals");
@@ -2603,7 +2610,7 @@ private const string pmfExpectationLabel = "Value";
             var completionSla = context.HasClassSelection ? null : GetSlaValueSnapshot(node, "completion", localIndex);
             var scheduleAdherence = context.HasClassSelection ? null : GetSlaValueSnapshot(node, "scheduleAdherence", localIndex);
             var hasSchedule = node.DispatchSchedule is not null;
-            var isSinkNode = IsSinkKind(displayKind) || IsSinkKind(topoNode?.LogicalType) || IsSinkRole(topoNode?.NodeRole);
+            var isSinkNode = IsSinkCategory(nodeCategory) || IsSinkRole(topoNode?.NodeRole);
             double? successRate = completionSla ?? throughput;
             if (isSinkNode && hasSchedule)
             {
@@ -2670,7 +2677,7 @@ private const string pmfExpectationLabel = "Value";
                     }
                 }
 
-                if (!customValue.HasValue && IsExpressionKind(displayKind) && nodesMissingSnapshot.Contains(node.Id))
+                if (!customValue.HasValue && IsExpressionNode(nodeCategory, nodeIdentity) && nodesMissingSnapshot.Contains(node.Id))
                 {
                     customLabel = missingSeriesMessage;
                 }
@@ -2728,7 +2735,13 @@ private const string pmfExpectationLabel = "Value";
                 RetryTax: retryTax,
                 RawMetrics: rawMetrics.Count == 0 ? null : rawMetrics,
                 Metadata: topoNode?.Semantics?.Metadata,
-                QueueLatencyStatus: queueLatencyStatus);
+                QueueLatencyStatus: queueLatencyStatus)
+            {
+                NodeCategory = nodeCategory,
+                AnalyticalIdentity = nodeIdentity,
+                HasQueueSemantics = hasQueueSemantics,
+                HasServiceSemantics = hasServiceSemantics
+            };
 
             if (context.HasClassSelection)
             {
@@ -2790,14 +2803,13 @@ private const string pmfExpectationLabel = "Value";
                     }
                 }
 
-                var topoKind = topoNode.Kind;
-                if (string.IsNullOrWhiteSpace(topoKind) && context.WindowData.Nodes is { } windowNodes)
-                {
-                    var seriesNode = windowNodes.FirstOrDefault(n => string.Equals(n.Id, topoNodeId, StringComparison.OrdinalIgnoreCase));
-                    topoKind = seriesNode?.Kind;
-                }
-
-                var isPmfNode = IsPmfKind(topoKind);
+                var seriesNode = context.WindowData.Nodes?.FirstOrDefault(n => string.Equals(n.Id, topoNodeId, StringComparison.OrdinalIgnoreCase));
+                var topoCategory = ResolveNodeCategory(topoNode, seriesNode, existingMetrics);
+                var topoIdentity = ResolveAnalyticalIdentity(topoNode, seriesNode, existingMetrics);
+                var hasQueueSemantics = ResolveHasQueueSemantics(topoNode, seriesNode, existingMetrics);
+                var hasServiceSemantics = ResolveHasServiceSemantics(topoNode, seriesNode, existingMetrics);
+                var displayKind = ResolveNodeDisplayKind(topoNode, seriesNode, existingMetrics);
+                var isPmfNode = IsPmfIdentity(topoIdentity);
                 double? pmfProbability = null;
                 double? pmfSupportValue = null;
                 double? customValue = null;
@@ -2840,7 +2852,7 @@ private const string pmfExpectationLabel = "Value";
                     {
                         customLabel = binValueLabel;
                     }
-                    else if (IsExpressionKind(topoNode.Kind) && nodesMissingSnapshot.Contains(topoNode.Id))
+                    else if (IsExpressionNode(topoCategory, topoIdentity) && nodesMissingSnapshot.Contains(topoNode.Id))
                     {
                         customLabel = missingSeriesMessage;
                     }
@@ -2876,13 +2888,19 @@ private const string pmfExpectationLabel = "Value";
                             CustomLabel: newCustomLabel,
                             PmfProbability: pmfProbability ?? existingMetrics.PmfProbability,
                             PmfValue: pmfSupportValue ?? existingMetrics.PmfValue,
-                            NodeKind: existingMetrics.NodeKind ?? topoNode.Kind,
+                            NodeKind: string.IsNullOrWhiteSpace(existingMetrics.NodeKind) ? displayKind : existingMetrics.NodeKind,
                             ServiceTimeMs: existingMetrics.ServiceTimeMs,
                             FlowLatencyMs: existingMetrics.FlowLatencyMs,
                             RetryTax: existingMetrics.RetryTax,
                             RawMetrics: existingMetrics.RawMetrics,
                             Metadata: existingMetrics.Metadata ?? topoNode.Semantics?.Metadata,
-                            QueueLatencyStatus: existingMetrics.QueueLatencyStatus);
+                            QueueLatencyStatus: existingMetrics.QueueLatencyStatus)
+                        {
+                            NodeCategory = topoCategory,
+                            AnalyticalIdentity = topoIdentity,
+                            HasQueueSemantics = hasQueueSemantics,
+                            HasServiceSemantics = hasServiceSemantics
+                        };
                     }
 
                     continue;
@@ -2899,11 +2917,17 @@ private const string pmfExpectationLabel = "Value";
                     CustomLabel: customLabel,
                     PmfProbability: pmfProbability,
                     PmfValue: pmfSupportValue,
-                    NodeKind: topoNode.Kind,
+                    NodeKind: displayKind,
                     RetryTax: existingMetrics?.RetryTax,
                     RawMetrics: existingMetrics?.RawMetrics,
                     Metadata: existingMetrics?.Metadata ?? topoNode.Semantics?.Metadata,
-                    QueueLatencyStatus: existingMetrics?.QueueLatencyStatus);
+                    QueueLatencyStatus: existingMetrics?.QueueLatencyStatus)
+                {
+                    NodeCategory = topoCategory,
+                    AnalyticalIdentity = topoIdentity,
+                    HasQueueSemantics = hasQueueSemantics,
+                    HasServiceSemantics = hasServiceSemantics
+                };
             }
         }
 
@@ -4147,12 +4171,13 @@ private const string pmfExpectationLabel = "Value";
 
             var series = node.Series ?? new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
             var topoNode = context.FindNode(node.Id);
-            var displayKind = string.IsNullOrWhiteSpace(topoNode?.Kind) ? node.Kind : topoNode!.Kind;
+            var nodeCategory = ResolveNodeCategory(topoNode, node);
+            var nodeIdentity = ResolveAnalyticalIdentity(topoNode, node);
             var successSeries = BuildSuccessRateSeriesSnapshot(node, context.HasClassSelection, context.SelectedClasses);
             var primarySeries = SelectPrimarySeries(series) ?? successSeries;
             var synthesizedValues = false;
 
-            if (primarySeries is null && IsPmfKind(displayKind))
+            if (primarySeries is null && IsPmfIdentity(nodeIdentity))
             {
                 var expectation = ComputePmfExpectation(topoNode?.Semantics?.Distribution);
                 if (expectation.HasValue)
@@ -4172,7 +4197,7 @@ private const string pmfExpectationLabel = "Value";
 
             if (primarySeries is null || primarySeries.Length == 0)
             {
-                if (IsExpressionKind(displayKind))
+                if (IsExpressionNode(nodeCategory, nodeIdentity))
                 {
                     missing.Add(node.Id);
                     missingExpressionNodes.Add(node.Id);
@@ -4185,7 +4210,7 @@ private const string pmfExpectationLabel = "Value";
             var trimmedPrimary = TrimSeriesAt(primarySeries, context.sparklinePointLimit, anchor);
             if (trimmedPrimary.Count == 0)
             {
-                if (IsExpressionKind(displayKind))
+                if (IsExpressionNode(nodeCategory, nodeIdentity))
                 {
                     missing.Add(node.Id);
                     missingExpressionNodes.Add(node.Id);
@@ -4342,7 +4367,9 @@ private const string pmfExpectationLabel = "Value";
                     continue;
                 }
 
-                if (IsExpressionKind(topoNode.Kind))
+                var topoCategory = ResolveNodeCategory(topoNode);
+                var topoIdentity = ResolveAnalyticalIdentity(topoNode);
+                if (IsExpressionNode(topoCategory, topoIdentity))
                 {
                     missing.Add(topoNode.Id);
                     missingExpressionNodes.Add(topoNode.Id);
@@ -4482,7 +4509,6 @@ internal sealed record InspectorMetricBlock(
         string? RunId,
         string? NodeId,
         string? NodeKind,
-        string? NodeLogicalType,
         string? NodeRole,
         GraphDispatchScheduleModel? DispatchSchedule,
         int SelectedBin,
@@ -4507,12 +4533,11 @@ internal sealed record InspectorMetricBlock(
 
         nodeSparklines.TryGetValue(nodeId, out var baseSparkline);
         var topoNode = FindTopologyNode(nodeId);
-        var nodeKind = topoNode?.Kind;
-        var logicalKind = topoNode?.LogicalType;
-        var kindKey = string.IsNullOrWhiteSpace(nodeKind)
-            ? (string.IsNullOrWhiteSpace(logicalKind) ? "unknown" : logicalKind!)
-            : nodeKind!;
         var nodeSeries = windowData?.Nodes.FirstOrDefault(node => string.Equals(node.Id, nodeId, StringComparison.OrdinalIgnoreCase));
+        var nodeCategory = ResolveNodeCategory(topoNode, nodeSeries);
+        var nodeIdentity = ResolveAnalyticalIdentity(topoNode, nodeSeries);
+        var provenanceKind = ResolveProvenanceKind(topoNode, nodeSeries);
+        var kindKey = string.IsNullOrWhiteSpace(provenanceKind) ? "unknown" : provenanceKind;
         var availableSeries = BuildProvenanceSeriesKeys(nodeSeries);
         var provenanceCatalog = MetricProvenanceCatalog.GetForNodeKind(kindKey);
         var successLabel = ResolveSuccessRateLabel(nodeId);
@@ -4619,9 +4644,9 @@ internal sealed record InspectorMetricBlock(
             blocks.Add(CreateSparkline(title, sparkline, ariaLabel, strokeOverride, valueFormat, seriesKey));
         }
 
-        if (IsComputedKind(nodeKind))
+        if (IsComputedCategory(nodeCategory))
         {
-            if (IsPmfKind(nodeKind))
+            if (IsPmfIdentity(nodeIdentity))
             {
                 var probabilitySparkline = BuildPmfSparkline(topoNode, baseSparkline);
                 if (probabilitySparkline is not null)
@@ -4661,11 +4686,11 @@ internal sealed record InspectorMetricBlock(
             return blocks;
         }
 
-        var isQueueKind = IsQueueKind(nodeKind);
-        var isServiceWithBuffer = IsServiceWithBufferKind(nodeKind) || IsServiceWithBufferKind(logicalKind);
-        var isRouterKind = IsRouterKind(nodeKind) || IsRouterKind(logicalKind);
-        var isSinkNode = IsSinkRole(topoNode?.NodeRole);
-        var isDependencyNode = IsDependencyKind(nodeKind) || IsDependencyKind(logicalKind);
+        var isQueueNode = IsQueueCategory(nodeCategory);
+        var isServiceWithBuffer = IsServiceWithBufferIdentity(nodeIdentity);
+        var isRouterNode = IsRouterCategory(nodeCategory);
+        var isSinkNode = IsSinkCategory(nodeCategory) || IsSinkRole(topoNode?.NodeRole);
+        var isDependencyNode = IsDependencyCategory(nodeCategory);
 
         if (isDependencyNode)
         {
@@ -4676,7 +4701,7 @@ internal sealed record InspectorMetricBlock(
         }
         var servedAlreadyAdded = false;
 
-        if (isQueueKind || isServiceWithBuffer)
+        if (isQueueNode || isServiceWithBuffer)
         {
             AddRequired(Label("Queue depth", "queue", "queueDepth"), "queue", 0d);
             AddRequired("Queue latency", "latencyMinutes", 0d);
@@ -4684,12 +4709,12 @@ internal sealed record InspectorMetricBlock(
             AddRequired(Label("Served", "served"), "served", 0d);
             servedAlreadyAdded = true;
 
-            if (isQueueKind && !isServiceWithBuffer)
+            if (isQueueNode && !isServiceWithBuffer)
             {
                 return blocks;
             }
         }
-        else if (!isRouterKind)
+        else if (!isRouterNode)
         {
             AddRequired(Label("Arrivals", "arrivals"), "arrivals", 0d, seriesKeyOverride: "arrivals");
         }
@@ -4716,7 +4741,7 @@ internal sealed record InspectorMetricBlock(
             AddRequired(Label("Attempts", "attempts"), "attempts", 0d, seriesKeyOverride: "attempts");
         }
 
-        if (isRouterKind)
+        if (isRouterNode)
         {
             AddRequired(Label("Arrivals", "arrivals"), "arrivals", 0d, seriesKeyOverride: "arrivals");
         }
@@ -5005,8 +5030,7 @@ internal sealed record InspectorMetricBlock(
         return new BinDebugDump(
             RunId: currentRunId,
             NodeId: nodeId,
-            NodeKind: topoNode?.Kind ?? node.Kind,
-            NodeLogicalType: topoNode?.LogicalType,
+            NodeKind: ResolveNodeDisplayKind(topoNode, node, metrics),
             NodeRole: topoNode?.NodeRole,
             DispatchSchedule: dispatchSchedule,
             SelectedBin: selectedBin,
@@ -5025,7 +5049,7 @@ internal sealed record InspectorMetricBlock(
 
     private static MetricProvenanceBundle? BuildMetricProvenanceBundle(TimeTravelNodeSeriesDto node, TopologyNode? topoNode)
     {
-        var nodeKind = topoNode?.Kind ?? node.Kind ?? node.LogicalType;
+        var nodeKind = ResolveProvenanceKind(topoNode, node);
         var availableSeries = BuildProvenanceSeriesKeys(node);
         if (string.IsNullOrWhiteSpace(nodeKind))
         {
@@ -5128,7 +5152,10 @@ internal sealed record InspectorMetricBlock(
         var timestampLabel = windowData is null ? string.Empty : FormatTimestampSnapshot(windowData.TimestampsUtc, localIndex);
         var seriesNode = windowData?.Nodes.FirstOrDefault(n => string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
         var topoNode = FindTopologyNode(nodeId);
-        var nodeKind = topoNode?.Kind ?? seriesNode?.Kind ?? seriesNode?.LogicalType;
+        var nodeCategory = ResolveNodeCategory(topoNode, seriesNode, metrics);
+        var nodeIdentity = ResolveAnalyticalIdentity(topoNode, seriesNode, metrics);
+        var hasQueueSemantics = ResolveHasQueueSemantics(topoNode, seriesNode, metrics);
+        var nodeKind = ResolveProvenanceKind(topoNode, seriesNode, metrics);
         var availableSeries = BuildProvenanceSeriesKeys(seriesNode);
         var provenanceCatalog = MetricProvenanceCatalog.GetForNodeKind(nodeKind ?? string.Empty);
 
@@ -5189,17 +5216,10 @@ internal sealed record InspectorMetricBlock(
         }
         var raw = metrics?.RawMetrics;
         var successLabel = ResolveSuccessRateLabel(nodeId);
-        var isSink = IsSinkKind(metrics?.NodeKind)
-            || IsSinkKind(seriesNode?.Kind)
-            || IsSinkKind(seriesNode?.LogicalType)
-            || IsSinkRole(topoNode?.NodeRole);
-        var isDependency = IsDependencyKind(metrics?.NodeKind)
-            || IsDependencyKind(seriesNode?.Kind)
-            || IsDependencyKind(seriesNode?.LogicalType)
-            || IsDependencyKind(nodeKind);
-        var isRouter = IsRouterKind(metrics?.NodeKind)
-            || IsRouterKind(seriesNode?.Kind)
-            || IsRouterKind(seriesNode?.LogicalType);
+        var isSink = IsSinkCategory(nodeCategory) || IsSinkRole(topoNode?.NodeRole);
+        var isDependency = IsDependencyCategory(nodeCategory);
+        var isRouter = IsRouterCategory(nodeCategory);
+        var isServiceWithBuffer = IsServiceWithBufferIdentity(nodeIdentity);
         var dispatchSchedule = topoNode?.DispatchSchedule ?? ToGraphDispatchSchedule(seriesNode?.DispatchSchedule);
         var scheduleEntry = dispatchScheduleEntries.FirstOrDefault(entry => string.Equals(entry.NodeId, nodeId, StringComparison.OrdinalIgnoreCase));
         var hasSchedule = dispatchSchedule is not null
@@ -5360,7 +5380,7 @@ internal sealed record InspectorMetricBlock(
                     InspectorBinMetricSection.Derived));
                 AddSlaMetric(successLabel, "scheduleAdherence", InspectorValueFormat.Percent, alwaysShow: true);
             }
-            else if (!isSink && (IsQueueKind(nodeKind) || IsServiceWithBufferKind(nodeKind)))
+            else if (!isSink && (hasQueueSemantics || isServiceWithBuffer))
             {
                 rows.Add(CreateRow("Queue latency", "-", "latencyMinutes", InspectorBinMetricSection.Derived));
             }
@@ -5432,7 +5452,7 @@ internal sealed record InspectorMetricBlock(
         }
         AddDerived("Utilization", safeMetrics.Utilization, InspectorValueFormat.Percent, gate: !isSink, metricKey: "utilization");
         AddDerived("Error rate", safeMetrics.ErrorRate, InspectorValueFormat.Percent, metricKey: "errorRate");
-        if (!isSink && !isRouter && (IsQueueKind(safeMetrics.NodeKind) || IsServiceWithBufferKind(safeMetrics.NodeKind)))
+        if (!isSink && !isRouter && (hasQueueSemantics || isServiceWithBuffer))
         {
             AddDerived("Queue latency", safeMetrics.LatencyMinutes, InspectorValueFormat.Number, "min", alwaysShow: true, metricKey: "latencyMinutes");
         }
@@ -5723,55 +5743,229 @@ internal sealed record InspectorMetricBlock(
         return series.Values.FirstOrDefault(value => value is { Length: > 0 });
     }
 
-    private static bool IsExpressionKind(string? kind) =>
-        !string.IsNullOrWhiteSpace(kind) &&
-        (string.Equals(kind, "expr", StringComparison.OrdinalIgnoreCase) ||
-         string.Equals(kind, "expression", StringComparison.OrdinalIgnoreCase));
+    private static string NormalizeNodeCategory(string? category)
+    {
+        if (string.IsNullOrWhiteSpace(category))
+        {
+            return string.Empty;
+        }
 
-    private static bool IsConstKind(string? kind) =>
-        !string.IsNullOrWhiteSpace(kind) &&
-        string.Equals(kind, "const", StringComparison.OrdinalIgnoreCase);
+        return category.Trim().ToLowerInvariant() switch
+        {
+            "const" => "constant",
+            "expr" => "expression",
+            _ => category.Trim().ToLowerInvariant()
+        };
+    }
 
-    private static bool IsPmfKind(string? kind) =>
-        !string.IsNullOrWhiteSpace(kind) &&
-        string.Equals(kind, "pmf", StringComparison.OrdinalIgnoreCase);
+    private static string NormalizeAnalyticalIdentity(string? identity)
+    {
+        if (string.IsNullOrWhiteSpace(identity))
+        {
+            return string.Empty;
+        }
 
-    private static bool IsComputedKind(string? kind) =>
-        IsExpressionKind(kind) || IsConstKind(kind) || IsPmfKind(kind);
+        return identity.Trim().ToLowerInvariant() switch
+        {
+            "const" => "constant",
+            "expr" => "expression",
+            _ => identity.Trim().ToLowerInvariant()
+        };
+    }
 
-    private static bool IsQueueKind(string? kind) =>
-        !string.IsNullOrWhiteSpace(kind) &&
-        (string.Equals(kind, "queue", StringComparison.OrdinalIgnoreCase) ||
-         string.Equals(kind, "dlq", StringComparison.OrdinalIgnoreCase));
+    private static string CanonicalizeNodeKind(string? kind)
+    {
+        return NormalizeAnalyticalIdentity(kind) switch
+        {
+            "servicewithbuffer" => "serviceWithBuffer",
+            var normalized => normalized
+        };
+    }
 
-    private static bool IsServiceWithBufferKind(string? kind) =>
-        !string.IsNullOrWhiteSpace(kind) &&
-        string.Equals(kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase);
+    private static string ResolveNodeCategory(
+        TopologyNode? topoNode,
+        TimeTravelNodeSeriesDto? seriesNode = null,
+        NodeBinMetrics? metrics = null)
+    {
+        var direct = NormalizeNodeCategory(topoNode?.Category);
+        if (!string.IsNullOrWhiteSpace(direct))
+        {
+            return direct;
+        }
 
-    private static bool IsRouterKind(string? kind) =>
-        !string.IsNullOrWhiteSpace(kind) &&
-        string.Equals(kind, "router", StringComparison.OrdinalIgnoreCase);
+        direct = NormalizeNodeCategory(seriesNode?.Category);
+        if (!string.IsNullOrWhiteSpace(direct))
+        {
+            return direct;
+        }
 
-    private static bool IsDependencyKind(string? kind) =>
-        !string.IsNullOrWhiteSpace(kind) &&
-        string.Equals(kind.Trim(), "dependency", StringComparison.OrdinalIgnoreCase);
+        direct = NormalizeNodeCategory(metrics?.NodeCategory);
+        if (!string.IsNullOrWhiteSpace(direct))
+        {
+            return direct;
+        }
 
-    private static bool IsSinkKind(string? kind) =>
-        !string.IsNullOrWhiteSpace(kind) &&
-        string.Equals(kind.Trim(), "sink", StringComparison.OrdinalIgnoreCase);
+        return string.Empty;
+    }
+
+    private static string ResolveAnalyticalIdentity(
+        TopologyNode? topoNode,
+        TimeTravelNodeSeriesDto? seriesNode = null,
+        NodeBinMetrics? metrics = null)
+    {
+        var direct = NormalizeAnalyticalIdentity(topoNode?.Analytical?.Identity);
+        if (!string.IsNullOrWhiteSpace(direct))
+        {
+            return CanonicalizeNodeKind(direct);
+        }
+
+        direct = NormalizeAnalyticalIdentity(seriesNode?.Analytical?.Identity);
+        if (!string.IsNullOrWhiteSpace(direct))
+        {
+            return CanonicalizeNodeKind(direct);
+        }
+
+        direct = NormalizeAnalyticalIdentity(metrics?.AnalyticalIdentity);
+        if (!string.IsNullOrWhiteSpace(direct))
+        {
+            return CanonicalizeNodeKind(direct);
+        }
+
+        return string.Empty;
+    }
+
+    private static bool ResolveHasQueueSemantics(
+        TopologyNode? topoNode,
+        TimeTravelNodeSeriesDto? seriesNode = null,
+        NodeBinMetrics? metrics = null)
+    {
+        var topoAnalytical = topoNode?.Analytical;
+        if (topoAnalytical is not null && HasAuthoritativeAnalyticalFacts(topoAnalytical.Identity, topoAnalytical.HasQueueSemantics, topoAnalytical.HasServiceSemantics))
+        {
+            return topoAnalytical.HasQueueSemantics;
+        }
+
+        var seriesAnalytical = seriesNode?.Analytical;
+        if (seriesAnalytical is not null && HasAuthoritativeAnalyticalFacts(seriesAnalytical.Identity, seriesAnalytical.HasQueueSemantics, seriesAnalytical.HasServiceSemantics))
+        {
+            return seriesAnalytical.HasQueueSemantics;
+        }
+
+        if (metrics is not null && HasAuthoritativeAnalyticalFacts(metrics.AnalyticalIdentity, metrics.HasQueueSemantics, metrics.HasServiceSemantics))
+        {
+            return metrics.HasQueueSemantics;
+        }
+
+        return false;
+    }
+
+    private static bool ResolveHasServiceSemantics(
+        TopologyNode? topoNode,
+        TimeTravelNodeSeriesDto? seriesNode = null,
+        NodeBinMetrics? metrics = null)
+    {
+        var topoAnalytical = topoNode?.Analytical;
+        if (topoAnalytical is not null && HasAuthoritativeAnalyticalFacts(topoAnalytical.Identity, topoAnalytical.HasQueueSemantics, topoAnalytical.HasServiceSemantics))
+        {
+            return topoAnalytical.HasServiceSemantics;
+        }
+
+        var seriesAnalytical = seriesNode?.Analytical;
+        if (seriesAnalytical is not null && HasAuthoritativeAnalyticalFacts(seriesAnalytical.Identity, seriesAnalytical.HasQueueSemantics, seriesAnalytical.HasServiceSemantics))
+        {
+            return seriesAnalytical.HasServiceSemantics;
+        }
+
+        if (metrics is not null && HasAuthoritativeAnalyticalFacts(metrics.AnalyticalIdentity, metrics.HasQueueSemantics, metrics.HasServiceSemantics))
+        {
+            return metrics.HasServiceSemantics;
+        }
+
+        return false;
+    }
+
+    private static string ResolveNodeDisplayKind(
+        TopologyNode? topoNode,
+        TimeTravelNodeSeriesDto? seriesNode = null,
+        NodeBinMetrics? metrics = null)
+    {
+        var identity = ResolveAnalyticalIdentity(topoNode, seriesNode, metrics);
+        if (!string.IsNullOrWhiteSpace(identity))
+        {
+            return CanonicalizeNodeKind(identity);
+        }
+
+        var category = ResolveNodeCategory(topoNode, seriesNode, metrics);
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            return CanonicalizeNodeKind(category);
+        }
+
+        return string.Empty;
+    }
+
+    private static bool HasAuthoritativeAnalyticalFacts(string? identity, bool hasQueueSemantics, bool hasServiceSemantics)
+    {
+        return !string.IsNullOrWhiteSpace(identity) || hasQueueSemantics || hasServiceSemantics;
+    }
+
+    private static string ResolveProvenanceKind(
+        TopologyNode? topoNode,
+        TimeTravelNodeSeriesDto? seriesNode = null,
+        NodeBinMetrics? metrics = null)
+        => ResolveNodeDisplayKind(topoNode, seriesNode, metrics);
+
+    private static bool IsExpressionIdentity(string? identity) =>
+        string.Equals(NormalizeAnalyticalIdentity(identity), "expression", StringComparison.Ordinal);
+
+    private static bool IsConstantIdentity(string? identity) =>
+        string.Equals(NormalizeAnalyticalIdentity(identity), "constant", StringComparison.Ordinal);
+
+    private static bool IsPmfIdentity(string? identity) =>
+        string.Equals(NormalizeAnalyticalIdentity(identity), "pmf", StringComparison.Ordinal);
+
+    private static bool IsServiceWithBufferIdentity(string? identity) =>
+        string.Equals(NormalizeAnalyticalIdentity(identity), "servicewithbuffer", StringComparison.Ordinal);
+
+    private static bool IsExpressionCategory(string? category) =>
+        string.Equals(NormalizeNodeCategory(category), "expression", StringComparison.Ordinal);
+
+    private static bool IsConstantCategory(string? category) =>
+        string.Equals(NormalizeNodeCategory(category), "constant", StringComparison.Ordinal);
+
+    private static bool IsComputedCategory(string? category) =>
+        IsExpressionCategory(category) || IsConstantCategory(category);
+
+    private static bool IsQueueCategory(string? category)
+    {
+        var normalized = NormalizeNodeCategory(category);
+        return normalized is "queue" or "dlq";
+    }
+
+    private static bool IsRouterCategory(string? category) =>
+        string.Equals(NormalizeNodeCategory(category), "router", StringComparison.Ordinal);
+
+    private static bool IsDependencyCategory(string? category) =>
+        string.Equals(NormalizeNodeCategory(category), "dependency", StringComparison.Ordinal);
+
+    private static bool IsSinkCategory(string? category) =>
+        string.Equals(NormalizeNodeCategory(category), "sink", StringComparison.Ordinal);
+
+    private static bool IsExpressionNode(string? category, string? identity) =>
+        IsExpressionCategory(category) || IsExpressionIdentity(identity);
 
     private static bool IsSinkRole(string? role) =>
         !string.IsNullOrWhiteSpace(role) &&
         string.Equals(role.Trim(), "sink", StringComparison.OrdinalIgnoreCase);
 
-    private static string? ResolveNodeRoleLabel(TopologyNode? node)
+    private static string? ResolveNodeRoleLabel(TopologyNode? node, TimeTravelNodeSeriesDto? seriesNode = null)
     {
-        if (node is null)
+        if (node is null && seriesNode is null)
         {
             return null;
         }
 
-        return IsSinkRole(node.NodeRole) || IsSinkKind(node.Kind) ? "Terminal" : null;
+        return IsSinkRole(node?.NodeRole) || IsSinkCategory(ResolveNodeCategory(node, seriesNode)) ? "Terminal" : null;
     }
 
     private static string FormatNodeKindLabel(string? kind)
@@ -5786,6 +5980,7 @@ internal sealed record InspectorMetricBlock(
             "expr" or "expression" => "Expression",
             "const" or "constant" => "Const",
             "pmf" => "PMF",
+            "servicewithbuffer" => "Service With Buffer",
             "dlq" => "DLQ",
             _ => CultureInfo.InvariantCulture.TextInfo.ToTitleCase(kind)
         };
@@ -5801,7 +5996,12 @@ internal sealed record InspectorMetricBlock(
         return topologyGraph.Nodes.FirstOrDefault(n => string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
     }
 
-    private string? GetNodeKind(string nodeId) => FindTopologyNode(nodeId)?.Kind;
+    private string? GetNodeKind(string nodeId)
+    {
+        var topoNode = FindTopologyNode(nodeId);
+        var seriesNode = windowData?.Nodes.FirstOrDefault(n => string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
+        return ResolveNodeDisplayKind(topoNode, seriesNode);
+    }
 
     private string ResolveSuccessRateLabel(string? nodeId)
     {
@@ -5817,7 +6017,7 @@ internal sealed record InspectorMetricBlock(
 
         var node = windowData?.Nodes.FirstOrDefault(n => string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
         var topoNode = FindTopologyNode(nodeId);
-        var isSink = IsSinkKind(node?.Kind) || IsSinkKind(node?.LogicalType) || IsSinkRole(topoNode?.NodeRole);
+        var isSink = IsSinkCategory(ResolveNodeCategory(topoNode, node)) || IsSinkRole(topoNode?.NodeRole);
         if (isSink && node?.DispatchSchedule is not null)
         {
             return "Schedule SLA";
@@ -6132,7 +6332,7 @@ internal sealed record InspectorMetricBlock(
 
         if (!hasClassSelection)
         {
-            var isSink = IsSinkKind(node.Kind) || IsSinkKind(node.LogicalType);
+            var isSink = IsSinkCategory(ResolveNodeCategory(null, node));
             if (isSink)
             {
                 var scheduleSeries = TryGetSlaSeriesSnapshot(node, "scheduleAdherence");

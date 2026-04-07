@@ -520,14 +520,13 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         var includedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var node in graph.Nodes)
         {
-            var category = ClassifyNode(node.Kind, node.LogicalType);
+            var category = ResolveCanvasCategory(node.Category);
             var include = category switch
             {
                 NodeCategory.Service => includeServiceNodes,
                 NodeCategory.Terminal => includeDlqNodes,
                 NodeCategory.Expression => includeExpressionNodes,
                 NodeCategory.Constant => includeConstNodes,
-                NodeCategory.Other => includeServiceNodes,
                 _ => includeServiceNodes
             };
 
@@ -541,7 +540,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         {
             foreach (var node in graph.Nodes)
             {
-                var category = ClassifyNode(node.Kind, node.LogicalType);
+                var category = ResolveCanvasCategory(node.Category);
                 if ((category == NodeCategory.Service && includeServiceNodes) ||
                     (category == NodeCategory.Terminal && includeDlqNodes))
                 {
@@ -587,7 +586,6 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             .Select(node => new TopologyNode(
                 node.Id,
                 node.Kind,
-                node.LogicalType,
                 node.Inputs.Where(id => includedIds.Contains(id)).ToImmutableArray(),
                 node.Outputs.Where(id => includedIds.Contains(id)).ToImmutableArray(),
                 node.Layer,
@@ -598,7 +596,11 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 node.Semantics,
                 node.Lane,
                 node.DispatchSchedule,
-                node.NodeRole))
+                node.NodeRole)
+            {
+                Category = node.Category,
+                Analytical = node.Analytical
+            })
             .ToImmutableArray();
 
         var filteredEdges = graph.Edges
@@ -678,9 +680,12 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 node.Kind,
                 BuildSemanticsModel(node.Semantics),
                 node.NodeRole,
-                node.LogicalType,
                 Ui: null,
-                DispatchSchedule: node.DispatchSchedule))
+                DispatchSchedule: node.DispatchSchedule)
+            {
+                Category = node.Category,
+                Analytical = node.Analytical
+            })
             .ToImmutableArray();
 
         var edges = graph.Edges
@@ -728,23 +733,65 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             semantics?.ExhaustedPolicy);
     }
 
-    private static NodeCategory ClassifyNode(string? kind, string? logicalType = null)
+    private static NodeCategory ResolveCanvasCategory(string? category)
     {
-        var candidate = string.IsNullOrWhiteSpace(logicalType) ? kind : logicalType;
-        if (string.IsNullOrWhiteSpace(candidate))
+        if (string.IsNullOrWhiteSpace(category))
         {
             return NodeCategory.Service;
         }
 
-        var normalized = candidate.Trim().ToLowerInvariant();
+        var normalized = category.Trim().ToLowerInvariant();
         return normalized switch
         {
-            "expr" or "expression" => NodeCategory.Expression,
-            "const" or "constant" or "pmf" => NodeCategory.Constant,
+            "expression" => NodeCategory.Expression,
+            "constant" => NodeCategory.Constant,
             "dlq" => NodeCategory.Terminal,
-            "service" or "servicewithbuffer" or "queue" or "router" or "external" or "flow" or "sink" or "dependency" => NodeCategory.Service,
-            _ => NodeCategory.Other
+            _ => NodeCategory.Service
         };
+    }
+
+    private static bool UsesComputedPresentation(TopologyNode node)
+    {
+        return ResolveCanvasCategory(node.Category) is NodeCategory.Expression or NodeCategory.Constant;
+    }
+
+    private static bool UsesQueuePresentation(TopologyNode node)
+    {
+        return string.Equals(node.Category, "queue", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(node.Category, "dlq", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool UsesSinkPresentation(TopologyNode node)
+    {
+        return string.Equals(node.Category, "sink", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static NodeBinMetrics ApplyNodeFacts(NodeBinMetrics metrics, TopologyNode node)
+    {
+        return metrics with
+        {
+            NodeKind = ResolveNodeDisplayKind(node),
+            Metadata = metrics.Metadata ?? node.Semantics?.Metadata,
+            NodeCategory = node.Category,
+            AnalyticalIdentity = node.Analytical.Identity,
+            HasQueueSemantics = node.Analytical.HasQueueSemantics,
+            HasServiceSemantics = node.Analytical.HasServiceSemantics
+        };
+    }
+
+    private static string ResolveNodeDisplayKind(TopologyNode node)
+    {
+        if (!string.IsNullOrWhiteSpace(node.Analytical.Identity))
+        {
+            return node.Analytical.Identity;
+        }
+
+        if (!string.IsNullOrWhiteSpace(node.Category))
+        {
+            return node.Category;
+        }
+
+        return node.Kind;
     }
 
     private enum NodeCategory
@@ -752,8 +799,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         Service,
         Terminal,
         Expression,
-        Constant,
-        Other
+        Constant
     }
 
     private void BuildLookup(TopologyGraph graph)
@@ -775,6 +821,11 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         if (NodeMetrics is not null && NodeMetrics.TryGetValue(nodeId, out var metrics))
         {
             return metrics;
+        }
+
+        if (nodeLookup.TryGetValue(nodeId, out var node))
+        {
+            return ApplyNodeFacts(new NodeBinMetrics(null, null, null, null, null, null), node);
         }
 
         return new NodeBinMetrics(null, null, null, null, null, null);
@@ -867,11 +918,11 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             NodeBinMetrics nodeMetrics;
             if (metrics is not null && metrics.TryGetValue(node.Id, out var existing))
             {
-                nodeMetrics = existing;
+                nodeMetrics = ApplyNodeFacts(existing, node);
             }
             else
             {
-                nodeMetrics = new NodeBinMetrics(null, null, null, null, null, null, NodeKind: node.LogicalType ?? node.Kind, Metadata: node.Semantics?.Metadata);
+                nodeMetrics = ApplyNodeFacts(new NodeBinMetrics(null, null, null, null, null, null), node);
             }
 
             var isFocused = !string.IsNullOrWhiteSpace(selectedId) &&
@@ -925,11 +976,11 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             NodeBinMetrics nodeMetrics;
             if (metrics is not null && metrics.TryGetValue(node.Id, out var existing))
             {
-                nodeMetrics = existing;
+                nodeMetrics = ApplyNodeFacts(existing, node);
             }
             else
             {
-                nodeMetrics = new NodeBinMetrics(null, null, null, null, null, null, NodeKind: node.LogicalType ?? node.Kind, Metadata: node.Semantics?.Metadata);
+                nodeMetrics = ApplyNodeFacts(new NodeBinMetrics(null, null, null, null, null, null), node);
             }
 
             NodeSparklineData? rawSparkline = null;
@@ -999,7 +1050,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 }
             }
 
-            var resolvedNodeWidth = IsQueueLikeKind(node.Kind, node.LogicalType)
+            var resolvedNodeWidth = UsesQueuePresentation(node)
                 ? queueNodeWidth
                 : nodeWidth;
 
@@ -1007,7 +1058,6 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             var sceneNode = new NodeSceneInfo(
                 node.Id,
                 node.Kind,
-                node.LogicalType ?? node.Kind,
                 node.X,
                 node.Y,
                 resolvedNodeWidth,
@@ -1018,7 +1068,11 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 sparklineDto,
                 semanticsDto,
                 node.DispatchSchedule,
-                node.NodeRole);
+                node.NodeRole)
+            {
+                Category = node.Category,
+                Analytical = node.Analytical
+            };
 
             sceneNodes.Add(sceneNode);
 
@@ -1028,10 +1082,10 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             var isFocused = !string.IsNullOrWhiteSpace(focusedNode) &&
                 node.Id.Equals(focusedNode, StringComparison.OrdinalIgnoreCase);
             var isVisible = true;
-            var isSink = IsSinkKind(node.Kind, node.LogicalType);
+            var isSink = UsesSinkPresentation(node);
             var displayMetrics = isSink ? SanitizeSinkMetrics(nodeMetrics) : nodeMetrics;
             var focusLabel = FormatFocusLabel(displayMetrics, rawSparkline, overlays.ColorBasis, selectedBin);
-            if (IsQueueLikeKind(node.Kind, node.LogicalType))
+            if (UsesQueuePresentation(node))
             {
                 focusLabel = string.Empty;
             }
@@ -1140,7 +1194,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
             foreach (var node in graph.Nodes)
             {
-                var width = IsQueueLikeKind(node.Kind, node.LogicalType) ? queueNodeWidth : nodeWidth;
+                var width = UsesQueuePresentation(node) ? queueNodeWidth : nodeWidth;
                 var halfWidth = width / 2d;
                 var left = node.X - halfWidth;
                 var right = node.X + halfWidth;
@@ -1260,7 +1314,6 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         {
             hash.Add(node.Id, StringComparer.OrdinalIgnoreCase);
             hash.Add(node.Kind, StringComparer.OrdinalIgnoreCase);
-            hash.Add(node.LogicalType, StringComparer.OrdinalIgnoreCase);
             hash.Add(node.X);
             hash.Add(node.Y);
             hash.Add(node.Width);
@@ -1397,53 +1450,6 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         return hash.ToHashCode().ToString("X");
     }
 
-    private static bool IsComputedKind(string? kind)
-    {
-        if (string.IsNullOrWhiteSpace(kind))
-        {
-            return false;
-        }
-
-        return string.Equals(kind, "expr", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(kind, "expression", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(kind, "const", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(kind, "constant", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(kind, "pmf", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsQueueLikeKind(string? kind, string? logicalType = null)
-    {
-        if (string.IsNullOrWhiteSpace(kind))
-        {
-            return false;
-        }
-
-        if (!string.IsNullOrWhiteSpace(logicalType) &&
-            string.Equals(logicalType, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        return string.Equals(kind, "queue", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(kind, "dlq", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsSinkKind(string? kind, string? logicalType = null)
-    {
-        if (!string.IsNullOrWhiteSpace(logicalType) &&
-            string.Equals(logicalType, "sink", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        return !string.IsNullOrWhiteSpace(kind) &&
-               string.Equals(kind, "sink", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsDlqKind(string? kind) =>
-        !string.IsNullOrWhiteSpace(kind) &&
-        string.Equals(kind, "dlq", StringComparison.OrdinalIgnoreCase);
-
     private static readonly HashSet<string> sinkSuppressedRawKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         "queue",
@@ -1506,37 +1512,39 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         var sampled = SampleSparklineValue(sparkline, overlays.ColorBasis, selectedBin);
         if (sampled.HasValue)
         {
-            var sampledMetrics = overlays.ColorBasis switch
-            {
-                TopologyColorBasis.Utilization => new NodeBinMetrics(null, sampled, null, null, null, null, NodeKind: node.LogicalType ?? node.Kind),
-                TopologyColorBasis.Errors => new NodeBinMetrics(null, null, sampled, null, null, null, NodeKind: node.LogicalType ?? node.Kind),
-                TopologyColorBasis.Queue => new NodeBinMetrics(null, null, null, sampled, null, null, NodeKind: node.LogicalType ?? node.Kind),
-                TopologyColorBasis.ServiceTime => new NodeBinMetrics(null, null, null, null, null, null, NodeKind: node.LogicalType ?? node.Kind, ServiceTimeMs: sampled),
-                TopologyColorBasis.FlowLatency => new NodeBinMetrics(null, null, null, null, null, null, NodeKind: node.LogicalType ?? node.Kind, FlowLatencyMs: sampled),
-                TopologyColorBasis.Arrivals => new NodeBinMetrics(null, null, null, null, null, null, CustomValue: sampled, NodeKind: node.LogicalType ?? node.Kind),
-                _ => new NodeBinMetrics(sampled, null, null, null, null, null, NodeKind: node.LogicalType ?? node.Kind)
-            };
+            var sampledMetrics = ApplyNodeFacts(
+                overlays.ColorBasis switch
+                {
+                    TopologyColorBasis.Utilization => new NodeBinMetrics(null, sampled, null, null, null, null),
+                    TopologyColorBasis.Errors => new NodeBinMetrics(null, null, sampled, null, null, null),
+                    TopologyColorBasis.Queue => new NodeBinMetrics(null, null, null, sampled, null, null),
+                    TopologyColorBasis.ServiceTime => new NodeBinMetrics(null, null, null, null, null, null, ServiceTimeMs: sampled),
+                    TopologyColorBasis.FlowLatency => new NodeBinMetrics(null, null, null, null, null, null, FlowLatencyMs: sampled),
+                    TopologyColorBasis.Arrivals => new NodeBinMetrics(null, null, null, null, null, null, CustomValue: sampled),
+                    _ => new NodeBinMetrics(sampled, null, null, null, null, null)
+                },
+                node);
 
             fill = ColorScale.GetFill(sampledMetrics, overlays.ColorBasis, thresholds);
         }
 
-        var kindNormalized = (node.LogicalType ?? node.Kind)?.ToLowerInvariant();
-        if (kindNormalized is "const" or "constant" or "pmf")
+        var categoryNormalized = node.Category.ToLowerInvariant();
+        if (categoryNormalized == "constant")
         {
             return "#60A5FA"; // lighter blue for inputs
         }
 
-        if (kindNormalized is "expr" or "expression")
+        if (categoryNormalized == "expression")
         {
             return "#E2E8F0";
         }
 
-        if (node.Inputs.Count == 0 && kindNormalized is "service" or "servicewithbuffer" or "queue" or "router" or "external" or "dlq" or null)
+        if (node.Inputs.Count == 0 && categoryNormalized is "service" or "queue" or "router" or "dependency" or "dlq")
         {
             return ColorScale.SuccessColor;
         }
 
-        if (kindNormalized == "dlq")
+        if (categoryNormalized == "dlq")
         {
             return "#FB7185";
         }
@@ -1704,15 +1712,15 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         }
 
         var metrics = basis switch
-            {
-                TopologyColorBasis.Utilization => new NodeBinMetrics(null, value, null, null, null, null),
-                TopologyColorBasis.Errors => new NodeBinMetrics(null, null, value, null, null, null),
-                TopologyColorBasis.Queue => new NodeBinMetrics(null, null, null, value, null, null),
-                TopologyColorBasis.ServiceTime => new NodeBinMetrics(null, null, null, null, null, null, ServiceTimeMs: value),
-                TopologyColorBasis.FlowLatency => new NodeBinMetrics(null, null, null, null, null, null, FlowLatencyMs: value),
-                TopologyColorBasis.Arrivals => new NodeBinMetrics(null, null, null, null, null, null, CustomValue: value),
-                _ => new NodeBinMetrics(value, null, null, null, null, null)
-            };
+        {
+            TopologyColorBasis.Utilization => new NodeBinMetrics(null, value, null, null, null, null),
+            TopologyColorBasis.Errors => new NodeBinMetrics(null, null, value, null, null, null),
+            TopologyColorBasis.Queue => new NodeBinMetrics(null, null, null, value, null, null),
+            TopologyColorBasis.ServiceTime => new NodeBinMetrics(null, null, null, null, null, null, ServiceTimeMs: value),
+            TopologyColorBasis.FlowLatency => new NodeBinMetrics(null, null, null, null, null, null, FlowLatencyMs: value),
+            TopologyColorBasis.Arrivals => new NodeBinMetrics(null, null, null, null, null, null, CustomValue: value),
+            _ => new NodeBinMetrics(value, null, null, null, null, null)
+        };
 
         return ColorScale.GetFill(metrics, basis, thresholds);
     }
@@ -1725,7 +1733,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     {
         var invariant = CultureInfo.InvariantCulture;
 
-        var nodeCategory = ClassifyNode(metrics.NodeKind);
+        var nodeCategory = ResolveCanvasCategory(metrics.NodeCategory);
         var isOperationalNode = nodeCategory == NodeCategory.Service;
 
         if (metrics.CustomValue.HasValue && !isOperationalNode)
@@ -1953,7 +1961,6 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             hash.Add(node.X);
             hash.Add(node.Y);
             hash.Add(node.Kind, StringComparer.OrdinalIgnoreCase);
-            hash.Add(node.LogicalType, StringComparer.OrdinalIgnoreCase);
             hash.Add(node.Outputs.Count);
             hash.Add(node.Inputs.Count);
         }
@@ -1975,7 +1982,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             }
             else
             {
-                nodeMetrics = new NodeBinMetrics(null, null, null, null, null, null, NodeKind: node.LogicalType ?? node.Kind, Metadata: node.Semantics?.Metadata);
+                nodeMetrics = new NodeBinMetrics(null, null, null, null, null, null, NodeKind: ResolveNodeDisplayKind(node), Metadata: node.Semantics?.Metadata);
             }
 
             cache[node.Id] = BuildProxyStatic(node, nodeMetrics);
@@ -1989,11 +1996,11 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         var tooltip = TooltipFormatter.Format(node.Id, nodeMetrics);
         var aria = $"{tooltip.Title}. {string.Join(", ", tooltip.Lines)}.";
 
-        var isLeafComputed = node.Outputs.Count == 0 && IsComputedKind(node.Kind);
+        var isLeafComputed = node.Outputs.Count == 0 && UsesComputedPresentation(node);
         var proxyHeight = isLeafComputed
             ? (nodeHeight * leafCircleScale) + leafCircleProxyPadding
             : nodeHeight;
-        var proxyWidth = IsQueueLikeKind(node.Kind, node.LogicalType)
+        var proxyWidth = UsesQueuePresentation(node)
             ? queueNodeWidth
             : nodeWidth;
 

@@ -112,7 +112,6 @@ internal static class GraphMapper
                 return new TopologyNode(
                     builder.Id,
                     builder.Kind,
-                    builder.LogicalType,
                     builder.Inputs.Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray(),
                     builder.Outputs.Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray(),
                     layer,
@@ -123,7 +122,11 @@ internal static class GraphMapper
                     builder.Semantics,
                     laneValue,
                     builder.DispatchSchedule,
-                    NodeRole: builder.NodeRole);
+                    NodeRole: builder.NodeRole)
+                {
+                    Category = builder.Category,
+                    Analytical = builder.Analytical
+                };
             })
             .ToImmutableArray();
 
@@ -144,7 +147,7 @@ internal static class GraphMapper
 
     private static double ResolvehorizontalSpacing(NodeBuilder builder, LayoutMode layout)
     {
-            var category = Classify(builder.Kind, builder.LogicalType);
+        var category = ResolveLayoutCategory(builder.Category);
         if (category == NodeCategory.Expression || category == NodeCategory.Constant)
         {
             return layout == LayoutMode.HappyPath
@@ -224,18 +227,17 @@ internal static class GraphMapper
         return layerByNode;
     }
 
-    private static NodeCategory Classify(string? kind, string? logicalType = null)
+    private static NodeCategory ResolveLayoutCategory(string? category)
     {
-        var candidate = string.IsNullOrWhiteSpace(logicalType) ? kind : logicalType;
-        if (string.IsNullOrWhiteSpace(candidate))
+        if (string.IsNullOrWhiteSpace(category))
         {
             return NodeCategory.Service;
         }
 
-        return candidate.Trim().ToLowerInvariant() switch
+        return category.Trim().ToLowerInvariant() switch
         {
-            "expr" or "expression" => NodeCategory.Expression,
-            "const" or "constant" or "pmf" => NodeCategory.Constant,
+            "expression" => NodeCategory.Expression,
+            "constant" => NodeCategory.Constant,
             _ => NodeCategory.Service
         };
     }
@@ -250,7 +252,7 @@ internal static class GraphMapper
         var toRemove = nodeBuilders.Values
             .Where(builder =>
             {
-                var category = Classify(builder.Kind, builder.LogicalType);
+                var category = ResolveLayoutCategory(builder.Category);
                 if (category == NodeCategory.Service)
                 {
                     return false;
@@ -301,7 +303,7 @@ internal static class GraphMapper
 
         var categoryById = nodeBuilders.Values.ToDictionary(
             b => b.Id,
-            b => Classify(b.Kind, b.LogicalType),
+            b => ResolveLayoutCategory(b.Category),
             StringComparer.OrdinalIgnoreCase);
 
         var laneByNode = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -744,7 +746,8 @@ internal static class GraphMapper
     {
         public string Id { get; }
         public string Kind { get; }
-        public string LogicalType { get; }
+        public string Category { get; }
+        public GraphNodeAnalyticalModel Analytical { get; }
         public string? NodeRole { get; }
         public int Order { get; }
         public GraphNodeUiModel? Ui { get; }
@@ -757,9 +760,8 @@ internal static class GraphMapper
         {
             Id = node.Id ?? throw new ArgumentException("Graph node id is required.", nameof(node));
             Kind = node.Kind ?? "unknown";
-            LogicalType = string.IsNullOrWhiteSpace(node.LogicalType)
-                ? Kind
-                : node.LogicalType!;
+            Category = string.IsNullOrWhiteSpace(node.Category) ? string.Empty : node.Category;
+            Analytical = node.Analytical ?? new GraphNodeAnalyticalModel();
             NodeRole = node.NodeRole;
             Ui = node.Ui;
             Order = order;
@@ -841,7 +843,6 @@ public sealed record TopologyGraph(
 public sealed record TopologyNode(
     string Id,
     string Kind,
-    string LogicalType,
     IReadOnlyList<string> Inputs,
     IReadOnlyList<string> Outputs,
     int Layer,
@@ -852,7 +853,11 @@ public sealed record TopologyNode(
     TopologyNodeSemantics Semantics,
     int Lane = 0,
     GraphDispatchScheduleModel? DispatchSchedule = null,
-    string? NodeRole = null);
+    string? NodeRole = null)
+{
+    public string Category { get; init; } = string.Empty;
+    public GraphNodeAnalyticalModel Analytical { get; init; } = new();
+}
 
 public sealed record TopologyEdge(
     string Id,
@@ -873,9 +878,33 @@ public sealed record GraphNodeModel(
     string Kind,
     GraphNodeSemanticsModel Semantics,
     [property: JsonPropertyName("nodeRole")] string? NodeRole = null,
-    [property: JsonPropertyName("nodeLogicalType")] string? LogicalType = null,
     GraphNodeUiModel? Ui = null,
-    GraphDispatchScheduleModel? DispatchSchedule = null);
+    GraphDispatchScheduleModel? DispatchSchedule = null)
+{
+    [JsonPropertyName("category")]
+    public string Category { get; init; } = string.Empty;
+
+    [JsonPropertyName("analytical")]
+    public GraphNodeAnalyticalModel? Analytical { get; init; }
+}
+
+public sealed record GraphNodeAnalyticalModel
+{
+    [JsonPropertyName("identity")]
+    public string Identity { get; init; } = string.Empty;
+
+    [JsonPropertyName("hasQueueSemantics")]
+    public bool HasQueueSemantics { get; init; }
+
+    [JsonPropertyName("hasServiceSemantics")]
+    public bool HasServiceSemantics { get; init; }
+
+    [JsonPropertyName("hasCycleTimeDecomposition")]
+    public bool HasCycleTimeDecomposition { get; init; }
+
+    [JsonPropertyName("stationarityWarningApplicable")]
+    public bool StationarityWarningApplicable { get; init; }
+}
 
 public sealed record GraphNodeSemanticsModel(
     string Arrivals,

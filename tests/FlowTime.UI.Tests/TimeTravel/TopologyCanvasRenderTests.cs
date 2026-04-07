@@ -60,9 +60,9 @@ public sealed class TopologyCanvasRenderTests : TestContext
     {
         var nodes = new[]
         {
-            new TopologyNode("source", "service", "service", Array.Empty<string>(), new[] { "downstream" }, 0, 0, 0, 0, false, EmptySemantics()),
-            new TopologyNode("downstream", "service", "service", new[] { "source" }, Array.Empty<string>(), 1, 0, 200, 120, false, EmptySemantics()),
-            new TopologyNode("analytics", "service", "service", new[] { "source" }, Array.Empty<string>(), 1, 1, 220, 160, false, EmptySemantics())
+            CreateTopologyNode("source", "service", "service", Array.Empty<string>(), new[] { "downstream" }, 0, 0, 0, 0, false, EmptySemantics()),
+            CreateTopologyNode("downstream", "service", "service", new[] { "source" }, Array.Empty<string>(), 1, 0, 200, 120, false, EmptySemantics()),
+            CreateTopologyNode("analytics", "service", "service", new[] { "source" }, Array.Empty<string>(), 1, 1, 220, 160, false, EmptySemantics())
         };
 
         var edges = new[]
@@ -106,7 +106,7 @@ public sealed class TopologyCanvasRenderTests : TestContext
         var graph = new TopologyGraph(
             new[]
             {
-                new TopologyNode("svc-buffer", "serviceWithBuffer", "serviceWithBuffer", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, semantics)
+                CreateTopologyNode("svc-buffer", "serviceWithBuffer", "serviceWithBuffer", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, semantics)
             },
             Array.Empty<TopologyEdge>());
 
@@ -275,23 +275,25 @@ public sealed class TopologyCanvasRenderTests : TestContext
         var graph = new TopologyGraph(
             new[]
             {
-                new TopologyNode(nodeId, "serviceWithBuffer", "serviceWithBuffer", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+                CreateTopologyNode(nodeId, "serviceWithBuffer", "serviceWithBuffer", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
             },
             Array.Empty<TopologyEdge>());
 
         var metrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase)
         {
-            [nodeId] = new NodeBinMetrics(
-                SuccessRate: 0.95,
-                Utilization: 0.5,
-                ErrorRate: 0.023,
-                QueueDepth: 42,
-                LatencyMinutes: null,
-                Timestamp: DateTimeOffset.UtcNow,
-                NodeKind: "serviceWithBuffer",
-                ServiceTimeMs: 120_000,
-                FlowLatencyMs: 4_800_000,
-                RawMetrics: new Dictionary<string, double?> { ["arrivals"] = 120 })
+            [nodeId] = WithNodeFacts(
+                new NodeBinMetrics(
+                    SuccessRate: 0.95,
+                    Utilization: 0.5,
+                    ErrorRate: 0.023,
+                    QueueDepth: 42,
+                    LatencyMinutes: null,
+                    Timestamp: DateTimeOffset.UtcNow,
+                    NodeKind: "serviceWithBuffer",
+                    ServiceTimeMs: 120_000,
+                    FlowLatencyMs: 4_800_000,
+                    RawMetrics: new Dictionary<string, double?> { ["arrivals"] = 120 }),
+                "serviceWithBuffer")
         };
 
         var sparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
@@ -325,21 +327,23 @@ public sealed class TopologyCanvasRenderTests : TestContext
         var graph = new TopologyGraph(
             new[]
             {
-                new TopologyNode(nodeId, "serviceWithBuffer", "serviceWithBuffer", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+                CreateTopologyNode(nodeId, "serviceWithBuffer", "serviceWithBuffer", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
             },
             Array.Empty<TopologyEdge>());
 
         var metrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase)
         {
-            [nodeId] = new NodeBinMetrics(
-                SuccessRate: null,
-                Utilization: null,
-                ErrorRate: null,
-                QueueDepth: null,
-                LatencyMinutes: null,
-                Timestamp: DateTimeOffset.UtcNow,
-                FlowLatencyMs: null,
-                RawMetrics: new Dictionary<string, double?> { ["served"] = 0 })
+            [nodeId] = WithNodeFacts(
+                new NodeBinMetrics(
+                    SuccessRate: null,
+                    Utilization: null,
+                    ErrorRate: null,
+                    QueueDepth: null,
+                    LatencyMinutes: null,
+                    Timestamp: DateTimeOffset.UtcNow,
+                    FlowLatencyMs: null,
+                    RawMetrics: new Dictionary<string, double?> { ["served"] = 0 }),
+                "serviceWithBuffer")
         };
 
         var overlays = new TopologyOverlaySettings { ColorBasis = TopologyColorBasis.FlowLatency };
@@ -933,13 +937,13 @@ public sealed class TopologyCanvasRenderTests : TestContext
     {
         var nodes = new[]
         {
-            new TopologyNode("terminal", "sink", "sink", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            CreateTopologyNode("terminal", "sink", "sink", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
         };
         var graph = new TopologyGraph(nodes, Array.Empty<TopologyEdge>());
 
         var metrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase)
         {
-            ["terminal"] = new NodeBinMetrics(0.92, 0.81, 0.0, null, null, DateTimeOffset.UtcNow, CustomValue: 42, NodeKind: "sink")
+            ["terminal"] = WithNodeFacts(new NodeBinMetrics(0.92, 0.81, 0.0, null, null, DateTimeOffset.UtcNow, CustomValue: 42, NodeKind: "sink"), "sink")
         };
 
         var overlays = TopologyOverlaySettings.Default.Clone();
@@ -977,7 +981,7 @@ public sealed class TopologyCanvasRenderTests : TestContext
     {
         var nodes = new[]
         {
-            new TopologyNode("terminal", "sink", "sink", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            CreateTopologyNode("terminal", "sink", "sink", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
         };
         var graph = new TopologyGraph(nodes, Array.Empty<TopologyEdge>());
 
@@ -1006,13 +1010,13 @@ public sealed class TopologyCanvasRenderTests : TestContext
     {
         var nodes = new[]
         {
-            new TopologyNode("terminal", "sink", "sink", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            CreateTopologyNode("terminal", "sink", "sink", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
         };
         var graph = new TopologyGraph(nodes, Array.Empty<TopologyEdge>());
 
         var metrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase)
         {
-            ["terminal"] = new NodeBinMetrics(0.92, 0.81, 0.0, 12, 5.4, DateTimeOffset.UtcNow, RetryTax: 0.12, NodeKind: "sink")
+            ["terminal"] = WithNodeFacts(new NodeBinMetrics(0.92, 0.81, 0.0, 12, 5.4, DateTimeOffset.UtcNow, RetryTax: 0.12, NodeKind: "sink"), "sink")
         };
 
         JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
@@ -1189,9 +1193,9 @@ public sealed class TopologyCanvasRenderTests : TestContext
     {
         var nodes = new[]
         {
-            new TopologyNode("source", "const", "const", Array.Empty<string>(), new[] { "calc" }, 0, 0, 0, 0, false, EmptySemantics()),
-            new TopologyNode("calc", "expr", "expr", new[] { "source" }, new[] { "svc" }, 1, 0, 200, 120, false, EmptySemantics()),
-            new TopologyNode("svc", "service", "service", new[] { "calc" }, Array.Empty<string>(), 2, 0, 400, 240, false, EmptySemantics())
+            CreateTopologyNode("source", "const", "const", Array.Empty<string>(), new[] { "calc" }, 0, 0, 0, 0, false, EmptySemantics()),
+            CreateTopologyNode("calc", "expr", "expr", new[] { "source" }, new[] { "svc" }, 1, 0, 200, 120, false, EmptySemantics()),
+            CreateTopologyNode("svc", "service", "service", new[] { "calc" }, Array.Empty<string>(), 2, 0, 400, 240, false, EmptySemantics())
         };
 
         var edges = new[]
@@ -1207,9 +1211,9 @@ public sealed class TopologyCanvasRenderTests : TestContext
     {
         var nodes = new[]
         {
-            new TopologyNode("ingress", "service", "service", Array.Empty<string>(), new[] { "processor" }, 0, 0, 0, 0, false, EmptySemantics()),
-            new TopologyNode("processor", "service", "service", new[] { "ingress" }, new[] { "egress" }, 1, 0, 240, 140, false, EmptySemantics()),
-            new TopologyNode("egress", "queue", "queue", new[] { "processor" }, Array.Empty<string>(), 2, 0, 480, 280, false, EmptySemantics())
+            CreateTopologyNode("ingress", "service", "service", Array.Empty<string>(), new[] { "processor" }, 0, 0, 0, 0, false, EmptySemantics()),
+            CreateTopologyNode("processor", "service", "service", new[] { "ingress" }, new[] { "egress" }, 1, 0, 240, 140, false, EmptySemantics()),
+            CreateTopologyNode("egress", "queue", "queue", new[] { "processor" }, Array.Empty<string>(), 2, 0, 480, 280, false, EmptySemantics())
         };
 
         var edges = new[]
@@ -1225,9 +1229,79 @@ public sealed class TopologyCanvasRenderTests : TestContext
     {
         return new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase)
         {
-            ["ingress"] = new NodeBinMetrics(0.96, 0.70, 0.01, 5, 2.3, DateTimeOffset.UtcNow, ServiceTimeMs: 230),
-            ["processor"] = new NodeBinMetrics(0.88, 0.80, 0.02, 8, 3.2, DateTimeOffset.UtcNow, ServiceTimeMs: 260),
-            ["egress"] = new NodeBinMetrics(0.75, 0.92, 0.04, 12, 5.8, DateTimeOffset.UtcNow)
+            ["ingress"] = WithNodeFacts(new NodeBinMetrics(0.96, 0.70, 0.01, 5, 2.3, DateTimeOffset.UtcNow, ServiceTimeMs: 230), "service"),
+            ["processor"] = WithNodeFacts(new NodeBinMetrics(0.88, 0.80, 0.02, 8, 3.2, DateTimeOffset.UtcNow, ServiceTimeMs: 260), "service"),
+            ["egress"] = WithNodeFacts(new NodeBinMetrics(0.75, 0.92, 0.04, 12, 5.8, DateTimeOffset.UtcNow), "queue")
+        };
+    }
+
+    private static TopologyNode CreateTopologyNode(
+        string id,
+        string kind,
+        string semanticKind,
+        IReadOnlyList<string> inputs,
+        IReadOnlyList<string> outputs,
+        int layer,
+        int index,
+        double x,
+        double y,
+        bool isPositionFixed,
+        TopologyNodeSemantics semantics)
+    {
+        return new TopologyNode(id, kind, inputs, outputs, layer, index, x, y, isPositionFixed, semantics)
+        {
+            Category = ResolveCategory(kind),
+            Analytical = CreateAnalytical(kind)
+        };
+    }
+
+    private static NodeBinMetrics WithNodeFacts(NodeBinMetrics metrics, string kind)
+    {
+        var analytical = CreateAnalytical(kind);
+        return metrics with
+        {
+            NodeKind = kind,
+            NodeCategory = ResolveCategory(kind),
+            AnalyticalIdentity = analytical.Identity,
+            HasQueueSemantics = analytical.HasQueueSemantics,
+            HasServiceSemantics = analytical.HasServiceSemantics
+        };
+    }
+
+    private static string ResolveCategory(string kind)
+    {
+        return kind.ToLowerInvariant() switch
+        {
+            "queue" => "queue",
+            "dlq" => "dlq",
+            "router" => "router",
+            "dependency" => "dependency",
+            "sink" => "sink",
+            "const" or "constant" or "pmf" => "constant",
+            "expr" or "expression" => "expression",
+            _ => "service"
+        };
+    }
+
+    private static GraphNodeAnalyticalModel CreateAnalytical(string kind)
+    {
+        var normalized = kind.ToLowerInvariant();
+        var category = ResolveCategory(kind);
+        var hasQueueSemantics = normalized is "queue" or "dlq" or "servicewithbuffer";
+        var hasServiceSemantics = category == "service";
+
+        return new GraphNodeAnalyticalModel
+        {
+            Identity = normalized switch
+            {
+                "const" => "constant",
+                "expr" => "expression",
+                _ => kind
+            },
+            HasQueueSemantics = hasQueueSemantics,
+            HasServiceSemantics = hasServiceSemantics,
+            HasCycleTimeDecomposition = hasQueueSemantics && hasServiceSemantics,
+            StationarityWarningApplicable = hasQueueSemantics
         };
     }
 

@@ -16,9 +16,9 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("ingress", "service", CreateSemantics()),
-                new GraphNodeModel("processor", "service", CreateSemantics()),
-                new GraphNodeModel("egress", "queue", CreateSemantics())
+                CreateGraphNode("ingress", "service"),
+                CreateGraphNode("processor", "service"),
+                CreateGraphNode("egress", "queue")
             },
             new[]
             {
@@ -52,8 +52,8 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("alpha", "service", CreateSemantics()),
-                new GraphNodeModel("beta", "queue", CreateSemantics(), Ui: new GraphNodeUiModel(160, 48))
+                CreateGraphNode("alpha", "service"),
+                CreateGraphNode("beta", "queue", ui: new GraphNodeUiModel(160, 48))
             },
             new[]
             {
@@ -77,8 +77,8 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("svc", "service", CreateSemantics()),
-                new GraphNodeModel("analytics", "service", CreateSemantics())
+                CreateGraphNode("svc", "service"),
+                CreateGraphNode("analytics", "service")
             },
             new[]
             {
@@ -103,9 +103,9 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("ingress", "service", CreateSemantics()),
-                new GraphNodeModel("processor", "service", CreateSemantics()),
-                new GraphNodeModel("egress", "service", CreateSemantics())
+                CreateGraphNode("ingress", "service"),
+                CreateGraphNode("processor", "service"),
+                CreateGraphNode("egress", "service")
             },
             new[]
             {
@@ -132,9 +132,9 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("constant", "const", CreateSemantics()),
-                new GraphNodeModel("expression", "expression", CreateSemantics()),
-                new GraphNodeModel("service", "service", CreateSemantics())
+                CreateGraphNode("constant", "const"),
+                CreateGraphNode("expression", "expression"),
+                CreateGraphNode("service", "service")
             },
             new[]
             {
@@ -159,9 +159,9 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("ingress", "service", CreateSemantics()),
-                new GraphNodeModel("processor", "service", CreateSemantics()),
-                new GraphNodeModel("orphan_metric", "expression", CreateSemantics())
+                CreateGraphNode("ingress", "service"),
+                CreateGraphNode("processor", "service"),
+                CreateGraphNode("orphan_metric", "expression")
             },
             new[]
             {
@@ -181,14 +181,14 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("svc_a", "service", CreateSemantics()),
-                new GraphNodeModel("svc_b", "service", CreateSemantics()),
-                new GraphNodeModel("svc_c", "service", CreateSemantics()),
-                new GraphNodeModel("expr_in", "expression", CreateSemantics()),
-                new GraphNodeModel("expr_mid", "expression", CreateSemantics()),
-                new GraphNodeModel("expr_top", "expression", CreateSemantics()),
-                new GraphNodeModel("leaf_one", "expression", CreateSemantics()),
-                new GraphNodeModel("leaf_two", "expression", CreateSemantics())
+                CreateGraphNode("svc_a", "service"),
+                CreateGraphNode("svc_b", "service"),
+                CreateGraphNode("svc_c", "service"),
+                CreateGraphNode("expr_in", "expression"),
+                CreateGraphNode("expr_mid", "expression"),
+                CreateGraphNode("expr_top", "expression"),
+                CreateGraphNode("leaf_one", "expression"),
+                CreateGraphNode("leaf_two", "expression")
             },
             new[]
             {
@@ -217,10 +217,10 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("svc", "service", CreateSemantics()),
-                new GraphNodeModel("expr_upper", "expression", CreateSemantics()),
-                new GraphNodeModel("expr_lower", "expression", CreateSemantics()),
-                new GraphNodeModel("const_seed", "const", CreateSemantics())
+                CreateGraphNode("svc", "service"),
+                CreateGraphNode("expr_upper", "expression"),
+                CreateGraphNode("expr_lower", "expression"),
+                CreateGraphNode("const_seed", "const")
             },
             new[]
             {
@@ -288,7 +288,7 @@ public sealed class TopologyHelpersTests
     public void TooltipFormatterProducesExpectedLines()
     {
         var timestamp = new DateTimeOffset(2025, 1, 1, 0, 15, 0, TimeSpan.Zero);
-        var metrics = new NodeBinMetrics(0.9634, 0.82, 0.04, 12, 5.4, timestamp);
+        var metrics = WithNodeFacts(new NodeBinMetrics(0.9634, 0.82, 0.04, 12, 5.4, timestamp), "serviceWithBuffer");
 
         var content = TooltipFormatter.Format("OrderService", metrics);
 
@@ -304,14 +304,16 @@ public sealed class TopologyHelpersTests
     public void TooltipFormatter_SinkWithoutSchedule_UsesSlaLabel()
     {
         var timestamp = new DateTimeOffset(2025, 1, 1, 0, 15, 0, TimeSpan.Zero);
-        var metrics = new NodeBinMetrics(
-            1.0,
-            null,
-            0.0,
-            null,
-            null,
-            timestamp,
-            NodeKind: "sink");
+        var metrics = WithNodeFacts(
+            new NodeBinMetrics(
+                1.0,
+                null,
+                0.0,
+                null,
+                null,
+                timestamp,
+                NodeKind: "sink"),
+            "sink");
 
         var content = TooltipFormatter.Format("Downtown", metrics);
 
@@ -323,14 +325,16 @@ public sealed class TopologyHelpersTests
     public void TooltipFormatter_IncludesCompletionSla_WhenProvided()
     {
         var timestamp = new DateTimeOffset(2025, 1, 1, 0, 15, 0, TimeSpan.Zero);
-        var metrics = new NodeBinMetrics(
-            0.92,
-            0.78,
-            0.02,
-            8,
-            4.1,
-            timestamp,
-            RawMetrics: new Dictionary<string, double?> { ["completionSla"] = 0.92 });
+        var metrics = WithNodeFacts(
+            new NodeBinMetrics(
+                0.92,
+                0.78,
+                0.02,
+                8,
+                4.1,
+                timestamp,
+                RawMetrics: new Dictionary<string, double?> { ["completionSla"] = 0.92 }),
+            "service");
 
         var content = TooltipFormatter.Format("OrderService", metrics);
 
@@ -359,6 +363,65 @@ private static GraphNodeSemanticsModel CreateSemantics()
         MaxAttempts: null,
         BackoffStrategy: null,
         ExhaustedPolicy: null);
+
+    private static GraphNodeModel CreateGraphNode(string id, string kind, GraphNodeUiModel? ui = null)
+    {
+        return new GraphNodeModel(id, kind, CreateSemantics(), Ui: ui)
+        {
+            Category = ResolveCategory(kind),
+            Analytical = CreateAnalytical(kind)
+        };
+    }
+
+    private static NodeBinMetrics WithNodeFacts(NodeBinMetrics metrics, string kind)
+    {
+        var analytical = CreateAnalytical(kind);
+        return metrics with
+        {
+            NodeKind = kind,
+            NodeCategory = ResolveCategory(kind),
+            AnalyticalIdentity = analytical.Identity,
+            HasQueueSemantics = analytical.HasQueueSemantics,
+            HasServiceSemantics = analytical.HasServiceSemantics
+        };
+    }
+
+    private static string ResolveCategory(string kind)
+    {
+        return kind.ToLowerInvariant() switch
+        {
+            "queue" => "queue",
+            "dlq" => "dlq",
+            "router" => "router",
+            "dependency" => "dependency",
+            "sink" => "sink",
+            "const" or "constant" or "pmf" => "constant",
+            "expr" or "expression" => "expression",
+            _ => "service"
+        };
+    }
+
+    private static GraphNodeAnalyticalModel CreateAnalytical(string kind)
+    {
+        var normalized = kind.ToLowerInvariant();
+        var category = ResolveCategory(kind);
+        var hasQueueSemantics = normalized is "queue" or "dlq" or "servicewithbuffer";
+        var hasServiceSemantics = category == "service";
+
+        return new GraphNodeAnalyticalModel
+        {
+            Identity = normalized switch
+            {
+                "const" => "constant",
+                "expr" => "expression",
+                _ => kind
+            },
+            HasQueueSemantics = hasQueueSemantics,
+            HasServiceSemantics = hasServiceSemantics,
+            HasCycleTimeDecomposition = hasQueueSemantics && hasServiceSemantics,
+            StationarityWarningApplicable = hasQueueSemantics
+        };
+    }
 
     private static int ResolveRow(TopologyNode node)
     {

@@ -83,8 +83,23 @@ public sealed record TimeTravelStateMetadataDto
     [JsonPropertyName("classCoverage")]
     public string? ClassCoverage { get; init; }
 
+    [JsonPropertyName("classes")]
+    public IReadOnlyList<TimeTravelClassCatalogEntryDto>? Classes { get; init; }
+
     [JsonPropertyName("edgeQuality")]
     public string? EdgeQuality { get; init; }
+}
+
+public sealed record TimeTravelClassCatalogEntryDto
+{
+    [JsonPropertyName("id")]
+    public required string Id { get; init; }
+
+    [JsonPropertyName("displayName")]
+    public string? DisplayName { get; init; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; init; }
 }
 
 public sealed record TimeTravelSchemaMetadataDto
@@ -146,8 +161,14 @@ public sealed record TimeTravelNodeSnapshotDto
     [JsonPropertyName("kind")]
     public required string Kind { get; init; }
 
-    [JsonPropertyName("nodeLogicalType")]
-    public string? LogicalType { get; init; }
+    [JsonPropertyName("category")]
+    public string Category { get; init; } = string.Empty;
+
+    [JsonPropertyName("analytical")]
+    public TimeTravelNodeAnalyticalFactsDto Analytical { get; init; } = new();
+
+    [JsonPropertyName("classTruth")]
+    public TimeTravelNodeClassTruthFactsDto ClassTruth { get; init; } = new();
 
     [JsonPropertyName("metrics")]
     public TimeTravelNodeMetricsDto Metrics { get; init; } = new();
@@ -192,8 +213,14 @@ public sealed record TimeTravelNodeSeriesDto
     [JsonPropertyName("kind")]
     public required string Kind { get; init; }
 
-    [JsonPropertyName("nodeLogicalType")]
-    public string? LogicalType { get; init; }
+    [JsonPropertyName("category")]
+    public string Category { get; init; } = string.Empty;
+
+    [JsonPropertyName("analytical")]
+    public TimeTravelNodeAnalyticalFactsDto Analytical { get; init; } = new();
+
+    [JsonPropertyName("classTruth")]
+    public TimeTravelNodeClassTruthFactsDto ClassTruth { get; init; } = new();
 
     [JsonPropertyName("series")]
     public IReadOnlyDictionary<string, double?[]> Series { get; init; } = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
@@ -225,6 +252,36 @@ public sealed record TimeTravelNodeSeriesDto
 
     [JsonPropertyName("sla")]
     public IReadOnlyList<TimeTravelSlaSeriesDto>? Sla { get; init; }
+}
+
+public sealed record TimeTravelNodeAnalyticalFactsDto
+{
+    [JsonPropertyName("identity")]
+    public string Identity { get; init; } = string.Empty;
+
+    [JsonPropertyName("hasQueueSemantics")]
+    public bool HasQueueSemantics { get; init; }
+
+    [JsonPropertyName("hasServiceSemantics")]
+    public bool HasServiceSemantics { get; init; }
+
+    [JsonPropertyName("hasCycleTimeDecomposition")]
+    public bool HasCycleTimeDecomposition { get; init; }
+
+    [JsonPropertyName("stationarityWarningApplicable")]
+    public bool StationarityWarningApplicable { get; init; }
+}
+
+public sealed record TimeTravelNodeClassTruthFactsDto
+{
+    [JsonPropertyName("coverage")]
+    public string Coverage { get; init; } = "missing";
+
+    [JsonPropertyName("hasSpecificClasses")]
+    public bool HasSpecificClasses { get; init; }
+
+    [JsonPropertyName("hasFallbackClass")]
+    public bool HasFallbackClass { get; init; }
 }
 
 public sealed record TimeTravelSlaMetricDto

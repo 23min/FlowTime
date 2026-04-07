@@ -32,6 +32,28 @@ public sealed class TopologyInspectorTabsTests
     }
 
     [Fact]
+    public void Topology_InspectorTabs_DoesNotInferExpressionFromLegacyKind()
+    {
+        var topology = new Topology();
+        var graph = new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("legacy-expr", "expr", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+                {
+                    Category = "service",
+                    Analytical = new GraphNodeAnalyticalModel()
+                }
+            },
+            Array.Empty<TopologyEdge>());
+
+        topology.TestSetTopologyGraph(graph);
+
+        var tabs = topology.TestGetInspectorTabsForNode("legacy-expr");
+
+        Assert.DoesNotContain("Expression", tabs);
+    }
+
+    [Fact]
     public void Topology_InspectorTabs_PreservesSelectionWhileOpen()
     {
         var topology = new Topology();
@@ -78,8 +100,23 @@ public sealed class TopologyInspectorTabsTests
     {
         var nodes = new[]
         {
-            new TopologyNode("expr-1", "expr", "expr", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics()),
-            new TopologyNode("svc-1", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 1, 0, 0, false, EmptySemantics())
+            new TopologyNode("expr-1", "expr", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            {
+                Category = "expression",
+                Analytical = new GraphNodeAnalyticalModel
+                {
+                    Identity = "expression"
+                }
+            },
+            new TopologyNode("svc-1", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 1, 0, 0, false, EmptySemantics())
+            {
+                Category = "service",
+                Analytical = new GraphNodeAnalyticalModel
+                {
+                    Identity = "service",
+                    HasServiceSemantics = true
+                }
+            }
         };
 
         return new TopologyGraph(nodes, Array.Empty<TopologyEdge>());

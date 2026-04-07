@@ -16,7 +16,6 @@ internal sealed record CanvasScenePayload(
 internal sealed record NodeSceneInfo(
     string Id,
     string Kind,
-    string LogicalType,
     double X,
     double Y,
     double Width,
@@ -27,7 +26,11 @@ internal sealed record NodeSceneInfo(
     NodeSparklineDto? Sparkline,
     NodeSemanticsDto? Semantics,
     GraphDispatchScheduleModel? DispatchSchedule,
-    string? NodeRole);
+    string? NodeRole)
+{
+    public string Category { get; init; } = string.Empty;
+    public GraphNodeAnalyticalModel Analytical { get; init; } = new();
+}
 
 internal sealed record CanvasOverlayPayload(
     OverlaySettingsPayload Overlays,

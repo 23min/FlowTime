@@ -173,40 +173,8 @@ public partial class Dashboard : IDisposable
         {
             classCoverageState = classWindowData.Metadata.ClassCoverage;
         }
-        EnsureFallbackClassesFromWindow(classWindowData);
 
         RecomputeClassTiles();
-    }
-
-    private void EnsureFallbackClassesFromWindow(TimeTravelStateWindowDto window)
-    {
-        if (availableClasses.Count > 0 || window.Nodes is null || window.Nodes.Count == 0)
-        {
-            return;
-        }
-
-        var fallback = window.Nodes
-            .Where(node => node.ByClass is not null && node.ByClass.Count > 0)
-            .SelectMany(node => node.ByClass.Keys)
-            .Where(key => !string.IsNullOrWhiteSpace(key) &&
-                          !string.Equals(key, "DEFAULT", StringComparison.OrdinalIgnoreCase))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(key => classDisplayNames.TryGetValue(key, out var label) && !string.IsNullOrWhiteSpace(label) ? label : key,
-                     StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
-        if (fallback.Length == 0)
-        {
-            return;
-        }
-
-        if (classDisplayNames == emptyClassLabels)
-        {
-            classDisplayNames = fallback.ToDictionary(id => id, id => id, StringComparer.OrdinalIgnoreCase);
-        }
-
-        availableClasses = fallback;
-        Console.WriteLine($"[Dashboard] Fallback class list from window: {string.Join(", ", availableClasses)}");
     }
 
     internal ServiceTileViewModel? BuildTile(TimeTravelServiceMetricsDto service)
@@ -379,7 +347,7 @@ public partial class Dashboard : IDisposable
 
     private TimeTravelServiceMetricsDto? BuildClassAwareMetrics(TimeTravelNodeSeriesDto node, int windowBinCount)
     {
-        if (!IsServiceLike(node.Kind, node.LogicalType) || node.ByClass is null)
+        if (!HasServiceSemantics(node) || node.ByClass is null)
         {
             return null;
         }
@@ -431,17 +399,9 @@ public partial class Dashboard : IDisposable
         return accumulator;
     }
 
-    private static bool IsServiceLike(string? kind, string? logicalType = null)
+    private static bool HasServiceSemantics(TimeTravelNodeSeriesDto node)
     {
-        var candidate = string.IsNullOrWhiteSpace(logicalType) ? kind : logicalType;
-        if (string.IsNullOrWhiteSpace(candidate))
-        {
-            return false;
-        }
-
-        return string.Equals(candidate, "service", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(candidate, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(candidate, "flow", StringComparison.OrdinalIgnoreCase);
+        return node.Analytical.HasServiceSemantics;
     }
 
     private const double classSlaThreshold = 0.95d;

@@ -301,6 +301,12 @@ public sealed record NodeBinMetrics(
     double? RetryTax = null,
     IReadOnlyDictionary<string, double?>? RawMetrics = null,
     IReadOnlyDictionary<string, string>? Metadata = null,
-    QueueLatencyStatus? QueueLatencyStatus = null);
+    QueueLatencyStatus? QueueLatencyStatus = null)
+{
+    public string NodeCategory { get; init; } = "service";
+    public string AnalyticalIdentity { get; init; } = string.Empty;
+    public bool HasQueueSemantics { get; init; }
+    public bool HasServiceSemantics { get; init; }
+}
 
 public sealed record QueueLatencyStatus(string Code, string? Message);

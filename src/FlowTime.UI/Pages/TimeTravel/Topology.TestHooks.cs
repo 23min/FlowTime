@@ -191,7 +191,7 @@ public partial class Topology
     internal IReadOnlyList<string> TestGetInspectorTabsForNode(string nodeId)
     {
         var node = FindTopologyNode(nodeId);
-        var includeExpression = node is not null && IsExpressionKind(node.Kind);
+        var includeExpression = node is not null && IsExpressionNode(ResolveNodeCategory(node), ResolveAnalyticalIdentity(node));
         return GetInspectorTabs(includeExpression)
             .Select(tab => tab.ToString())
             .ToArray();

@@ -207,7 +207,7 @@ public sealed class StateQueryService
             }
             classCoverageStates.Add(classAggregation.Coverage);
             var mergedWarnings = MergeWarnings(GetNodeWarnings(validation, topologyNode.Id), classAggregation.Warnings, topologyNode.Id);
-            var nodeSeries = BuildNodeSeries(topologyNode, data, context, startBin, count, mergedWarnings, nodeFlowLatency);
+            var nodeSeries = BuildNodeSeries(topologyNode, data, context, startBin, count, mergedWarnings, classAggregation, nodeFlowLatency);
             seriesList.Add(nodeSeries.Series);
             analyticalWarnings.AddRange(nodeSeries.WindowWarnings);
         }
@@ -617,7 +617,6 @@ public sealed class StateQueryService
         double?[]? flowLatencyForNode = null)
     {
         var kind = NormalizeKind(node.Kind);
-        var logicalType = node.Analytical.ToLogicalType();
         var descriptor = node.Analytical;
         var dispatchSchedule = ResolveDispatchSchedule(node, context);
         var binMs = context.Window.BinDuration.TotalMilliseconds;
@@ -686,7 +685,7 @@ public sealed class StateQueryService
                     : ColoringRules.PickServiceColor(utilization);
 
         var mergedWarnings = MergeWarnings(nodeWarnings, classAggregation.Warnings, node.Id);
-        var slaMetrics = BuildSlaMetrics(node, logicalType, data, context, binIndex, dispatchSchedule);
+        var slaMetrics = BuildSlaMetrics(node, data, context, binIndex, dispatchSchedule);
         var queueOrigin = data.QueueDepth is null ? null : ResolveQueueSeriesOrigin(node, context);
         var seriesMetadata = BuildDerivedSeriesMetadata(
             hasLatency: analyticalResult.Emission.EmitLatencyMinutes,
@@ -706,7 +705,9 @@ public sealed class StateQueryService
         {
             Id = node.Id,
             Kind = kind,
-            LogicalType = logicalType,
+            Category = descriptor.ToContractCategory(),
+            Analytical = BuildAnalyticalFacts(descriptor),
+            ClassTruth = BuildClassTruthFacts(classAggregation.Coverage, classAggregation.ClassEntries),
             Metrics = new NodeMetrics
             {
                 Arrivals = arrivals,
@@ -754,7 +755,6 @@ public sealed class StateQueryService
 
     private static IReadOnlyList<SlaSeriesDescriptor>? BuildSlaSeries(
         Node node,
-        string? logicalType,
         NodeData data,
         StateRunContext context,
         int startBin,
@@ -762,7 +762,7 @@ public sealed class StateQueryService
         DispatchScheduleDescriptor? dispatchSchedule)
     {
         var completion = ComputeCompletionSlaSeries(data.Arrivals, data.Served, dispatchSchedule, startBin, count);
-        var backlogAge = BuildBacklogAgeSlaSeries(node, logicalType, data, context, startBin, count);
+        var backlogAge = BuildBacklogAgeSlaSeries(node, data, context, startBin, count);
         var scheduleAdherence = ComputeScheduleAdherenceSeries(data.Served, dispatchSchedule, startBin, count);
 
         var items = new List<SlaSeriesDescriptor>(capacity: 3);
@@ -784,7 +784,6 @@ public sealed class StateQueryService
 
     private static IReadOnlyList<SlaMetricDescriptor>? BuildSlaMetrics(
         Node node,
-        string? logicalType,
         NodeData data,
         StateRunContext context,
         int binIndex,
@@ -799,7 +798,7 @@ public sealed class StateQueryService
             Value = completionValue
         };
 
-        var backlogAge = BuildBacklogAgeMetric(node, logicalType);
+    var backlogAge = BuildBacklogAgeMetric(node);
 
         var scheduleAdherence = BuildScheduleAdherenceMetric(data.Served, dispatchSchedule, binIndex);
 
@@ -904,7 +903,6 @@ public sealed class StateQueryService
 
     private static SlaSeriesDescriptor? BuildBacklogAgeSlaSeries(
         Node node,
-        string? logicalType,
         NodeData data,
         StateRunContext context,
         int startBin,
@@ -925,7 +923,7 @@ public sealed class StateQueryService
         };
     }
 
-    private static SlaMetricDescriptor? BuildBacklogAgeMetric(Node node, string? logicalType)
+    private static SlaMetricDescriptor? BuildBacklogAgeMetric(Node node)
     {
         if (!node.Analytical.HasQueueSemantics)
         {
@@ -1197,10 +1195,17 @@ public sealed class StateQueryService
 
     private sealed record NodeSeriesBuildResult(NodeSeries Series, IReadOnlyList<ModeValidationWarning> WindowWarnings);
 
-    private static NodeSeriesBuildResult BuildNodeSeries(Node node, NodeData data, StateRunContext context, int startBin, int count, IReadOnlyList<ModeValidationWarning> nodeWarnings, double?[]? flowLatencyForNode = null)
+    private static NodeSeriesBuildResult BuildNodeSeries(
+        Node node,
+        NodeData data,
+        StateRunContext context,
+        int startBin,
+        int count,
+        IReadOnlyList<ModeValidationWarning> nodeWarnings,
+        ClassAggregationResult classAggregation,
+        double?[]? flowLatencyForNode = null)
     {
         var kind = NormalizeKind(node.Kind);
-        var logicalType = node.Analytical.ToLogicalType();
         var descriptor = node.Analytical;
         var dispatchSchedule = ResolveDispatchSchedule(node, context);
         var arrivalsSlice = ExtractSlice(data.Arrivals, startBin, count);
@@ -1381,7 +1386,7 @@ public sealed class StateQueryService
             series[$"series:{node.Id}"] = valuesSlice;
         }
 
-        var slaSeries = BuildSlaSeries(node, logicalType, data, context, startBin, count, dispatchSchedule);
+        var slaSeries = BuildSlaSeries(node, data, context, startBin, count, dispatchSchedule);
         var queueOrigin = data.QueueDepth is null ? null : ResolveQueueSeriesOrigin(node, context);
         var seriesMetadata = BuildDerivedSeriesMetadata(
             hasLatency: latencySeries is not null,
@@ -1417,7 +1422,9 @@ public sealed class StateQueryService
         {
             Id = node.Id,
             Kind = kind,
-            LogicalType = logicalType,
+            Category = descriptor.ToContractCategory(),
+            Analytical = BuildAnalyticalFacts(descriptor),
+            ClassTruth = BuildClassTruthFacts(classAggregation.Coverage, classAggregation.ClassEntries),
             Series = series,
             SeriesMetadata = seriesMetadata,
             ByClass = BuildClassSeries(analyticalWindow.ByClass),
@@ -3746,6 +3753,7 @@ public sealed class StateQueryService
 
         var valuesSlice = ExtractSlice(data.Values, start, count);
         var dispatchSchedule = ResolveDispatchSchedule(nodeId, context);
+        var descriptor = BuildComputedDescriptor(kind);
 
         var series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
         {
@@ -3757,7 +3765,9 @@ public sealed class StateQueryService
         {
             Id = nodeId,
             Kind = kind,
-            LogicalType = NormalizeKind(kind),
+            Category = descriptor.ToContractCategory(),
+            Analytical = BuildAnalyticalFacts(descriptor),
+            ClassTruth = new NodeClassTruthFacts(),
             Series = series,
             Telemetry = new NodeTelemetryInfo
             {
@@ -4389,6 +4399,7 @@ public sealed class StateQueryService
             !context.InitialWarnings.Any(w => string.Equals(w.Code, "telemetry_sources_missing", StringComparison.OrdinalIgnoreCase));
         var mergedCoverage = MergeClassCoverage(classCoverage, context.Manifest.ClassCoverage);
         var edgeQuality = ResolveEdgeQuality(context, mergedCoverage);
+
         return new StateMetadata
         {
             RunId = context.Manifest.RunId,
@@ -4412,7 +4423,105 @@ public sealed class StateQueryService
                 ProvenancePath = metadata.Storage.ProvenancePath
             },
             ClassCoverage = mergedCoverage,
+            Classes = BuildClassCatalog(context.Manifest.Classes),
             EdgeQuality = edgeQuality
+        };
+    }
+
+    private static IReadOnlyList<ClassCatalogEntry>? BuildClassCatalog(ManifestClassEntry[]? classes)
+    {
+        if (classes is null || classes.Length == 0)
+        {
+            return null;
+        }
+
+        return classes
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Id))
+            .Select(entry => new ClassCatalogEntry
+            {
+                Id = entry.Id,
+                DisplayName = entry.DisplayName,
+                Description = entry.Description
+            })
+            .ToArray();
+    }
+
+    private static NodeAnalyticalFacts BuildAnalyticalFacts(RuntimeAnalyticalDescriptor descriptor)
+    {
+        return new NodeAnalyticalFacts
+        {
+            Identity = descriptor.ToContractIdentity(),
+            HasQueueSemantics = descriptor.HasQueueSemantics,
+            HasServiceSemantics = descriptor.HasServiceSemantics,
+            HasCycleTimeDecomposition = descriptor.HasCycleTimeDecomposition,
+            StationarityWarningApplicable = descriptor.StationarityWarningApplicable
+        };
+    }
+
+    private static NodeClassTruthFacts BuildClassTruthFacts<TPayload>(
+        ClassCoverage coverage,
+        IReadOnlyList<ClassEntry<TPayload>>? classEntries)
+    {
+        return new NodeClassTruthFacts
+        {
+            Coverage = ToContractCoverage(coverage),
+            HasSpecificClasses = classEntries?.Any(entry => entry.Kind == ClassEntryKind.Specific) == true,
+            HasFallbackClass = classEntries?.Any(entry => entry.Kind == ClassEntryKind.Fallback) == true
+        };
+    }
+
+    private static string ToContractCoverage(ClassCoverage coverage)
+    {
+        return coverage switch
+        {
+            ClassCoverage.Full => "full",
+            ClassCoverage.Partial => "partial",
+            _ => "missing"
+        };
+    }
+
+    private static RuntimeAnalyticalDescriptor BuildComputedDescriptor(string? kind)
+    {
+        var normalizedKind = NormalizeKind(kind);
+        var category = normalizedKind switch
+        {
+            "queue" => RuntimeAnalyticalNodeCategory.Queue,
+            "dlq" => RuntimeAnalyticalNodeCategory.Dlq,
+            "router" => RuntimeAnalyticalNodeCategory.Router,
+            "dependency" => RuntimeAnalyticalNodeCategory.Dependency,
+            "sink" => RuntimeAnalyticalNodeCategory.Sink,
+            "const" or "constant" or "pmf" => RuntimeAnalyticalNodeCategory.Constant,
+            "expr" or "expression" => RuntimeAnalyticalNodeCategory.Expression,
+            _ => RuntimeAnalyticalNodeCategory.Service
+        };
+        var hasQueueSemantics = category is RuntimeAnalyticalNodeCategory.Queue or RuntimeAnalyticalNodeCategory.Dlq
+            || normalizedKind == "servicewithbuffer";
+        var hasServiceSemantics = category == RuntimeAnalyticalNodeCategory.Service;
+
+        return new RuntimeAnalyticalDescriptor
+        {
+            Identity = category switch
+            {
+                RuntimeAnalyticalNodeCategory.Queue => RuntimeAnalyticalIdentity.Queue,
+                RuntimeAnalyticalNodeCategory.Dlq => RuntimeAnalyticalIdentity.Dlq,
+                RuntimeAnalyticalNodeCategory.Router => RuntimeAnalyticalIdentity.Router,
+                RuntimeAnalyticalNodeCategory.Dependency => RuntimeAnalyticalIdentity.Dependency,
+                RuntimeAnalyticalNodeCategory.Sink => RuntimeAnalyticalIdentity.Sink,
+                RuntimeAnalyticalNodeCategory.Constant => normalizedKind == "pmf"
+                    ? RuntimeAnalyticalIdentity.Pmf
+                    : RuntimeAnalyticalIdentity.Constant,
+                RuntimeAnalyticalNodeCategory.Expression => RuntimeAnalyticalIdentity.Expression,
+                _ => hasQueueSemantics && hasServiceSemantics
+                    ? RuntimeAnalyticalIdentity.ServiceWithBuffer
+                    : RuntimeAnalyticalIdentity.Service
+            },
+            Category = category,
+            HasQueueSemantics = hasQueueSemantics,
+            HasServiceSemantics = hasServiceSemantics,
+            HasCycleTimeDecomposition = hasQueueSemantics && hasServiceSemantics,
+            StationarityWarningApplicable = hasQueueSemantics,
+            QueueSourceNodeId = null,
+            Parallelism = null
         };
     }
 

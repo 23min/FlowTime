@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using FlowTime.UI.Components.Topology;
 using FlowTime.UI.Pages.TimeTravel;
 using Xunit;
@@ -81,8 +82,8 @@ public sealed class TopologyFocusViewTests
     {
         var nodes = new[]
         {
-            new TopologyNode("ingress", "service", "service", Array.Empty<string>(), new[] { "processor" }, 0, 0, 0, 0, false, EmptySemantics()),
-            new TopologyNode("processor", "service", "service", new[] { "ingress" }, Array.Empty<string>(), 1, 0, 0, 0, false, EmptySemantics())
+            CreateTopologyNode("ingress", "service", "service", Array.Empty<string>(), new[] { "processor" }, 0, 0, 0, 0, false, EmptySemantics()),
+            CreateTopologyNode("processor", "service", "service", new[] { "ingress" }, Array.Empty<string>(), 1, 0, 0, 0, false, EmptySemantics())
         };
 
         var edges = new[]
@@ -114,6 +115,66 @@ public sealed class TopologyFocusViewTests
         MaxAttempts: null,
         BackoffStrategy: null,
         ExhaustedPolicy: null);
+
+    private static TopologyNode CreateTopologyNode(
+        string id,
+        string kind,
+        string semanticKind,
+        IReadOnlyList<string> inputs,
+        IReadOnlyList<string> outputs,
+        int layer,
+        int index,
+        double x,
+        double y,
+        bool isPositionFixed,
+        TopologyNodeSemantics semantics,
+        int lane = 0,
+        GraphDispatchScheduleModel? DispatchSchedule = null,
+        string? NodeRole = null)
+    {
+        return new TopologyNode(id, kind, inputs, outputs, layer, index, x, y, isPositionFixed, semantics, lane, DispatchSchedule, NodeRole)
+        {
+            Category = ResolveCategory(semanticKind),
+            Analytical = CreateAnalytical(semanticKind)
+        };
+    }
+
+    private static string ResolveCategory(string kind)
+    {
+        return kind.ToLowerInvariant() switch
+        {
+            "queue" => "queue",
+            "dlq" => "dlq",
+            "router" => "router",
+            "dependency" => "dependency",
+            "sink" => "sink",
+            "const" or "constant" or "pmf" => "constant",
+            "expr" or "expression" => "expression",
+            _ => "service"
+        };
+    }
+
+    private static GraphNodeAnalyticalModel CreateAnalytical(string kind)
+    {
+        var normalized = kind.ToLowerInvariant();
+        var category = ResolveCategory(kind);
+        var hasQueueSemantics = normalized is "queue" or "dlq" or "servicewithbuffer";
+        var hasServiceSemantics = category == "service";
+
+        return new GraphNodeAnalyticalModel
+        {
+            Identity = normalized switch
+            {
+                "const" => "constant",
+                "expr" => "expression",
+                _ => kind
+            },
+            HasQueueSemantics = hasQueueSemantics,
+            HasServiceSemantics = hasServiceSemantics,
+            HasCycleTimeDecomposition = hasQueueSemantics && hasServiceSemantics,
+            StationarityWarningApplicable = hasQueueSemantics
+        };
+    }
 
     private static void AssertSnapshotMatches(ViewportSnapshot expected, ViewportSnapshot actual)
     {

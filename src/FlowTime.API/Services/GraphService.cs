@@ -134,7 +134,6 @@ public sealed class GraphService
             var kind = string.IsNullOrWhiteSpace(topoNode.Kind)
                 ? nodeDefinition?.Kind ?? "service"
                 : topoNode.Kind!;
-            var logicalType = topoNode.Analytical.ToLogicalType();
             if (!allowedKinds.Contains(kind))
             {
                 continue;
@@ -182,8 +181,9 @@ public sealed class GraphService
             {
                 Id = topoNode.Id,
                 Kind = kind,
+                Category = topoNode.Analytical.ToContractCategory(),
+                Analytical = BuildAnalyticalFacts(topoNode.Analytical),
                 NodeRole = string.IsNullOrWhiteSpace(topoNode.NodeRole) ? null : topoNode.NodeRole,
-                LogicalType = logicalType,
                 Semantics = semantics,
                 Ui = ui,
                 DispatchSchedule = dispatchSchedule
@@ -282,11 +282,14 @@ public sealed class GraphService
                     Metadata = nodeDef.Metadata
                 };
 
+                var descriptor = BuildDescriptorFromKind(actualKind);
+
                 AddOrReplaceNode(new GraphNode
                 {
                     Id = nodeDef.Id,
                     Kind = displayKind,
-                    LogicalType = NormalizeKind(actualKind),
+                    Category = descriptor.ToContractCategory(),
+                    Analytical = BuildAnalyticalFacts(descriptor),
                     Semantics = semantics,
                     DispatchSchedule = TryBuildDispatchSchedule(nodeDefinitionsById, nodeDef.Id)
                 });
@@ -498,6 +501,87 @@ public sealed class GraphService
             PeriodBins = period,
             PhaseOffset = normalizedPhase,
             CapacitySeries = capacitySeries
+        };
+    }
+
+    private static NodeAnalyticalFacts BuildAnalyticalFacts(RuntimeAnalyticalDescriptor descriptor)
+    {
+        return new NodeAnalyticalFacts
+        {
+            Identity = descriptor.ToContractIdentity(),
+            HasQueueSemantics = descriptor.HasQueueSemantics,
+            HasServiceSemantics = descriptor.HasServiceSemantics,
+            HasCycleTimeDecomposition = descriptor.HasCycleTimeDecomposition,
+            StationarityWarningApplicable = descriptor.StationarityWarningApplicable
+        };
+    }
+
+    private static RuntimeAnalyticalDescriptor BuildDescriptorFromKind(string? kind, string? nodeRole = null)
+    {
+        var normalizedKind = NormalizeKind(kind);
+        var category = ResolveCategory(normalizedKind, nodeRole);
+        var hasQueueSemantics = category is RuntimeAnalyticalNodeCategory.Queue or RuntimeAnalyticalNodeCategory.Dlq
+            || string.Equals(normalizedKind, "servicewithbuffer", StringComparison.OrdinalIgnoreCase);
+        var hasServiceSemantics = category == RuntimeAnalyticalNodeCategory.Service;
+
+        return new RuntimeAnalyticalDescriptor
+        {
+            Identity = ResolveIdentity(normalizedKind, category, hasQueueSemantics, hasServiceSemantics),
+            Category = category,
+            HasQueueSemantics = hasQueueSemantics,
+            HasServiceSemantics = hasServiceSemantics,
+            HasCycleTimeDecomposition = hasQueueSemantics && hasServiceSemantics,
+            StationarityWarningApplicable = hasQueueSemantics,
+            QueueSourceNodeId = null,
+            Parallelism = null
+        };
+    }
+
+    private static RuntimeAnalyticalNodeCategory ResolveCategory(string normalizedKind, string? nodeRole)
+    {
+        if (string.Equals(nodeRole, "sink", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(normalizedKind, "sink", StringComparison.OrdinalIgnoreCase))
+        {
+            return RuntimeAnalyticalNodeCategory.Sink;
+        }
+
+        return normalizedKind switch
+        {
+            "queue" => RuntimeAnalyticalNodeCategory.Queue,
+            "dlq" => RuntimeAnalyticalNodeCategory.Dlq,
+            "router" => RuntimeAnalyticalNodeCategory.Router,
+            "dependency" => RuntimeAnalyticalNodeCategory.Dependency,
+            "const" or "constant" or "pmf" => RuntimeAnalyticalNodeCategory.Constant,
+            "expr" or "expression" => RuntimeAnalyticalNodeCategory.Expression,
+            _ => RuntimeAnalyticalNodeCategory.Service
+        };
+    }
+
+    private static RuntimeAnalyticalIdentity ResolveIdentity(
+        string normalizedKind,
+        RuntimeAnalyticalNodeCategory category,
+        bool hasQueueSemantics,
+        bool hasServiceSemantics)
+    {
+        if (category == RuntimeAnalyticalNodeCategory.Service)
+        {
+            return hasQueueSemantics && hasServiceSemantics
+                ? RuntimeAnalyticalIdentity.ServiceWithBuffer
+                : RuntimeAnalyticalIdentity.Service;
+        }
+
+        return category switch
+        {
+            RuntimeAnalyticalNodeCategory.Queue => RuntimeAnalyticalIdentity.Queue,
+            RuntimeAnalyticalNodeCategory.Dlq => RuntimeAnalyticalIdentity.Dlq,
+            RuntimeAnalyticalNodeCategory.Router => RuntimeAnalyticalIdentity.Router,
+            RuntimeAnalyticalNodeCategory.Dependency => RuntimeAnalyticalIdentity.Dependency,
+            RuntimeAnalyticalNodeCategory.Sink => RuntimeAnalyticalIdentity.Sink,
+            RuntimeAnalyticalNodeCategory.Constant => normalizedKind == "pmf"
+                ? RuntimeAnalyticalIdentity.Pmf
+                : RuntimeAnalyticalIdentity.Constant,
+            RuntimeAnalyticalNodeCategory.Expression => RuntimeAnalyticalIdentity.Expression,
+            _ => RuntimeAnalyticalIdentity.Service
         };
     }
 

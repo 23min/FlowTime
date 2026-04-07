@@ -66,7 +66,7 @@ The existing near-term epics (Path Analysis, UI Analytical Views, Anomaly Detect
 - Phase 0 must complete before any other work
 - Phase 1 and Phase 2 can run in parallel
 - Phase 3 depends on Phase 1 (especially Series immutability fix for WIP limits)
-- Remaining Phase 3 expansion (`p3d`, `p3c`, `p3b`) is gated on E-16 completing after `m-ec-p3a1`
+- Remaining Phase 3 expansion resumes after E-16 completion in the order `p3d` -> `p3c` -> `p3b`
 - All changes must maintain determinism — the end-to-end determinism test gates everything
 
 ## Success Criteria
@@ -94,11 +94,11 @@ The existing near-term epics (Path Analysis, UI Analytical Views, Anomaly Detect
 | m-ec-p2 | Phase 2: Documentation honesty | complete |
 | m-ec-p3a | Phase 3a: Cycle time & flow efficiency | approved |
 | m-ec-p3a1 | Phase 3a.1: Analytical projection hardening | complete |
-| m-ec-p3b | Phase 3b: WIP limits | approved, gated by E-16 |
-| m-ec-p3c | Phase 3c: Variability (Cv + Kingman) | approved, gated by E-16 |
-| m-ec-p3d | Phase 3d: Constraint enforcement | approved, gated by E-16 |
+| m-ec-p3b | Phase 3b: WIP limits | approved |
+| m-ec-p3c | Phase 3c: Variability (Cv + Kingman) | approved |
+| m-ec-p3d | Phase 3d: Constraint enforcement | approved |
 
-**Architecture gate:** `m-ec-p3a1` is the bridge milestone that moved the current analytical capability/computation surface into Core. E-16 owns the remaining formula-first purification work exposed by that review, and Phase 3 resumes with `p3d` -> `p3c` -> `p3b` only after E-16 completes.
+**Architecture gate:** `m-ec-p3a1` is the bridge milestone that moved the current analytical capability/computation surface into Core. E-16 owned the remaining formula-first purification work exposed by that review, and with E-16 complete Phase 3 resumes with `p3d` -> `p3c` -> `p3b`.
 
 ## References
 

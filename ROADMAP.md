@@ -1,4 +1,4 @@
-# FlowTime Roadmap — Updated 2026-04-04
+# FlowTime Roadmap — Updated 2026-04-07
 
 This roadmap reflects the current state of FlowTime Engine + Sim and the strategic direction established during the E-16 planning cycle. Architecture **epics** and milestone docs provide the implementation detail (see `work/epics/epic-roadmap.md`).
 
@@ -40,21 +40,21 @@ This arc describes the product capability ladder, not strict implementation orde
 
 **Epic:** `work/epics/E-10-engine-correctness-and-analytics/spec.md`
 
-The engine deep review found 3 P0 correctness bugs, engineering debt, documentation drift, and a missing analytical layer. Phases 0-2 complete. Phase 3 bridge complete (m-ec-p3a cycle time, m-ec-p3a1 analytical projection hardening — both merged to main). Remaining Phase 3 expansion gated on E-16.
+The engine deep review found 3 P0 correctness bugs, engineering debt, documentation drift, and a missing analytical layer. Phases 0-2 complete. Phase 3 bridge complete (m-ec-p3a cycle time, m-ec-p3a1 analytical projection hardening — both merged to main). Remaining Phase 3 resumes in the order p3d -> p3c -> p3b.
 
-### Phase 3: Analytical Primitives (gated on E-16)
-After E-16 purifies the compiled Core, Phase 3 resumes in this execution order:
+### Phase 3: Analytical Primitives (resume sequence)
+With E-16 complete, Phase 3 resumes in this execution order:
 1. **p3d — Constraint Enforcement** — Wire ConstraintAllocator into evaluation pipeline so declared constraints are real rather than advisory.
 2. **p3c — Variability** — Preserve Cv from PMFs for Kingman's approximation and theory-vs-runtime diagnostics.
 3. **p3b — WIP Limits** — Optional wipLimit on ServiceWithBufferNode (Kanban what-if).
 
 The milestone IDs are historical; the recommended implementation order above is the lower-risk sequence.
 
-## E-16 — Formula-First Core Purification (active)
+## E-16 — Formula-First Core Purification (completed)
 
-**Epic:** `work/epics/E-16-formula-first-core-purification/spec.md` | **Status:** in progress (`m-E16-05` complete on `milestone/m-E16-05-analytical-warning-facts-and-primitive-cleanup`; `m-E16-06` next)
+**Epic:** `work/epics/E-16-formula-first-core-purification/spec.md` | **Status:** completed (`m-E16-06` completed on `milestone/m-E16-06-analytical-contract-and-consumer-purification`)
 
-The immediate architecture gate. Purify the engine so semantic meaning and analytical truth are compiled into Core once and consumed as facts everywhere else.
+The architecture gate is complete. Semantic meaning and analytical truth are now compiled into Core once and consumed as facts everywhere else.
 
 Six milestones in sequence:
 1. **m-E16-01** — Compiled Semantic References (typed refs replace raw string parsing, Parallelism typing) — completed on `milestone/m-E16-01-compiled-semantic-references`
@@ -62,7 +62,7 @@ Six milestones in sequence:
 3. **m-E16-03** — Runtime Analytical Descriptor (absorbs AnalyticalCapabilities, compiled by compiler not resolved from strings) — completed on `milestone/m-E16-01-compiled-semantic-references`
 4. **m-E16-04** — Core Analytical Evaluation (all analytical math moves to Core including flowLatencyMs graph propagation) — completed on `milestone/m-E16-01-compiled-semantic-references`
 5. **m-E16-05** — Warning Facts & Primitive Cleanup (backlog/stationarity/overload warnings move to Core analyzers) — completed on `milestone/m-E16-05-analytical-warning-facts-and-primitive-cleanup`
-6. **m-E16-06** — Contract & Consumer Purification (publish facts in API, delete IsServiceLike/Classify heuristics from UI) — next
+6. **m-E16-06** — Contract & Consumer Purification (publish facts in API, delete IsServiceLike/Classify heuristics from UI) — completed on `milestone/m-E16-06-analytical-contract-and-consumer-purification`
 
 Key decisions: D-2026-04-03-005 (flowLatencyMs to Core), D-2026-04-03-006 (descriptor absorbs AnalyticalCapabilities), D-2026-04-03-007 (Parallelism typing in E-16). See `work/decisions.md`.
 

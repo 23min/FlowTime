@@ -70,6 +70,11 @@
                 "schema": { "$ref": "#/$defs/schemaMetadata" },
                 "storage": { "$ref": "#/$defs/storageDescriptor" },
                 "classCoverage": { "type": ["string", "null"], "enum": ["full", "partial", "missing", null] },
+                "classes": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/classCatalogEntry" },
+                    "default": []
+                },
                 "edgeQuality": { "type": "string", "enum": ["exact", "approx", "missing", "partialClass"] },
                 "inputHash": { "$ref": "#/$defs/hash" },
                 "rng": {
@@ -100,6 +105,45 @@
                 "provenancePath": { "type": "string", "minLength": 1 }
             }
         },
+        "classCatalogEntry": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id"],
+            "properties": {
+                "id": { "type": "string", "minLength": 1 },
+                "displayName": { "type": ["string", "null"], "minLength": 1 },
+                "description": { "type": ["string", "null"] }
+            }
+        },
+        "nodeCategory": {
+            "type": "string",
+            "enum": ["service", "queue", "dlq", "router", "dependency", "sink", "constant", "expression"]
+        },
+        "nodeAnalyticalFacts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["identity", "hasQueueSemantics", "hasServiceSemantics", "hasCycleTimeDecomposition", "stationarityWarningApplicable"],
+            "properties": {
+                "identity": {
+                    "type": "string",
+                    "enum": ["service", "serviceWithBuffer", "queue", "dlq", "router", "dependency", "sink", "constant", "pmf", "expression"]
+                },
+                "hasQueueSemantics": { "type": "boolean" },
+                "hasServiceSemantics": { "type": "boolean" },
+                "hasCycleTimeDecomposition": { "type": "boolean" },
+                "stationarityWarningApplicable": { "type": "boolean" }
+            }
+        },
+        "nodeClassTruthFacts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["coverage", "hasSpecificClasses", "hasFallbackClass"],
+            "properties": {
+                "coverage": { "type": "string", "enum": ["full", "partial", "missing"] },
+                "hasSpecificClasses": { "type": "boolean" },
+                "hasFallbackClass": { "type": "boolean" }
+            }
+        },
         "binDetail": {
             "type": "object",
             "additionalProperties": false,
@@ -128,7 +172,9 @@
             "properties": {
                 "id": { "$ref": "#/$defs/nodeId" },
                 "kind": { "type": "string", "minLength": 1 },
-                "nodeLogicalType": { "type": ["string", "null"], "minLength": 1 },
+                "category": { "$ref": "#/$defs/nodeCategory" },
+                "analytical": { "$ref": "#/$defs/nodeAnalyticalFacts" },
+                "classTruth": { "$ref": "#/$defs/nodeClassTruthFacts" },
                 "metrics": { "$ref": "#/$defs/nodeMetrics" },
                 "seriesMetadata": { "$ref": "#/$defs/seriesMetadata" },
                 "byClass": {
@@ -166,7 +212,9 @@
             "properties": {
                 "id": { "$ref": "#/$defs/nodeId" },
                 "kind": { "type": "string", "minLength": 1 },
-                "nodeLogicalType": { "type": ["string", "null"], "minLength": 1 },
+                "category": { "$ref": "#/$defs/nodeCategory" },
+                "analytical": { "$ref": "#/$defs/nodeAnalyticalFacts" },
+                "classTruth": { "$ref": "#/$defs/nodeClassTruthFacts" },
                 "series": {
                     "type": "object",
                     "minProperties": 1,

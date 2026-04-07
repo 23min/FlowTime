@@ -130,7 +130,7 @@ public sealed class TimeTravelMetricsClient : ITimeTravelMetricsClient
         var services = new List<TimeTravelServiceMetricsDto>(window.Nodes.Count);
         foreach (var node in window.Nodes)
         {
-            if (!IsServiceLike(node.Kind, node.LogicalType))
+            if (!HasServiceSemantics(node))
             {
                 continue;
             }
@@ -231,17 +231,9 @@ public sealed class TimeTravelMetricsClient : ITimeTravelMetricsClient
         return false;
     }
 
-    private static bool IsServiceLike(string? kind, string? logicalType = null)
+    private static bool HasServiceSemantics(TimeTravelNodeSeriesDto node)
     {
-        var candidate = string.IsNullOrWhiteSpace(logicalType) ? kind : logicalType;
-        if (string.IsNullOrWhiteSpace(candidate))
-        {
-            return false;
-        }
-
-        return string.Equals(candidate, "service", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(candidate, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(candidate, "flow", StringComparison.OrdinalIgnoreCase);
+        return node.Analytical.HasServiceSemantics;
     }
 
     private async Task<TimeTravelMetricsContext> BuildContextAsync(

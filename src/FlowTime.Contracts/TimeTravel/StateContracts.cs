@@ -45,6 +45,17 @@ public sealed class StateMetadata
     public string? InputHash { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ClassCoverage { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<ClassCatalogEntry>? Classes { get; init; }
+}
+
+public sealed class ClassCatalogEntry
+{
+    public required string Id { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DisplayName { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; init; }
 }
 
 public sealed class SchemaMetadata
@@ -80,8 +91,9 @@ public sealed class NodeSnapshot
 {
     public required string Id { get; init; }
     public required string Kind { get; init; }
-    [JsonPropertyName("nodeLogicalType")]
-    public string? LogicalType { get; init; }
+    public string Category { get; init; } = string.Empty;
+    public NodeAnalyticalFacts Analytical { get; init; } = new();
+    public NodeClassTruthFacts ClassTruth { get; init; } = new();
     public NodeMetrics Metrics { get; init; } = new();
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyDictionary<string, SeriesSemanticsMetadata>? SeriesMetadata { get; init; }
@@ -104,8 +116,9 @@ public sealed class NodeSeries
 {
     public required string Id { get; init; }
     public required string Kind { get; init; }
-    [JsonPropertyName("nodeLogicalType")]
-    public string? LogicalType { get; init; }
+    public string Category { get; init; } = string.Empty;
+    public NodeAnalyticalFacts Analytical { get; init; } = new();
+    public NodeClassTruthFacts ClassTruth { get; init; } = new();
     public IDictionary<string, double?[]> Series { get; init; } = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyDictionary<string, SeriesSemanticsMetadata>? SeriesMetadata { get; init; }
@@ -139,6 +152,22 @@ public sealed class SlaSeriesDescriptor
     public string Status { get; init; } = "ok";
     public double? Threshold { get; init; }
     public double?[] Values { get; init; } = Array.Empty<double?>();
+}
+
+public sealed class NodeAnalyticalFacts
+{
+    public string Identity { get; init; } = string.Empty;
+    public bool HasQueueSemantics { get; init; }
+    public bool HasServiceSemantics { get; init; }
+    public bool HasCycleTimeDecomposition { get; init; }
+    public bool StationarityWarningApplicable { get; init; }
+}
+
+public sealed class NodeClassTruthFacts
+{
+    public string Coverage { get; init; } = "missing";
+    public bool HasSpecificClasses { get; init; }
+    public bool HasFallbackClass { get; init; }
 }
 
 public sealed class EdgeSeries

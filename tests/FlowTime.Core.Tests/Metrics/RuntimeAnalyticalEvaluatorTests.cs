@@ -79,7 +79,7 @@ public class RuntimeAnalyticalEvaluatorTests
     }
 
     [Fact]
-    public void ToLogicalType_ReflectsServiceWithBufferIdentity()
+    public void ToContractIdentity_ReflectsServiceWithBufferIdentity()
     {
         var descriptor = Descriptor(
             category: RuntimeAnalyticalNodeCategory.Service,
@@ -87,15 +87,15 @@ public class RuntimeAnalyticalEvaluatorTests
             hasServiceSemantics: true,
             identity: RuntimeAnalyticalIdentity.ServiceWithBuffer);
 
-        Assert.Equal("servicewithbuffer", descriptor.ToLogicalType());
+        Assert.Equal("serviceWithBuffer", descriptor.ToContractIdentity());
     }
 
     [Fact]
-    public void ToLogicalType_ReflectsQueueIdentity()
+    public void ToContractIdentity_ReflectsQueueIdentity()
     {
         var descriptor = Descriptor(RuntimeAnalyticalNodeCategory.Queue);
 
-        Assert.Equal("queue", descriptor.ToLogicalType());
+        Assert.Equal("queue", descriptor.ToContractIdentity());
     }
 
     [Fact]

@@ -35,7 +35,19 @@
     {
       "id": "OrderService",
       "kind": "service",
-      "nodeLogicalType": "service",
+      "category": "service",
+      "analytical": {
+        "identity": "service",
+        "hasQueueSemantics": false,
+        "hasServiceSemantics": true,
+        "hasCycleTimeDecomposition": false,
+        "stationarityWarningApplicable": false
+      },
+      "classTruth": {
+        "coverage": "missing",
+        "hasSpecificClasses": false,
+        "hasFallbackClass": false
+      },
       "series": {
         "arrivals": [
           10,
@@ -204,7 +216,19 @@
     {
       "id": "DependencyDb",
       "kind": "dependency",
-      "nodeLogicalType": "dependency",
+      "category": "dependency",
+      "analytical": {
+        "identity": "dependency",
+        "hasQueueSemantics": false,
+        "hasServiceSemantics": false,
+        "hasCycleTimeDecomposition": false,
+        "stationarityWarningApplicable": false
+      },
+      "classTruth": {
+        "coverage": "missing",
+        "hasSpecificClasses": false,
+        "hasFallbackClass": false
+      },
       "series": {
         "arrivals": [
           9,

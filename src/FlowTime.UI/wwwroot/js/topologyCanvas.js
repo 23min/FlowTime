@@ -2171,11 +2171,14 @@
 
             const nodeMeta = nodeMap.get(id);
             const kind = String(meta?.kind ?? node.kind ?? node.Kind ?? 'service').toLowerCase();
-            const logicalType = String(meta?.logicalType ?? node.logicalType ?? node.LogicalType ?? kind).toLowerCase();
+            const category = resolveNodeCategory(node, meta);
+            const analytical = resolveNodeAnalytical(node, meta);
             if (nodeMeta) {
-                nodeMeta.logicalType = logicalType;
+                nodeMeta.kind = kind;
+                nodeMeta.category = category;
+                nodeMeta.analytical = analytical;
             }
-            const queueLikeNode = isQueueLikeKind(kind, logicalType);
+            const queueLikeNode = isQueueCategory(category);
 
             if (overlayNode) {
                 nodeMeta.fill = fill;
@@ -2199,11 +2202,11 @@
                 const warningEntries = normalizeWarningEntries(nodeMeta, state.globalWarningsByNode);
                 nodeMeta.queueWarningText = extractQueueWarningText(warningEntries);
             }
-            const dlqNode = isDlqKind(kind);
+            const dlqNode = isDlqCategory(category);
             const nodeRole = String(meta?.nodeRole ?? meta?.NodeRole ?? '').trim().toLowerCase();
-            const isSinkNode = kind === 'sink' || nodeRole === 'sink';
-            const isLeafComputed = !!nodeMeta?.leaf && isComputedKind(kind);
-            const serviceLikeNode = kind === 'service' || logicalType === 'servicewithbuffer';
+            const isSinkNode = isSinkCategory(category) || nodeRole === 'sink';
+            const isLeafComputed = !!nodeMeta?.leaf && isComputedCategory(category);
+            const serviceLikeNode = Boolean(analytical?.hasServiceSemantics ?? analytical?.HasServiceSemantics);
             const retryTax = serviceLikeNode ? resolveRetryTaxValue(nodeMeta) : null;
             const hasRetryLoop = overlaySettings.showRetryMetrics !== false &&
                 serviceLikeNode &&
@@ -2211,17 +2214,17 @@
                 retryTax > 0;
 
             let focusLabelWidth = Math.max(width - 14, 18);
-            const expressionLikeNode = isExpressionKind(kind) || isConstKind(kind);
+            const expressionLikeNode = isComputedCategory(category);
             const expressionOverride = isDarkTheme() && expressionLikeNode ? EXPRESSION_DARK_FILL : null;
             const expressionStrokeOverride = isDarkTheme() && expressionLikeNode ? NODE_LABEL_COLOR_DARK : null;
-            const computedOverride = isDarkTheme() && isComputedKind(kind) ? defaultLeafFill : null;
+            const computedOverride = isDarkTheme() && isComputedCategory(category) ? defaultLeafFill : null;
             let fillForText = expressionOverride ?? computedOverride ?? fill;
 
             if (isLeafComputed) {
                 const pillMetrics = drawLeafNode(ctx, nodeMeta);
                 focusLabelWidth = Math.max(pillMetrics.width - 14, 18);
                 fillForText = pillMetrics.fill ?? defaultLeafFill;
-            } else if (kind === 'queue' && logicalType !== 'servicewithbuffer') {
+            } else if (category === 'queue') {
                 drawQueueNode(ctx, nodeMeta, overlaySettings);
                 fillForText = QUEUE_PILL_FILL;
             } else if (dlqNode) {
@@ -2229,7 +2232,7 @@
                 fillForText = getDlqPalette().fill;
             } else {
                 ctx.beginPath();
-                if (kind === 'expr' || kind === 'expression') {
+                if (category === 'expression') {
                     const hw = width / 2;
                     const hh = height / 2;
                     ctx.moveTo(x, y - hh);
@@ -2252,13 +2255,15 @@
                 }
             }
 
-            if (logicalType === 'servicewithbuffer') {
+            const analyticalIdentity = resolveAnalyticalIdentity(analytical);
+
+            if (analyticalIdentity === 'servicewithbuffer') {
                 drawServiceWithBufferBadge(ctx, nodeMeta);
             }
 
-            if (kind === 'service' || logicalType === 'servicewithbuffer' || kind === 'queue' || kind === 'router' || kind === 'dependency' || logicalType === 'dependency' || dlqNode || isSinkNode) {
+            if (category === 'service' || queueLikeNode || category === 'router' || category === 'dependency' || isSinkNode) {
                 drawServiceDecorations(ctx, nodeMeta, overlaySettings, state);
-            } else if (kind === 'pmf') {
+            } else if (analyticalIdentity === 'pmf') {
                 const hasSparkline = overlaySettings.showSparklines && nodeMeta?.sparkline;
                 const sparklineLayout = hasSparkline
                     ? computeSparklineLayout(nodeMeta, overlaySettings, nodeMeta.sparkline)
@@ -2271,7 +2276,7 @@
                 if (hasSparkline && sparklineLayout) {
                     drawInputSparkline(ctx, nodeMeta, overlaySettings, sparklineLayout);
                 }
-            } else if ((kind === 'const' || kind === 'constant') && overlaySettings.showSparklines && nodeMeta?.sparkline) {
+            } else if (category === 'constant' && overlaySettings.showSparklines && nodeMeta?.sparkline) {
                 drawInputSparkline(ctx, nodeMeta, overlaySettings);
             }
 
@@ -2297,7 +2302,7 @@
                 ctx.font = '600 12px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                const focusYOffset = logicalType === 'servicewithbuffer' ? 3 : 1;
+                const focusYOffset = analyticalIdentity === 'servicewithbuffer' ? 3 : 1;
                 if (focusLabel === '-') {
                     const dashWidth = 7;
                     const dashY = y + focusYOffset;
@@ -3302,7 +3307,7 @@
         if (hasSparkline) {
             const baselineStart = textY + lineHeight;
             const sparkTop = baselineStart + sparklineMarginTop;
-            const isComputedNode = isComputedKind(anchorMeta?.kind ?? anchorMeta?.Kind ?? '');
+            const isComputedNode = isComputedCategory(resolveNodeCategory(anchorMeta));
             const defaultSpark = isComputedNode
                 ? '#94A3B8'
                 : (anchorMeta?.fill ?? resolveSparklineColor(overlays.colorBasis ?? 0));
@@ -4237,68 +4242,106 @@
         }
     }
 
-    function isComputedKind(kind) {
-        if (typeof kind !== 'string') {
-            return false;
+    function normalizeCategoryValue(category) {
+        if (typeof category !== 'string') {
+            return '';
         }
 
-        const normalized = kind.trim().toLowerCase();
-        return normalized === 'expr' || normalized === 'expression' || normalized === 'const' || normalized === 'constant' || normalized === 'pmf';
+        const normalized = category.trim().toLowerCase();
+        if (!normalized) {
+            return '';
+        }
+
+        switch (normalized) {
+            case 'const':
+                return 'constant';
+            case 'expr':
+                return 'expression';
+            default:
+                return normalized;
+        }
     }
 
-    function isQueueLikeKind(kind, logicalType) {
-        if (typeof kind !== 'string') {
-            return false;
+    function normalizeIdentityValue(identity) {
+        if (typeof identity !== 'string') {
+            return '';
         }
 
-        if (typeof logicalType === 'string' && logicalType.trim().toLowerCase() === 'servicewithbuffer') {
-            return false;
+        const normalized = identity.trim().toLowerCase();
+        if (!normalized) {
+            return '';
         }
 
-        const normalized = kind.trim().toLowerCase();
+        switch (normalized) {
+            case 'const':
+                return 'constant';
+            case 'expr':
+                return 'expression';
+            default:
+                return normalized;
+        }
+    }
+
+    function isQueueCategory(category) {
+        const normalized = normalizeCategoryValue(category);
         return normalized === 'queue' || normalized === 'dlq';
     }
 
-    function isSinkKind(kind, nodeRole) {
-        if (typeof nodeRole === 'string' && nodeRole.trim().toLowerCase() === 'sink') {
-            return true;
-        }
-
-        if (typeof kind !== 'string') {
-            return false;
-        }
-
-        return kind.trim().toLowerCase() === 'sink';
+    function isDlqCategory(category) {
+        return normalizeCategoryValue(category) === 'dlq';
     }
 
-    function isRouterKind(kind, logicalType) {
-        if (typeof kind === 'string' && kind.trim().toLowerCase() === 'router') {
-            return true;
-        }
-        return typeof logicalType === 'string' && logicalType.trim().toLowerCase() === 'router';
+    function isSinkCategory(category) {
+        return normalizeCategoryValue(category) === 'sink';
     }
 
-    function isDlqKind(kind) {
-        if (typeof kind !== 'string') {
-            return false;
-        }
-        return kind.trim().toLowerCase() === 'dlq';
+    function isRouterCategory(category) {
+        return normalizeCategoryValue(category) === 'router';
     }
 
-    function isExpressionKind(kind) {
-        if (typeof kind !== 'string') {
-            return false;
-        }
-        const normalized = kind.trim().toLowerCase();
-        return normalized === 'expr' || normalized === 'expression';
+    function isDependencyCategory(category) {
+        return normalizeCategoryValue(category) === 'dependency';
     }
 
-    function isConstKind(kind) {
-        if (typeof kind !== 'string') {
-            return false;
+    function isConstantCategory(category) {
+        return normalizeCategoryValue(category) === 'constant';
+    }
+
+    function isExpressionCategory(category) {
+        return normalizeCategoryValue(category) === 'expression';
+    }
+
+    function isComputedCategory(category) {
+        const normalized = normalizeCategoryValue(category);
+        return normalized === 'constant' || normalized === 'expression';
+    }
+
+    function resolveNodeCategory(node, fallback) {
+        return normalizeCategoryValue(
+            node?.category ?? node?.Category ?? fallback?.category ?? fallback?.Category
+        );
+    }
+
+    function resolveAnalyticalIdentity(analytical) {
+        const direct = normalizeIdentityValue(
+            analytical?.identity ?? analytical?.Identity
+        );
+        return direct;
+    }
+
+    function resolveNodeAnalytical(node, fallback) {
+        const direct = node?.analytical ?? node?.Analytical ?? fallback?.analytical ?? fallback?.Analytical;
+        if (direct) {
+            return direct;
         }
-        const normalized = kind.trim().toLowerCase();
-        return normalized === 'const' || normalized === 'constant';
+
+        return {
+            identity: '',
+            hasQueueSemantics: false,
+            hasServiceSemantics: false,
+            hasCycleTimeDecomposition: false,
+            stationarityWarningApplicable: false
+        };
     }
 
     function resolveSampleColor(basis, index, sparkline, thresholds, defaultColor) {
@@ -4383,11 +4426,11 @@
         const absUx = Math.abs(ux);
         const absUy = Math.abs(uy);
         const epsilon = 1e-6;
-        const kind = String(node.kind ?? node.Kind ?? 'service').toLowerCase();
-        const isLeafComputed = !!(node.leaf ?? node.Leaf) && isComputedKind(kind);
+        const category = resolveNodeCategory(node);
+        const isLeafComputed = !!(node.leaf ?? node.Leaf) && isComputedCategory(category);
 
         let boundary;
-        if (kind === 'expr' || kind === 'expression') {
+        if (category === 'expression') {
             const halfW = width / 2;
             const halfH = height / 2;
             const denom = (absUx / halfW) + (absUy / halfH);
@@ -4644,17 +4687,18 @@
         const hasSemantics = Object.values(semantics).some(value => value);
         const hasSpark = spark !== null;
         const shouldDrawSparkline = overlays.showSparklines && spark;
-        const nodeKind = String(nodeMeta.kind ?? nodeMeta.Kind ?? '').trim().toLowerCase();
-        const nodeLogicalType = String(nodeMeta.logicalType ?? nodeMeta.LogicalType ?? '').trim().toLowerCase();
+        const nodeCategory = resolveNodeCategory(nodeMeta);
+        const nodeAnalytical = resolveNodeAnalytical(nodeMeta);
+        const analyticalIdentity = resolveAnalyticalIdentity(nodeAnalytical);
         const hasRetrySemantics = Boolean(semantics.attempts || semantics.failures || semantics.retry);
-        const isDependencyNode = nodeKind === 'dependency' || nodeLogicalType === 'dependency';
+        const isDependencyNode = isDependencyCategory(nodeCategory);
         const showRetryMetrics = !isDependencyNode && overlays.showRetryMetrics !== false && hasRetrySemantics;
         const nodeRole = String(nodeMeta.nodeRole ?? nodeMeta.NodeRole ?? '').trim().toLowerCase();
-        const isSinkNode = nodeKind === 'sink' || nodeLogicalType === 'sink' || nodeRole === 'sink';
-        const isServiceNode = nodeKind === 'service' || nodeLogicalType === 'servicewithbuffer';
-        const isServiceWithBuffer = nodeLogicalType === 'servicewithbuffer';
-        const isDlqNode = isDlqKind(nodeKind);
-        const isRouterNode = isRouterKind(nodeKind, nodeLogicalType);
+        const isSinkNode = isSinkCategory(nodeCategory) || nodeRole === 'sink';
+        const isServiceNode = Boolean(nodeAnalytical?.hasServiceSemantics ?? nodeAnalytical?.HasServiceSemantics);
+        const isServiceWithBuffer = analyticalIdentity === 'servicewithbuffer';
+        const isDlqNode = isDlqCategory(nodeCategory);
+        const isRouterNode = isRouterCategory(nodeCategory);
         const schedule = nodeMeta.dispatchSchedule ?? nodeMeta.DispatchSchedule ?? null;
         const retryTax = isServiceNode ? resolveRetryTaxValue(nodeMeta) : null;
         const hasRetryLoop = showRetryMetrics && isServiceNode && Number.isFinite(retryTax) && retryTax > 0;
@@ -4822,7 +4866,7 @@
 
         if (shouldDrawSparkline) {
             const neutralSpark = '#94A3B8';
-            const isComputedNode = isComputedKind(nodeMeta.kind);
+            const isComputedNode = isComputedCategory(resolveNodeCategory(nodeMeta));
             const defaultSpark = isComputedNode ? neutralSpark : (nodeMeta.fill ?? resolveSparklineColor(overlays.colorBasis));
             drawSparkline(ctx, nodeMeta, spark, overlays, defaultSpark, {
                 top: topRowTop,
@@ -4834,7 +4878,7 @@
             // Tiny label positioned directly above the sparkline (left-aligned)
             try {
                 const seriesBasis = resolveSparklineBasis(nodeMeta, spark, overlays);
-                const label = resolveSparklineLabel(seriesBasis, nodeKind);
+                const label = resolveSparklineLabel(seriesBasis, nodeMeta);
 
                 // Recompute sparkline geometry to determine its left edge
                 const mode = overlays.sparklineMode === 'bar' ? 'bar' : 'line';
@@ -5345,10 +5389,10 @@
         let queueTooltip = null;
 
         if (!isDependencyNode && overlays.showQueueDependencies !== false) {
-            const nodeKind = String(nodeMeta.kind ?? nodeMeta.Kind ?? '').trim().toLowerCase();
-            const nodeLogicalType = String(nodeMeta.logicalType ?? nodeMeta.LogicalType ?? '').trim().toLowerCase();
-            const isQueueNode = isQueueLikeKind(nodeKind, nodeLogicalType);
-            const isServiceWithBufferNode = nodeLogicalType === 'servicewithbuffer';
+            const nodeCategory = resolveNodeCategory(nodeMeta);
+            const nodeAnalytical = resolveNodeAnalytical(nodeMeta);
+            const isQueueNode = isQueueCategory(nodeCategory);
+            const isServiceWithBufferNode = resolveAnalyticalIdentity(nodeAnalytical) === 'servicewithbuffer';
             const queueValue = sampleValueFor('queue', semantics.queue);
             queueTooltip = semanticTooltip(semantics.queue, 'Queue depth');
 
@@ -8647,8 +8691,6 @@ function setHoveredEdge(state, edgeId) {
         const opts = overrides ?? {};
         const neutralize = Boolean(opts.neutralize);
         const basis = Number(overlaySettings.colorBasis ?? 0);
-        const nodeKind = String(nodeMeta?.kind ?? nodeMeta?.Kind ?? '').trim().toLowerCase();
-        const nodeLogicalType = String(nodeMeta?.logicalType ?? nodeMeta?.LogicalType ?? '').trim().toLowerCase();
         const seriesBasis = resolveSparklineBasis(nodeMeta, sparkline, overlaySettings);
         const series = selectSeriesForBasis(sparkline, seriesBasis);
         if (!Array.isArray(series) || series.length < 2) {
@@ -8817,14 +8859,13 @@ function setHoveredEdge(state, edgeId) {
 
     function resolveSparklineBasis(nodeMeta, sparkline, overlays) {
         const basis = Number(overlays?.colorBasis ?? 0);
-        const nodeKind = String(nodeMeta?.kind ?? nodeMeta?.Kind ?? '').trim().toLowerCase();
-        const nodeLogicalType = String(nodeMeta?.logicalType ?? nodeMeta?.LogicalType ?? '').trim().toLowerCase();
+        const nodeCategory = resolveNodeCategory(nodeMeta);
         const nodeRole = String(nodeMeta?.nodeRole ?? nodeMeta?.NodeRole ?? '').trim().toLowerCase();
-        if (isQueueLikeKind(nodeKind, nodeLogicalType)) {
+        if (isQueueCategory(nodeCategory)) {
             return 3;
         }
 
-        if (basis === 5 && isSinkKind(nodeKind, nodeRole)) {
+        if (basis === 5 && (isSinkCategory(nodeCategory) || nodeRole === 'sink')) {
             const series = selectSeriesForBasis(sparkline, basis);
             if (!Array.isArray(series) || !computeSeriesBounds(series).hasValue) {
                 return 6;
@@ -8834,9 +8875,9 @@ function setHoveredEdge(state, edgeId) {
         return basis;
     }
 
-    function resolveSparklineLabel(seriesBasis, nodeKind) {
+    function resolveSparklineLabel(seriesBasis, nodeMeta) {
         if (seriesBasis === 3) {
-            return isDlqKind(nodeKind) ? 'DLQ' : 'Queue';
+            return isDlqCategory(resolveNodeCategory(nodeMeta)) ? 'DLQ' : 'Queue';
         }
 
         switch (seriesBasis) {

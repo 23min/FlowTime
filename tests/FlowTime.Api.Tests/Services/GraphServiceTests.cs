@@ -106,6 +106,52 @@ topology:
     }
 
     [Fact]
+    public async Task GetGraphAsync_PublishesCategoryAndAnalyticalFacts()
+    {
+        const string runId = "run_graph_facts";
+        CreateRun(runId, """
+schemaVersion: 1
+
+grid:
+  bins: 4
+  binSize: 5
+  binUnit: minutes
+
+topology:
+  nodes:
+    - id: ServiceA
+      kind: service
+      semantics:
+        arrivals: series:arrivals
+        served: series:served
+        errors: series:errors
+    - id: QueueB
+      kind: queue
+      semantics:
+        arrivals: series:q_arrivals
+        served: series:q_served
+        errors: series:q_errors
+  edges: []
+""");
+
+        var response = await service.GetGraphAsync(runId);
+
+        var serviceNode = Assert.Single(response.Nodes, n => n.Id == "ServiceA");
+        Assert.Equal("service", serviceNode.Category);
+        Assert.NotNull(serviceNode.Analytical);
+        Assert.Equal("service", serviceNode.Analytical!.Identity);
+        Assert.True(serviceNode.Analytical.HasServiceSemantics);
+        Assert.False(serviceNode.Analytical.HasQueueSemantics);
+
+        var queueNode = Assert.Single(response.Nodes, n => n.Id == "QueueB");
+        Assert.Equal("queue", queueNode.Category);
+        Assert.NotNull(queueNode.Analytical);
+        Assert.Equal("queue", queueNode.Analytical!.Identity);
+        Assert.True(queueNode.Analytical.HasQueueSemantics);
+        Assert.False(queueNode.Analytical.HasServiceSemantics);
+    }
+
+    [Fact]
     public async Task GetGraphAsync_EmitsNodeRole()
     {
         const string runId = "run_graph_sink";
@@ -427,7 +473,8 @@ nodes:
         var response = await service.GetGraphAsync(runId, new GraphQueryOptions { Mode = GraphQueryMode.Full });
 
         var pickerWave = Assert.Single(response.Nodes, node => node.Id == "PickerWave");
-        Assert.Equal("queue", pickerWave.LogicalType);
+        Assert.Equal("queue", pickerWave.Category);
+        Assert.Equal("queue", pickerWave.Analytical?.Identity);
         Assert.DoesNotContain(response.Edges, edge =>
             string.Equals(edge.EdgeType, "dependency", StringComparison.OrdinalIgnoreCase) &&
             string.Equals(edge.Field, "queue", StringComparison.OrdinalIgnoreCase) &&
