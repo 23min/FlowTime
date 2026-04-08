@@ -17,13 +17,13 @@ public sealed class StorageRefTests
     [Fact]
     public void TryParse_ParsesValidStorageUri()
     {
-        var success = StorageRef.TryParse("storage://draft/draft_001", out var reference, out var error);
+        var success = StorageRef.TryParse("storage://model/model_001", out var reference, out var error);
 
         Assert.True(success);
         Assert.Null(error);
         Assert.NotNull(reference);
-        Assert.Equal(StorageKind.Draft, reference!.Kind);
-        Assert.Equal("draft_001", reference.Id);
+        Assert.Equal(StorageKind.Model, reference!.Kind);
+        Assert.Equal("model_001", reference.Id);
     }
 
     [Fact]

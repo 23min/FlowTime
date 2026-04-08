@@ -12,12 +12,12 @@ public sealed class FileSystemStorageBackendTests
         try
         {
             var backend = new FileSystemStorageBackend(tempPath);
-            var payload = Encoding.UTF8.GetBytes("draft-content");
+            var payload = Encoding.UTF8.GetBytes("model-content");
 
             var write = await backend.WriteAsync(new StorageWriteRequest
             {
-                Kind = StorageKind.Draft,
-                Id = "draft_1",
+                Kind = StorageKind.Model,
+                Id = "model_1",
                 Content = payload,
                 ContentType = "text/yaml"
             });
@@ -28,9 +28,9 @@ public sealed class FileSystemStorageBackendTests
             Assert.Equal(payload, read!.Content);
             Assert.Equal(write.ContentHash, read.ContentHash);
 
-            var list = await backend.ListAsync(new StorageListRequest { Kind = StorageKind.Draft });
+            var list = await backend.ListAsync(new StorageListRequest { Kind = StorageKind.Model });
             Assert.Single(list);
-            Assert.Equal("draft_1", list[0].Reference.Id);
+            Assert.Equal("model_1", list[0].Reference.Id);
 
             var deleted = await backend.DeleteAsync(write.Reference);
             Assert.True(deleted);

@@ -7,8 +7,8 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1. Stored drafts CRUD retired (A2): delete `/api/v1/drafts` GET/PUT/POST/DELETE/list routes, `StorageKind.Draft`, `data/storage/drafts/`, and `DraftEndpointsTests.cs` CRUD tests.
-- [ ] AC2. `POST /api/v1/drafts/run` narrowed to inline-source only (A1/A2): remove `draftId` resolution branch; inline tests survive.
+- [x] AC1. Stored drafts CRUD retired (A2): delete `/api/v1/drafts` GET/PUT/POST/DELETE/list routes, `StorageKind.Draft`, `data/storage/drafts/`, and `DraftEndpointsTests.cs` CRUD tests.
+- [x] AC2. `POST /api/v1/drafts/run` narrowed to inline-source only (A1/A2): remove `draftId` resolution branch; inline tests survive.
 - [x] AC3. `POST /api/v1/drafts/validate` deleted (A6): remove endpoint handler and its tests; preserve `ModelSchemaValidator`, `ModelValidator`, `ModelCompiler`, `ModelParser`, `TemplateInvariantAnalyzer`, `InvariantAnalyzer` unchanged.
 - [ ] AC4. Sim ZIP archive layer deleted (A3): remove `StorageKind.Run` writes in `RunOrchestrationService`, `BundleRef`/`StorageRef` on `RunCreateResponse`, `data/storage/runs/` backend write path, and the `StorageKind.Run` enum value.
 - [ ] AC5. Engine `POST /v1/runs` deleted outright (A4): remove handler, bundle-import branches (`BundlePath`, `BundleArchiveBase64`, `BundleRef`), `ExtractArchiveAsync` helpers, and bundle-import tests. No 410 stub. `GET /v1/runs` and `GET /v1/runs/{runId}` preserved.
@@ -24,8 +24,8 @@ Per milestone spec Technical Notes — each step must leave build green and test
 
 - [x] Step 1: Catalogs (AC7) — lowest coupling, highest confidence
 - [x] Step 2: `/api/v1/drafts/validate` (AC3) — trivial unused route
-- [ ] Step 3: Stored drafts CRUD (AC1)
-- [ ] Step 4: Narrow `/api/v1/drafts/run` (AC2)
+- [x] Step 3: Stored drafts CRUD (AC1)
+- [x] Step 4: Narrow `/api/v1/drafts/run` (AC2)
 - [ ] Step 5: Sim ZIP archive layer (AC4)
 - [ ] Step 6: Engine `POST /v1/runs` + bundle-import (AC5)
 - [ ] Step 7: Engine debug/direct-eval routes (AC6)
@@ -37,9 +37,9 @@ Per milestone spec Technical Notes — each step must leave build green and test
 
 Each must return zero matches in `src/` and `tests/` at wrap time.
 
-- [ ] `drafts/{draftId` (draft CRUD handlers gone)
-- [ ] `StorageKind.Draft`
-- [ ] `data/storage/drafts`
+- [x] `drafts/{draftId` (draft CRUD handlers gone)
+- [x] `StorageKind.Draft`
+- [x] `data/storage/drafts`
 - [x] `drafts/validate` handler literal
 - [ ] `StorageKind.Run`
 - [ ] `BundleRef`
@@ -123,3 +123,45 @@ Remaining repo references to "catalog" (preserved on purpose): `ClassCatalogEntr
 These become the tier 1/2/3 ingredients for the future Time Machine validation operation per D-2026-04-07-017 / E-18 m-E18-01b.
 
 **Grep guard verified zero-match after deletion:** `drafts/validate`.
+
+## AC1 + AC2 implementation log (bundled commit)
+
+**Status:** complete. Build green (0 warnings, 0 errors), 1258 tests pass (0 failed, 9 skipped).
+
+**Rationale for bundling:** A1 narrowing (`/api/v1/drafts/run` inline-only) and A2 (stored drafts retirement) are atomically coupled — deleting `StorageKind.Draft` makes the `draftId` branch of `ResolveDraftSourceAsync` unreachable, so the resolver narrowing is forced by the CRUD deletion. Separating them would leave either half-deleted code or an orphan enum value between commits.
+
+**Files edited:**
+
+- `src/FlowTime.Sim.Service/Program.cs`:
+  - deleted 5 draft CRUD handlers: `GET /api/v1/drafts`, `GET /api/v1/drafts/{draftId}`, `POST /api/v1/drafts`, `PUT /api/v1/drafts/{draftId}`, `DELETE /api/v1/drafts/{draftId}`
+  - narrowed `ResolveDraftSourceAsync` to the inline branch only, rejecting any other `source.type` with a clear error; method is now synchronous under the hood and returns `Task.FromResult`
+  - deleted the `persist` branch from `POST /api/v1/drafts/map-profile` (it only served stored drafts); response no longer carries `persisted`
+  - deleted unused DTOs: `DraftCreateRequest`, `DraftUpdateRequest`, `DraftWriteResponse`, `DraftResponse`, `DraftSummary`, `DraftListResponse`
+  - dropped `DraftProfileMapRequest.Persist`
+  - changed `DraftSource.Type` default from `"draftId"` to `"inline"` (it's now the only supported value)
+- `src/FlowTime.Contracts/Storage/StorageContracts.cs` — removed `Draft` from the `StorageKind` enum
+- `src/FlowTime.Contracts/Storage/StorageBackends.cs` — removed `StorageKind.Draft => "drafts"` from `StoragePathHelper.GetKindFolder`
+
+**Test files:**
+
+- `tests/FlowTime.Sim.Tests/Service/DraftEndpointsTests.cs` — unchanged by this commit; the CRUD tests were already removed by AC3 (there were none to begin with — only `ValidateDraftInline/Id` had been there, both deleted in AC3). The surviving `GenerateDraftInline_ReturnsModel`, `GenerateDraftInline_RegistersModel`, and `RunDraftInline_ReturnsRunId` all use `source.type = "inline"` and still pass.
+- `tests/FlowTime.Sim.Tests/Service/ProfileEndpointsTests.cs` — rewrote `MapProfileToDraft_UpdatesYaml` to use inline source (was creating a stored draft first). Removed the tail assertion that read back via `GET /api/v1/drafts/{draftId}`, since that endpoint no longer exists.
+- `tests/FlowTime.Tests/Storage/StorageRefTests.cs` — migrated `TryParse_ParsesValidStorageUri` to use `storage://model/model_001` and `StorageKind.Model` (was `storage://draft/draft_001`). The test exercises the `StorageRef.TryParse` infrastructure, not drafts specifically, so using `Model` as a generic substrate preserves the infrastructure coverage without retaining draft references.
+- `tests/FlowTime.Tests/Storage/FileSystemStorageBackendTests.cs` — migrated `WriteReadListDelete_WorksEndToEnd` to use `StorageKind.Model` / `model_1` / `model-content` for the same reason. This is test adaptation, not retention of deleted concepts.
+
+**Grep guards verified zero-match after deletion:**
+
+- `drafts/{draftId` (no CRUD handlers)
+- `StorageKind.Draft`
+- `data/storage/drafts`
+- `DraftCreateRequest`, `DraftUpdateRequest`, `DraftWriteResponse`, `DraftListResponse`, `DraftSummary`
+- `"draftid"` / `"draftId"` source-type literal in Sim runtime
+- `Persist` / `persisted` in `Program.cs`
+
+**Preserved surviving surfaces:**
+
+- `POST /api/v1/drafts/generate` — inline-only authoring generate
+- `POST /api/v1/drafts/run` — inline-only transitional execution bridge (A1)
+- `POST /api/v1/drafts/map-profile` — inline-only authoring helper (persist dropped)
+- `DraftSource`, `DraftTemplateRequest`, `DraftRunRequest`, `DraftProfileMapRequest`, `DraftSourceResolution` — still used by surviving routes
+- `FileSystemStorageBackend`, `BlobStorageBackend`, `StorageBackendOptions`, `StorageRef`, `IStorageBackend`, `StorageListRequest`, etc. — the storage abstraction is still needed for `StorageKind.Model`, `StorageKind.Run`, `StorageKind.Series`. Only the `Draft` enum value and its backend path mapping were removed.

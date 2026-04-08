@@ -389,147 +389,6 @@ public partial class Program
 			}
 		});
 
-		// API: GET /api/v1/drafts  (list stored drafts)
-		api.MapGet("/drafts", async (IStorageBackend storage, CancellationToken cancellationToken) =>
-		{
-			var items = await storage.ListAsync(new StorageListRequest { Kind = StorageKind.Draft }, cancellationToken).ConfigureAwait(false);
-			var response = new DraftListResponse
-			{
-				Items = items.Select(item => new DraftSummary
-				{
-					DraftId = item.Reference.Id,
-					StorageRef = item.Reference.ToString(),
-					ContentHash = item.ContentHash,
-					UpdatedUtc = item.UpdatedUtc,
-					Metadata = item.Metadata
-				}).ToList()
-			};
-
-			return Results.Ok(response);
-		});
-
-		// API: GET /api/v1/drafts/{draftId}  (get stored draft)
-		api.MapGet("/drafts/{draftId}", async (string draftId, IStorageBackend storage, CancellationToken cancellationToken) =>
-		{
-			if (!StorageRef.IsValidId(draftId))
-			{
-				return Results.BadRequest(new { error = "Invalid draft id." });
-			}
-
-			var reference = new StorageRef { Kind = StorageKind.Draft, Id = draftId };
-			var stored = await storage.ReadAsync(reference, cancellationToken).ConfigureAwait(false);
-			if (stored is null)
-			{
-				return Results.NotFound(new { error = $"Draft '{draftId}' not found." });
-			}
-
-			var content = System.Text.Encoding.UTF8.GetString(stored.Content);
-			return Results.Ok(new DraftResponse
-			{
-				DraftId = draftId,
-				StorageRef = stored.Reference.ToString(),
-				ContentHash = stored.ContentHash,
-				Content = content,
-				Metadata = stored.Metadata
-			});
-		});
-
-		// API: POST /api/v1/drafts  (create stored draft)
-		api.MapPost("/drafts", async (DraftCreateRequest request, IStorageBackend storage, CancellationToken cancellationToken) =>
-		{
-			if (request is null || string.IsNullOrWhiteSpace(request.Content))
-			{
-				return Results.BadRequest(new { error = "content is required." });
-			}
-
-			var draftId = string.IsNullOrWhiteSpace(request.DraftId)
-				? $"draft_{DateTime.UtcNow:yyyyMMddTHHmmssZ}_{Guid.NewGuid():N}"
-				: request.DraftId.Trim();
-
-			if (!StorageRef.IsValidId(draftId))
-			{
-				return Results.BadRequest(new { error = "Invalid draft id." });
-			}
-
-			var reference = new StorageRef { Kind = StorageKind.Draft, Id = draftId };
-			if (!request.Overwrite)
-			{
-				var existing = await storage.ReadAsync(reference, cancellationToken).ConfigureAwait(false);
-				if (existing is not null)
-				{
-					return Results.Conflict(new { error = $"Draft '{draftId}' already exists." });
-				}
-			}
-
-			var payload = System.Text.Encoding.UTF8.GetBytes(request.Content);
-			var write = await storage.WriteAsync(new StorageWriteRequest
-			{
-				Kind = StorageKind.Draft,
-				Id = draftId,
-				Content = payload,
-				ContentType = "text/yaml",
-				Metadata = request.Metadata
-			}, cancellationToken).ConfigureAwait(false);
-
-			return Results.Created($"/api/v1/drafts/{draftId}", new DraftWriteResponse
-			{
-				DraftId = draftId,
-				StorageRef = write.Reference.ToString(),
-				ContentHash = write.ContentHash
-			});
-		});
-
-		// API: PUT /api/v1/drafts/{draftId}  (update stored draft)
-		api.MapPut("/drafts/{draftId}", async (string draftId, DraftUpdateRequest request, IStorageBackend storage, CancellationToken cancellationToken) =>
-		{
-			if (!StorageRef.IsValidId(draftId))
-			{
-				return Results.BadRequest(new { error = "Invalid draft id." });
-			}
-
-			if (request is null || string.IsNullOrWhiteSpace(request.Content))
-			{
-				return Results.BadRequest(new { error = "content is required." });
-			}
-
-			var reference = new StorageRef { Kind = StorageKind.Draft, Id = draftId };
-			var existing = await storage.ReadAsync(reference, cancellationToken).ConfigureAwait(false);
-			if (existing is null)
-			{
-				return Results.NotFound(new { error = $"Draft '{draftId}' not found." });
-			}
-
-			var payload = System.Text.Encoding.UTF8.GetBytes(request.Content);
-			var write = await storage.WriteAsync(new StorageWriteRequest
-			{
-				Kind = StorageKind.Draft,
-				Id = draftId,
-				Content = payload,
-				ContentType = "text/yaml",
-				Metadata = request.Metadata
-			}, cancellationToken).ConfigureAwait(false);
-
-			return Results.Ok(new DraftWriteResponse
-			{
-				DraftId = draftId,
-				StorageRef = write.Reference.ToString(),
-				ContentHash = write.ContentHash
-			});
-		});
-
-		// API: DELETE /api/v1/drafts/{draftId}  (delete stored draft)
-		api.MapDelete("/drafts/{draftId}", async (string draftId, IStorageBackend storage, CancellationToken cancellationToken) =>
-		{
-			if (!StorageRef.IsValidId(draftId))
-			{
-				return Results.BadRequest(new { error = "Invalid draft id." });
-			}
-
-			var reference = new StorageRef { Kind = StorageKind.Draft, Id = draftId };
-			var removed = await storage.DeleteAsync(reference, cancellationToken).ConfigureAwait(false);
-			return removed ? Results.NoContent() : Results.NotFound(new { error = $"Draft '{draftId}' not found." });
-		});
-
 		// API: POST /api/v1/drafts/generate  (generate model from draft template source)
 		api.MapPost("/drafts/generate", async (
 			DraftTemplateRequest request,
@@ -1081,32 +940,12 @@ public partial class Program
 			}
 
 			var updatedYaml = TemplateYamlSerializer.Serialize(template);
-			var persisted = false;
-
-			if (request.Persist)
-			{
-				if (!string.Equals(request.Source.Type, "draftId", StringComparison.OrdinalIgnoreCase))
-				{
-					return Results.BadRequest(new { error = "persist requires source.type 'draftId'." });
-				}
-
-				var payload = System.Text.Encoding.UTF8.GetBytes(updatedYaml);
-				await storage.WriteAsync(new StorageWriteRequest
-				{
-					Kind = StorageKind.Draft,
-					Id = draftId,
-					Content = payload,
-					ContentType = "text/yaml"
-				}, cancellationToken).ConfigureAwait(false);
-				persisted = true;
-			}
 
 			var response = new Dictionary<string, object?>
 			{
 				["draftId"] = draftId,
 				["nodeId"] = node.Id,
-				["content"] = updatedYaml,
-				["persisted"] = persisted
+				["content"] = updatedYaml
 			};
 
 			if (detailLevel == "expert")
@@ -1399,7 +1238,7 @@ public partial class Program
 		return reader.ReadToEnd();
 	}
 
-	private static async Task<(DraftSourceResolution? Value, IResult? ErrorResult)> ResolveDraftSourceAsync(
+	private static Task<(DraftSourceResolution? Value, IResult? ErrorResult)> ResolveDraftSourceAsync(
 		DraftSource source,
 		IConfiguration config,
 		IStorageBackend storage,
@@ -1407,58 +1246,35 @@ public partial class Program
 	{
 		if (source is null)
 		{
-			return (null, Results.BadRequest(new { error = "source is required." }));
+			return Task.FromResult<(DraftSourceResolution?, IResult?)>((null, Results.BadRequest(new { error = "source is required." })));
 		}
 
 		var type = source.Type?.Trim().ToLowerInvariant();
 		if (string.IsNullOrWhiteSpace(type))
 		{
-			return (null, Results.BadRequest(new { error = "source.type is required." }));
+			return Task.FromResult<(DraftSourceResolution?, IResult?)>((null, Results.BadRequest(new { error = "source.type is required." })));
 		}
 
-		if (type == "draftid")
+		if (type != "inline")
 		{
-			if (string.IsNullOrWhiteSpace(source.Id))
-			{
-				return (null, Results.BadRequest(new { error = "source.id is required for draftId." }));
-			}
-
-			if (!ServiceHelpers.IsSafeId(source.Id))
-			{
-				return (null, Results.BadRequest(new { error = "Invalid draft id." }));
-			}
-
-			var reference = new StorageRef { Kind = StorageKind.Draft, Id = source.Id };
-			var stored = await storage.ReadAsync(reference, cancellationToken).ConfigureAwait(false);
-			if (stored is null)
-			{
-				return (null, Results.NotFound(new { error = $"Draft '{source.Id}' not found." }));
-			}
-
-			var yaml = System.Text.Encoding.UTF8.GetString(stored.Content);
-			return (new DraftSourceResolution(source.Id, yaml), null);
+			return Task.FromResult<(DraftSourceResolution?, IResult?)>((null, Results.BadRequest(new { error = $"Unsupported source.type '{source.Type}'. Only 'inline' is supported." })));
 		}
 
-		if (type == "inline")
+		if (string.IsNullOrWhiteSpace(source.Id))
 		{
-			if (string.IsNullOrWhiteSpace(source.Id))
-			{
-				return (null, Results.BadRequest(new { error = "source.id is required for inline drafts." }));
-			}
-			if (string.IsNullOrWhiteSpace(source.Content))
-			{
-				return (null, Results.BadRequest(new { error = "source.content is required for inline drafts." }));
-			}
-
-			if (!ServiceHelpers.IsSafeId(source.Id))
-			{
-				return (null, Results.BadRequest(new { error = "Invalid draft id." }));
-			}
-
-			return (new DraftSourceResolution(source.Id, source.Content), null);
+			return Task.FromResult<(DraftSourceResolution?, IResult?)>((null, Results.BadRequest(new { error = "source.id is required for inline drafts." })));
+		}
+		if (string.IsNullOrWhiteSpace(source.Content))
+		{
+			return Task.FromResult<(DraftSourceResolution?, IResult?)>((null, Results.BadRequest(new { error = "source.content is required for inline drafts." })));
 		}
 
-		return (null, Results.BadRequest(new { error = $"Unsupported source.type '{source.Type}'." }));
+		if (!ServiceHelpers.IsSafeId(source.Id))
+		{
+			return Task.FromResult<(DraftSourceResolution?, IResult?)>((null, Results.BadRequest(new { error = "Invalid draft id." })));
+		}
+
+		return Task.FromResult<(DraftSourceResolution?, IResult?)>((new DraftSourceResolution(source.Id, source.Content), null));
 	}
 
 	private static string ResolveDetailLevel(string? detailLevel)
@@ -2059,7 +1875,7 @@ public partial class Program
 
 	public sealed class DraftSource
 	{
-		public string Type { get; init; } = "draftId";
+		public string Type { get; init; } = "inline";
 		public string? Id { get; init; }
 		public string? Content { get; init; }
 	}
@@ -2081,50 +1897,6 @@ public partial class Program
 		public RunRngOptions? Rng { get; init; }
 		public RunCreationOptions? Options { get; init; }
 		public object? Actor { get; init; }
-	}
-
-	public sealed class DraftCreateRequest
-	{
-		public string? DraftId { get; init; }
-		public string Content { get; init; } = string.Empty;
-		public bool Overwrite { get; init; }
-		public Dictionary<string, string>? Metadata { get; init; }
-	}
-
-	public sealed class DraftUpdateRequest
-	{
-		public string Content { get; init; } = string.Empty;
-		public Dictionary<string, string>? Metadata { get; init; }
-	}
-
-	public sealed class DraftWriteResponse
-	{
-		public required string DraftId { get; init; }
-		public required string StorageRef { get; init; }
-		public required string ContentHash { get; init; }
-	}
-
-	public sealed class DraftResponse
-	{
-		public required string DraftId { get; init; }
-		public required string StorageRef { get; init; }
-		public string? ContentHash { get; init; }
-		public required string Content { get; init; }
-		public IReadOnlyDictionary<string, string>? Metadata { get; init; }
-	}
-
-	public sealed class DraftSummary
-	{
-		public required string DraftId { get; init; }
-		public required string StorageRef { get; init; }
-		public string? ContentHash { get; init; }
-		public DateTimeOffset UpdatedUtc { get; init; }
-		public IReadOnlyDictionary<string, string>? Metadata { get; init; }
-	}
-
-	public sealed class DraftListResponse
-	{
-		public IReadOnlyList<DraftSummary> Items { get; init; } = Array.Empty<DraftSummary>();
 	}
 
 	public sealed class SeriesIngestRequest
@@ -2179,7 +1951,6 @@ public partial class Program
 		public TemplateProfile? Profile { get; init; }
 		public PmfSpec? Pmf { get; init; }
 		public Dictionary<string, string>? Provenance { get; init; }
-		public bool Persist { get; init; } = true;
 		public string? DetailLevel { get; init; }
 	}
 
