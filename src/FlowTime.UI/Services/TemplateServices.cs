@@ -61,7 +61,6 @@ public class SimulationRunResult
     public string Status { get; set; } = string.Empty;
     public DateTime StartTime { get; set; }
     public DateTime? EndTime { get; set; }
-    public string? ResultsUrl { get; set; }
     public Dictionary<string, object> Metadata { get; set; } = new();
     public string? ErrorMessage { get; set; }
 }

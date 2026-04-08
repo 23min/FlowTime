@@ -54,7 +54,7 @@
                         <MudText Typo="Typo.body2">@Result.ErrorMessage</MudText>
                     </MudAlert>
                 }
-                else if (Result.Status == "completed" && !string.IsNullOrEmpty(Result.ResultsUrl))
+                else if (Result.Status == "completed" && !string.IsNullOrEmpty(Result.RunId))
                 {
                     @if (isLoadingResults)
                     {
@@ -232,7 +232,7 @@
 
     private async Task LoadResults()
     {
-        if (Result?.RunId == null || Result.Status != "completed" || string.IsNullOrEmpty(Result.ResultsUrl))
+        if (string.IsNullOrEmpty(Result?.RunId) || Result.Status != "completed")
             return;
 
         isLoadingResults = true;
@@ -275,42 +275,21 @@
             return;
         }
 
+        // Demo runs are synthetic in-memory data; there is no server file to download.
+        if (FeatureFlags.UseDemoMode)
+        {
+            NotificationService.Add("CSV download is not available in Demo mode. Switch to API mode to download series data.", Severity.Info);
+            return;
+        }
+
         try
         {
-            // Check for mode mismatch
-            var resultSource = Result?.Metadata.GetValueOrDefault("source")?.ToString();
-            var currentlyInDemoMode = FeatureFlags.UseDemoMode;
-            
-            if (resultSource == "sim" && !currentlyInDemoMode)
-            {
-                NotificationService.Add("This result was created in Demo mode, but you're currently in API mode. Switch to Demo mode to download.", Severity.Warning);
-                return;
-            }
-            else if (resultSource != "sim" && currentlyInDemoMode)
-            {
-                NotificationService.Add("This result was created in API mode, but you're currently in Demo mode. Switch to API mode to download.", Severity.Warning);
-                return;
-            }
+            // Canonical Engine run-series download URL: /{apiVersion}/runs/{runId}/series/{seriesId}
+            var apiConfig = Configuration.GetSection(FlowTimeApiOptions.SectionName).Get<FlowTimeApiOptions>()
+                ?? new FlowTimeApiOptions();
+            var baseUrl = apiConfig.BaseUrl?.TrimEnd('/') ?? "";
+            var downloadUrl = $"{baseUrl}/{apiConfig.ApiVersion}/runs/{runId}/series/{seriesId}";
 
-            // Determine the appropriate download URL based on current feature flag
-            string downloadUrl;
-            if (FeatureFlags.UseDemoMode)
-            {
-                // Demo mode: Use versioned URL to FlowTime-Sim API
-                var simConfig = Configuration.GetSection(FlowTimeSimApiOptions.SectionName).Get<FlowTimeSimApiOptions>() 
-                    ?? new FlowTimeSimApiOptions();
-                var baseUrl = simConfig.BaseUrl?.TrimEnd('/') ?? "";
-                downloadUrl = $"{baseUrl}/{simConfig.ApiVersion}/sim/runs/{runId}/series/{seriesId}";
-            }
-            else
-            {
-                // API mode: Use versioned URL to FlowTime API
-                var apiConfig = Configuration.GetSection(FlowTimeApiOptions.SectionName).Get<FlowTimeApiOptions>() 
-                    ?? new FlowTimeApiOptions();
-                var baseUrl = apiConfig.BaseUrl?.TrimEnd('/') ?? "";
-                downloadUrl = $"{baseUrl}/{apiConfig.ApiVersion}/runs/{runId}/series/{seriesId}";
-            }
-            
             // Open download URL in new tab to trigger browser download
             await JSRuntime.InvokeVoidAsync("window.open", downloadUrl, "_blank");
             NotificationService.Add($"Downloading {seriesId}.csv", Severity.Success);
@@ -404,7 +383,7 @@
             lastLoadedRunId = null;
             
             // Auto-load results for completed runs
-            if (Result?.Status == "completed" && !string.IsNullOrEmpty(Result.ResultsUrl))
+            if (Result?.Status == "completed" && !string.IsNullOrEmpty(Result.RunId))
             {
                 await LoadResults();
                 lastLoadedRunId = currentRunId;

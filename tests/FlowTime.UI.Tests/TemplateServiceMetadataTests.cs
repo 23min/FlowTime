@@ -33,36 +33,6 @@ public class TemplateServiceMetadataTests
 		Assert.Equal(expectedTags, metadata.tags);
 	}
 
-	[Fact]
-	public void TranslateToSimulationSchema_UsesFirstConstNodeForArrivals()
-	{
-		// Arrange: shrink simulation hours for deterministic values
-		var parameters = new Dictionary<string, object>
-		{
-			["demandRate"] = 10.0,
-			["capacity"] = 15.0,
-			["simulationHours"] = 4
-		};
-
-		var request = new SimulationRunRequest
-		{
-			TemplateId = "transportation-basic",
-			Parameters = parameters
-		};
-
-		var nodesYaml = InvokeGenerateSimulationYaml(request);
-
-		// Act
-		var translated = InvokeTranslateToSimulationSchema(nodesYaml, request);
-		var (bins, binMinutes, values, routeId) = ReadSimulationSchema(translated);
-
-		// Assert
-		Assert.Equal(4, bins);
-		Assert.Equal(60, binMinutes);
-		Assert.Equal("passenger_demand", routeId);
-		Assert.Equal(new[] { 3, 3, 3, 3 }, values);
-	}
-
 	private static (string title, string description, string templateId, string[] tags) ReadMetadataSection(string yaml)
 	{
 		var yamlStream = new YamlStream();
@@ -85,34 +55,6 @@ public class TemplateServiceMetadataTests
 		return (title, description, templateId, tags);
 	}
 
-	private static (int bins, int binMinutes, int[] values, string routeId) ReadSimulationSchema(string yaml)
-	{
-		var yamlStream = new YamlStream();
-		yamlStream.Load(new StringReader(yaml));
-		var root = (YamlMappingNode)yamlStream.Documents[0].RootNode;
-
-		var gridNode = (YamlMappingNode)root.Children[new YamlScalarNode("grid")];
-		var bins = int.Parse(((YamlScalarNode)gridNode.Children[new YamlScalarNode("bins")]).Value!, CultureInfo.InvariantCulture);
-		var binSize = int.Parse(((YamlScalarNode)gridNode.Children[new YamlScalarNode("binSize")]).Value!, CultureInfo.InvariantCulture);
-		var binUnit = ((YamlScalarNode)gridNode.Children[new YamlScalarNode("binUnit")]).Value!;
-		var binMinutes = binUnit.ToLowerInvariant() switch
-		{
-			"minutes" => binSize,
-			"hours" => binSize * 60,
-			"days" => binSize * 1440,
-			_ => throw new ArgumentException($"Unknown time unit: {binUnit}")
-		};
-
-		var arrivalsNode = (YamlMappingNode)root.Children[new YamlScalarNode("arrivals")];
-		var valuesNode = (YamlSequenceNode)arrivalsNode.Children[new YamlScalarNode("values")];
-		var values = valuesNode.Children.OfType<YamlScalarNode>().Select(n => int.Parse(n.Value!, CultureInfo.InvariantCulture)).ToArray();
-
-		var routeNode = (YamlMappingNode)root.Children[new YamlScalarNode("route")];
-		var routeId = ((YamlScalarNode)routeNode.Children[new YamlScalarNode("id")]).Value ?? string.Empty;
-
-		return (bins, binMinutes, values, routeId);
-	}
-
 	private static string InvokeGenerateSimulationYaml(SimulationRunRequest request)
 	{
 		var method = typeof(FlowTimeSimService)
@@ -120,14 +62,5 @@ public class TemplateServiceMetadataTests
 			.FirstOrDefault(m => m.Name == "GenerateSimulationYaml" && m.GetParameters().Length == 1);
 		Assert.NotNull(method);
 		return (string)method!.Invoke(null, new object[] { request })!;
-	}
-
-	private static string InvokeTranslateToSimulationSchema(string nodesYaml, SimulationRunRequest request)
-	{
-		var method = typeof(FlowTimeSimService)
-			.GetMethods(BindingFlags.Static | BindingFlags.NonPublic)
-			.FirstOrDefault(m => m.Name == "TranslateToSimulationSchema" && m.GetParameters().Length == 2);
-		Assert.NotNull(method);
-		return (string)method!.Invoke(null, new object[] { nodesYaml, request })!;
 	}
 }

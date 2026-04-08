@@ -1,7 +1,7 @@
 # Epic: Surface Alignment & Compatibility Cleanup
 
 **ID:** E-19
-**Status:** active — m-E19-01, m-E19-02, and m-E19-03 completed, m-E19-04 next
+**Status:** active — all four milestones (m-E19-01 through m-E19-04) completed; epic→main merge pending
 
 ## Goal
 
@@ -82,13 +82,13 @@ The current Sim orchestration path is therefore not the default path forward for
 
 - [x] One explicit supported compatibility matrix exists for Engine, Sim, Svelte UI, Blazor UI, docs, schemas, and examples
 - [x] One explicit terminology and ownership matrix exists for template, draft, model, run, bundle, and catalog surfaces
-- [ ] First-party clients no longer maintain duplicate endpoint, metrics, or health fallback logic where the canonical contract exists
+- [x] First-party clients no longer maintain duplicate endpoint, metrics, or health fallback logic where the canonical contract exists (m-E19-04: stale `IFlowTimeSimApiClient.RunAsync`/`GetIndexAsync`/`GetSeriesAsync` deleted and callers rewired to supported `CreateRunAsync` + Engine query surface)
 - [x] Current Sim orchestration/storage/catalog residue is either explicitly supported with scope boundaries or removed from active first-party paths
-- [ ] Active UI/template surfaces no longer generate or promote deprecated schema shapes such as `binMinutes`-based demo templates
-- [ ] Legacy examples, docs, and schema references are either archived/historical or deleted; current docs present one canonical surface
+- [x] Active UI/template surfaces no longer generate or promote deprecated schema shapes such as `binMinutes`-based demo templates (m-E19-03: Blazor mock template service, sample fixture, CLI verbose label, and UI test keys all rewritten to `binSize`/`binUnit`)
+- [x] Legacy examples, docs, and schema references are either archived/historical or deleted; current docs present one canonical surface (m-E19-03: schema-migration example YAMLs moved to `examples/archive/`; stale `docs/ui/template-integration-spec.md` moved to `docs/archive/ui/`; active docs cleaned)
 - [x] Blazor UI support policy is explicit: it remains a supported debugging/plan-B surface and consumes current Engine/Sim contracts without stale compatibility wrappers
 - [x] E-18 planning remains clean: no current Sim draft/catalog/bundle choreography is treated as the default programmable/Time Machine contract
-- [ ] Grep and regression audits prove targeted legacy/fallback helpers are removed or isolated to historical/archive surfaces only
+- [x] Grep and regression audits prove targeted legacy/fallback helpers are removed or isolated to historical/archive surfaces only (m-E19-02: 21 guards; m-E19-03: 11 guards; m-E19-04: 11 guards, all 43 passing)
 
 ## Risks & Open Questions
 
@@ -114,7 +114,7 @@ This epic starts immediately after E-16 as a post-purification cleanup lane. It 
 | m-E19-01-supported-surface-inventory | Supported Surface Inventory, Boundary ADR & Exit Criteria | Inventory compatibility seams, define supported vs historical surfaces, publish the terminology/ownership ADR, and pin retention/deletion gates for drafts, bundles, catalogs, and import paths. | E-16 | completed |
 | m-E19-02-sim-authoring-and-runtime-boundary-cleanup | Sim Authoring & Runtime Boundary Cleanup | Narrow Sim to explicitly supported authoring/orchestration surfaces, remove transitional catalog/runtime callers, and keep Engine import/query ownership explicit. | m-E19-01 | completed |
 | m-E19-03-schema-template-example-retirement | Schema, Template & Example Retirement | Remove or archive deprecated schema, demo template, and example material from active current surfaces. | m-E19-01 | completed |
-| m-E19-04-blazor-support-alignment | Blazor Support Alignment | Remove stale `FlowTime.UI` compatibility wrappers, keep Blazor aligned with current Engine/Sim contracts, and define clear supported debugging/operator workflows alongside the parallel Svelte UI. | m-E19-02, m-E19-03 | next |
+| m-E19-04-blazor-support-alignment | Blazor Support Alignment | Remove stale `FlowTime.UI` compatibility wrappers, keep Blazor aligned with current Engine/Sim contracts, and define clear supported debugging/operator workflows alongside the parallel Svelte UI. | m-E19-02, m-E19-03 | completed |
 
 ## Candidate Retention / Decision Matrix
 
