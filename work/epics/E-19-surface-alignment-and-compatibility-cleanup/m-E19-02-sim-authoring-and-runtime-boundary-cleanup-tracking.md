@@ -15,7 +15,7 @@
 - [x] AC6. Engine debug route deleted (narrowed scope — see implementation log): `GET /v1/debug/scan-directory/{dirName}` deleted. `POST /v1/run` and `POST /v1/graph` deletion deferred per D-2026-04-08-029 — audit missed 50+ test call sites that use these routes for Engine-side provenance/parity coverage. Deferral tracked in `work/gaps.md`.
 - [x] AC7. Catalogs retired entirely (A5): routes (`/api/v1/catalogs*`), `CatalogService`/`ICatalogService`, `CatalogPicker.razor`, `CatalogId = "default"` placeholder callers, `catalogId` DTO fields, `data/catalogs/` directory, catalog-only tests.
 - [x] AC8. Public contracts cleanup consolidated in `FlowTime.Contracts`: `RunImportRequest`/`RunCreateResponse` bundle fields gone; `StorageKind.Draft` and `StorageKind.Run` enum values removed. Verification-only pass — every change was already made atomically as part of AC1, AC4, AC5, and AC7.
-- [ ] AC9. Build green, full test suite green, grep guards asserted (zero matches for each deleted symbol in `src/` and `tests/`).
+- [x] AC9. Build green, full test suite green, grep guards asserted (zero matches for each deleted symbol in `src/` and `tests/`). Guard script: `scripts/m-E19-02-grep-guards.sh` (21/21 passing). Full suite: 1250 passed, 9 skipped, 0 failed.
 - [ ] AC10. Status surfaces reconciled at wrap: epic spec, ROADMAP.md, epic-roadmap.md, CLAUDE.md, and this tracking doc all show m-E19-02 complete with final test count and grep guard results recorded.
 
 ## Implementation Sequence
@@ -30,7 +30,7 @@ Per milestone spec Technical Notes — each step must leave build green and test
 - [x] Step 6: Engine `POST /v1/runs` + bundle-import (AC5)
 - [x] Step 7: Engine debug route (AC6, narrowed)
 - [x] Step 8: Public contracts finalisation (AC8)
-- [ ] Step 9: Grep guards + build/test finalisation (AC9)
+- [x] Step 9: Grep guards + build/test finalisation (AC9)
 - [ ] Step 10: Wrap (AC10)
 
 ## Grep Guards
@@ -260,3 +260,63 @@ AC6 was narrowed to deleting `GET /v1/debug/scan-directory/{dirName}` only. The 
 **Final state of `StorageKind` enum:** `{ Model, Series }` — both remaining values have active backend path mappings and live callers.
 
 **Grep guard verified:** `src/FlowTime.Contracts/` is clean of every m-E19-02 deletion target except the deferred `/v1/run` / `/v1/graph` routes, which are runtime routes (`src/FlowTime.API/Program.cs`), not contract types, and do not surface here anyway.
+
+## AC9 implementation log
+
+**Status:** complete.
+
+**Grep guard script:** [`scripts/m-E19-02-grep-guards.sh`](../../../scripts/m-E19-02-grep-guards.sh) — 21 guards covering every deletion target from AC1 through AC7 plus the narrowed AC6 debug route. Runnable locally via `bash scripts/m-E19-02-grep-guards.sh` from the repo root. Exits non-zero if any guard regresses.
+
+The script scopes its searches to `src/` and `tests/` only. Historical/documentation surfaces under `docs/`, `work/`, and archive locations are deliberately excluded — those are allowed and expected to reference deleted concepts in historical prose.
+
+One allowlist exception is encoded for AC5: the Sim orchestration endpoint's `MapPost("/runs", HandleCreateRunAsync)` literal in `src/FlowTime.Sim.Service/Extensions/RunOrchestrationEndpointExtensions.cs` is the supported `/api/v1/orchestration/runs` surface (A1), not the deleted Engine `POST /v1/runs` route. The script's allowlist handles that exactly.
+
+**Guard results on current tree:**
+
+```
+PASS  AC1 drafts CRUD handlers
+PASS  AC1 StorageKind.Draft
+PASS  AC1 data/storage/drafts directory
+PASS  AC1 stored-draft request/response DTOs
+PASS  AC2 draftId source type literal
+PASS  AC3 drafts/validate handler literal
+PASS  AC4 StorageKind.Run
+PASS  AC4 BundleRef
+PASS  AC4 data/storage/runs directory
+PASS  AC4 BuildRunArchive helper
+PASS  AC5 POST /v1/runs HandleCreateRunAsync on Engine
+PASS  AC5 BundlePath field
+PASS  AC5 BundleArchiveBase64 field
+PASS  AC5 RunImportRequest class
+PASS  AC5 ExtractArchiveAsync helper
+PASS  AC6 /v1/debug/scan-directory route
+PASS  AC7 /api/v1/catalogs routes
+PASS  AC7 CatalogService class
+PASS  AC7 ICatalogService interface
+PASS  AC7 CatalogPicker razor component
+PASS  AC7 CatalogId = "default" placeholder
+
+m-E19-02 grep guards: 21/21 passed
+RESULT: PASS — every deleted symbol stays deleted.
+```
+
+**Build:** 0 errors, 1 pre-existing xUnit2031 warning in `ClassMetricsAggregatorTests.cs` (unrelated to this milestone, pre-dates m-E19-02).
+
+**Full test suite:**
+
+| Test project | Passed | Skipped | Failed |
+|---|---|---|---|
+| FlowTime.Expressions.Tests | 55 | 0 | 0 |
+| FlowTime.Adapters.Synthetic.Tests | 10 | 0 | 0 |
+| FlowTime.Core.Tests | 269 | 0 | 0 |
+| FlowTime.Integration.Tests | 8 | 0 | 0 |
+| FlowTime.UI.Tests | 269 | 0 | 0 |
+| FlowTime.Cli.Tests | 19 | 0 | 0 |
+| FlowTime.Sim.Tests | 177 | 3 | 0 |
+| FlowTime.Tests | 228 | 6 | 0 |
+| FlowTime.Api.Tests | 215 | 0 | 0 |
+| **Total** | **1250** | **9** | **0** |
+
+**Net test delta over the milestone:** 1288 pre-milestone → 1250 post-milestone (−38). All deletions map to forward-only test removals for dead code paths (catalog, stored drafts, drafts/validate, bundle import, bundle-import golden fixtures). No coverage regression on surviving surfaces.
+
+**Deferred out of AC9 scope:** `POST /v1/run` and `POST /v1/graph` deletion, per D-2026-04-08-029. The script does not guard against these routes because they are intentionally retained in the current tree.
