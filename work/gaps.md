@@ -70,9 +70,9 @@ Once the migration lands, `POST /v1/run` and `POST /v1/graph` can be deleted out
 
 ---
 
-## Silent no-op + self-match false positives in m-E19-02 and m-E19-03 grep-guard scripts
+## Silent no-op + self-match false positives in m-E19-02 and m-E19-03 grep-guard scripts (resolved 2026-04-08)
 
-### Why this is a gap
+### Why this was a gap
 
 Discovered during the `epic/E-19 → main` merge sanity check (2026-04-08). Running the three E-19 grep-guard scripts with ripgrep explicitly on `$PATH`:
 
@@ -98,27 +98,27 @@ Neither layer represents a real regression on the `main` tree: every underlying 
 
 ### Status
 
-Not blocking. All E-19 milestones are merged to `main`. The `m-E19-04` grep-guard script (`scripts/m-E19-04-grep-guards.sh`) already includes a fail-fast `command -v rg` check at the top that exits code 2 with an install hint when ripgrep is missing — this prevents the silent no-op class of bug for all future guards following the same pattern. The retrospective learning is captured in `work/agent-history/builder.md` under the 2026-04-08 m-E19-04 Bundle C session.
+**Resolved 2026-04-08** via `chore/grep-guard-cleanup` patch branch. All three scripts now run correctly:
 
-### Resolution path
+- `scripts/m-E19-02-grep-guards.sh` — 20/20 passing
+- `scripts/m-E19-03-grep-guards.sh` — 11/11 passing
+- `scripts/m-E19-04-grep-guards.sh` — 11/11 passing (unchanged; already correct)
 
-A small follow-up patch should:
+All three scripts now fail fast with exit code 2 and an install hint when ripgrep is missing from `$PATH`.
 
-1. **Backport the fail-fast `command -v rg` check** from `scripts/m-E19-04-grep-guards.sh` to `scripts/m-E19-02-grep-guards.sh` and `scripts/m-E19-03-grep-guards.sh`, so future runs on machines without ripgrep fail loudly instead of silently passing.
-2. **Fix the self-match false positives** by scoping each guard's search away from the guard script itself. Options:
-   - Add `--glob '!scripts/m-E19-*-grep-guards.sh'` to each `rg` invocation so the script does not scan itself.
-   - Or move the forbidden-literal text out of script comments into the corresponding tracking-doc sections so the script body no longer contains the forbidden tokens.
-3. **Fix m-E19-03 Guard 8's collision with `docs/architecture/supported-surfaces.md:83`** either by allowlisting that specific line via a comment marker (the same pattern m-E19-03 used for the Little's Law whitepaper reference) or by rewording the matrix row so it no longer quotes the forbidden literal.
-4. After the fixes, re-run all three scripts locally with ripgrep on `$PATH` and confirm 21/21 + 11/11 + 11/11 passing.
+### Resolution
 
-Candidate milestone: a small patch milestone under E-19 or a standalone `chore/grep-guard-cleanup` patch branch. Not scheduled.
+1. **Fail-fast `command -v rg` check** backported from `scripts/m-E19-04-grep-guards.sh` to the m-E19-02 and m-E19-03 scripts. Silent no-ops on machines without ripgrep are now loud failures with an install hint.
+2. **`scripts/m-E19-03-grep-guards.sh` Guards 7 and 8** gained `--glob '!scripts/m-E19-03-grep-guards.sh'` exclusions so the script no longer self-matches its own explanatory comments. Guard 6 was left alone — it uses a regex that doesn't match any literal in the script body, so it can't self-match.
+3. **`scripts/m-E19-02-grep-guards.sh` AC2 draftId source type literal guard dropped entirely.** The pattern `"draftId"|"draftid"` was too broad to express AC2's real invariant ("no `draftId` on `/drafts/run` specifically"). The preserved `/api/v1/drafts/map-profile` endpoint legitimately returns `["draftId"] = draftId` at `src/FlowTime.Sim.Service/Program.cs:932`, and a simple global grep cannot distinguish the two handlers. Allowlisting `Program.cs` would hide real regressions in `/drafts/run`, so dropping the guard is safer. AC2's invariant is still enforced at build/test time — the `/drafts/run` handler body no longer resolves `DraftSource.type == "draftId"` and the tests verify inline-only behavior. A `NOTE:` comment replaces the dropped guard line documenting the rationale. m-E19-02 is now 20 guards instead of 21.
+4. **`docs/architecture/supported-surfaces.md:83`** reworded from `"No current docs reference \`/api/templates/\` or other pre-v1 template routes"` to `"No current docs reference the pre-v1 template routes"` — drops the forbidden literal from the description row while preserving meaning.
 
-### Immediate implications
+### Retained learning
 
-- Do not trust "N/N passing" counts in completed-milestone tracking docs for m-E19-02 and m-E19-03 as proof that the guards actually ran. The underlying cleanup is correct, but the guards themselves need the backport fix before they can be relied on in CI or wrap-time checks.
-- The m-E19-04 script IS reliable on this codebase as of 2026-04-08: it fails fast when ripgrep is missing and has been sanity-checked against a simulated regression (see `work/agent-history/builder.md`, m-E19-04 Bundle C notes).
-- When writing future grep-guard scripts, use the m-E19-04 template (fail-fast `command -v rg` + scope exclusions that keep the script body out of its own search path) rather than the m-E19-02 or m-E19-03 templates.
-- If the guards are eventually wired into CI, the CI image must have ripgrep installed (`apt-get install ripgrep` on Debian/Ubuntu) — otherwise CI reports PASS without verifying anything.
+- **When writing future grep-guard scripts, use the m-E19-04 template** (fail-fast `command -v rg` + `--glob` exclusions that keep the script body out of its own search path) as the reference.
+- **Global grep patterns cannot enforce handler-scoped invariants.** If an AC's real invariant is "no X in handler Y", a global grep across the containing file will false-positive on any other handler that legitimately uses X. Either scope the search with a more precise tool (AST-based, or a scoped extraction like the awk block extraction used in m-E19-04 Guard 9) or accept that the invariant is not expressible as a simple grep and rely on build/test coverage instead.
+- **If the guards are eventually wired into CI**, the CI image must have ripgrep installed (`apt-get install ripgrep` on Debian/Ubuntu) — otherwise CI fail-fasts (exit code 2) which is the correct behavior. Silent no-op is no longer possible.
+- **Trust completed-milestone "N/N passing" counts** from m-E19-02 (now 20/20) and m-E19-03 (now 11/11) as of this fix, but not retroactively — the earlier tracking-doc counts pre-date the fail-fast check.
 
 ---
 

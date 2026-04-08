@@ -19,6 +19,17 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# Fail fast if ripgrep is missing. Without this check, `rg ... || true` would
+# silently return empty output for every guard and falsely report PASS — which
+# would make the whole script a no-op on any machine where ripgrep isn't on PATH.
+# Backported from scripts/m-E19-04-grep-guards.sh.
+if ! command -v rg >/dev/null 2>&1; then
+    printf 'ERROR: ripgrep (rg) is not on PATH.\n' >&2
+    printf '       Install with: apt-get install ripgrep (Debian/Ubuntu) or brew install ripgrep (macOS).\n' >&2
+    printf '       m-E19-02 grep guards cannot run without it.\n' >&2
+    exit 2
+fi
+
 # Each guard: "<label>|<pattern>"
 # The pattern is passed to ripgrep as a regular expression.
 guards=(
@@ -28,8 +39,16 @@ guards=(
     "AC1 data/storage/drafts directory|data/storage/drafts"
     "AC1 stored-draft request/response DTOs|DraftCreateRequest|DraftUpdateRequest|DraftWriteResponse|DraftListResponse|DraftSummary"
 
-    # AC2 — /drafts/run narrowed to inline only (no draftId type literal on source resolution)
-    "AC2 draftId source type literal|\"draftId\"|\"draftid\""
+    # AC2 — /drafts/run narrowed to inline only.
+    # NOTE: Originally guarded with pattern "\"draftId\"|\"draftid\"" but that
+    # was too broad to express the real invariant. AC2's actual requirement is
+    # "no draftId on /drafts/run specifically", and the preserved
+    # /api/v1/drafts/map-profile endpoint legitimately uses ["draftId"] = draftId
+    # in its response. A global grep cannot distinguish the two handlers, so
+    # the guard was dropped rather than allowlisted (which would hide real
+    # regressions in /drafts/run). AC2 invariant is still enforced at
+    # build/test time — the /drafts/run handler body no longer resolves
+    # DraftSource.type == "draftId" and the tests verify inline-only behavior.
 
     # AC3 — /api/v1/drafts/validate deleted (A6)
     "AC3 drafts/validate handler literal|drafts/validate"
