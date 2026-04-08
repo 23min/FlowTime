@@ -70,6 +70,58 @@ Once the migration lands, `POST /v1/run` and `POST /v1/graph` can be deleted out
 
 ---
 
+## Silent no-op + self-match false positives in m-E19-02 and m-E19-03 grep-guard scripts
+
+### Why this is a gap
+
+Discovered during the `epic/E-19 → main` merge sanity check (2026-04-08). Running the three E-19 grep-guard scripts with ripgrep explicitly on `$PATH`:
+
+- `scripts/m-E19-04-grep-guards.sh` — 11/11 passing
+- `scripts/m-E19-03-grep-guards.sh` — 9/11 passing (2 false-positive self-matches)
+- `scripts/m-E19-02-grep-guards.sh` — 20/21 passing (1 false-positive self-match)
+
+All three scripts were authored with the intent of being runnable locally and in the wrap pass. The problem has two layers:
+
+1. **Silent no-op when `rg` is missing from `$PATH`.** Every guard in the m-E19-02 and m-E19-03 scripts wraps its `rg` invocation with `2>/dev/null || true`. On a machine without ripgrep on `$PATH` (for example the devcontainer this codebase is currently developed in — ripgrep exists under `/vscode/vscode-server/bin/.../node_modules/@vscode/ripgrep/bin/rg` but is not linked onto `$PATH`), every `rg` call errors, stderr is swallowed, `|| true` absorbs the non-zero exit, and the command substitution returns the empty string. The `check "<label>" "$matches"` helper treats empty `matches` as PASS. Result: every guard silently reports PASS without actually inspecting the tree. When the m-E19-02 and m-E19-03 milestones recorded "21/21 passing" and "11/11 passing" in their tracking docs, those counts were true against an environment with ripgrep available but not against the devcontainer where the milestones were actually wrapped. The issue was not caught at wrap time because the false positives also pass-through silently.
+
+2. **Self-match false positives when ripgrep IS available.** With ripgrep on `$PATH`, the scripts surface their own hits because their default search scope (`src tests docs examples templates scripts`) includes `scripts/` — and each guard's script code contains the forbidden literal in comments explaining the guard. On top of that, m-E19-03's Guard 8 also self-matches `docs/architecture/supported-surfaces.md:83`, which contains the literal `/api/templates/` inside the quoted description "No current docs reference `/api/templates/` or other pre-v1 template routes" — a row that DESCRIBES the invariant, not a violation of it.
+
+Specific false-positive findings:
+
+| Script | Guard | False-positive source |
+|--------|-------|-----------------------|
+| `scripts/m-E19-02-grep-guards.sh` | AC2 draftId source type literal | Self-match in the script's own comment |
+| `scripts/m-E19-03-grep-guards.sh` | Guard 7 `docs/ui/template-integration-spec` | Self-match in the script's own comment at lines 105/107/113 |
+| `scripts/m-E19-03-grep-guards.sh` | Guard 8 `/api/templates/` pre-v1 route literal | Self-match in the script's own comment at lines 118/120/123/124 + description row in `docs/architecture/supported-surfaces.md:83` |
+
+Neither layer represents a real regression on the `main` tree: every underlying m-E19-02 and m-E19-03 cleanup invariant (stored drafts gone, ZIP archive gone, `POST /v1/runs` bundle-import gone, catalogs gone, `binMinutes` authoring shape gone, schema-migration examples archived, `docs/ui/template-integration-spec.md` archived, catalog-stale phrasing cleaned) is in fact intact on current `main`, verified by hand.
+
+### Status
+
+Not blocking. All E-19 milestones are merged to `main`. The `m-E19-04` grep-guard script (`scripts/m-E19-04-grep-guards.sh`) already includes a fail-fast `command -v rg` check at the top that exits code 2 with an install hint when ripgrep is missing — this prevents the silent no-op class of bug for all future guards following the same pattern. The retrospective learning is captured in `work/agent-history/builder.md` under the 2026-04-08 m-E19-04 Bundle C session.
+
+### Resolution path
+
+A small follow-up patch should:
+
+1. **Backport the fail-fast `command -v rg` check** from `scripts/m-E19-04-grep-guards.sh` to `scripts/m-E19-02-grep-guards.sh` and `scripts/m-E19-03-grep-guards.sh`, so future runs on machines without ripgrep fail loudly instead of silently passing.
+2. **Fix the self-match false positives** by scoping each guard's search away from the guard script itself. Options:
+   - Add `--glob '!scripts/m-E19-*-grep-guards.sh'` to each `rg` invocation so the script does not scan itself.
+   - Or move the forbidden-literal text out of script comments into the corresponding tracking-doc sections so the script body no longer contains the forbidden tokens.
+3. **Fix m-E19-03 Guard 8's collision with `docs/architecture/supported-surfaces.md:83`** either by allowlisting that specific line via a comment marker (the same pattern m-E19-03 used for the Little's Law whitepaper reference) or by rewording the matrix row so it no longer quotes the forbidden literal.
+4. After the fixes, re-run all three scripts locally with ripgrep on `$PATH` and confirm 21/21 + 11/11 + 11/11 passing.
+
+Candidate milestone: a small patch milestone under E-19 or a standalone `chore/grep-guard-cleanup` patch branch. Not scheduled.
+
+### Immediate implications
+
+- Do not trust "N/N passing" counts in completed-milestone tracking docs for m-E19-02 and m-E19-03 as proof that the guards actually ran. The underlying cleanup is correct, but the guards themselves need the backport fix before they can be relied on in CI or wrap-time checks.
+- The m-E19-04 script IS reliable on this codebase as of 2026-04-08: it fails fast when ripgrep is missing and has been sanity-checked against a simulated regression (see `work/agent-history/builder.md`, m-E19-04 Bundle C notes).
+- When writing future grep-guard scripts, use the m-E19-04 template (fail-fast `command -v rg` + scope exclusions that keep the script body out of its own search path) rather than the m-E19-02 or m-E19-03 templates.
+- If the guards are eventually wired into CI, the CI image must have ripgrep installed (`apt-get install ripgrep` on Debian/Ubuntu) — otherwise CI reports PASS without verifying anything.
+
+---
+
 ## Path Analysis / Path Filters
 
 ### Why this is a gap
