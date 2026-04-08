@@ -105,17 +105,19 @@ Remove the post-hoc run-bundle archive path that writes ZIPs to `data/storage/ru
 
 **Grep guards:** `MapPost("/runs", HandleCreateRunAsync)`, `BundlePath`, `BundleArchiveBase64`, and `BundleRef` return zero matches in `src/` and `tests/` on the current API surface.
 
-### AC6 — Engine debug / direct-eval routes deleted
+### AC6 — Engine debug route deleted (scope narrowed during implementation)
 
-Three Engine routes from [src/FlowTime.API/Program.cs](../../../src/FlowTime.API/Program.cs) are listed as `delete` in the supported-surfaces matrix with owning milestone `m-E19-02`:
+The m-E19-01 audit originally scheduled three Engine routes for deletion in this milestone: `GET /v1/debug/scan-directory/{dirName}`, `POST /v1/run`, and `POST /v1/graph`. During implementation, discovery showed that `POST /v1/run` is used by 50+ test call sites across the Engine Provenance, Parity, and Legacy test suites as the primary run-creation mechanism, and `POST /v1/graph` is used by `Legacy/ApiIntegrationTests.cs`. The matrix entry claim that these routes are "not used by current first-party UIs" is technically correct but underweighted the test-infrastructure coupling. Deleting them in this milestone would either regress ~50 tests of Engine-side runtime provenance coverage (forward-only test deletion — unacceptable) or pull substantial test-migration work that is out of scope for a runtime-cleanup milestone.
 
-- `GET /v1/debug/scan-directory/{dirName}` — internal debug route with no first-party product caller.
-- `POST /v1/run` — ad hoc direct-YAML evaluation surface not used by current first-party UIs.
-- `POST /v1/graph` — ad hoc graph surface not used by current first-party UIs.
+**Scope for this milestone:**
 
-**Delete** each route, its handler, and any tests that exist only to exercise them.
+- Delete `GET /v1/debug/scan-directory/{dirName}` handler from [src/FlowTime.API/Program.cs](../../../src/FlowTime.API/Program.cs). It is a genuine zombie — no product caller, no test caller.
 
-**Grep guards:** No `"/v1/debug/scan-directory"`, `MapPost("/run"`, or `MapPost("/graph"` literal remains in runtime code.
+**Deferred (tracked in [work/gaps.md](../../gaps.md)):**
+
+- `POST /v1/run` and `POST /v1/graph` deletion is deferred out of m-E19-02. Retained as a transitional test-infrastructure surface until the Provenance/Parity/Legacy test suites are migrated to an alternative run-creation path (either a test-only in-process adapter over `Graph.Evaluate` / `RunOrchestrationService` or the supported Sim orchestration endpoint with template fixtures). A decisions.md entry (D-2026-04-08-029) records the scope change and the reason.
+
+**Grep guard (narrowed):** No `"/v1/debug/scan-directory"` literal remains in runtime code.
 
 ### AC7 — Catalogs retired entirely (A5)
 
@@ -171,7 +173,7 @@ Each step should leave the build green and the test suite passing before the nex
 4. **Narrow `/api/v1/drafts/run` (AC2).** Strip `draftId` branches; keep inline-source path.
 5. **Sim ZIP archive layer (AC4).** Remove `StorageKind.Run` writes in `RunOrchestrationService`, drop `BundleRef`/`StorageRef` return values, delete `data/storage/runs/` backend writer, remove `StorageKind.Run` from the enum.
 6. **Engine `POST /v1/runs` + bundle-import (AC5).** Delete handler, remove bundle-import fields from `RunImportRequest`, delete bundle-import tests, delete the route registration.
-7. **Engine debug / direct-eval routes (AC6).** Delete the three debug/eval routes and any tests exercising only them.
+7. **Engine debug route (AC6).** Delete `GET /v1/debug/scan-directory/{dirName}`. `POST /v1/run` and `POST /v1/graph` deletion deferred out of the milestone per the AC6 scope change above.
 8. **Public contracts finalisation (AC8).** Sanity pass to confirm every deleted runtime symbol is also gone from `FlowTime.Contracts`.
 9. **Grep guards + build/test finalisation (AC9).** Run every grep guard, fix any straggler references, rerun the full test suite.
 10. **Wrap (AC10).** Tracking doc, status surfaces, `CLAUDE.md` current work.

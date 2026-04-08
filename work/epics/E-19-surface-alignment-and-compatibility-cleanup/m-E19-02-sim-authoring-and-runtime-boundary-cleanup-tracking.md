@@ -12,7 +12,7 @@
 - [x] AC3. `POST /api/v1/drafts/validate` deleted (A6): remove endpoint handler and its tests; preserve `ModelSchemaValidator`, `ModelValidator`, `ModelCompiler`, `ModelParser`, `TemplateInvariantAnalyzer`, `InvariantAnalyzer` unchanged.
 - [x] AC4. Sim ZIP archive layer deleted (A3): remove `StorageKind.Run` writes in `RunOrchestrationService`, `BundleRef`/`StorageRef` on `RunCreateResponse`, `data/storage/runs/` backend write path, and the `StorageKind.Run` enum value.
 - [x] AC5. Engine `POST /v1/runs` deleted outright (A4): remove handler, bundle-import branches (`BundlePath`, `BundleArchiveBase64`, `BundleRef`), `ExtractArchiveAsync` helpers, and bundle-import tests. No 410 stub. `GET /v1/runs` and `GET /v1/runs/{runId}` preserved.
-- [ ] AC6. Engine debug/direct-eval routes deleted: `GET /v1/debug/scan-directory/{dirName}`, `POST /v1/run`, `POST /v1/graph`.
+- [x] AC6. Engine debug route deleted (narrowed scope — see implementation log): `GET /v1/debug/scan-directory/{dirName}` deleted. `POST /v1/run` and `POST /v1/graph` deletion deferred per D-2026-04-08-029 — audit missed 50+ test call sites that use these routes for Engine-side provenance/parity coverage. Deferral tracked in `work/gaps.md`.
 - [x] AC7. Catalogs retired entirely (A5): routes (`/api/v1/catalogs*`), `CatalogService`/`ICatalogService`, `CatalogPicker.razor`, `CatalogId = "default"` placeholder callers, `catalogId` DTO fields, `data/catalogs/` directory, catalog-only tests.
 - [ ] AC8. Public contracts cleanup consolidated in `FlowTime.Contracts`: `RunImportRequest`/`RunCreateResponse` bundle fields gone; `StorageKind.Draft` and `StorageKind.Run` enum values removed.
 - [ ] AC9. Build green, full test suite green, grep guards asserted (zero matches for each deleted symbol in `src/` and `tests/`).
@@ -28,7 +28,7 @@ Per milestone spec Technical Notes — each step must leave build green and test
 - [x] Step 4: Narrow `/api/v1/drafts/run` (AC2)
 - [x] Step 5: Sim ZIP archive layer (AC4)
 - [x] Step 6: Engine `POST /v1/runs` + bundle-import (AC5)
-- [ ] Step 7: Engine debug/direct-eval routes (AC6)
+- [x] Step 7: Engine debug route (AC6, narrowed)
 - [ ] Step 8: Public contracts finalisation (AC8)
 - [ ] Step 9: Grep guards + build/test finalisation (AC9)
 - [ ] Step 10: Wrap (AC10)
@@ -48,8 +48,8 @@ Each must return zero matches in `src/` and `tests/` at wrap time.
 - [x] `BundlePath`
 - [x] `BundleArchiveBase64`
 - [x] `StorageRef` on bundle response contracts (type still exists for Model/Series storage infrastructure)
-- [ ] `/v1/debug/scan-directory`
-- [ ] `MapPost("/run"` and `MapPost("/graph"`
+- [x] `/v1/debug/scan-directory`
+- [ ] ~~`MapPost("/run"` and `MapPost("/graph"`~~ — deferred out of m-E19-02 per D-2026-04-08-029; tracked in `work/gaps.md`
 - [x] `/api/v1/catalogs`
 - [x] `CatalogService`
 - [x] `ICatalogService`
@@ -216,3 +216,25 @@ These become the tier 1/2/3 ingredients for the future Time Machine validation o
 - `POST /api/v1/drafts/run` (Sim) — A1-supported inline-source transitional execution bridge (no longer writes ZIP archives)
 - Canonical run directory under `data/runs/<runId>/` — unchanged
 - `StorageRef`, `IStorageBackend`, `FileSystemStorageBackend`, `BlobStorageBackend` — storage infrastructure still needed for `StorageKind.Model` and `StorageKind.Series`
+
+## AC6 implementation log (scope narrowed)
+
+**Status:** complete. Build green (0 warnings, 0 errors), 1250 tests pass (0 failed, 9 skipped — same count as pre-AC6; no tests removed).
+
+**Scope change:** m-E19-01 A5/matrix scheduled three routes for deletion in AC6: `GET /v1/debug/scan-directory/{dirName}`, `POST /v1/run`, `POST /v1/graph`. During implementation, grep showed that `POST /v1/run` has 50 call sites and `POST /v1/graph` has 2 call sites across 9 Engine test files (`ProvenanceHashTests`, `ProvenanceHeaderTests`, `ProvenanceEmbeddedTests`, `ProvenancePrecedenceTests`, `ProvenanceStorageTests`, `ProvenanceQueryTests`, `Legacy/ApiIntegrationTests`, `ParityTests`, `CliApiParityTests`). These are the primary run-creation mechanism for Engine-side runtime provenance, CLI ↔ API parity, and legacy integration coverage. Deleting the routes in this milestone would either regress ~50 provenance/parity tests or pull substantial test-migration work that is out of scope for a runtime-cleanup milestone.
+
+AC6 was narrowed to deleting `GET /v1/debug/scan-directory/{dirName}` only. The `/v1/run` / `/v1/graph` deletion is deferred per D-2026-04-08-029 and tracked in `work/gaps.md` under "Deferred deletion: Engine `POST /v1/run` and `POST /v1/graph`". A follow-up unit of work (candidate name `m-E19-02a-engine-runtime-route-retirement`) must land the test migration before the routes can be removed.
+
+**Files edited:**
+
+- `src/FlowTime.API/Program.cs` — deleted the `GET /v1/debug/scan-directory/{dirName}` handler (previously lines 434–466, ~32 lines). No other references.
+- `docs/architecture/supported-surfaces.md` — updated the `POST /v1/run`, `POST /v1/graph` row from `delete m-E19-02` to `transitional / deferred (see work/gaps.md)` with an explanation of the scope narrowing.
+- `work/epics/E-19-surface-alignment-and-compatibility-cleanup/m-E19-02-sim-authoring-and-runtime-boundary-cleanup.md` — rewrote AC6 text to reflect the narrowing, cite D-2026-04-08-029, and link to `work/gaps.md`. Updated the Technical Notes step 7 summary.
+- `work/gaps.md` — added new section "Deferred deletion: Engine `POST /v1/run` and `POST /v1/graph`" with the 50+ call site inventory, resolution path options, and interim usage rules.
+- `work/decisions.md` — added D-2026-04-08-029 recording the scope change, context, rationale, resolution path, and process learning (future inventory milestones should include a test-file sweep when an audit row implies route deletion).
+
+**Grep guard verified zero-match after deletion:** `/v1/debug/scan-directory`.
+
+**Grep guard intentionally NOT enforced (deferred):** `MapPost("/run"` and `MapPost("/graph"` — both still exist in `src/FlowTime.API/Program.cs` as documented transitional surfaces pending the follow-up test migration milestone.
+
+**Preserved:** `POST /v1/run` and `POST /v1/graph` Engine routes and all their test callers — no coverage regression on Engine-side provenance/parity.
