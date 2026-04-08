@@ -69,24 +69,6 @@ public class FlowTimeSimApiClientWithFallback : IFlowTimeSimApiClient
         return await client.GetDetailedHealthAsync(ct);
     }
 
-    public async Task<Result<SimRunResponse>> RunAsync(string yaml, CancellationToken ct = default)
-    {
-        var client = await GetActiveClientAsync();
-        return await client.RunAsync(yaml, ct);
-    }
-
-    public async Task<Result<SeriesIndex>> GetIndexAsync(string runId, CancellationToken ct = default)
-    {
-        var client = await GetActiveClientAsync();
-        return await client.GetIndexAsync(runId, ct);
-    }
-
-    public async Task<Result<Stream>> GetSeriesAsync(string runId, string seriesId, CancellationToken ct = default)
-    {
-        var client = await GetActiveClientAsync();
-        return await client.GetSeriesAsync(runId, seriesId, ct);
-    }
-
     public async Task<Result<List<ApiTemplateInfo>>> GetTemplatesAsync(CancellationToken ct = default)
     {
         var client = await GetActiveClientAsync();

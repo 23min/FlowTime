@@ -1,8 +1,6 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
 
 using FlowTime.UI.Configuration;
 
@@ -928,14 +926,14 @@ public class FlowTimeSimService : IFlowTimeSimService
         logger.LogInformation("Generating synthetic demo data for template {TemplateId} with runId {RunId}", 
             request.TemplateId, runId);
 
-        // Demo mode uses a special "demo://" scheme URL that SimResultsService handles
+        // Demo mode: SimResultsService handles demo runs via the UseDemoMode feature flag
+        // (no special URL scheme needed — the "source" = "demo" metadata marker is sufficient).
         return new SimulationRunResult
         {
             RunId = runId,
-            Status = "completed", 
+            Status = "completed",
             StartTime = DateTime.UtcNow.AddSeconds(-2),
             EndTime = DateTime.UtcNow,
-            ResultsUrl = $"demo://{runId}", // Special scheme for demo mode
             Metadata = new Dictionary<string, object>
             {
                 ["templateId"] = request.TemplateId,
@@ -952,45 +950,43 @@ public class FlowTimeSimService : IFlowTimeSimService
     {
         try
         {
-            // API Mode: Call FlowTime-Sim API (/sim/run) to produce real simulation artifacts
-            logger.LogInformation("Running API mode (FlowTime-Sim) simulation for template {TemplateId}", request.TemplateId);
+            // API Mode: Call Sim orchestration endpoint (POST /api/v1/orchestration/runs) to produce canonical run artifacts
+            logger.LogInformation("Running API mode simulation for template {TemplateId} via orchestration endpoint", request.TemplateId);
 
-            // Generate YAML for FlowTime-Sim using arrivals/route schema translation
-            var yamlSpec = await GenerateSimulationYamlAsync(request);
-            logger.LogInformation("Generated YAML for FlowTime-Sim run (API mode):\n{Yaml}", yamlSpec);
+            var dto = new RunCreateRequestDto(
+                TemplateId: request.TemplateId,
+                Mode: "simulation",
+                Parameters: ConvertParametersToJsonElements(request.Parameters),
+                Telemetry: null,
+                Options: null);
 
-            var runCall = await simClient.RunAsync(yamlSpec);
-            if (!runCall.Success || runCall.Value == null)
+            var runCall = await simClient.CreateRunAsync(dto);
+            if (!runCall.Success || runCall.Value?.Metadata == null)
             {
-                logger.LogError("FlowTime-Sim run failed: {Error}", runCall.Error);
+                logger.LogError("Sim orchestration run failed: {Error}", runCall.Error);
                 return new SimulationRunResult
                 {
                     RunId = $"sim_failed_{DateTime.UtcNow:yyyyMMddTHHmmssZ}",
                     Status = "failed",
                     StartTime = DateTime.UtcNow,
-                    ErrorMessage = runCall.Error ?? "Unknown FlowTime-Sim error"
+                    ErrorMessage = runCall.Error ?? "Unknown Sim orchestration error"
                 };
             }
 
-            var runId = runCall.Value.SimRunId;
-
-            // Get configuration for versioned URL
-            var simConfig = configuration.GetSection(FlowTimeSimApiOptions.SectionName).Get<FlowTimeSimApiOptions>()
-                ?? new FlowTimeSimApiOptions();
-
+            var metadata = runCall.Value.Metadata;
             return new SimulationRunResult
             {
-                RunId = runId,
+                RunId = metadata.RunId,
                 Status = "completed",
                 StartTime = DateTime.UtcNow.AddSeconds(-2),
                 EndTime = DateTime.UtcNow,
-                ResultsUrl = $"/{simConfig.ApiVersion}/sim/runs/{runId}/index", // Point to versioned FlowTime-Sim series index
                 Metadata = new() // Minimal metadata, artifacts are authoritative
                 {
                     ["templateId"] = request.TemplateId,
-                    ["source"] = "sim", // FlowTime-Sim API source
+                    ["source"] = "sim", // Sim orchestration source
+                    ["mode"] = metadata.Mode,
                     ["dataType"] = "simulation telemetry",
-                    ["description"] = "Real simulation data from FlowTime-Sim API"
+                    ["description"] = "Simulation data from Sim orchestration endpoint"
                 }
             };
         }
@@ -1007,14 +1003,27 @@ public class FlowTimeSimService : IFlowTimeSimService
         }
     }
 
+    private static Dictionary<string, JsonElement>? ConvertParametersToJsonElements(Dictionary<string, object>? parameters)
+    {
+        if (parameters == null || parameters.Count == 0)
+            return null;
+
+        var result = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kvp in parameters)
+        {
+            result[kvp.Key] = JsonSerializer.SerializeToElement(kvp.Value);
+        }
+        return result;
+    }
+
 
 
     public async Task<SimulationStatus> GetRunStatusAsync(string runId)
     {
         try
         {
-            // Try to get the series index to determine if run is complete
-            var indexResult = await simClient.GetIndexAsync(runId);
+            // Query canonical Engine run index to determine if run is complete
+            var indexResult = await apiClient.GetRunIndexAsync(runId);
 
             if (indexResult.Success)
             {
@@ -1093,45 +1102,6 @@ public class FlowTimeSimService : IFlowTimeSimService
         }
     }
 
-    /// <summary>
-    /// Generate YAML for FlowTime-Sim using the arrivals/route schema format
-    /// </summary>
-    public async Task<string> GenerateSimulationYamlAsync(SimulationRunRequest request)
-    {
-        await Task.CompletedTask; // Make this async for consistency
-        
-        // Generate the modern nodes format first
-        var nodesYaml = GenerateSimulationYaml(request);
-        
-        // Convert to FlowTime-Sim format (arrivals/route schema)
-        return TranslateToSimulationSchema(nodesYaml, request);
-    }
-
-    /// <summary>
-    /// Temporary stub method to support existing tests during API integration transition.
-    /// TODO: Remove this method and update tests once API integration is complete.
-    /// </summary>
-    private static Dictionary<string, object> ConvertRequestToApiParameters(SimulationRunRequest request)
-    {
-        if (request?.Parameters == null) 
-            return new Dictionary<string, object>();
-            
-        var result = new Dictionary<string, object>(request.Parameters);
-
-        // Convert string arrays to double arrays for specific parameters (test expectation)
-        var arrayParams = new[] { "demandPattern", "capacityPattern", "rawMaterialSchedule", "assemblyCapacity" };
-        foreach (var param in arrayParams)
-        {
-            if (result.TryGetValue(param, out var value) && value is List<string> stringList)
-            {
-                var doubleArray = stringList.Select(s => double.TryParse(s, out var d) ? d : 0.0).ToArray();
-                result[param] = doubleArray;
-            }
-        }
-        
-        return result;
-    }
-
     private static string GenerateSimulationYaml(SimulationRunRequest request)
     {
         // Generate template-specific YAML with proper topology
@@ -1154,71 +1124,6 @@ public class FlowTimeSimService : IFlowTimeSimService
         }}");
         
         return result;
-    }
-
-    /// <summary>
-    /// Translate from FlowTime Engine nodes schema to FlowTime-Sim arrivals/route schema
-    /// </summary>
-    private static string TranslateToSimulationSchema(string nodesYaml, SimulationRunRequest request)
-    {
-        try
-        {
-            // Parse the nodes YAML to extract the first const node for arrivals
-            using var reader = new StringReader(nodesYaml);
-            var deserializer = new DeserializerBuilder()
-                .WithNamingConvention(CamelCaseNamingConvention.Instance)
-                .IgnoreUnmatchedProperties()
-                .Build();
-                
-            var model = deserializer.Deserialize<Dictionary<string, object>>(nodesYaml);
-            
-            // Extract grid information
-            var grid = model.TryGetValue("grid", out var gridObj) ? gridObj as Dictionary<object, object> : null;
-            var bins = grid?.TryGetValue("bins", out var binsObj) == true ? Convert.ToInt32(binsObj) : 24;
-            var binSize = grid?.TryGetValue("binSize", out var binSizeObj) == true ? Convert.ToInt32(binSizeObj) : 60;
-            var binUnit = grid?.TryGetValue("binUnit", out var binUnitObj) == true ? binUnitObj?.ToString() ?? "minutes" : "minutes";
-            
-            // Extract the first const node as the arrival pattern
-            var nodes = model.TryGetValue("nodes", out var nodesObj) ? nodesObj as List<object> : null;
-            var firstConstNode = nodes?.OfType<Dictionary<object, object>>()
-                .FirstOrDefault(n => n.TryGetValue("kind", out var kind) && kind?.ToString() == "const");
-                
-            var values = firstConstNode?.TryGetValue("values", out var valuesObj) == true 
-                ? (valuesObj as List<object>)?.Select(v => Convert.ToDouble(v)).ToArray() 
-                : Enumerable.Repeat(100.0, bins).ToArray();
-            
-            var nodeId = firstConstNode?.TryGetValue("id", out var idObj) == true 
-                ? idObj?.ToString() ?? "demand" 
-                : "demand";
-
-            // Generate FlowTime-Sim YAML with arrivals/route schema
-            var yaml = new StringBuilder();
-            yaml.AppendLine("# Translated from nodes schema to FlowTime-Sim arrivals/route schema");
-            yaml.AppendLine("schemaVersion: 1");
-            yaml.AppendLine("grid:");
-            yaml.AppendLine($"  bins: {bins}");
-            yaml.AppendLine($"  binSize: {binSize}");
-            yaml.AppendLine($"  binUnit: {binUnit}");
-            yaml.AppendLine();
-            yaml.AppendLine("arrivals:");
-            yaml.AppendLine("  kind: const");
-            yaml.Append("  values: [");
-            yaml.Append(string.Join(", ", (values ?? Array.Empty<double>()).Select(v => v.ToString("F0", CultureInfo.InvariantCulture))));
-            yaml.AppendLine("]");
-            yaml.AppendLine();
-            yaml.AppendLine("route:");
-            yaml.AppendLine($"  id: {nodeId}");
-            
-            return yaml.ToString();
-        }
-        catch (Exception ex)
-        {
-            // Don't hide translation failures - throw with clear context
-            throw new InvalidOperationException(
-                $"Failed to translate template '{request.TemplateId}' from nodes schema to FlowTime-Sim arrivals/route schema. " +
-                $"This template may be too complex for automatic translation. " +
-                $"Original error: {ex.Message}", ex);
-        }
     }
 
     private static string GenerateITSystemYaml(SimulationRunRequest request)
