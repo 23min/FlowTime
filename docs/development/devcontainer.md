@@ -2,6 +2,8 @@
 
 This repo ships a minimal devcontainer for M-00.00–M-01.00 to keep startup fast and diffs clean. Optional tooling (Node, Azure CLI, Azurite) will be added per milestone.
 
+For repo-specific cleanup, disk-pressure recovery, and persistence rules, see [devcontainer-maintenance.md](./devcontainer-maintenance.md).
+
 # Dev Container Setup
 
 This repository includes a dev container configuration optimized for FlowTime development with minimal overhead.

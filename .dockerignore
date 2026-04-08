@@ -1,0 +1,51 @@
+# VCS
+.git/
+.gitmodules
+
+# Editor and local tooling state
+.vscode/
+.idea/
+.codex/
+.serena/
+.scratch/
+.DS_Store
+Thumbs.db
+
+# Local framework/tool overrides
+.claude/settings.local.json
+
+# Dependency directories and local package caches
+node_modules/
+**/node_modules/
+.dotnet/
+.templateengine/
+tools/mcp-server/dist/
+ui/.svelte-kit/
+ui/dist/
+
+# Build outputs
+**/bin/
+**/obj/
+out/
+runs/
+test-results/
+TestResult*/
+*.trx
+*.actual
+coverage/
+*.coverage
+*.coveragexml
+/publish-wasm
+
+# Runtime artifacts and scratch data
+data/
+tmpdata*/
+tmpdata_*/
+tmpdata-*/
+.tmp/
+
+# Packaging and logs
+*.log
+*.zip
+*.tar
+*.tar.gz
