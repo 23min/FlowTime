@@ -2,7 +2,7 @@
 
 **ID:** m-E19-04-blazor-support-alignment
 **Epic:** [Surface Alignment & Compatibility Cleanup (E-19)](./spec.md)
-**Status:** in-progress
+**Status:** completed (2026-04-08)
 **Branch:** `milestone/m-E19-04-blazor-support-alignment` (off `epic/E-19`)
 
 ## Goal

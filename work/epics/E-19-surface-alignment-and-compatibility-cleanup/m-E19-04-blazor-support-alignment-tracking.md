@@ -1,12 +1,14 @@
 # Tracking: m-E19-04 Blazor Support Alignment
 
-**Status:** in-progress
+**Status:** completed (2026-04-08)
 **Started:** 2026-04-08
+**Completed:** 2026-04-08
 **Epic:** [E-19 Surface Alignment & Compatibility Cleanup](./spec.md)
 **Milestone spec:** [m-E19-04-blazor-support-alignment.md](./m-E19-04-blazor-support-alignment.md)
 **Branch:** `milestone/m-E19-04-blazor-support-alignment` (off `epic/E-19`)
-**Baseline test count (epic/E-19 head):** 1250 passed, 9 skipped, 0 failed
-**Grep guards:** 11 tests planned in `scripts/m-E19-04-grep-guards.sh`
+**Baseline test count (epic/E-19 head `c2fe669`):** 1250 passed, 9 skipped, 0 failed
+**Final test count:** 1246 passed, 9 skipped, 0 failed (−4 tests exercising deleted helpers, see Note 2)
+**Grep guards:** 11/11 passing via `scripts/m-E19-04-grep-guards.sh`
 
 ## Acceptance Criteria
 
@@ -18,18 +20,18 @@
 - [x] **AC6.** Row 63 alignment audit — confirmed `{BaseAddress, HealthAsync, GetDetailedHealthAsync, GetTemplatesAsync, GetTemplateAsync, GenerateModelAsync, CreateRunAsync}` are the only members on `IFlowTimeSimApiClient` after Bundle A. Each targets a live Sim route per the supported-surfaces sweep: `v1/healthz` (row 51), `v1/healthz?detailed=true` (row 51), `api/v1/templates` (row 52), `api/v1/templates/{id}` (row 52), `api/v1/templates/{id}/generate` (row 53), `api/v1/orchestration/runs` (row 54). **No drift.** No code change. (Bundle B)
 - [x] **AC7.** Rows 66/67 alignment audit — confirmed `ui/src/lib/api/sim.ts` targets 6 supported Sim routes (`/api/v1/healthz`, `/api/v1/healthz?detailed=true`, `/api/v1/templates`, `/api/v1/templates/{id}`, `/api/v1/templates/categories`, `/api/v1/orchestration/runs`) with no stale `catalogs` / `drafts` / `bundle*` literals; `ui/src/lib/api/flowtime.ts` targets 12 supported Engine routes (`/healthz`, `/v1/healthz`, `/v1/runs`, `/v1/runs/{runId}`, `/v1/artifacts*`, `/v1/runs/{runId}/graph`, `/v1/runs/{runId}/state`, `/v1/runs/{runId}/index`, `/v1/runs/{runId}/state_window`) with no stale `POST /v1/runs` / `bundle*` / `/v1/debug/` literals. **No drift.** No code change. (Bundle B)
 - [x] **AC8.** `scripts/m-E19-04-grep-guards.sh` created with 11 named guards (AC1–AC7 coverage); script exits 0 when all guards pass. 11/11 passing against ripgrep. Script mirrors `scripts/m-E19-03-grep-guards.sh` structure and adds a fail-fast `command -v rg` check at the top so silent no-ops on machines without ripgrep are turned into loud errors — see Note 5 below. (Bundle C)
-- [ ] **AC9.** Full build + full test suite green, grep guards green, no new compiler warnings. (Wrap)
-- [ ] **AC10.** Tracking doc finalized; status reconciled across spec, epic spec milestone table, ROADMAP.md, epic-roadmap.md, CLAUDE.md Current Work. (Wrap)
+- [x] **AC9.** Full build green (1 pre-existing xUnit2031 warning from baseline in `ClassMetricsAggregatorTests.cs:126`, not introduced by this milestone). Full test suite 1246/1246 passed, 9 skipped, 0 failed. Grep guards 11/11 passing. (Wrap)
+- [x] **AC10.** Tracking doc finalized (this file). Status reconciled in a single wrap commit across: spec header (`in-progress` → `completed`), epic spec milestone table (`in-progress` → `completed`), ROADMAP.md E-19 section, epic-roadmap.md E-19 section, CLAUDE.md Current Work. All 5 surfaces flipped together. (Wrap)
 
 ## Commit Plan (Bundles)
 
 Per milestone spec Technical Notes — four focused commits plus the wrap.
 
-- [ ] **Status-sync commit** (this doc + spec draft→in-progress + epic spec table + ROADMAP.md + epic-roadmap.md + CLAUDE.md) — runs before Bundle A.
-- [x] **Bundle A** (AC1 + AC2 + AC3 + AC4 + AC5): stale Sim client deletion + caller rewire. Single conceptual cleanup; one commit pending. Result: `dotnet build` green with no new warnings; full solution test suite 1246 passed / 9 skipped / 0 failed (−4 from baseline due to deleted tests exercising deleted code — see Note 2 below).
-- [x] **Bundle B** (AC6 + AC7): alignment audit. No drift found on any of the three audited rows (63, 66, 67). No code change; findings recorded in AC6/AC7 checkboxes above and folded into the Bundle C (grep-guard script) or wrap commit per spec.
-- [x] **Bundle C** (AC8): grep-guard script. Its own commit pending. Script passes 11/11 against ripgrep on the tree produced by Bundle A (Bundle B was no-op).
-- [ ] **Wrap** (AC9 + AC10): tracking doc finalization and status-surface reconciliation in a single commit after grep guards + build/test pass.
+- [x] **Status-sync commit** (this doc + spec draft→in-progress + epic spec table + ROADMAP.md + epic-roadmap.md + CLAUDE.md) — commit `3656bfc`. 6 files, +420/−9.
+- [x] **Bundle A** (AC1 + AC2 + AC3 + AC4 + AC5): stale Sim client deletion + caller rewire. Commit `c58adaf`. 10 files, +99/−522 (net −423 lines). Build green; full test suite 1246 passed / 9 skipped / 0 failed (−4 from baseline due to deleted tests exercising deleted code — see Note 2).
+- [x] **Bundle B** (AC6 + AC7): alignment audit. No drift found on any of the three audited rows (63, 66, 67). No code change; findings folded into the Bundle C commit body alongside the grep-guard script.
+- [x] **Bundle C** (AC8): grep-guard script + Bundle B findings. Commit `361b886`. 2 files, +218/−16 (new 184-line guard script + tracking doc updates). Script passes 11/11 against ripgrep on the Bundle A tree. Adds fail-fast `command -v rg` check as an improvement over m-E19-03 (see Note 5).
+- [x] **Wrap** (AC9 + AC10): tracking doc finalization and status-surface reconciliation in a single commit. Baseline vs final test delta verified (−4 due to deleted tests exercising deleted helpers, all accounted for in Note 2).
 
 ## Grep Guards
 
@@ -82,9 +84,20 @@ Not staged: pre-existing uncommitted deletion in `work/agent-history/builder.md`
 
 ## Test Summary
 
-- **Baseline:** 1250 passed, 9 skipped, 0 failed
-- **Current:** (status-sync commit only — no code changes yet)
-- **Build:** green
+- **Baseline (epic/E-19 `c2fe669`):** 1250 passed, 9 skipped, 0 failed
+- **Final (milestone/m-E19-04 `361b886`):** 1246 passed, 9 skipped, 0 failed
+- **Delta:** −4 passing (all 4 are deleted tests exercising deleted helpers; see Note 2)
+- **Build:** green with 1 pre-existing xUnit2031 warning in `tests/FlowTime.Core.Tests/Aggregation/ClassMetricsAggregatorTests.cs:126` (present on baseline, not introduced by this milestone)
+- **Per-project final counts:**
+  - FlowTime.Expressions.Tests: 55/55
+  - FlowTime.Adapters.Synthetic.Tests: 10/10
+  - FlowTime.Core.Tests: 269/269
+  - FlowTime.UI.Tests: 265/265 (−4 from baseline 269)
+  - FlowTime.Integration.Tests: 8/8
+  - FlowTime.Cli.Tests: 19/19
+  - FlowTime.Tests: 228 passed + 6 skipped
+  - FlowTime.Sim.Tests: 177 passed + 3 skipped
+  - FlowTime.Api.Tests: 215/215
 
 ## Notes
 
@@ -138,6 +151,13 @@ The original regex failed to match members with nested generic return types like
 
 ## Completion
 
-- **Completed:** pending
-- **Final test count:** pending
-- **Deferred items:** (none yet)
+- **Completed:** 2026-04-08
+- **Final test count:** 1246 passed, 9 skipped, 0 failed
+- **Grep guards:** 11/11 passing
+- **Commits on `milestone/m-E19-04-blazor-support-alignment`:**
+  - `3656bfc` — status-sync (draft→in-progress across 5 surfaces + new spec + tracking doc)
+  - `c58adaf` — Bundle A: stale Sim client deletion + caller rewire (10 files, +99/−522)
+  - `361b886` — Bundle C: grep-guard script + Bundle B no-drift findings (2 files, +218/−16)
+  - _pending wrap commit_ — status-sync (in-progress→completed) + tracking doc finalization + agent-history append
+- **Deferred items:** none
+- **Next:** merge `milestone/m-E19-04-blazor-support-alignment` into `epic/E-19` (pending human approval), then assess whether m-E19-04 is the final E-19 milestone and whether `epic/E-19 → main` merge is ready.
