@@ -14,7 +14,7 @@
 - [x] AC5. Engine `POST /v1/runs` deleted outright (A4): remove handler, bundle-import branches (`BundlePath`, `BundleArchiveBase64`, `BundleRef`), `ExtractArchiveAsync` helpers, and bundle-import tests. No 410 stub. `GET /v1/runs` and `GET /v1/runs/{runId}` preserved.
 - [x] AC6. Engine debug route deleted (narrowed scope — see implementation log): `GET /v1/debug/scan-directory/{dirName}` deleted. `POST /v1/run` and `POST /v1/graph` deletion deferred per D-2026-04-08-029 — audit missed 50+ test call sites that use these routes for Engine-side provenance/parity coverage. Deferral tracked in `work/gaps.md`.
 - [x] AC7. Catalogs retired entirely (A5): routes (`/api/v1/catalogs*`), `CatalogService`/`ICatalogService`, `CatalogPicker.razor`, `CatalogId = "default"` placeholder callers, `catalogId` DTO fields, `data/catalogs/` directory, catalog-only tests.
-- [ ] AC8. Public contracts cleanup consolidated in `FlowTime.Contracts`: `RunImportRequest`/`RunCreateResponse` bundle fields gone; `StorageKind.Draft` and `StorageKind.Run` enum values removed.
+- [x] AC8. Public contracts cleanup consolidated in `FlowTime.Contracts`: `RunImportRequest`/`RunCreateResponse` bundle fields gone; `StorageKind.Draft` and `StorageKind.Run` enum values removed. Verification-only pass — every change was already made atomically as part of AC1, AC4, AC5, and AC7.
 - [ ] AC9. Build green, full test suite green, grep guards asserted (zero matches for each deleted symbol in `src/` and `tests/`).
 - [ ] AC10. Status surfaces reconciled at wrap: epic spec, ROADMAP.md, epic-roadmap.md, CLAUDE.md, and this tracking doc all show m-E19-02 complete with final test count and grep guard results recorded.
 
@@ -29,7 +29,7 @@ Per milestone spec Technical Notes — each step must leave build green and test
 - [x] Step 5: Sim ZIP archive layer (AC4)
 - [x] Step 6: Engine `POST /v1/runs` + bundle-import (AC5)
 - [x] Step 7: Engine debug route (AC6, narrowed)
-- [ ] Step 8: Public contracts finalisation (AC8)
+- [x] Step 8: Public contracts finalisation (AC8)
 - [ ] Step 9: Grep guards + build/test finalisation (AC9)
 - [ ] Step 10: Wrap (AC10)
 
@@ -238,3 +238,25 @@ AC6 was narrowed to deleting `GET /v1/debug/scan-directory/{dirName}` only. The 
 **Grep guard intentionally NOT enforced (deferred):** `MapPost("/run"` and `MapPost("/graph"` — both still exist in `src/FlowTime.API/Program.cs` as documented transitional surfaces pending the follow-up test migration milestone.
 
 **Preserved:** `POST /v1/run` and `POST /v1/graph` Engine routes and all their test callers — no coverage regression on Engine-side provenance/parity.
+
+## AC8 implementation log (verification-only)
+
+**Status:** complete. No code changes — every contract trim was already done atomically as part of AC1 (draft DTOs + `StorageKind.Draft`), AC4 (`RunCreateResponse.BundleRef`, `StorageKind.Run`), AC5 (`RunImportRequest` + bundle fields), and AC7 (catalog DTOs + `CatalogId`).
+
+**Verification sweep over `src/FlowTime.Contracts/`:**
+
+| Token | Matches | Notes |
+|-------|---------|-------|
+| `StorageKind.Draft` | 0 | Enum value removed in AC1 |
+| `StorageKind.Run` | 0 | Enum value removed in AC4 |
+| `BundleRef` | 0 | Removed from `RunCreateResponse` in AC4 and from `RunImportRequest` (class deleted) in AC5 |
+| `BundlePath` | 0 | `RunImportRequest` class deleted in AC5 |
+| `BundleArchiveBase64` | 0 | `RunImportRequest` class deleted in AC5 |
+| `RunImportRequest` | 0 | Class deleted in AC5 |
+| `DraftCreateRequest` / `DraftUpdateRequest` / `DraftWriteResponse` / `DraftResponse` / `DraftSummary` / `DraftListResponse` | 0 | Never existed in `FlowTime.Contracts` (they were local to `FlowTime.Sim.Service/Program.cs` and deleted there in AC1) |
+| `catalog` / `Catalog` | 2 | Only `ClassCatalogEntry` in `StateContracts.cs` — the supported E-16 state-schema class list, intentionally preserved |
+| Stray `bundle` / `draft` / `import run` commentary | 0 | No leftover prose referencing deleted concepts |
+
+**Final state of `StorageKind` enum:** `{ Model, Series }` — both remaining values have active backend path mappings and live callers.
+
+**Grep guard verified:** `src/FlowTime.Contracts/` is clean of every m-E19-02 deletion target except the deferred `/v1/run` / `/v1/graph` routes, which are runtime routes (`src/FlowTime.API/Program.cs`), not contract types, and do not surface here anyway.
