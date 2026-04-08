@@ -30,13 +30,13 @@ public sealed class StorageRefTests
     public void TryParse_ParsesOptionalQueryFields()
     {
         var hash = StorageHash.ComputeSha256("hello");
-        var success = StorageRef.TryParse($"storage://run/run_123?h={hash}&v=2", out var reference, out var error);
+        var success = StorageRef.TryParse($"storage://series/series_123?h={hash}&v=2", out var reference, out var error);
 
         Assert.True(success);
         Assert.Null(error);
         Assert.NotNull(reference);
-        Assert.Equal(StorageKind.Run, reference!.Kind);
-        Assert.Equal("run_123", reference.Id);
+        Assert.Equal(StorageKind.Series, reference!.Kind);
+        Assert.Equal("series_123", reference.Id);
         Assert.Equal("2", reference.Version);
         Assert.Equal(hash, reference.Hash);
     }

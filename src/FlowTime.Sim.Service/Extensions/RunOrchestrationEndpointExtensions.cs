@@ -1,6 +1,5 @@
 using System.IO;
 using FlowTime.Contracts.TimeTravel;
-using FlowTime.Contracts.Storage;
 using FlowTime.Generator.Orchestration;
 using FlowTime.Sim.Service;
 using FlowTime.Sim.Core.Templates.Exceptions;
@@ -19,7 +18,6 @@ internal static class RunOrchestrationEndpointExtensions
         RunCreateRequest request,
         RunOrchestrationService orchestration,
         IConfiguration configuration,
-        IStorageBackend storage,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
     {
@@ -85,19 +83,6 @@ internal static class RunOrchestrationEndpointExtensions
             var metadata = RunOrchestrationContractMapper.BuildStateMetadata(result);
             var warnings = RunOrchestrationContractMapper.BuildStateWarnings(result.TelemetryManifest);
             var canReplay = RunOrchestrationContractMapper.DetermineCanReplay(result);
-            var archive = Program.BuildRunArchive(result.RunDirectory);
-            var bundleWrite = await storage.WriteAsync(new StorageWriteRequest
-            {
-                Kind = StorageKind.Run,
-                Id = metadata.RunId,
-                Content = archive,
-                ContentType = "application/zip",
-                Metadata = new Dictionary<string, string>
-                {
-                    ["templateId"] = metadata.TemplateId,
-                    ["mode"] = metadata.Mode
-                }
-            }, cancellationToken).ConfigureAwait(false);
 
             logger.LogInformation("Run {RunId} created for template {TemplateId} (mode={Mode}, reused={Reused})", metadata.RunId, metadata.TemplateId, metadata.Mode, result.WasReused);
 
@@ -108,7 +93,6 @@ internal static class RunOrchestrationEndpointExtensions
                 Warnings = warnings,
                 CanReplay = canReplay,
                 Telemetry = RunOrchestrationContractMapper.BuildTelemetrySummary(result),
-                BundleRef = bundleWrite.Reference,
                 WasReused = result.WasReused
             });
         }

@@ -528,19 +528,6 @@ public partial class Program
 				var metadata = RunOrchestrationContractMapper.BuildStateMetadata(result);
 				var warnings = RunOrchestrationContractMapper.BuildStateWarnings(result.TelemetryManifest);
 				var canReplay = RunOrchestrationContractMapper.DetermineCanReplay(result);
-				var archive = BuildRunArchive(result.RunDirectory);
-				var bundleWrite = await storage.WriteAsync(new StorageWriteRequest
-				{
-					Kind = StorageKind.Run,
-					Id = metadata.RunId,
-					Content = archive,
-					ContentType = "application/zip",
-					Metadata = new Dictionary<string, string>
-					{
-						["templateId"] = metadata.TemplateId,
-						["mode"] = metadata.Mode
-					}
-				}, cancellationToken).ConfigureAwait(false);
 
 				logger.LogInformation("Run {RunId} created for draft {DraftId} (mode={Mode}, reused={Reused})", metadata.RunId, draftId, metadata.Mode, result.WasReused);
 
@@ -551,7 +538,6 @@ public partial class Program
 					Warnings = warnings,
 					CanReplay = canReplay,
 					Telemetry = RunOrchestrationContractMapper.BuildTelemetrySummary(result),
-					BundleRef = bundleWrite.Reference,
 					WasReused = result.WasReused
 				});
 			}
@@ -1182,24 +1168,6 @@ public partial class Program
 			}
 		}
 		return result;
-	}
-
-	internal static byte[] BuildRunArchive(string runDirectory)
-	{
-		using var stream = new MemoryStream();
-		using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
-		{
-			foreach (var file in Directory.EnumerateFiles(runDirectory, "*", SearchOption.AllDirectories))
-			{
-				var entryPath = Path.GetRelativePath(runDirectory, file);
-				var entry = archive.CreateEntry(entryPath, CompressionLevel.Fastest);
-				using var entryStream = entry.Open();
-				using var fileStream = File.OpenRead(file);
-				fileStream.CopyTo(entryStream);
-			}
-		}
-
-		return stream.ToArray();
 	}
 
 	private static byte[] BuildModelArchive(string modelYaml, string provenanceJson, string metadataJson)

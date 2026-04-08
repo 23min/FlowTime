@@ -289,7 +289,6 @@ internal static class StoragePathHelper
         return kind switch
         {
             StorageKind.Model => "models",
-            StorageKind.Run => "runs",
             StorageKind.Series => "series",
             _ => "items"
         };

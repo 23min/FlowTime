@@ -10,8 +10,8 @@
 - [x] AC1. Stored drafts CRUD retired (A2): delete `/api/v1/drafts` GET/PUT/POST/DELETE/list routes, `StorageKind.Draft`, `data/storage/drafts/`, and `DraftEndpointsTests.cs` CRUD tests.
 - [x] AC2. `POST /api/v1/drafts/run` narrowed to inline-source only (A1/A2): remove `draftId` resolution branch; inline tests survive.
 - [x] AC3. `POST /api/v1/drafts/validate` deleted (A6): remove endpoint handler and its tests; preserve `ModelSchemaValidator`, `ModelValidator`, `ModelCompiler`, `ModelParser`, `TemplateInvariantAnalyzer`, `InvariantAnalyzer` unchanged.
-- [ ] AC4. Sim ZIP archive layer deleted (A3): remove `StorageKind.Run` writes in `RunOrchestrationService`, `BundleRef`/`StorageRef` on `RunCreateResponse`, `data/storage/runs/` backend write path, and the `StorageKind.Run` enum value.
-- [ ] AC5. Engine `POST /v1/runs` deleted outright (A4): remove handler, bundle-import branches (`BundlePath`, `BundleArchiveBase64`, `BundleRef`), `ExtractArchiveAsync` helpers, and bundle-import tests. No 410 stub. `GET /v1/runs` and `GET /v1/runs/{runId}` preserved.
+- [x] AC4. Sim ZIP archive layer deleted (A3): remove `StorageKind.Run` writes in `RunOrchestrationService`, `BundleRef`/`StorageRef` on `RunCreateResponse`, `data/storage/runs/` backend write path, and the `StorageKind.Run` enum value.
+- [x] AC5. Engine `POST /v1/runs` deleted outright (A4): remove handler, bundle-import branches (`BundlePath`, `BundleArchiveBase64`, `BundleRef`), `ExtractArchiveAsync` helpers, and bundle-import tests. No 410 stub. `GET /v1/runs` and `GET /v1/runs/{runId}` preserved.
 - [ ] AC6. Engine debug/direct-eval routes deleted: `GET /v1/debug/scan-directory/{dirName}`, `POST /v1/run`, `POST /v1/graph`.
 - [x] AC7. Catalogs retired entirely (A5): routes (`/api/v1/catalogs*`), `CatalogService`/`ICatalogService`, `CatalogPicker.razor`, `CatalogId = "default"` placeholder callers, `catalogId` DTO fields, `data/catalogs/` directory, catalog-only tests.
 - [ ] AC8. Public contracts cleanup consolidated in `FlowTime.Contracts`: `RunImportRequest`/`RunCreateResponse` bundle fields gone; `StorageKind.Draft` and `StorageKind.Run` enum values removed.
@@ -26,8 +26,8 @@ Per milestone spec Technical Notes — each step must leave build green and test
 - [x] Step 2: `/api/v1/drafts/validate` (AC3) — trivial unused route
 - [x] Step 3: Stored drafts CRUD (AC1)
 - [x] Step 4: Narrow `/api/v1/drafts/run` (AC2)
-- [ ] Step 5: Sim ZIP archive layer (AC4)
-- [ ] Step 6: Engine `POST /v1/runs` + bundle-import (AC5)
+- [x] Step 5: Sim ZIP archive layer (AC4)
+- [x] Step 6: Engine `POST /v1/runs` + bundle-import (AC5)
 - [ ] Step 7: Engine debug/direct-eval routes (AC6)
 - [ ] Step 8: Public contracts finalisation (AC8)
 - [ ] Step 9: Grep guards + build/test finalisation (AC9)
@@ -41,13 +41,13 @@ Each must return zero matches in `src/` and `tests/` at wrap time.
 - [x] `StorageKind.Draft`
 - [x] `data/storage/drafts`
 - [x] `drafts/validate` handler literal
-- [ ] `StorageKind.Run`
-- [ ] `BundleRef`
-- [ ] `StorageRef`
-- [ ] `data/storage/runs`
-- [ ] `MapPost("/runs", HandleCreateRunAsync)`
-- [ ] `BundlePath`
-- [ ] `BundleArchiveBase64`
+- [x] `StorageKind.Run`
+- [x] `BundleRef`
+- [x] `data/storage/runs`
+- [x] `MapPost("/runs", HandleCreateRunAsync)` on Engine surface (Sim orchestration keeps the literal on its supported endpoint)
+- [x] `BundlePath`
+- [x] `BundleArchiveBase64`
+- [x] `StorageRef` on bundle response contracts (type still exists for Model/Series storage infrastructure)
 - [ ] `/v1/debug/scan-directory`
 - [ ] `MapPost("/run"` and `MapPost("/graph"`
 - [x] `/api/v1/catalogs`
@@ -165,3 +165,54 @@ These become the tier 1/2/3 ingredients for the future Time Machine validation o
 - `POST /api/v1/drafts/map-profile` — inline-only authoring helper (persist dropped)
 - `DraftSource`, `DraftTemplateRequest`, `DraftRunRequest`, `DraftProfileMapRequest`, `DraftSourceResolution` — still used by surviving routes
 - `FileSystemStorageBackend`, `BlobStorageBackend`, `StorageBackendOptions`, `StorageRef`, `IStorageBackend`, `StorageListRequest`, etc. — the storage abstraction is still needed for `StorageKind.Model`, `StorageKind.Run`, `StorageKind.Series`. Only the `Draft` enum value and its backend path mapping were removed.
+
+## AC4 + AC5 implementation log (bundled commit)
+
+**Status:** complete. Build green (0 warnings, 0 errors), 1250 tests pass (0 failed, 9 skipped; down 8 from pre-AC4 baseline of 1258, matching the two deleted test files).
+
+**Rationale for bundling:** A3 (Sim ZIP archive layer) and A4 (Engine bundle-import + `POST /v1/runs`) share the `BundleRef` and `BundlePath`/`BundleArchiveBase64` types on `FlowTime.Contracts`. A3 deletes the writer; A4 deletes the reader and the import route. Both halves must land atomically because `RunImportRequest` and `RunCreateResponse.BundleRef` are cross-surface types — deleting the writer without the reader leaves dead request fields on the Engine surface, and vice versa.
+
+**Files edited:**
+
+- `src/FlowTime.API/Endpoints/RunOrchestrationEndpoints.cs` — rewrote the file to contain only `HandleListRunsAsync` and `HandleGetRunAsync`. Deleted `MapPost("/runs", ...)` registration, `HandleCreateRunAsync`, `ExtractArchiveAsync` (both overloads), `TryReadRunIdAsync`, `FindBundleRoot`, `CopyDirectory`, `TryDeleteDirectory`. Removed unused imports (`System.IO.Compression`, `System.Text.Json`, `FlowTime.API.Services`, `FlowTime.Contracts.Storage`, `FlowTime.Generator.Artifacts`).
+- `src/FlowTime.Contracts/TimeTravel/RunContracts.cs` — deleted `RunImportRequest` class entirely. Removed `BundleRef` property from `RunCreateResponse`. Removed the `FlowTime.Contracts.Storage` using since `StorageRef` is no longer referenced from this file.
+- `src/FlowTime.Contracts/Storage/StorageContracts.cs` — removed `Run` from the `StorageKind` enum.
+- `src/FlowTime.Contracts/Storage/StorageBackends.cs` — removed `StorageKind.Run => "runs"` from `StoragePathHelper.GetKindFolder`.
+- `src/FlowTime.Sim.Service/Extensions/RunOrchestrationEndpointExtensions.cs` — removed the archive build + `storage.WriteAsync(StorageKind.Run, ...)` block from `HandleCreateRunAsync`, dropped `BundleRef = bundleWrite.Reference` from the response, dropped the `IStorageBackend storage` parameter (no longer used), and removed the `FlowTime.Contracts.Storage` using.
+- `src/FlowTime.Sim.Service/Program.cs` — same removal in the `POST /api/v1/drafts/run` handler (the archive build + storage write + `BundleRef` on response). Deleted the private `BuildRunArchive` helper (no longer called from anywhere). The supported Sim orchestration endpoint (`/api/v1/orchestration/runs`) still uses `MapPost("/runs", HandleCreateRunAsync)` as its internal registration literal, because it is a different handler on a different route prefix.
+
+**Files deleted:**
+
+- `tests/FlowTime.Api.Tests/RunOrchestrationTests.cs` (6 bundle-import tests, all targeted the deleted `POST /v1/runs` route)
+- `tests/FlowTime.Api.Tests/RunOrchestrationGoldenTests.cs` (2 bundle-import golden tests)
+- `tests/FlowTime.Api.Tests/Golden/create-run-response.golden.json`
+- `tests/FlowTime.Api.Tests/Golden/get-run-response.golden.json`
+- `tests/FlowTime.Api.Tests/Golden/simulation-create-run-response.golden.json`
+- `tests/FlowTime.Api.Tests/Golden/simulation-get-run-response.golden.json`
+- `tests/FlowTime.Api.Tests/Golden/list-runs-response.golden.json`
+- Corresponding `.actual` files
+
+**Files fixed to adapt to the deletion:**
+
+- `tests/FlowTime.Api.Tests/TelemetryCaptureEndpointsTests.cs` — `CreateRunAndImportAsync` helper was creating a run in a temp directory then importing it via `POST /v1/runs`. Rewrote it to call `RunOrchestrationService.CreateRunAsync` directly against `Program.ServiceHelpers.RunsRoot(configuration)` (the Engine's canonical runs directory). The round-trip-through-import step was only an artifact of the old test topology, not a meaningful coverage concern. Added a `Microsoft.Extensions.Configuration` using.
+- `tests/FlowTime.Sim.Tests/Service/DraftEndpointsTests.cs` — removed the `bundleRef` assertion from `RunDraftInline_ReturnsRunId` (the field no longer exists on `RunCreateResponse`).
+- `tests/FlowTime.Tests/Storage/StorageRefTests.cs` — migrated `TryParse_ParsesOptionalQueryFields` from `storage://run/run_123` / `StorageKind.Run` to `storage://series/series_123` / `StorageKind.Series` (test was using `Run` as a substrate, not exercising run-specific behaviour).
+
+**Grep guards verified zero-match after deletion:**
+
+- `StorageKind.Run`
+- `BundleRef`
+- `data/storage/runs`
+- `BuildRunArchive`
+- `BundlePath` / `bundlePath`
+- `BundleArchiveBase64` / `bundleArchiveBase64`
+- `RunImportRequest`
+- `ExtractArchiveAsync`
+
+**Preserved surviving surfaces:**
+
+- `GET /v1/runs` and `GET /v1/runs/{runId}` — the canonical run query surface
+- `POST /api/v1/orchestration/runs` (Sim) — A1-supported orchestration endpoint (no longer writes ZIP archives; just returns canonical metadata)
+- `POST /api/v1/drafts/run` (Sim) — A1-supported inline-source transitional execution bridge (no longer writes ZIP archives)
+- Canonical run directory under `data/runs/<runId>/` — unchanged
+- `StorageRef`, `IStorageBackend`, `FileSystemStorageBackend`, `BlobStorageBackend` — storage infrastructure still needed for `StorageKind.Model` and `StorageKind.Series`

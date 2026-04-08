@@ -147,6 +147,5 @@ outputs:
         var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.True(json.RootElement.TryGetProperty("metadata", out var metadata));
         Assert.True(metadata.TryGetProperty("runId", out _));
-        Assert.True(json.RootElement.TryGetProperty("bundleRef", out _));
     }
 }
