@@ -108,7 +108,7 @@ Run identifiers are opaque. Engine generates `run_<utc timestamp>_<8-char slug>`
 - `GET /v1/runs/{runId}/index` → `series/index.json`.
 - `GET /v1/runs/{runId}/series/{seriesId}` → CSV stream (URL-decode `seriesId`).
 
-Sim Service exposes template/catalog endpoints for model generation and uses the same artifact schema for runs; it does not add separate run formats.
+Sim Service exposes template endpoints for model generation and uses the same artifact schema for runs; it does not add separate run formats.
 
 ## Validation & CI gates
 - JSON Schemas in `docs/schemas/`: `run.schema.json`, `manifest.schema.json`, `series-index.schema.json`, `model.schema.yaml`, `template.schema.json`, `telemetry-manifest.schema.json`.

@@ -74,7 +74,8 @@ Expressions are the "formula language" of FlowTime. Each node can declare `expr:
 * **ServiceWithBuffer / Backlog**:
   `Q[t] = max(0, Q[t-1] + inflow[t] - outflow[t] - loss[t])`, optionally gated by dispatch schedules.
 * **Latency**:
-  `W[t] ≈ Q[t] / max(ε, served_rate[t]) * binMinutes`.
+  `W[t] ≈ Q[t] / max(ε, served_rate[t]) * binMinutes`. <!-- m-E19-03:allow-binminutes-notation -->
+  (Derived concept: bin-duration-in-minutes. Not the deprecated YAML schema field.)
 * **Autoscale**: threshold/target policies with lag & cooldown.
 * **Retry**:
   `retries = CONV(errors, retry_kernel)`.
@@ -247,7 +248,7 @@ FlowTime's spreadsheet-based, DAG + delay model makes it **domain-neutral**. By 
 ## 10. Example: Service with Retries & ServiceWithBuffer Queue
 
 ```yaml
-grid: { bins: 6, binMinutes: 5 }
+grid: { bins: 6, binSize: 5, binUnit: minutes }
 nodes:
   - id: svcA
     kind: expr

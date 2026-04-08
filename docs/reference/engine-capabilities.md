@@ -27,7 +27,7 @@ This document describes the **shipped** FlowTime Engine surfaces and behaviors a
 - `GET /v1/runs/{runId}/metrics` — aggregate metrics over a bin range.
 - `GET /v1/runs/{runId}/index` — `series/index.json`.
 - `GET /v1/runs/{runId}/series/{seriesId}` — CSV stream (URL-decoded `seriesId`).
-- No streaming endpoints; no catalog/export/import/registry endpoints.
+- No streaming endpoints.
 
 ## CLI surfaces
 - Engine CLI (`src/FlowTime.Cli`):

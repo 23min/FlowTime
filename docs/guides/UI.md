@@ -1,6 +1,6 @@
 # FlowTime UI (Blazor WebAssembly)
 
-The UI is a Blazor WASM app in `src/FlowTime.UI` that talks to the FlowTime Engine API (default `http://localhost:8080/`) and, where needed, the Sim API (`http://localhost:8090/`) for template/catalog calls. This guide reflects the current implementation; legacy charter/transition content has been removed.
+The UI is a Blazor WASM app in `src/FlowTime.UI` that talks to the FlowTime Engine API (default `http://localhost:8080/`) and, where needed, the Sim API (`http://localhost:8090/`) for template calls. This guide reflects the current implementation; legacy charter/transition content has been removed.
 
 ## Project layout
 ```
