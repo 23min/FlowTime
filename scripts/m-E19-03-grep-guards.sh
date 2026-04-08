@@ -24,6 +24,17 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# Fail fast if ripgrep is missing. Without this check, `rg ... || true` would
+# silently return empty output for every guard and falsely report PASS — which
+# would make the whole script a no-op on any machine where ripgrep isn't on PATH.
+# Backported from scripts/m-E19-04-grep-guards.sh.
+if ! command -v rg >/dev/null 2>&1; then
+    printf 'ERROR: ripgrep (rg) is not on PATH.\n' >&2
+    printf '       Install with: apt-get install ripgrep (Debian/Ubuntu) or brew install ripgrep (macOS).\n' >&2
+    printf '       m-E19-03 grep guards cannot run without it.\n' >&2
+    exit 2
+fi
+
 failed=0
 total=0
 
@@ -110,6 +121,7 @@ check "Guard 6 — no stale test-*-schema.yaml references outside archive" \
 # ----------------------------------------------------------------------------
 check "Guard 7 — no template-integration-spec.md references outside archive" \
     "$(rg --no-heading --line-number --with-filename \
+        --glob '!scripts/m-E19-03-grep-guards.sh' \
         'docs/ui/template-integration-spec' \
         src tests docs examples templates scripts 2>/dev/null \
         | grep -v '^docs/archive/' || true)"
@@ -121,7 +133,9 @@ check "Guard 7 — no template-integration-spec.md references outside archive" \
 # overlap with it as a substring (different path component structure).
 # ----------------------------------------------------------------------------
 check "Guard 8 — no pre-v1 /api/templates/ route literals outside archive" \
-    "$(rg --no-heading --line-number --with-filename -F '/api/templates/' \
+    "$(rg --no-heading --line-number --with-filename -F \
+        --glob '!scripts/m-E19-03-grep-guards.sh' \
+        '/api/templates/' \
         src tests docs examples templates scripts 2>/dev/null \
         | grep -v '^docs/archive/' \
         | grep -v '^docs/releases/' || true)"
