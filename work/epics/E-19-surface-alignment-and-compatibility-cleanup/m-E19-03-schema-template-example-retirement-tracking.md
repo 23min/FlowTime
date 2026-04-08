@@ -11,8 +11,8 @@
 - [x] AC2. `src/FlowTime.UI/wwwroot/sample/run-example.json` grid shape rewritten to `{ "bins": 8, "binSize": 1, "binUnit": "hours" }`. (Bundle A, commit `dd61ca6`)
 - [x] AC3. `src/FlowTime.Cli/Program.cs:98` verbose label rewritten to `binSize={grid.BinSize}, binUnit={grid.BinUnit...}`. (Bundle A, commit `dd61ca6`)
 - [x] AC4. YAML examples in `docs/architecture/whitepaper.md:250` and `docs/architecture/retry-modeling.md` (lines 417, 466, 527) rewritten to current schema; Little's Law formula on `whitepaper.md:77` preserved with `<!-- m-E19-03:allow-binminutes-notation -->` marker appended. (Bundle B, commit pending)
-- [ ] AC5. `examples/test-old-schema.yaml`, `test-no-schema.yaml`, `test-new-schema.yaml` moved to `examples/archive/` via `git mv`; empty `examples/time-travel/` directory deleted; `examples/archive/README.md` created/updated; inbound references updated.
-- [ ] AC6. `docs/ui/template-integration-spec.md` moved to `docs/archive/ui/template-integration-spec.md` via `git mv`; inbound references updated.
+- [x] AC5. `examples/test-old-schema.yaml`, `test-no-schema.yaml`, `test-new-schema.yaml` moved to `examples/archive/` via `git mv`; empty `examples/time-travel/` directory deleted; `examples/archive/README.md` created/updated; inbound references updated. (Bundle C, commit pending)
+- [x] AC6. `docs/ui/template-integration-spec.md` moved to `docs/archive/ui/template-integration-spec.md` via `git mv`; inbound references updated. (Bundle C, commit pending)
 - [x] AC7. Catalog-stale phrasing rewritten in `docs/guides/UI.md:3`, `docs/reference/contracts.md:111`, `docs/reference/engine-capabilities.md:30`. (Bundle B, commit pending). Implementation-time discovery: `engine-capabilities.md:30` claimed "no catalog/export/import/registry endpoints" but the Engine API actually has both `/v1/runs/{runId}/export/*` (6 handler literals) and `/v1/artifacts/*` registry routes. Rewrote to `No streaming endpoints.` — this is both a catalog-consistency edit and a factual correction. Broader engine-capabilities.md accuracy audit not in scope for m-E19-03.
 - [x] AC8. `["binMinutes"]` dictionary-key literals in `tests/FlowTime.UI.Tests/ParameterConversionIntegrationTests.cs` (lines 23, 51, 107) renamed to `["binSize"]`; test class still passes without other edits. (Bundle A, commit `dd61ca6`)
 - [ ] AC9. `scripts/m-E19-03-grep-guards.sh` created, 11 guards implemented, all passing.
@@ -24,7 +24,7 @@ Per milestone spec Technical Notes — five focused commits plus the wrap.
 
 - [x] **Bundle A** (AC1 + AC2 + AC3 + AC8): deprecated `binMinutes` authoring shape in code — four code/fixture rewrites in one conceptual cleanup. Commit `dd61ca6`. 4 files changed, +37 −24. Tests: 1250 passed, 9 skipped, 0 failed.
 - [x] **Bundle B** (AC4 + AC7): active docs cleanup — rewrites `binMinutes` YAML examples and catalog-stale phrasing. Commit pending. 5 files changed. Tests: 1250 passed, 9 skipped, 0 failed.
-- [ ] **Bundle C** (AC5 + AC6): archive moves — three schema-migration example YAMLs, empty `time-travel/` dir, stale UI spec
+- [x] **Bundle C** (AC5 + AC6): archive moves — three schema-migration example YAMLs, empty `time-travel/` dir, stale UI spec. Commit pending. 8 files changed. Tests: 1250 passed, 9 skipped, 0 failed.
 - [ ] **AC9**: grep-guard script as its own commit
 - [ ] **AC10**: wrap — tracking doc finalization and status-surface reconciliation
 
@@ -39,9 +39,9 @@ Each must return zero matches after the milestone completes. Full script: `scrip
 - [x] Guard 3: No `binMinutes` in `src/FlowTime.Cli/` (verified after Bundle A)
 - [x] Guard 4: No `binMinutes` in `docs/architecture/whitepaper.md` except lines containing `m-E19-03:allow-binminutes-notation` (verified after Bundle B — single allowlisted occurrence on line 77)
 - [x] Guard 5: No `binMinutes` in `docs/architecture/retry-modeling.md` (verified after Bundle B)
-- [ ] Guard 6: No `examples/test-old-schema.yaml`, `test-no-schema.yaml`, or `test-new-schema.yaml` reference outside `examples/archive/` and `docs/archive/`
-- [ ] Guard 7: No active reference (outside `docs/archive/`) to `docs/ui/template-integration-spec.md`
-- [ ] Guard 8: No active reference to pre-v1 routes `/api/templates/{id}/schema` or `/api/templates/generate` outside `docs/archive/` and release notes
+- [x] Guard 6: No `examples/test-old-schema.yaml`, `test-no-schema.yaml`, or `test-new-schema.yaml` reference outside `examples/archive/` and `docs/archive/` (verified after Bundle C — surviving matches in `work/epics/completed/` and m-E19-03 tracking/spec docs are explicitly allowlisted by scope)
+- [x] Guard 7: No active reference (outside `docs/archive/`) to `docs/ui/template-integration-spec.md` (verified after Bundle C — `supported-surfaces.md` refs updated to `docs/archive/ui/`)
+- [x] Guard 8: No active reference to pre-v1 routes `/api/templates/{id}/schema` or `/api/templates/generate` outside `docs/archive/` and release notes (verified — pre-v1 route literals now only exist inside the archived `docs/archive/ui/template-integration-spec.md` content itself)
 - [x] Guard 9: No `template/catalog` literal in `docs/guides/UI.md` or `docs/reference/contracts.md` (verified after Bundle B)
 - [x] Guard 10: No `catalog/export/import/registry` literal in `docs/reference/engine-capabilities.md` (verified after Bundle B)
 - [x] Guard 11: No `["binMinutes"]` dictionary-key literal in `tests/FlowTime.UI.Tests/ParameterConversionIntegrationTests.cs` (verified after Bundle A)
@@ -119,3 +119,39 @@ Active docs cleanup. Docs-only changes, no code. 5 files changed.
 - Build: 0 errors, only the pre-existing `xUnit2031` warning
 - Tests: 1250 passed / 9 skipped / 0 failed
 - Grep guards 4, 5, 9, 10: all passing. Only `binMinutes` match in `whitepaper.md` is line 77 with the allowlist marker.
+
+### Bundle C — commit pending
+
+Archive moves for three schema-migration example YAMLs and the stale pre-v1 UI spec. No source code, no tests, no docs content changes beyond link updates. 8 files changed.
+
+**Moves (via `git mv` so rename history is preserved):**
+- `examples/test-old-schema.yaml` → `examples/archive/test-old-schema.yaml`
+- `examples/test-no-schema.yaml` → `examples/archive/test-no-schema.yaml`
+- `examples/test-new-schema.yaml` → `examples/archive/test-new-schema.yaml`
+- `docs/ui/template-integration-spec.md` → `docs/archive/ui/template-integration-spec.md`
+
+**Deletions:**
+- `examples/time-travel/` — empty leftover directory, `rmdir`'d.
+
+**Creations:**
+- `examples/archive/README.md` — archive index explaining what the three test-*-schema YAMLs are, their purpose (schema-transition coverage fixtures), their status under `ModelValidator`'s rejection gate, and links to the m-E19-01 decision record and current schema documentation.
+
+**Inbound-reference updates (`docs/architecture/supported-surfaces.md`):**
+- Row 78 (Examples matrix row): three YAML link paths flipped to `examples/archive/`; decision column updated from `archive` to `archived (m-E19-03)`.
+- Row 83 (Current docs matrix row for template-integration-spec): link path flipped to `docs/archive/ui/`; decision column updated from `archive/update` to `archived (m-E19-03)`.
+- Raw sweep appendix rows 206-208: three YAML link paths flipped to `examples/archive/`.
+- Raw sweep appendix row 229: template-integration-spec link path flipped to `docs/archive/ui/`.
+
+**Explicitly left untouched (per spec out-of-scope):**
+- `work/epics/completed/ui-schema-migration/UI-M-02.09.md` and `UI-M-02.09-log.md` — historical completed-epic logs under `work/epics/completed/`, out of scope.
+- `CLAUDE.md:232` — plain-text mention of `template-integration-spec.md` in the m-E19-03 scope summary, not a path link.
+- m-E19-03 spec and tracking doc's own source-path references — these describe the archive *decision and action*, so source paths are appropriate context.
+
+**Audit (no test/code references found):**
+- `src/`, `tests/`, `scripts/` grep for `test-old-schema|test-no-schema|test-new-schema`: 0 files.
+- `docs/` grep for `docs/ui/template-integration-spec`: 0 files outside the now-archived path itself.
+
+**Verification:**
+- Build: 0 errors, 1 pre-existing `xUnit2031` warning
+- Tests: 1250 passed / 9 skipped / 0 failed
+- Grep guards 6, 7, 8: all passing
