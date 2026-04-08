@@ -854,99 +854,6 @@ public class TemplateService : ITemplateService
     }
 }
 
-public class CatalogService : ICatalogService
-{
-    private readonly IFlowTimeSimApiClient simClient;
-    private readonly FeatureFlagService featureFlags;
-    private readonly ILogger<CatalogService> logger;
-
-    public CatalogService(IFlowTimeSimApiClient simClient, FeatureFlagService featureFlags, ILogger<CatalogService> logger)
-    {
-        this.simClient = simClient;
-        this.featureFlags = featureFlags;
-        this.logger = logger;
-    }
-
-    public async Task<List<CatalogInfo>> GetCatalogsAsync()
-    {
-        await featureFlags.EnsureLoadedAsync();
-
-        if (featureFlags.UseDemoMode)
-        {
-            // Demo Mode: Use mock catalogs (placeholder until SIM-CAT-M2 catalog API is implemented)
-            logger.LogDebug("Demo Mode: Using mock catalogs");
-            return await GetMockCatalogsAsync();
-        }
-        else
-        {
-            // API Mode: Use mock catalogs (FlowTime API doesn't have catalog endpoints yet)
-            logger.LogDebug("API Mode: Using mock catalogs");
-            return await GetMockCatalogsAsync();
-        }
-    }
-
-    private Task<List<CatalogInfo>> GetMockCatalogsAsync()
-    {
-        try
-        {
-            return Task.FromResult(GetMockCatalogs());
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to get catalogs");
-            throw;
-        }
-    }
-
-    public async Task<CatalogInfo?> GetCatalogAsync(string catalogId)
-    {
-        try
-        {
-            var catalogs = await GetCatalogsAsync();
-            return catalogs.FirstOrDefault(c => c.Id == catalogId);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to get catalog {CatalogId}", catalogId);
-            throw;
-        }
-    }
-
-    private static List<CatalogInfo> GetMockCatalogs()
-    {
-        return new List<CatalogInfo>
-        {
-            new()
-            {
-                Id = "tiny-demo",
-                Name = "Tiny Demo System",
-                Description = "Minimal 3-node system for testing and demonstrations",
-                Type = "Demo",
-                NodeCount = 3,
-                Capabilities = new() { "basic-flow", "simple-routing" }
-            },
-            new()
-            {
-                Id = "small-network",
-                Name = "Small Network",
-                Description = "Small-scale network with 10 nodes and hub topology",
-                Type = "Network",
-                NodeCount = 10,
-                Capabilities = new() { "hub-spoke", "load-balancing", "failover" }
-            },
-            new()
-            {
-                Id = "enterprise-system",
-                Name = "Enterprise System",
-                Description = "Large enterprise system with 50+ nodes and complex routing",
-                Type = "Enterprise",
-                NodeCount = 55,
-                Capabilities = new() { "multi-tier", "load-balancing", "auto-scaling", "monitoring" }
-            }
-        };
-    }
-}
-
 public class FlowTimeSimService : IFlowTimeSimService
 {
     private readonly IFlowTimeSimApiClient simClient;
@@ -1200,13 +1107,7 @@ public class FlowTimeSimService : IFlowTimeSimService
             return new Dictionary<string, object>();
             
         var result = new Dictionary<string, object>(request.Parameters);
-        
-        // Add catalogId if present in request (test expectation)
-        if (!string.IsNullOrEmpty(request.CatalogId))
-        {
-            result["catalogId"] = request.CatalogId;
-        }
-        
+
         // Convert string arrays to double arrays for specific parameters (test expectation)
         var arrayParams = new[] { "demandPattern", "capacityPattern", "rawMaterialSchedule", "assemblyCapacity" };
         foreach (var param in arrayParams)

@@ -8,6 +8,7 @@ using System.Text.Json.Nodes;
 using FlowTime.Api.Tests.Infrastructure;
 using FlowTime.Generator.Orchestration;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -228,53 +229,31 @@ public class TelemetryCaptureEndpointsTests : IClassFixture<TestWebApplicationFa
         return "sha256:" + Convert.ToHexString(hash).ToLowerInvariant();
     }
 
-    private async Task<string> CreateRunAndImportAsync(
+    private static async Task<string> CreateRunAndImportAsync(
         WebApplicationFactory<Program> currentFactory,
         HttpClient client,
         string templateId,
         IReadOnlyDictionary<string, object?> parameters)
     {
-        var sourceRoot = Path.Combine(Path.GetTempPath(), $"flowtime_capture_source_{Guid.NewGuid():N}");
-        Directory.CreateDirectory(sourceRoot);
+        await using var scope = currentFactory.Services.CreateAsyncScope();
+        var orchestration = scope.ServiceProvider.GetRequiredService<RunOrchestrationService>();
+        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+        var runsRoot = Program.ServiceHelpers.RunsRoot(configuration);
+        Directory.CreateDirectory(runsRoot);
 
-        try
+        var request = new RunOrchestrationRequest
         {
-            await using var scope = currentFactory.Services.CreateAsyncScope();
-            var orchestration = scope.ServiceProvider.GetRequiredService<RunOrchestrationService>();
+            TemplateId = templateId,
+            Mode = "simulation",
+            OutputRoot = runsRoot,
+            DeterministicRunId = true,
+            RunId = $"{templateId}_{Guid.NewGuid():N}",
+            Parameters = parameters
+        };
 
-            var request = new RunOrchestrationRequest
-            {
-                TemplateId = templateId,
-                Mode = "simulation",
-                OutputRoot = sourceRoot,
-                DeterministicRunId = true,
-                RunId = $"{templateId}_{Guid.NewGuid():N}",
-                Parameters = parameters
-            };
-
-            var outcome = await orchestration.CreateRunAsync(request);
-            var result = outcome.Result ?? throw new InvalidOperationException("Run orchestration did not produce a bundle.");
-            var importResponse = await client.PostAsJsonAsync("/v1/runs", new
-            {
-                bundlePath = result.RunDirectory,
-                overwriteExisting = true
-            });
-            importResponse.EnsureSuccessStatusCode();
-
-            var responseJson = await importResponse.Content.ReadFromJsonAsync<JsonNode>()
-                ?? throw new InvalidOperationException("Run import response invalid JSON.");
-            var runId = responseJson["metadata"]?["runId"]?.GetValue<string>();
-            if (string.IsNullOrWhiteSpace(runId))
-            {
-                throw new InvalidOperationException("runId missing from import response.");
-            }
-
-            return runId;
-        }
-        finally
-        {
-            TryDeleteDirectory(sourceRoot);
-        }
+        var outcome = await orchestration.CreateRunAsync(request);
+        var result = outcome.Result ?? throw new InvalidOperationException("Run orchestration did not produce a bundle.");
+        return Path.GetFileName(result.RunDirectory);
     }
 
     private static void TryDeleteDirectory(string? path)

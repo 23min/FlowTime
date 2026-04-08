@@ -6,9 +6,7 @@ namespace FlowTime.Contracts.Storage;
 
 public enum StorageKind
 {
-    Draft,
     Model,
-    Run,
     Series
 }
 

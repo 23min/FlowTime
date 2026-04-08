@@ -7,12 +7,6 @@ public interface ITemplateService
     Task<JsonSchema> GetTemplateSchemaAsync(string templateId);
 }
 
-public interface ICatalogService
-{
-    Task<List<CatalogInfo>> GetCatalogsAsync();
-    Task<CatalogInfo?> GetCatalogAsync(string catalogId);
-}
-
 public interface IFlowTimeSimService
 {
     Task<SimulationRunResult> RunSimulationAsync(SimulationRunRequest request);
@@ -31,16 +25,6 @@ public class TemplateInfo
     public string Version { get; set; } = "1.0";
     public JsonSchema? ParameterSchema { get; set; }
     public string? TelemetryCaptureKey { get; set; }
-}
-
-public class CatalogInfo
-{
-    public string Id { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;
-    public string Type { get; set; } = string.Empty;
-    public int NodeCount { get; set; }
-    public List<string> Capabilities { get; set; } = new();
 }
 
 public class JsonSchema
@@ -68,7 +52,6 @@ public class JsonSchemaProperty
 public class SimulationRunRequest
 {
     public string TemplateId { get; set; } = string.Empty;
-    public string CatalogId { get; set; } = string.Empty;
     public Dictionary<string, object> Parameters { get; set; } = new();
 }
 

@@ -110,36 +110,6 @@ public class TemplateServiceParameterConversionTests
         Assert.IsType<double[]>(result["assemblyCapacity"]);
     }
 
-    [Theory]
-    [InlineData("transportation-basic")]
-    [InlineData("manufacturing-line")]
-    [InlineData("it-system-microservices")]
-    [InlineData("supply-chain-multi-tier")]
-    public void ConvertRequestToApiParameters_ShouldPreserveCatalogId(string templateId)
-    {
-        // Arrange
-        var request = new SimulationRunRequest
-        {
-            TemplateId = templateId,
-            CatalogId = "demo-catalog",
-            Parameters = new Dictionary<string, object>
-            {
-                ["bins"] = 6,
-                ["binSize"] = 60,
-                ["binUnit"] = "minutes"
-            }
-        };
-
-        // Act
-        var result = InvokeConvertRequestToApiParameters(request);
-
-        // Assert
-        Assert.Equal("demo-catalog", result["catalogId"]);
-        Assert.Equal(6, result["bins"]);
-        Assert.Equal(60, result["binSize"]);
-        Assert.Equal("minutes", result["binUnit"]);
-    }
-
     /// <summary>
     /// Uses reflection to call the private ConvertRequestToApiParameters method
     /// </summary>

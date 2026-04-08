@@ -93,14 +93,6 @@ builder.Services.AddScoped<ITemplateService>(sp =>
 	return new TemplateService(simClient, featureFlags, logger);
 });
 
-builder.Services.AddScoped<ICatalogService>(sp =>
-{
-	var simClient = sp.GetRequiredService<IFlowTimeSimApiClient>();
-	var featureFlags = sp.GetRequiredService<FeatureFlagService>();
-	var logger = sp.GetRequiredService<ILogger<CatalogService>>();
-	return new CatalogService(simClient, featureFlags, logger);
-});
-
 builder.Services.AddScoped<IFlowTimeSimService>(sp =>
 {
 	var simClient = sp.GetRequiredService<IFlowTimeSimApiClient>();

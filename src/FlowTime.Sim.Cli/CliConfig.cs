@@ -161,9 +161,6 @@ public class CliConfig
     {
         [YamlDotNet.Serialization.YamlMember(Alias = "models")]
         public string? Models { get; set; }
-        
-        [YamlDotNet.Serialization.YamlMember(Alias = "catalogs")]
-        public string? Catalogs { get; set; }
     }
     
     private class DefaultsConfig

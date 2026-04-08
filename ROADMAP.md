@@ -76,7 +76,7 @@ Build a parallel SvelteKit + shadcn-svelte UI surface for demos and future evalu
 
 ## E-19 — Surface Alignment & Compatibility Cleanup (planning)
 
-**Epic:** `work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md` | **Status:** m-E19-01 completed, m-E19-02 next
+**Epic:** `work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md` | **Status:** m-E19-01 and m-E19-02 completed, m-E19-03 next
 
 After E-16 purifies analytical truth, FlowTime still carries broader non-analytical compatibility debt across first-party UI, Sim, docs, examples, and schema surfaces. E-19 removes stale fallback layers and clarifies supported surfaces in a forward-only cut while keeping Blazor current as a supported parallel UI.
 

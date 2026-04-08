@@ -76,26 +76,6 @@ outputs:
     }
 
     [Fact]
-    public async Task ValidateDraftInline_ReturnsValidPayload()
-    {
-        var request = new
-        {
-            source = new { type = "inline", id = "draft-inline", content = templateYaml },
-            parameters = new { bins = 3, binSize = 1 },
-            mode = "simulation"
-        };
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
-
-        var response = await client.PostAsync("/api/v1/drafts/validate", content);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        Assert.True(json.RootElement.GetProperty("valid").GetBoolean());
-        Assert.True(json.RootElement.TryGetProperty("warnings", out var warnings));
-        Assert.Equal(JsonValueKind.Array, warnings.ValueKind);
-    }
-
-    [Fact]
     public async Task GenerateDraftInline_ReturnsModel()
     {
         var request = new
@@ -147,33 +127,6 @@ outputs:
     }
 
     [Fact]
-    public async Task ValidateDraftId_ReturnsValidPayload()
-    {
-        var createRequest = new
-        {
-            draftId = "draft-file",
-            content = templateYaml.Replace("draft-inline", "draft-file")
-        };
-        var createContent = new StringContent(JsonSerializer.Serialize(createRequest), Encoding.UTF8, "application/json");
-        var createResponse = await client.PostAsync("/api/v1/drafts", createContent);
-        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
-
-        var request = new
-        {
-            source = new { type = "draftId", id = "draft-file" },
-            parameters = new { bins = 3, binSize = 1 },
-            mode = "simulation"
-        };
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
-
-        var response = await client.PostAsync("/api/v1/drafts/validate", content);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        Assert.True(json.RootElement.GetProperty("valid").GetBoolean());
-    }
-
-    [Fact]
     public async Task RunDraftInline_ReturnsRunId()
     {
         var request = new
@@ -194,6 +147,5 @@ outputs:
         var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.True(json.RootElement.TryGetProperty("metadata", out var metadata));
         Assert.True(metadata.TryGetProperty("runId", out _));
-        Assert.True(json.RootElement.TryGetProperty("bundleRef", out _));
     }
 }

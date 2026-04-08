@@ -69,8 +69,7 @@ public class CapabilitiesDetectionService : ICapabilitiesDetectionService
         // These are core features we know exist
         features.AddRange(new[] {
             "artifact-generation",
-            "series-endpoints", 
-            "catalog-management"
+            "series-endpoints"
         });
         
         return features.ToArray();
