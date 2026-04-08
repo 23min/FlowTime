@@ -2,7 +2,7 @@
 
 **ID:** m-E19-02-sim-authoring-and-runtime-boundary-cleanup
 **Epic:** [Surface Alignment & Compatibility Cleanup (E-19)](./spec.md)
-**Status:** in-progress
+**Status:** completed
 **Branch:** `milestone/m-E19-02-sim-authoring-and-runtime-boundary-cleanup` (off `epic/E-19`)
 
 ## Goal

@@ -1,9 +1,11 @@
 # Tracking: m-E19-02 Sim Authoring & Runtime Boundary Cleanup
 
-**Status:** in-progress
+**Status:** completed (2026-04-08)
 **Epic:** [E-19 Surface Alignment & Compatibility Cleanup](./spec.md)
 **Milestone spec:** [m-E19-02-sim-authoring-and-runtime-boundary-cleanup.md](./m-E19-02-sim-authoring-and-runtime-boundary-cleanup.md)
 **Branch:** `milestone/m-E19-02-sim-authoring-and-runtime-boundary-cleanup` (off `epic/E-19`)
+**Final test count:** 1250 passed, 9 skipped, 0 failed
+**Grep guards:** 21/21 passing via `scripts/m-E19-02-grep-guards.sh`
 
 ## Acceptance Criteria
 
@@ -16,7 +18,7 @@
 - [x] AC7. Catalogs retired entirely (A5): routes (`/api/v1/catalogs*`), `CatalogService`/`ICatalogService`, `CatalogPicker.razor`, `CatalogId = "default"` placeholder callers, `catalogId` DTO fields, `data/catalogs/` directory, catalog-only tests.
 - [x] AC8. Public contracts cleanup consolidated in `FlowTime.Contracts`: `RunImportRequest`/`RunCreateResponse` bundle fields gone; `StorageKind.Draft` and `StorageKind.Run` enum values removed. Verification-only pass — every change was already made atomically as part of AC1, AC4, AC5, and AC7.
 - [x] AC9. Build green, full test suite green, grep guards asserted (zero matches for each deleted symbol in `src/` and `tests/`). Guard script: `scripts/m-E19-02-grep-guards.sh` (21/21 passing). Full suite: 1250 passed, 9 skipped, 0 failed.
-- [ ] AC10. Status surfaces reconciled at wrap: epic spec, ROADMAP.md, epic-roadmap.md, CLAUDE.md, and this tracking doc all show m-E19-02 complete with final test count and grep guard results recorded.
+- [x] AC10. Status surfaces reconciled at wrap: epic spec, ROADMAP.md, epic-roadmap.md, CLAUDE.md, and this tracking doc all show m-E19-02 complete with final test count and grep guard results recorded.
 
 ## Implementation Sequence
 
@@ -31,7 +33,7 @@ Per milestone spec Technical Notes — each step must leave build green and test
 - [x] Step 7: Engine debug route (AC6, narrowed)
 - [x] Step 8: Public contracts finalisation (AC8)
 - [x] Step 9: Grep guards + build/test finalisation (AC9)
-- [ ] Step 10: Wrap (AC10)
+- [x] Step 10: Wrap (AC10)
 
 ## Grep Guards
 
