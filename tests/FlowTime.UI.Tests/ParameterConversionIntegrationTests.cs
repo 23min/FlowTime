@@ -20,9 +20,9 @@ public class ParameterConversionIntegrationTests
         var uiParameters = new Dictionary<string, object>
         {
             ["bins"] = 6,
-            ["binMinutes"] = 60,
+            ["binSize"] = 60,
             ["demandPattern"] = new List<string> { "10", "15", "20", "25", "18", "12" }, // String array from UI
-            ["capacityPattern"] = new List<string> { "15", "18", "25", "30", "22", "16" }  // String array from UI  
+            ["capacityPattern"] = new List<string> { "15", "18", "25", "30", "22", "16" }  // String array from UI
         };
 
         // Act - Serialize as the UI would send to FlowTime-Sim API
@@ -48,7 +48,7 @@ public class ParameterConversionIntegrationTests
         var correctParameters = new Dictionary<string, object>
         {
             ["bins"] = 6,
-            ["binMinutes"] = 60,
+            ["binSize"] = 60,
             ["demandPattern"] = new double[] { 10, 15, 20, 25, 18, 12 }, // Number array (correct)
             ["capacityPattern"] = new double[] { 15, 18, 25, 30, 22, 16 } // Number array (correct)
         };
@@ -104,7 +104,7 @@ public class ParameterConversionIntegrationTests
             Parameters = new Dictionary<string, object>
             {
                 ["bins"] = 6,
-                ["binMinutes"] = 60,
+                ["binSize"] = 60,
                 ["demandPattern"] = new List<string> { "10", "15", "20" }, // From UI form
                 ["capacityPattern"] = new List<string> { "15", "18", "25" }  // From UI form
             }

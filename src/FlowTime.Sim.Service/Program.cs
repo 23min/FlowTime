@@ -86,9 +86,6 @@ public partial class Program
 			}
 		});
 
-		// Initialize catalogs during startup
-		ServiceHelpers.EnsureRuntimeCatalogs(app.Configuration);
-
 		app.Lifetime.ApplicationStarted.Register(() =>
 		{
 			_ = Task.Run(async () =>
@@ -201,10 +198,7 @@ public partial class Program
 				"/api/v1/templates/refresh",
 				"/api/v1/templates/categories",
 				"/api/v1/models",
-				"/api/v1/models/{templateId}",
-				"/api/v1/catalogs",
-				"/api/v1/catalogs/{id}",
-				"/api/v1/catalogs/validate"
+				"/api/v1/models/{templateId}"
 					},
 					templateWarnings = warningRegistry.GetWarnings()
 				});
@@ -395,225 +389,6 @@ public partial class Program
 			}
 		});
 
-		// API: GET /api/v1/drafts  (list stored drafts)
-		api.MapGet("/drafts", async (IStorageBackend storage, CancellationToken cancellationToken) =>
-		{
-			var items = await storage.ListAsync(new StorageListRequest { Kind = StorageKind.Draft }, cancellationToken).ConfigureAwait(false);
-			var response = new DraftListResponse
-			{
-				Items = items.Select(item => new DraftSummary
-				{
-					DraftId = item.Reference.Id,
-					StorageRef = item.Reference.ToString(),
-					ContentHash = item.ContentHash,
-					UpdatedUtc = item.UpdatedUtc,
-					Metadata = item.Metadata
-				}).ToList()
-			};
-
-			return Results.Ok(response);
-		});
-
-		// API: GET /api/v1/drafts/{draftId}  (get stored draft)
-		api.MapGet("/drafts/{draftId}", async (string draftId, IStorageBackend storage, CancellationToken cancellationToken) =>
-		{
-			if (!StorageRef.IsValidId(draftId))
-			{
-				return Results.BadRequest(new { error = "Invalid draft id." });
-			}
-
-			var reference = new StorageRef { Kind = StorageKind.Draft, Id = draftId };
-			var stored = await storage.ReadAsync(reference, cancellationToken).ConfigureAwait(false);
-			if (stored is null)
-			{
-				return Results.NotFound(new { error = $"Draft '{draftId}' not found." });
-			}
-
-			var content = System.Text.Encoding.UTF8.GetString(stored.Content);
-			return Results.Ok(new DraftResponse
-			{
-				DraftId = draftId,
-				StorageRef = stored.Reference.ToString(),
-				ContentHash = stored.ContentHash,
-				Content = content,
-				Metadata = stored.Metadata
-			});
-		});
-
-		// API: POST /api/v1/drafts  (create stored draft)
-		api.MapPost("/drafts", async (DraftCreateRequest request, IStorageBackend storage, CancellationToken cancellationToken) =>
-		{
-			if (request is null || string.IsNullOrWhiteSpace(request.Content))
-			{
-				return Results.BadRequest(new { error = "content is required." });
-			}
-
-			var draftId = string.IsNullOrWhiteSpace(request.DraftId)
-				? $"draft_{DateTime.UtcNow:yyyyMMddTHHmmssZ}_{Guid.NewGuid():N}"
-				: request.DraftId.Trim();
-
-			if (!StorageRef.IsValidId(draftId))
-			{
-				return Results.BadRequest(new { error = "Invalid draft id." });
-			}
-
-			var reference = new StorageRef { Kind = StorageKind.Draft, Id = draftId };
-			if (!request.Overwrite)
-			{
-				var existing = await storage.ReadAsync(reference, cancellationToken).ConfigureAwait(false);
-				if (existing is not null)
-				{
-					return Results.Conflict(new { error = $"Draft '{draftId}' already exists." });
-				}
-			}
-
-			var payload = System.Text.Encoding.UTF8.GetBytes(request.Content);
-			var write = await storage.WriteAsync(new StorageWriteRequest
-			{
-				Kind = StorageKind.Draft,
-				Id = draftId,
-				Content = payload,
-				ContentType = "text/yaml",
-				Metadata = request.Metadata
-			}, cancellationToken).ConfigureAwait(false);
-
-			return Results.Created($"/api/v1/drafts/{draftId}", new DraftWriteResponse
-			{
-				DraftId = draftId,
-				StorageRef = write.Reference.ToString(),
-				ContentHash = write.ContentHash
-			});
-		});
-
-		// API: PUT /api/v1/drafts/{draftId}  (update stored draft)
-		api.MapPut("/drafts/{draftId}", async (string draftId, DraftUpdateRequest request, IStorageBackend storage, CancellationToken cancellationToken) =>
-		{
-			if (!StorageRef.IsValidId(draftId))
-			{
-				return Results.BadRequest(new { error = "Invalid draft id." });
-			}
-
-			if (request is null || string.IsNullOrWhiteSpace(request.Content))
-			{
-				return Results.BadRequest(new { error = "content is required." });
-			}
-
-			var reference = new StorageRef { Kind = StorageKind.Draft, Id = draftId };
-			var existing = await storage.ReadAsync(reference, cancellationToken).ConfigureAwait(false);
-			if (existing is null)
-			{
-				return Results.NotFound(new { error = $"Draft '{draftId}' not found." });
-			}
-
-			var payload = System.Text.Encoding.UTF8.GetBytes(request.Content);
-			var write = await storage.WriteAsync(new StorageWriteRequest
-			{
-				Kind = StorageKind.Draft,
-				Id = draftId,
-				Content = payload,
-				ContentType = "text/yaml",
-				Metadata = request.Metadata
-			}, cancellationToken).ConfigureAwait(false);
-
-			return Results.Ok(new DraftWriteResponse
-			{
-				DraftId = draftId,
-				StorageRef = write.Reference.ToString(),
-				ContentHash = write.ContentHash
-			});
-		});
-
-		// API: DELETE /api/v1/drafts/{draftId}  (delete stored draft)
-		api.MapDelete("/drafts/{draftId}", async (string draftId, IStorageBackend storage, CancellationToken cancellationToken) =>
-		{
-			if (!StorageRef.IsValidId(draftId))
-			{
-				return Results.BadRequest(new { error = "Invalid draft id." });
-			}
-
-			var reference = new StorageRef { Kind = StorageKind.Draft, Id = draftId };
-			var removed = await storage.DeleteAsync(reference, cancellationToken).ConfigureAwait(false);
-			return removed ? Results.NoContent() : Results.NotFound(new { error = $"Draft '{draftId}' not found." });
-		});
-
-		// API: POST /api/v1/drafts/validate  (validate draft template source)
-		api.MapPost("/drafts/validate", async (
-			DraftTemplateRequest request,
-			IConfiguration config,
-			ILogger<TemplateService> templateLogger,
-			IStorageBackend storage,
-			CancellationToken cancellationToken) =>
-		{
-			if (request is null)
-			{
-				return Results.BadRequest(new { error = "Request body is required." });
-			}
-
-			var resolveResult = await ResolveDraftSourceAsync(request.Source, config, storage, cancellationToken).ConfigureAwait(false);
-			if (resolveResult.ErrorResult is not null)
-			{
-				return resolveResult.ErrorResult;
-			}
-
-			if (resolveResult.Value is null)
-			{
-				return Results.BadRequest(new { error = "Draft source resolution failed." });
-			}
-
-			var (draftId, draftYaml) = resolveResult.Value;
-			var parameters = BuildParameters(request.Parameters);
-			TemplateMode? modeOverride = null;
-			if (!string.IsNullOrWhiteSpace(request.Mode))
-			{
-				try
-				{
-					modeOverride = TemplateModeExtensions.Parse(request.Mode);
-				}
-				catch (TemplateValidationException)
-				{
-					return Results.BadRequest(new { error = $"Invalid mode '{request.Mode}'. Expected 'simulation' or 'telemetry'." });
-				}
-			}
-
-			try
-			{
-				var draftTemplateService = CreateDraftTemplateService(draftId, draftYaml, templateLogger);
-				var modelYaml = await draftTemplateService.GenerateEngineModelAsync(draftId, parameters, modeOverride).ConfigureAwait(false);
-				var invariantAnalysis = TemplateInvariantAnalyzer.Analyze(modelYaml);
-				var warningsPayload = invariantAnalysis.Warnings.Select(w => new
-				{
-					nodeId = w.NodeId,
-					code = w.Code,
-					message = w.Message,
-					bins = w.Bins
-				}).ToArray();
-				var artifact = artifactDeserializer.Deserialize<SimModelArtifact>(modelYaml);
-				var metadataSummary = new
-				{
-					templateId = artifact.Metadata.Id,
-					templateTitle = artifact.Metadata.Title,
-					templateVersion = artifact.Metadata.Version,
-					schemaVersion = artifact.SchemaVersion,
-					generator = artifact.Generator,
-					mode = artifact.Mode
-				};
-
-				return Results.Ok(new { valid = true, metadata = metadataSummary, warnings = warningsPayload });
-			}
-			catch (TemplateValidationException ex)
-			{
-				return Results.BadRequest(new { valid = false, errors = new[] { ex.Message } });
-			}
-			catch (TemplateParsingException ex)
-			{
-				return Results.BadRequest(new { valid = false, errors = new[] { ex.Message } });
-			}
-			catch (Exception ex)
-			{
-				return Results.BadRequest(new { valid = false, errors = new[] { ex.Message } });
-			}
-		});
-
 		// API: POST /api/v1/drafts/generate  (generate model from draft template source)
 		api.MapPost("/drafts/generate", async (
 			DraftTemplateRequest request,
@@ -753,19 +528,6 @@ public partial class Program
 				var metadata = RunOrchestrationContractMapper.BuildStateMetadata(result);
 				var warnings = RunOrchestrationContractMapper.BuildStateWarnings(result.TelemetryManifest);
 				var canReplay = RunOrchestrationContractMapper.DetermineCanReplay(result);
-				var archive = BuildRunArchive(result.RunDirectory);
-				var bundleWrite = await storage.WriteAsync(new StorageWriteRequest
-				{
-					Kind = StorageKind.Run,
-					Id = metadata.RunId,
-					Content = archive,
-					ContentType = "application/zip",
-					Metadata = new Dictionary<string, string>
-					{
-						["templateId"] = metadata.TemplateId,
-						["mode"] = metadata.Mode
-					}
-				}, cancellationToken).ConfigureAwait(false);
 
 				logger.LogInformation("Run {RunId} created for draft {DraftId} (mode={Mode}, reused={Reused})", metadata.RunId, draftId, metadata.Mode, result.WasReused);
 
@@ -776,7 +538,6 @@ public partial class Program
 					Warnings = warnings,
 					CanReplay = canReplay,
 					Telemetry = RunOrchestrationContractMapper.BuildTelemetrySummary(result),
-					BundleRef = bundleWrite.Reference,
 					WasReused = result.WasReused
 				});
 			}
@@ -1165,32 +926,12 @@ public partial class Program
 			}
 
 			var updatedYaml = TemplateYamlSerializer.Serialize(template);
-			var persisted = false;
-
-			if (request.Persist)
-			{
-				if (!string.Equals(request.Source.Type, "draftId", StringComparison.OrdinalIgnoreCase))
-				{
-					return Results.BadRequest(new { error = "persist requires source.type 'draftId'." });
-				}
-
-				var payload = System.Text.Encoding.UTF8.GetBytes(updatedYaml);
-				await storage.WriteAsync(new StorageWriteRequest
-				{
-					Kind = StorageKind.Draft,
-					Id = draftId,
-					Content = payload,
-					ContentType = "text/yaml"
-				}, cancellationToken).ConfigureAwait(false);
-				persisted = true;
-			}
 
 			var response = new Dictionary<string, object?>
 			{
 				["draftId"] = draftId,
 				["nodeId"] = node.Id,
-				["content"] = updatedYaml,
-				["persisted"] = persisted
+				["content"] = updatedYaml
 			};
 
 			if (detailLevel == "expert")
@@ -1299,170 +1040,6 @@ public partial class Program
 			catch (Exception ex)
 			{
 				return Results.Problem($"Failed to retrieve model: {ex.Message}");
-			}
-		});
-
-		// API: GET /api/v1/catalogs (list all catalogs)
-		api.MapGet("/catalogs", (IConfiguration config) =>
-		{
-			try
-			{
-				var catalogsRoot = ServiceHelpers.CatalogsRoot(config);
-				if (!Directory.Exists(catalogsRoot))
-				{
-					return Results.Ok(new { catalogs = Array.Empty<object>() });
-				}
-
-				var catalogFiles = Directory.GetFiles(catalogsRoot, "*.yaml", SearchOption.TopDirectoryOnly);
-				var catalogs = new List<object>();
-
-				foreach (var filePath in catalogFiles)
-				{
-					try
-					{
-						var catalog = CatalogIO.ReadCatalogFromFile(filePath);
-						var hash = CatalogIO.ComputeCatalogHash(catalog);
-						var fileId = Path.GetFileNameWithoutExtension(filePath);
-
-						catalogs.Add(new
-						{
-							id = fileId,
-							title = catalog.Metadata.Title ?? fileId,
-							description = catalog.Metadata.Description,
-							hash = hash,
-							componentCount = catalog.Components.Count,
-							connectionCount = catalog.Connections.Count
-						});
-					}
-					catch (Exception ex)
-					{
-						app.Logger.LogWarning("Failed to read catalog {FilePath}: {Message}", filePath, ex.Message);
-					}
-				}
-
-				return Results.Ok(catalogs);
-			}
-			catch (Exception ex)
-			{
-				return Results.Problem($"Failed to list catalogs: {ex.Message}");
-			}
-		});
-
-		// API: GET /api/v1/catalogs/{id} (get specific catalog)
-		api.MapGet("/catalogs/{id}", (string id, IConfiguration config) =>
-		{
-			try
-			{
-				if (!ServiceHelpers.IsSafeCatalogId(id))
-					return Results.BadRequest(new { error = "Invalid catalog id" });
-
-				var catalogsRoot = ServiceHelpers.CatalogsRoot(config);
-				var filePath = Path.Combine(catalogsRoot, id + ".yaml");
-
-				if (!File.Exists(filePath))
-					return Results.NotFound(new { error = $"Catalog '{id}' not found" });
-
-				var catalog = CatalogIO.ReadCatalogFromFile(filePath);
-				return Results.Ok(catalog);
-			}
-			catch (Exception ex)
-			{
-				return Results.BadRequest(new { error = "Failed to read catalog", detail = ex.Message });
-			}
-		});
-
-		// API: PUT /api/v1/catalogs/{id} (create/update catalog)
-		api.MapPut("/catalogs/{id}", async (string id, HttpRequest req, IConfiguration config) =>
-		{
-			try
-			{
-				if (!ServiceHelpers.IsSafeCatalogId(id))
-					return Results.BadRequest(new { error = "Invalid catalog id" });
-
-				using var reader = new StreamReader(req.Body, System.Text.Encoding.UTF8);
-				var yaml = await reader.ReadToEndAsync();
-				if (string.IsNullOrWhiteSpace(yaml))
-				{
-					return Results.BadRequest(new { error = "Empty body" });
-				}
-
-				Catalog catalog;
-				try
-				{
-					catalog = CatalogIO.ParseCatalogFromYaml(yaml);
-				}
-				catch (Exception ex)
-				{
-					return Results.BadRequest(new { error = "YAML parse failed", detail = ex.Message });
-				}
-
-				var validation = catalog.Validate();
-				if (!validation.IsValid)
-				{
-					return Results.BadRequest(new { error = "Catalog validation failed", errors = validation.Errors });
-				}
-
-				var catalogsRoot = ServiceHelpers.CatalogsRoot(config);
-				var filePath = Path.Combine(catalogsRoot, id + ".yaml");
-				await File.WriteAllTextAsync(filePath, yaml, System.Text.Encoding.UTF8);
-
-				var hash = CatalogIO.ComputeCatalogHash(catalog);
-
-				return Results.Ok(new
-				{
-					id,
-					hash,
-					componentCount = catalog.Components.Count,
-					connectionCount = catalog.Connections.Count
-				});
-			}
-			catch (Exception ex)
-			{
-				return Results.BadRequest(new { error = ex.Message });
-			}
-		});
-
-		// API: POST /api/v1/catalogs/validate (validate catalog without saving)
-		api.MapPost("/catalogs/validate", async (HttpRequest req) =>
-		{
-			try
-			{
-				using var reader = new StreamReader(req.Body, System.Text.Encoding.UTF8);
-				var yaml = await reader.ReadToEndAsync();
-				if (string.IsNullOrWhiteSpace(yaml))
-				{
-					return Results.BadRequest(new { valid = false, errors = new[] { "Empty body" } });
-				}
-
-				Catalog catalog;
-				try
-				{
-					catalog = CatalogIO.ParseCatalogFromYaml(yaml);
-				}
-				catch (Exception ex)
-				{
-					return Results.BadRequest(new { valid = false, errors = new[] { $"YAML parse failed: {ex.Message}" } });
-				}
-
-				var validation = catalog.Validate();
-				if (!validation.IsValid)
-				{
-					return Results.BadRequest(new { valid = false, errors = validation.Errors });
-				}
-
-				var hash = CatalogIO.ComputeCatalogHash(catalog);
-
-				return Results.Ok(new
-				{
-					valid = true,
-					hash,
-					componentCount = catalog.Components.Count,
-					connectionCount = catalog.Connections.Count
-				});
-			}
-			catch (Exception ex)
-			{
-				return Results.BadRequest(new { valid = false, errors = new[] { ex.Message } });
 			}
 		});
 
@@ -1593,24 +1170,6 @@ public partial class Program
 		return result;
 	}
 
-	internal static byte[] BuildRunArchive(string runDirectory)
-	{
-		using var stream = new MemoryStream();
-		using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
-		{
-			foreach (var file in Directory.EnumerateFiles(runDirectory, "*", SearchOption.AllDirectories))
-			{
-				var entryPath = Path.GetRelativePath(runDirectory, file);
-				var entry = archive.CreateEntry(entryPath, CompressionLevel.Fastest);
-				using var entryStream = entry.Open();
-				using var fileStream = File.OpenRead(file);
-				fileStream.CopyTo(entryStream);
-			}
-		}
-
-		return stream.ToArray();
-	}
-
 	private static byte[] BuildModelArchive(string modelYaml, string provenanceJson, string metadataJson)
 	{
 		using var stream = new MemoryStream();
@@ -1647,7 +1206,7 @@ public partial class Program
 		return reader.ReadToEnd();
 	}
 
-	private static async Task<(DraftSourceResolution? Value, IResult? ErrorResult)> ResolveDraftSourceAsync(
+	private static Task<(DraftSourceResolution? Value, IResult? ErrorResult)> ResolveDraftSourceAsync(
 		DraftSource source,
 		IConfiguration config,
 		IStorageBackend storage,
@@ -1655,58 +1214,35 @@ public partial class Program
 	{
 		if (source is null)
 		{
-			return (null, Results.BadRequest(new { error = "source is required." }));
+			return Task.FromResult<(DraftSourceResolution?, IResult?)>((null, Results.BadRequest(new { error = "source is required." })));
 		}
 
 		var type = source.Type?.Trim().ToLowerInvariant();
 		if (string.IsNullOrWhiteSpace(type))
 		{
-			return (null, Results.BadRequest(new { error = "source.type is required." }));
+			return Task.FromResult<(DraftSourceResolution?, IResult?)>((null, Results.BadRequest(new { error = "source.type is required." })));
 		}
 
-		if (type == "draftid")
+		if (type != "inline")
 		{
-			if (string.IsNullOrWhiteSpace(source.Id))
-			{
-				return (null, Results.BadRequest(new { error = "source.id is required for draftId." }));
-			}
-
-			if (!ServiceHelpers.IsSafeCatalogId(source.Id))
-			{
-				return (null, Results.BadRequest(new { error = "Invalid draft id." }));
-			}
-
-			var reference = new StorageRef { Kind = StorageKind.Draft, Id = source.Id };
-			var stored = await storage.ReadAsync(reference, cancellationToken).ConfigureAwait(false);
-			if (stored is null)
-			{
-				return (null, Results.NotFound(new { error = $"Draft '{source.Id}' not found." }));
-			}
-
-			var yaml = System.Text.Encoding.UTF8.GetString(stored.Content);
-			return (new DraftSourceResolution(source.Id, yaml), null);
+			return Task.FromResult<(DraftSourceResolution?, IResult?)>((null, Results.BadRequest(new { error = $"Unsupported source.type '{source.Type}'. Only 'inline' is supported." })));
 		}
 
-		if (type == "inline")
+		if (string.IsNullOrWhiteSpace(source.Id))
 		{
-			if (string.IsNullOrWhiteSpace(source.Id))
-			{
-				return (null, Results.BadRequest(new { error = "source.id is required for inline drafts." }));
-			}
-			if (string.IsNullOrWhiteSpace(source.Content))
-			{
-				return (null, Results.BadRequest(new { error = "source.content is required for inline drafts." }));
-			}
-
-			if (!ServiceHelpers.IsSafeCatalogId(source.Id))
-			{
-				return (null, Results.BadRequest(new { error = "Invalid draft id." }));
-			}
-
-			return (new DraftSourceResolution(source.Id, source.Content), null);
+			return Task.FromResult<(DraftSourceResolution?, IResult?)>((null, Results.BadRequest(new { error = "source.id is required for inline drafts." })));
+		}
+		if (string.IsNullOrWhiteSpace(source.Content))
+		{
+			return Task.FromResult<(DraftSourceResolution?, IResult?)>((null, Results.BadRequest(new { error = "source.content is required for inline drafts." })));
 		}
 
-		return (null, Results.BadRequest(new { error = $"Unsupported source.type '{source.Type}'." }));
+		if (!ServiceHelpers.IsSafeId(source.Id))
+		{
+			return Task.FromResult<(DraftSourceResolution?, IResult?)>((null, Results.BadRequest(new { error = "Invalid draft id." })));
+		}
+
+		return Task.FromResult<(DraftSourceResolution?, IResult?)>((new DraftSourceResolution(source.Id, source.Content), null));
 	}
 
 	private static string ResolveDetailLevel(string? detailLevel)
@@ -2175,7 +1711,7 @@ public partial class Program
 	public static class ServiceHelpers
 	{
 		/// <summary>
-		/// Gets the root data directory (parent of runs and catalogs).
+		/// Gets the root data directory (parent of runs).
 		/// Order of precedence:
 		/// 1. Environment variable FLOWTIME_SIM_DATA_DIR
 		/// 2. Configuration FlowTimeSim:DataDir
@@ -2299,71 +1835,15 @@ public partial class Program
 			return seriesDir;
 		}
 
-		/// <summary>
-		/// Ensures runtime catalogs directory exists and is populated with demo catalogs if empty.
-		/// Copies source catalogs to runtime location during startup for consistent behavior.
-		/// </summary>
-		public static void EnsureRuntimeCatalogs(IConfiguration? configuration = null)
-		{
-			var dataDir = DataRoot(configuration);
-			var runtimeCatalogsDir = Path.Combine(dataDir, "catalogs");
-
-			// Find workspace root by looking for the solution file
-			var currentDir = Directory.GetCurrentDirectory();
-			var workspaceRoot = currentDir;
-			while (!File.Exists(Path.Combine(workspaceRoot, "FlowTimeSim.sln")) && Directory.GetParent(workspaceRoot) != null)
-			{
-				workspaceRoot = Directory.GetParent(workspaceRoot)!.FullName;
-			}
-			var sourceCatalogsDir = Path.Combine(workspaceRoot, "catalogs");
-
-			// Create runtime catalogs directory if it doesn't exist
-			Directory.CreateDirectory(runtimeCatalogsDir);
-
-			// Copy demo catalogs if runtime directory is empty or doesn't have .yaml files
-			if (Directory.GetFiles(runtimeCatalogsDir, "*.yaml").Length == 0)
-			{
-				if (Directory.Exists(sourceCatalogsDir))
-				{
-					foreach (var sourceFile in Directory.GetFiles(sourceCatalogsDir, "*.yaml"))
-					{
-						var fileName = Path.GetFileName(sourceFile);
-						var destFile = Path.Combine(runtimeCatalogsDir, fileName);
-						// Don't overwrite existing user customizations
-						if (!File.Exists(destFile))
-						{
-							File.Copy(sourceFile, destFile);
-						}
-					}
-				}
-			}
-		}
-
-		/// <summary>
-		/// Gets the root directory for catalogs.
-		/// Always returns the runtime catalogs directory after ensuring it's populated.
-		/// </summary>
-		public static string CatalogsRoot(IConfiguration? configuration = null)
-		{
-			var dataDir = DataRoot(configuration);
-			var runtimeCatalogsDir = Path.Combine(dataDir, "catalogs");
-
-			// Ensure runtime catalogs are set up
-			EnsureRuntimeCatalogs(configuration);
-
-			return runtimeCatalogsDir;
-		}
-
 		public static bool IsSafeId(string id) => !string.IsNullOrWhiteSpace(id) && id.Length < 128 && id.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-');
 		public static bool IsSafeSeriesId(string id) => !string.IsNullOrWhiteSpace(id) && id.Length < 128 && id.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-' or '@');
-		public static bool IsSafeCatalogId(string id) => !string.IsNullOrWhiteSpace(id) && id.Length < 128 && id.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-' or '.');
 	}
 
 	public sealed record DraftSourceResolution(string DraftId, string Content);
 
 	public sealed class DraftSource
 	{
-		public string Type { get; init; } = "draftId";
+		public string Type { get; init; } = "inline";
 		public string? Id { get; init; }
 		public string? Content { get; init; }
 	}
@@ -2385,50 +1865,6 @@ public partial class Program
 		public RunRngOptions? Rng { get; init; }
 		public RunCreationOptions? Options { get; init; }
 		public object? Actor { get; init; }
-	}
-
-	public sealed class DraftCreateRequest
-	{
-		public string? DraftId { get; init; }
-		public string Content { get; init; } = string.Empty;
-		public bool Overwrite { get; init; }
-		public Dictionary<string, string>? Metadata { get; init; }
-	}
-
-	public sealed class DraftUpdateRequest
-	{
-		public string Content { get; init; } = string.Empty;
-		public Dictionary<string, string>? Metadata { get; init; }
-	}
-
-	public sealed class DraftWriteResponse
-	{
-		public required string DraftId { get; init; }
-		public required string StorageRef { get; init; }
-		public required string ContentHash { get; init; }
-	}
-
-	public sealed class DraftResponse
-	{
-		public required string DraftId { get; init; }
-		public required string StorageRef { get; init; }
-		public string? ContentHash { get; init; }
-		public required string Content { get; init; }
-		public IReadOnlyDictionary<string, string>? Metadata { get; init; }
-	}
-
-	public sealed class DraftSummary
-	{
-		public required string DraftId { get; init; }
-		public required string StorageRef { get; init; }
-		public string? ContentHash { get; init; }
-		public DateTimeOffset UpdatedUtc { get; init; }
-		public IReadOnlyDictionary<string, string>? Metadata { get; init; }
-	}
-
-	public sealed class DraftListResponse
-	{
-		public IReadOnlyList<DraftSummary> Items { get; init; } = Array.Empty<DraftSummary>();
 	}
 
 	public sealed class SeriesIngestRequest
@@ -2483,7 +1919,6 @@ public partial class Program
 		public TemplateProfile? Profile { get; init; }
 		public PmfSpec? Pmf { get; init; }
 		public Dictionary<string, string>? Provenance { get; init; }
-		public bool Persist { get; init; } = true;
 		public string? DetailLevel { get; init; }
 	}
 

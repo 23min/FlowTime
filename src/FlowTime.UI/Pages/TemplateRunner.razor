@@ -6,7 +6,6 @@
 @using System.Linq
 @using MudBlazor
 @inject ITemplateService TemplateService
-@inject ICatalogService CatalogService
 @inject IFlowTimeSimService SimService
 @inject IRunClient RunClient
 @inject INotificationService NotificationService
@@ -23,7 +22,7 @@
 <div class="page-header">
     <MudText Typo="Typo.h5">Template Studio</MudText>
     <MudText Typo="Typo.body1" Class="mb-0">
-        Select a template, configure parameters, choose a system catalog, and run simulations without writing YAML.
+        Select a template, configure parameters, and run simulations without writing YAML.
     </MudText>
 </div>
 
@@ -421,14 +420,12 @@
 
 @code {
     private TemplateInfo? selectedTemplate;
-    private CatalogInfo? selectedCatalog;
     private Dictionary<string, object> parameters = new();
     private bool isRunning;
     private bool isSimulating; // Track if data generation is running
     private SimulationRunResult? runResult;
     private int modeVersion = 0; // increments on each mode toggle
     private int? selectedTemplateModeVersion;
-    private int? selectedCatalogModeVersion;
     private HashSet<string> selectedTags = new();
     private List<string>? availableTags;
     private List<TemplateInfo>? templates; // Track template loading state for banner
@@ -478,12 +475,10 @@
     {
         // Clear current selections since templates will change when mode switches
         selectedTemplate = null;
-        selectedCatalog = null;
         parameters.Clear();
         runResult = null;
         modeVersion++; // advance epoch so stale refs are invalidated
         selectedTemplateModeVersion = null;
-        selectedCatalogModeVersion = null;
         
         // Reset loading state when mode changes
         isLoadingTemplates = true;
@@ -539,55 +534,30 @@
         await FeatureFlags.SetDemoModeAsync(!FeatureFlags.UseDemoMode);
         // Clear current selections since templates will change
         selectedTemplate = null;
-        selectedCatalog = null;
         parameters.Clear();
         runResult = null;
-    modeVersion++; // advance epoch so stale refs are invalidated
-    selectedTemplateModeVersion = null;
-    selectedCatalogModeVersion = null;
+        modeVersion++; // advance epoch so stale refs are invalidated
+        selectedTemplateModeVersion = null;
         StateHasChanged();
     }
     
-    private async void OnTemplateSelected(TemplateInfo template)
+    private void OnTemplateSelected(TemplateInfo template)
     {
         selectedTemplate = template;
         parameters.Clear();
         runResult = null;
         generatedYaml = string.Empty; // Clear previous model preview
         selectedTemplateModeVersion = modeVersion;
-        
+
         // Reset wizard state - clear all downstream results
         graphAnalysisResult = null;
         engineRunResult = null;
         chartSeries = null;
         chartLabels = null;
-        
-        // Auto-select the first available catalog since catalog tab is hidden
-        await AutoSelectDefaultCatalogAsync();
-        
+
         StateHasChanged();
     }
-    
-    private async Task AutoSelectDefaultCatalogAsync()
-    {
-        try
-        {
-            await FeatureFlags.EnsureLoadedAsync();
-            var catalogs = await CatalogService.GetCatalogsAsync();
-            if (catalogs.Any())
-            {
-                selectedCatalog = catalogs.First();
-                selectedCatalogModeVersion = modeVersion;
-            }
-        }
-        catch (Exception ex)
-        {
-            NotificationService.Add($"Failed to load catalogs: {ex.Message}", Severity.Warning);
-        }
-    }
 
-
-    
     private void ToggleTagFilter(string tag)
     {
         if (selectedTags.Contains(tag))
@@ -604,32 +574,6 @@
     private void ClearTagFilters()
     {
         selectedTags.Clear();
-        StateHasChanged();
-    }
-
-    private async void OnCatalogSelected(CatalogInfo catalog)
-    {
-        selectedCatalog = catalog;
-        selectedCatalogModeVersion = modeVersion;
-        generatedYaml = string.Empty; // Clear previous model preview
-        
-        // Refresh template schema with catalog context
-        if (selectedTemplate != null)
-        {
-            try
-            {
-                var refreshedSchema = await TemplateService.GetTemplateSchemaAsync(selectedTemplate.Id);
-                selectedTemplate.ParameterSchema = refreshedSchema;
-            }
-            catch (Exception ex)
-            {
-                NotificationService.Add($"Failed to refresh template schema: {ex.Message}", Severity.Error);
-            }
-        }
-        
-        // Clear parameters to force re-evaluation with new schema
-        parameters.Clear();
-        
         StateHasChanged();
     }
 
@@ -725,7 +669,6 @@
             var request = new SimulationRunRequest
             {
                 TemplateId = selectedTemplate!.Id,
-                CatalogId = "default", // No longer using catalogs
                 Parameters = parameters
             };
 
@@ -872,7 +815,6 @@
             var request = new SimulationRunRequest
             {
                 TemplateId = selectedTemplate!.Id,
-                CatalogId = "default", // No longer using catalogs
                 Parameters = parameters
             };
 

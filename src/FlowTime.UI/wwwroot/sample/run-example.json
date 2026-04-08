@@ -1,5 +1,5 @@
 {
-  "grid": { "bins": 8, "binMinutes": 60 },
+  "grid": { "bins": 8, "binSize": 1, "binUnit": "hours" },
   "order": ["demand", "served"],
   "series": {
     "demand": [10,10,10,10,10,10,10,10],

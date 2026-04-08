@@ -93,14 +93,6 @@ builder.Services.AddScoped<ITemplateService>(sp =>
 	return new TemplateService(simClient, featureFlags, logger);
 });
 
-builder.Services.AddScoped<ICatalogService>(sp =>
-{
-	var simClient = sp.GetRequiredService<IFlowTimeSimApiClient>();
-	var featureFlags = sp.GetRequiredService<FeatureFlagService>();
-	var logger = sp.GetRequiredService<ILogger<CatalogService>>();
-	return new CatalogService(simClient, featureFlags, logger);
-});
-
 builder.Services.AddScoped<IFlowTimeSimService>(sp =>
 {
 	var simClient = sp.GetRequiredService<IFlowTimeSimApiClient>();
@@ -114,11 +106,10 @@ builder.Services.AddScoped<IFlowTimeSimService>(sp =>
 // Simulation results service for artifact-first data loading
 builder.Services.AddScoped<ISimResultsService>(sp =>
 {
-	var simClient = sp.GetRequiredService<IFlowTimeSimApiClient>();
 	var apiClient = sp.GetRequiredService<IFlowTimeApiClient>();
 	var featureFlags = sp.GetRequiredService<FeatureFlagService>();
 	var logger = sp.GetRequiredService<ILogger<SimResultsService>>();
-	return new SimResultsService(simClient, apiClient, featureFlags, logger);
+	return new SimResultsService(apiClient, featureFlags, logger);
 });
 
 // Shared services for graph analysis and simulation results

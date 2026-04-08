@@ -152,18 +152,9 @@ outputs:
     [Fact]
     public async Task MapProfileToDraft_UpdatesYaml()
     {
-        var createRequest = new
-        {
-            draftId = "draft-profile",
-            content = templateYaml
-        };
-        var createContent = new StringContent(JsonSerializer.Serialize(createRequest), Encoding.UTF8, "application/json");
-        var createResponse = await client.PostAsync("/api/v1/drafts", createContent);
-        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
-
         var request = new
         {
-            source = new { type = "draftId", id = "draft-profile" },
+            source = new { type = "inline", id = "draft-profile", content = templateYaml },
             nodeId = "arrivals",
             profile = new { kind = "inline", weights = new[] { 0.5, 1.0, 1.5 } },
             provenance = new Dictionary<string, string> { ["profile.source"] = "series:profile_series" }
@@ -178,12 +169,5 @@ outputs:
         Assert.NotNull(updatedYaml);
         Assert.Contains("profile:", updatedYaml);
         Assert.Contains("weights:", updatedYaml);
-
-        var stored = await client.GetAsync("/api/v1/drafts/draft-profile");
-        Assert.Equal(HttpStatusCode.OK, stored.StatusCode);
-        var storedJson = JsonDocument.Parse(await stored.Content.ReadAsStringAsync());
-        var persistedYaml = storedJson.RootElement.GetProperty("content").GetString();
-        Assert.NotNull(persistedYaml);
-        Assert.Contains("profile:", persistedYaml);
     }
 }
