@@ -15,7 +15,7 @@
 - [x] AC6. `docs/ui/template-integration-spec.md` moved to `docs/archive/ui/template-integration-spec.md` via `git mv`; inbound references updated. (Bundle C, commit pending)
 - [x] AC7. Catalog-stale phrasing rewritten in `docs/guides/UI.md:3`, `docs/reference/contracts.md:111`, `docs/reference/engine-capabilities.md:30`. (Bundle B, commit pending). Implementation-time discovery: `engine-capabilities.md:30` claimed "no catalog/export/import/registry endpoints" but the Engine API actually has both `/v1/runs/{runId}/export/*` (6 handler literals) and `/v1/artifacts/*` registry routes. Rewrote to `No streaming endpoints.` — this is both a catalog-consistency edit and a factual correction. Broader engine-capabilities.md accuracy audit not in scope for m-E19-03.
 - [x] AC8. `["binMinutes"]` dictionary-key literals in `tests/FlowTime.UI.Tests/ParameterConversionIntegrationTests.cs` (lines 23, 51, 107) renamed to `["binSize"]`; test class still passes without other edits. (Bundle A, commit `dd61ca6`)
-- [ ] AC9. `scripts/m-E19-03-grep-guards.sh` created, 11 guards implemented, all passing.
+- [x] AC9. `scripts/m-E19-03-grep-guards.sh` created, 11 guards implemented, all passing. (commit pending)
 - [ ] AC10. Status surfaces reconciled at wrap (spec, epic spec, ROADMAP.md, epic-roadmap.md, CLAUDE.md, this tracking doc); final test count and grep-guard results recorded.
 
 ## Commit Plan (Bundles)
@@ -25,7 +25,7 @@ Per milestone spec Technical Notes — five focused commits plus the wrap.
 - [x] **Bundle A** (AC1 + AC2 + AC3 + AC8): deprecated `binMinutes` authoring shape in code — four code/fixture rewrites in one conceptual cleanup. Commit `dd61ca6`. 4 files changed, +37 −24. Tests: 1250 passed, 9 skipped, 0 failed.
 - [x] **Bundle B** (AC4 + AC7): active docs cleanup — rewrites `binMinutes` YAML examples and catalog-stale phrasing. Commit pending. 5 files changed. Tests: 1250 passed, 9 skipped, 0 failed.
 - [x] **Bundle C** (AC5 + AC6): archive moves — three schema-migration example YAMLs, empty `time-travel/` dir, stale UI spec. Commit pending. 8 files changed. Tests: 1250 passed, 9 skipped, 0 failed.
-- [ ] **AC9**: grep-guard script as its own commit
+- [x] **AC9**: grep-guard script as its own commit. Commit pending. 11/11 guards passing.
 - [ ] **AC10**: wrap — tracking doc finalization and status-surface reconciliation
 
 Initial **status-sync commit** (flip m-E19-03 draft→in-progress across status surfaces, create milestone spec and this tracking doc) runs before Bundle A.
@@ -155,3 +155,33 @@ Archive moves for three schema-migration example YAMLs and the stale pre-v1 UI s
 - Build: 0 errors, 1 pre-existing `xUnit2031` warning
 - Tests: 1250 passed / 9 skipped / 0 failed
 - Grep guards 6, 7, 8: all passing
+
+### AC9 — commit pending
+
+Grep-guard script `scripts/m-E19-03-grep-guards.sh` codified. Modeled on `scripts/m-E19-02-grep-guards.sh`, but uses a per-guard scope pattern because m-E19-03 guards target specific files/directories across `src/`, `tests/`, `docs/`, and `examples/` rather than a uniform `src/ + tests/` sweep.
+
+**Structural differences from m-E19-02:**
+- Per-guard scope: each guard inlines its own `rg` target path(s) rather than a single top-level scope list. Needed because guards 1-5, 9, 10, 11 each target one file or one directory, and guards 6, 7, 8 sweep active doc surfaces with archive exclusions.
+- Allowlist: guard 4 pipes through `grep -v 'm-E19-03:allow-binminutes-notation'` to filter the Little's Law formula line. The marker is an inline HTML comment; Markdown renderers strip it, but ripgrep sees it and the filter excludes the line deterministically without depending on line numbers (line numbers drift).
+- Archive exclusions: guards 6, 7, 8 pipe through `grep -v '^docs/archive/'` (and, for guard 8, `grep -v '^docs/releases/'`) to allow references inside archived docs to survive untouched. Historical content is explicitly allowed to keep its own historical context.
+- Shell: `check()` helper function replaces the m-E19-02 inline loop. Same pattern otherwise — collect `rg` output, fail if non-empty, track pass/fail counts, exit 1 with a summary line.
+
+**First-run result:**
+```
+PASS  Guard 1 — no binMinutes in TemplateServiceImplementations.cs
+PASS  Guard 2 — no binMinutes in src/FlowTime.UI/wwwroot/
+PASS  Guard 3 — no binMinutes in src/FlowTime.Cli/
+PASS  Guard 4 — no binMinutes in whitepaper.md except allowlisted Little's Law notation
+PASS  Guard 5 — no binMinutes in retry-modeling.md
+PASS  Guard 6 — no stale test-*-schema.yaml references outside archive
+PASS  Guard 7 — no template-integration-spec.md references outside archive
+PASS  Guard 8 — no pre-v1 /api/templates/ route literals outside archive
+PASS  Guard 9 — no template/catalog literal in UI.md or contracts.md
+PASS  Guard 10 — no catalog/export/import/registry literal in engine-capabilities.md
+PASS  Guard 11 — no ["binMinutes"] dict key in ParameterConversionIntegrationTests.cs
+
+m-E19-03 grep guards: 11/11 passed
+RESULT: PASS — m-E19-03 cleanup invariants hold.
+```
+
+All eleven guards pass on first run, confirming that Bundles A, B, and C leave the active surfaces clean of every pattern m-E19-01 flagged for retirement in the matrix rows owned by m-E19-03.
