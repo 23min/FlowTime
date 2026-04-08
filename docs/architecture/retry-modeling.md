@@ -414,7 +414,7 @@ public class AlgebraicLoopDetector
 **Scenario**: Web service that retries database calls internally
 
 ```yaml
-grid: { bins: 24, binMinutes: 60 }
+grid: { bins: 24, binSize: 1, binUnit: hours }
 nodes:
   # External arrivals to web service
   - id: web_arrivals
@@ -463,7 +463,7 @@ edges:
 **Scenario**: Message queue system with explicit retry queues
 
 ```yaml
-grid: { bins: 24, binMinutes: 60 }
+grid: { bins: 24, binSize: 1, binUnit: hours }
 nodes:
   # Main processing queue
   - id: main_queue
@@ -524,7 +524,7 @@ edges:
 **Scenario**: Microservice chain where failures cascade and create retry storms
 
 ```yaml
-grid: { bins: 24, binMinutes: 60 }
+grid: { bins: 24, binSize: 1, binUnit: hours }
 nodes:
   # Service A: Frontend service
   - id: service_a

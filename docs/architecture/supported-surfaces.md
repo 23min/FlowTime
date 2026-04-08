@@ -75,12 +75,12 @@ Decision references: [Shared framing](../../work/epics/E-19-surface-alignment-an
 | Schema | Authoring schemas in [docs/schemas/template.schema.json](../schemas/template.schema.json) and [docs/schemas/model.schema.yaml](../schemas/model.schema.yaml) | Current authoring/model schema surface | supported | Keep as the active authoring schema set | m-E19-03 | n/a |
 | Templates | Current repo-backed template set under [templates/](../../templates/) | Current authored template source surface for first-party authoring/orchestration | supported | Keep all current YAML templates on the active template surface | m-E19-03 | n/a |
 | Examples | Active example set under [examples/](../../examples/) excluding schema-compatibility fixtures | Current user-facing example surface for modeling, PMF, and HTTP-demo data | supported | Keep active examples that reflect current contracts | m-E19-03 | n/a |
-| Examples | [examples/test-old-schema.yaml](../../examples/test-old-schema.yaml), [examples/test-no-schema.yaml](../../examples/test-no-schema.yaml), [examples/test-new-schema.yaml](../../examples/test-new-schema.yaml) | Compatibility examples whose purpose is schema-transition coverage rather than current user guidance | archive | Move off the active current-example surface into an explicit historical/compatibility location | m-E19-03 | No schema-migration compatibility examples remain under the active `examples/` surface |
+| Examples | [examples/archive/test-old-schema.yaml](../../examples/archive/test-old-schema.yaml), [examples/archive/test-no-schema.yaml](../../examples/archive/test-no-schema.yaml), [examples/archive/test-new-schema.yaml](../../examples/archive/test-new-schema.yaml) | Compatibility examples whose purpose is schema-transition coverage rather than current user guidance | archived (m-E19-03) | Moved off the active current-example surface into `examples/archive/` | m-E19-03 | No schema-migration compatibility examples remain under the active `examples/` surface |
 | Current docs | Engine/query docs in [docs/reference/contracts.md](../reference/contracts.md), [docs/reference/engine-capabilities.md](../reference/engine-capabilities.md), [docs/reference/data-formats.md](../reference/data-formats.md), [docs/operations/telemetry-capture-guide.md](../operations/telemetry-capture-guide.md), [docs/guides/UI.md](../guides/UI.md), [docs/ui/api-integration.md](../ui/api-integration.md), [docs/ui/time-travel-visualizations.md](../ui/time-travel-visualizations.md), and [docs/architecture/run-provenance.md](./run-provenance.md) | Current docs that describe live Engine/API query or operator contracts | supported | Keep as the current contract documentation set | m-E19-03 | n/a |
 | Current docs | Template/schema docs in [docs/templates/template-authoring.md](../templates/template-authoring.md), [docs/templates/template-testing.md](../templates/template-testing.md), [docs/templates/profiles.md](../templates/profiles.md), [docs/schemas/template-schema.md](../schemas/template-schema.md), and [docs/schemas/model.schema.md](../schemas/model.schema.md) | Current docs that describe live template and schema authoring surfaces | supported | Keep as current authoring/schema documentation | m-E19-03 | n/a |
 | Current docs | Boundary docs in [docs/architecture/template-draft-model-run-bundle-boundary.md](./template-draft-model-run-bundle-boundary.md) and [docs/architecture/supported-surfaces.md](./supported-surfaces.md) | Current architectural truth for terminology, ownership, and support policy | supported | Keep as the architectural baseline cited by later E-19 and E-18 work | m-E19-01 | n/a |
 | Current docs | Broad overview docs in [docs/flowtime.md](../flowtime.md) and [docs/flowtime-v2.md](../flowtime-v2.md) | Current overview docs still used as product-level reference material | supported | Keep, but terminology must stay aligned to current E-18 Time Machine naming and E-19 surface policy | m-E19-03 | n/a |
-| Current docs | [docs/ui/template-integration-spec.md](../ui/template-integration-spec.md) | Stale UI spec that still documents pre-v1 template routes | archive/update | Remove or rewrite stale pre-v1 route guidance so current docs only describe live surfaces | m-E19-03 | No current docs reference `/api/templates/` or other pre-v1 template routes |
+| Current docs | [docs/archive/ui/template-integration-spec.md](../archive/ui/template-integration-spec.md) | Stale pre-v1 UI spec, archived by m-E19-03 | archived (m-E19-03) | Moved off the active `docs/ui/` surface into `docs/archive/ui/` | m-E19-03 | No current docs reference `/api/templates/` or other pre-v1 template routes |
 
 ## Explicit Open Questions
 
@@ -203,9 +203,9 @@ Historical, release-note, research, and archive documents are intentionally excl
 - [examples/m0.poisson.sim.yaml](../../examples/m0.poisson.sim.yaml)
 - [examples/m15.complex-pmf.yaml](../../examples/m15.complex-pmf.yaml)
 - [examples/m2.pmf.yaml](../../examples/m2.pmf.yaml)
-- [examples/test-new-schema.yaml](../../examples/test-new-schema.yaml)
-- [examples/test-no-schema.yaml](../../examples/test-no-schema.yaml)
-- [examples/test-old-schema.yaml](../../examples/test-old-schema.yaml)
+- [examples/archive/test-new-schema.yaml](../../examples/archive/test-new-schema.yaml)
+- [examples/archive/test-no-schema.yaml](../../examples/archive/test-no-schema.yaml)
+- [examples/archive/test-old-schema.yaml](../../examples/archive/test-old-schema.yaml)
 - [examples/hello/model.yaml](../../examples/hello/model.yaml)
 - [examples/http-demo/OrderService_arrivals.csv](../../examples/http-demo/OrderService_arrivals.csv)
 - [examples/http-demo/OrderService_capacity.csv](../../examples/http-demo/OrderService_capacity.csv)
@@ -226,7 +226,7 @@ Historical, release-note, research, and archive documents are intentionally excl
 - [docs/guides/UI.md](../guides/UI.md)
 - [docs/ui/api-integration.md](../ui/api-integration.md)
 - [docs/ui/time-travel-visualizations.md](../ui/time-travel-visualizations.md)
-- [docs/ui/template-integration-spec.md](../ui/template-integration-spec.md)
+- [docs/archive/ui/template-integration-spec.md](../archive/ui/template-integration-spec.md)
 - [docs/operations/telemetry-capture-guide.md](../operations/telemetry-capture-guide.md)
 - [docs/templates/template-authoring.md](../templates/template-authoring.md)
 - [docs/templates/template-testing.md](../templates/template-testing.md)
