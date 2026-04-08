@@ -8,12 +8,6 @@ using FlowTime.UI.Configuration;
 
 namespace FlowTime.UI.Services;
 
-// ⚠️ SCHEMA MIGRATION IN PROGRESS
-// This file contains legacy demo templates with `binMinutes` references.
-// Current Implementation: Use `grid: { bins, binSize, binUnit }` format.
-// See: docs/schemas/template-schema.md for authoritative schema.
-// Status: Demo templates will be deprecated in UI-M2.9.
-
 public class TemplateService : ITemplateService
 {
     private readonly IFlowTimeSimApiClient simClient;
@@ -428,14 +422,22 @@ public class TemplateService : ITemplateService
                         Minimum = 3,
                         Maximum = 48
                     },
-                    ["binMinutes"] = new JsonSchemaProperty
+                    ["binSize"] = new JsonSchemaProperty
                     {
                         Type = "integer",
-                        Title = "Minutes per Period",
+                        Title = "Bin Size",
                         Description = "Duration of each time period",
-                        Default = 60,
+                        Default = 60, // 60 minutes per bin
                         Minimum = 15,
                         Maximum = 480
+                    },
+                    ["binUnit"] = new JsonSchemaProperty
+                    {
+                        Type = "string",
+                        Title = "Bin Unit",
+                        Description = "Time unit for bin duration",
+                        Default = "minutes",
+                        Enum = new List<object> { "minutes", "hours", "days" }
                     },
                     ["demandPattern"] = new JsonSchemaProperty
                     {
@@ -472,14 +474,22 @@ public class TemplateService : ITemplateService
                         Minimum = 3,
                         Maximum = 48
                     },
-                    ["binMinutes"] = new JsonSchemaProperty
+                    ["binSize"] = new JsonSchemaProperty
                     {
                         Type = "integer",
-                        Title = "Minutes per Period",
+                        Title = "Bin Size",
                         Description = "Duration of each time period",
-                        Default = 60,
+                        Default = 60, // 60 minutes per bin
                         Minimum = 15,
                         Maximum = 480
+                    },
+                    ["binUnit"] = new JsonSchemaProperty
+                    {
+                        Type = "string",
+                        Title = "Bin Unit",
+                        Description = "Time unit for bin duration",
+                        Default = "minutes",
+                        Enum = new List<object> { "minutes", "hours", "days" }
                     },
                     ["rawMaterialSchedule"] = new JsonSchemaProperty
                     {
@@ -1353,10 +1363,11 @@ public class FlowTimeSimService : IFlowTimeSimService
         yaml.AppendLine("schemaVersion: 1");
         yaml.AppendLine($"grid:");
         yaml.AppendLine($"  bins: {simulationHours}");
-        yaml.AppendLine($"  binMinutes: 60");
+        yaml.AppendLine($"  binSize: 1");
+        yaml.AppendLine($"  binUnit: hours");
         yaml.AppendLine();
         yaml.AppendLine("nodes:");
-        
+
         // Passenger demand (varies by hour - rush hours, etc.)
         yaml.AppendLine("  # Passenger demand (varies by time of day)");
         yaml.AppendLine("  - id: passenger_demand");
@@ -1459,10 +1470,11 @@ public class FlowTimeSimService : IFlowTimeSimService
         yaml.AppendLine("schemaVersion: 1");
         yaml.AppendLine($"grid:");
         yaml.AppendLine($"  bins: {totalHours}");
-        yaml.AppendLine($"  binMinutes: 60");
+        yaml.AppendLine($"  binSize: 1");
+        yaml.AppendLine($"  binUnit: hours");
         yaml.AppendLine();
         yaml.AppendLine("nodes:");
-        
+
         // Raw material input
         yaml.AppendLine("  # Raw material availability");
         yaml.AppendLine("  - id: raw_materials");
@@ -1533,10 +1545,11 @@ public class FlowTimeSimService : IFlowTimeSimService
         yaml.AppendLine("schemaVersion: 1");
         yaml.AppendLine($"grid:");
         yaml.AppendLine($"  bins: {simulationDays}");
-        yaml.AppendLine($"  binMinutes: 1440"); // Daily bins
+        yaml.AppendLine($"  binSize: 1");
+        yaml.AppendLine($"  binUnit: days");
         yaml.AppendLine();
         yaml.AppendLine("nodes:");
-        
+
         // Customer orders
         yaml.AppendLine("  # Daily customer orders");
         yaml.AppendLine("  - id: customer_orders");

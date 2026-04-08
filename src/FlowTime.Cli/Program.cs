@@ -95,7 +95,7 @@ var ctx = evaluation.Evaluation;
 if (verbose)
 {
 	Console.WriteLine("FlowTime run summary:");
-	Console.WriteLine($"  Grid: bins={grid.Bins}, binMinutes={grid.BinMinutes}");
+	Console.WriteLine($"  Grid: bins={grid.Bins}, binSize={grid.BinSize}, binUnit={grid.BinUnit.ToString().ToLowerInvariant()}");
 	Console.WriteLine("  Topological order: " + string.Join(" -> ", order.Select(o => o.Value)));
 }
 
