@@ -1,7 +1,7 @@
 # Epic: Surface Alignment & Compatibility Cleanup
 
 **ID:** E-19
-**Status:** active — m-E19-01 and m-E19-02 completed, m-E19-03 in-progress
+**Status:** active — m-E19-01, m-E19-02, and m-E19-03 completed, m-E19-04 next
 
 ## Goal
 
@@ -113,8 +113,8 @@ This epic starts immediately after E-16 as a post-purification cleanup lane. It 
 |----|-------|---------|------------|--------|
 | m-E19-01-supported-surface-inventory | Supported Surface Inventory, Boundary ADR & Exit Criteria | Inventory compatibility seams, define supported vs historical surfaces, publish the terminology/ownership ADR, and pin retention/deletion gates for drafts, bundles, catalogs, and import paths. | E-16 | completed |
 | m-E19-02-sim-authoring-and-runtime-boundary-cleanup | Sim Authoring & Runtime Boundary Cleanup | Narrow Sim to explicitly supported authoring/orchestration surfaces, remove transitional catalog/runtime callers, and keep Engine import/query ownership explicit. | m-E19-01 | completed |
-| m-E19-03-schema-template-example-retirement | Schema, Template & Example Retirement | Remove or archive deprecated schema, demo template, and example material from active current surfaces. | m-E19-01 | in-progress |
-| m-E19-04-blazor-support-alignment | Blazor Support Alignment | Remove stale `FlowTime.UI` compatibility wrappers, keep Blazor aligned with current Engine/Sim contracts, and define clear supported debugging/operator workflows alongside the parallel Svelte UI. | m-E19-02, m-E19-03 | draft |
+| m-E19-03-schema-template-example-retirement | Schema, Template & Example Retirement | Remove or archive deprecated schema, demo template, and example material from active current surfaces. | m-E19-01 | completed |
+| m-E19-04-blazor-support-alignment | Blazor Support Alignment | Remove stale `FlowTime.UI` compatibility wrappers, keep Blazor aligned with current Engine/Sim contracts, and define clear supported debugging/operator workflows alongside the parallel Svelte UI. | m-E19-02, m-E19-03 | next |
 
 ## Candidate Retention / Decision Matrix
 

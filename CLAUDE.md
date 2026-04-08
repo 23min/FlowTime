@@ -218,19 +218,19 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
-- **Immediate next step:** execute m-E19-03 Schema, Template & Example Retirement on `milestone/m-E19-03-schema-template-example-retirement` (spec approved, status-sync commit pending approval, then Bundle A code cleanup); E-10 Phase 3 remains ready to resume (`work/epics/epic-roadmap.md`)
+- **Immediate next step:** merge `milestone/m-E19-03-schema-template-example-retirement` into `epic/E-19` (milestone wrap complete, awaiting merge approval), then draft m-E19-04 Blazor Support Alignment; E-10 Phase 3 remains ready to resume (`work/epics/epic-roadmap.md`)
 - **E-10** Engine Correctness (`work/epics/E-10-engine-correctness-and-analytics/spec.md`) — **ready to resume**
   - Phases 0-2 complete. Phase 3 bridge complete (m-ec-p3a, m-ec-p3a1 merged to main).
   - **Next:** p3d (Constraint Enforcement), then p3c (Variability), then p3b (WIP Limits)
 - **E-16** Formula-First Core Purification (`work/epics/E-16-formula-first-core-purification/spec.md`) — **completed**
   - **Completed:** m-E16-01 through m-E16-06
   - **Completion branch:** `milestone/m-E16-06-analytical-contract-and-consumer-purification`
-- **E-19** Surface Alignment & Compatibility Cleanup (`work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md`) — **m-E19-01 and m-E19-02 completed, m-E19-03 in-progress**
-  - **Branch topology:** `epic/E-19` (integration branch, m-E19-02 merged); `milestone/m-E19-01-supported-surface-inventory` and `milestone/m-E19-02-sim-authoring-and-runtime-boundary-cleanup` (frozen pointers); `milestone/m-E19-03-schema-template-example-retirement` (active, off `epic/E-19`); epic→main merge deferred until all E-19 milestones complete
+- **E-19** Surface Alignment & Compatibility Cleanup (`work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md`) — **m-E19-01, m-E19-02, and m-E19-03 completed, m-E19-04 next**
+  - **Branch topology:** `epic/E-19` (integration branch, m-E19-02 merged); `milestone/m-E19-01-supported-surface-inventory` and `milestone/m-E19-02-sim-authoring-and-runtime-boundary-cleanup` (frozen pointers); `milestone/m-E19-03-schema-template-example-retirement` (wrap complete, awaiting merge into `epic/E-19`); epic→main merge deferred until all E-19 milestones complete
   - **Completed (m-E19-01, m-E19-02):** supported-surfaces matrix, boundary ADR, catalog retirement, stored drafts retirement, Sim `/drafts/validate` deletion, Sim ZIP archive layer deletion, Engine `POST /v1/runs` + bundle-import deletion, Engine debug `scan-directory` route deletion, `StorageKind.Draft`/`Run` enum retirement, public contracts cleanup, grep-guard script (`scripts/m-E19-02-grep-guards.sh`, 21/21 passing)
   - **Deferred out of m-E19-02:** `POST /v1/run` and `POST /v1/graph` deletion per D-2026-04-08-029 (test-infrastructure coupling discovered at implementation time; tracked in `work/gaps.md`)
-  - **m-E19-03 scope:** forward-only removal of deprecated `binMinutes` authoring shape from `src/`, active arch docs, and UI fixtures; archive 3 schema-migration example YAMLs and stale `template-integration-spec.md`; catalog-stale phrasing cleanup in active docs; grep-guard script; bundled into 5 commits (code / docs / archive / guards / wrap)
-  - **Next after m-E19-03:** m-E19-04 Blazor Support Alignment
+  - **Completed (m-E19-03):** deprecated `binMinutes` YAML authoring shape retired from `TemplateServiceImplementations.cs` demo generators, `run-example.json` fixture, `Cli/Program.cs` verbose label, and `ParameterConversionIntegrationTests.cs` parameter dict keys; `whitepaper.md` + `retry-modeling.md` YAML examples rewritten to `binSize`/`binUnit` (Little's Law math notation preserved via `m-E19-03:allow-binminutes-notation` inline marker); three schema-migration example YAMLs archived to `examples/archive/`; stale `docs/ui/template-integration-spec.md` archived to `docs/archive/ui/`; catalog-stale phrasing cleaned from `UI.md`, `contracts.md`, `engine-capabilities.md`; grep-guard script (`scripts/m-E19-03-grep-guards.sh`, 11/11 passing). Bundled into 5 commits (status sync / code / docs / archive / guards / wrap).
+  - **Next:** m-E19-04 Blazor Support Alignment
 - **E-11** Svelte UI — paused after M6
   - M1-M4 + M6 done, M5/M7/M8 remain
 - **E-12–E-15:** planned, not started

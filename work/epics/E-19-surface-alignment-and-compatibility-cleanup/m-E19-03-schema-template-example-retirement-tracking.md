@@ -1,9 +1,11 @@
 # Tracking: m-E19-03 Schema, Template & Example Retirement
 
-**Status:** in-progress (started 2026-04-08)
+**Status:** completed (2026-04-08)
 **Epic:** [E-19 Surface Alignment & Compatibility Cleanup](./spec.md)
 **Milestone spec:** [m-E19-03-schema-template-example-retirement.md](./m-E19-03-schema-template-example-retirement.md)
 **Branch:** `milestone/m-E19-03-schema-template-example-retirement` (off `epic/E-19`)
+**Final test count:** 1250 passed, 9 skipped, 0 failed
+**Grep guards:** 11/11 passing via `scripts/m-E19-03-grep-guards.sh`
 
 ## Acceptance Criteria
 
@@ -16,7 +18,7 @@
 - [x] AC7. Catalog-stale phrasing rewritten in `docs/guides/UI.md:3`, `docs/reference/contracts.md:111`, `docs/reference/engine-capabilities.md:30`. (Bundle B, commit pending). Implementation-time discovery: `engine-capabilities.md:30` claimed "no catalog/export/import/registry endpoints" but the Engine API actually has both `/v1/runs/{runId}/export/*` (6 handler literals) and `/v1/artifacts/*` registry routes. Rewrote to `No streaming endpoints.` — this is both a catalog-consistency edit and a factual correction. Broader engine-capabilities.md accuracy audit not in scope for m-E19-03.
 - [x] AC8. `["binMinutes"]` dictionary-key literals in `tests/FlowTime.UI.Tests/ParameterConversionIntegrationTests.cs` (lines 23, 51, 107) renamed to `["binSize"]`; test class still passes without other edits. (Bundle A, commit `dd61ca6`)
 - [x] AC9. `scripts/m-E19-03-grep-guards.sh` created, 11 guards implemented, all passing. (commit pending)
-- [ ] AC10. Status surfaces reconciled at wrap (spec, epic spec, ROADMAP.md, epic-roadmap.md, CLAUDE.md, this tracking doc); final test count and grep-guard results recorded.
+- [x] AC10. Status surfaces reconciled at wrap (spec, epic spec, ROADMAP.md, epic-roadmap.md, CLAUDE.md, this tracking doc); final test count and grep-guard results recorded. (wrap commit pending)
 
 ## Commit Plan (Bundles)
 
@@ -26,7 +28,7 @@ Per milestone spec Technical Notes — five focused commits plus the wrap.
 - [x] **Bundle B** (AC4 + AC7): active docs cleanup — rewrites `binMinutes` YAML examples and catalog-stale phrasing. Commit pending. 5 files changed. Tests: 1250 passed, 9 skipped, 0 failed.
 - [x] **Bundle C** (AC5 + AC6): archive moves — three schema-migration example YAMLs, empty `time-travel/` dir, stale UI spec. Commit pending. 8 files changed. Tests: 1250 passed, 9 skipped, 0 failed.
 - [x] **AC9**: grep-guard script as its own commit. Commit pending. 11/11 guards passing.
-- [ ] **AC10**: wrap — tracking doc finalization and status-surface reconciliation
+- [x] **AC10**: wrap — tracking doc finalization and status-surface reconciliation. Commit pending.
 
 Initial **status-sync commit** (flip m-E19-03 draft→in-progress across status surfaces, create milestone spec and this tracking doc) runs before Bundle A.
 
@@ -185,3 +187,31 @@ RESULT: PASS — m-E19-03 cleanup invariants hold.
 ```
 
 All eleven guards pass on first run, confirming that Bundles A, B, and C leave the active surfaces clean of every pattern m-E19-01 flagged for retirement in the matrix rows owned by m-E19-03.
+
+### Wrap — commit pending
+
+Final verification pass against the milestone tip (commit `a772bf3`):
+
+- `scripts/m-E19-03-grep-guards.sh` → 11/11 passing
+- `dotnet build FlowTime.sln` → 0 errors, 1 pre-existing `xUnit2031` warning in `ClassMetricsAggregatorTests.cs` (unrelated to m-E19-03)
+- `dotnet test FlowTime.sln --no-build` → 1250 passed / 9 skipped / 0 failed, identical to the m-E19-02 merge baseline
+
+**Status surfaces reconciled (all in wrap commit):**
+- This tracking doc: header status `in-progress` → `completed (2026-04-08)`, final test count and grep guards summary added, wrap section appended.
+- Milestone spec `m-E19-03-schema-template-example-retirement.md`: header `Status` field `in-progress` → `completed`.
+- Epic spec `work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md`: header `Status` line updated from `m-E19-01 and m-E19-02 completed, m-E19-03 in-progress` → `m-E19-01, m-E19-02, and m-E19-03 completed, m-E19-04 next`; milestone table row for m-E19-03 flipped `in-progress` → `completed`; milestone table row for m-E19-04 flipped `draft` → `next`.
+- `ROADMAP.md` E-19 section status line.
+- `work/epics/epic-roadmap.md` E-19 block: status line + key milestones summary line.
+- `CLAUDE.md` Current Work section: immediate next step retargeted to m-E19-03 merge and m-E19-04 drafting; E-19 block branch topology updated (m-E19-03 wrap complete, awaiting merge); added `Completed (m-E19-03)` bullet summarizing the milestone; `Next` pointer updated to m-E19-04.
+
+**No merge in the wrap commit.** Merging `milestone/m-E19-03-schema-template-example-retirement` into `epic/E-19` is a separate explicit action requiring user approval, matching the m-E19-02 pattern where the merge happened as a distinct step after wrap.
+
+**Summary:**
+- 10/10 ACs complete
+- 11/11 grep guards codified and passing
+- 6 commits total: `73e74d4` (status sync) → `dd61ca6` (Bundle A code) → `3aaf159` (Bundle B docs) → `adc05a0` (Bundle C archive) → `a772bf3` (AC9 guards) → wrap
+- 0 deferrals, 0 gaps opened. Clean milestone.
+
+**Deviations from spec — none.** All implementation-time discoveries (stale `engine-capabilities.md:30` fragment being factually wrong beyond catalog, no `src/`/`tests/` inbound references to archived files) were absorbed within the existing AC scope without requiring spec changes.
+
+**Learnings appended to `work/agent-history/builder.md`** — see the m-E19-03 section for patterns worth repeating (comment-marker allowlist, per-guard scope script pattern, forward-only archive with source-path rewrite) and pitfalls to avoid (letting multi-line clarifications introduce new grep hits, assuming doc statements are factually correct just because the spec claimed they were).
