@@ -15,9 +15,9 @@
 - [x] **AC3.** Rewired `FlowTimeSimService.RunApiModeSimulationAsync` onto `simClient.CreateRunAsync(new RunCreateRequestDto(templateId, "simulation", parameters, ...))` — the Sim orchestration endpoint now owns template expansion for API mode. Rewired `FlowTimeSimService.GetRunStatusAsync` onto `apiClient.GetRunIndexAsync(...)` (Engine query path). Removed dead `ResultsUrl = "/{apiVersion}/sim/runs/{runId}/index"` assignment and, by extension, the `ResultsUrl` field from `SimulationRunResult` entirely (see Note 1 below). Deleted orphaned helpers `GenerateSimulationYamlAsync`, `TranslateToSimulationSchema`, `ConvertRequestToApiParameters` — all unreachable after the rewire. Dropped the `YamlDotNet.Serialization` + `YamlDotNet.Serialization.NamingConventions` usings from `TemplateServiceImplementations.cs` (only used by the deleted `TranslateToSimulationSchema`). Added `ConvertParametersToJsonElements` helper to convert `Dictionary<string, object>` → `Dictionary<string, JsonElement>?` for the `RunCreateRequestDto.Parameters` shape. (Bundle A)
 - [x] **AC4.** Simplified `SimResultsService.GetSimulationResultsAsync` to use Engine API for every non-demo query (dropped the `isEngineRun` branch). Removed `IFlowTimeSimApiClient` constructor parameter; updated `Program.cs` DI registration. Demo mode preserved (both the `demo://` URL-scheme branch and the `UseDemoMode` feature-flag branch). (Bundle A)
 - [x] **AC5.** Collapsed the dead demo-vs-API download-URL branch in `SimulationResults.razor.DownloadSeries` onto a single canonical Engine URL (`$"{apiConfig.BaseUrl}/{apiConfig.ApiVersion}/runs/{runId}/series/{seriesId}"`). Demo-mode download button now short-circuits with an informational notification — demo runs are synthetic in-memory data with no server file to download. Also replaced the three `ResultsUrl` sentinel checks at lines 57, 235, 407 with `RunId`-based checks, consistent with the `ResultsUrl` field removal (see Note 1). (Bundle A)
-- [ ] **AC6.** Row 63 alignment audit — confirm `HealthAsync`, `GetDetailedHealthAsync`, `GetTemplatesAsync`, `GetTemplateAsync`, `GenerateModelAsync`, `CreateRunAsync` are the only methods on `IFlowTimeSimApiClient` after Bundle A and each targets a live Sim route. No drift expected. (Bundle B)
-- [ ] **AC7.** Rows 66/67 alignment audit — confirm `ui/src/lib/api/sim.ts` and `ui/src/lib/api/flowtime.ts` target current contracts with no stale drafts/catalogs/bundle literals. No drift expected. (Bundle B)
-- [ ] **AC8.** `scripts/m-E19-04-grep-guards.sh` created with 11 named guards (AC1–AC7 coverage); script exits 0 when all guards pass. (Bundle C)
+- [x] **AC6.** Row 63 alignment audit — confirmed `{BaseAddress, HealthAsync, GetDetailedHealthAsync, GetTemplatesAsync, GetTemplateAsync, GenerateModelAsync, CreateRunAsync}` are the only members on `IFlowTimeSimApiClient` after Bundle A. Each targets a live Sim route per the supported-surfaces sweep: `v1/healthz` (row 51), `v1/healthz?detailed=true` (row 51), `api/v1/templates` (row 52), `api/v1/templates/{id}` (row 52), `api/v1/templates/{id}/generate` (row 53), `api/v1/orchestration/runs` (row 54). **No drift.** No code change. (Bundle B)
+- [x] **AC7.** Rows 66/67 alignment audit — confirmed `ui/src/lib/api/sim.ts` targets 6 supported Sim routes (`/api/v1/healthz`, `/api/v1/healthz?detailed=true`, `/api/v1/templates`, `/api/v1/templates/{id}`, `/api/v1/templates/categories`, `/api/v1/orchestration/runs`) with no stale `catalogs` / `drafts` / `bundle*` literals; `ui/src/lib/api/flowtime.ts` targets 12 supported Engine routes (`/healthz`, `/v1/healthz`, `/v1/runs`, `/v1/runs/{runId}`, `/v1/artifacts*`, `/v1/runs/{runId}/graph`, `/v1/runs/{runId}/state`, `/v1/runs/{runId}/index`, `/v1/runs/{runId}/state_window`) with no stale `POST /v1/runs` / `bundle*` / `/v1/debug/` literals. **No drift.** No code change. (Bundle B)
+- [x] **AC8.** `scripts/m-E19-04-grep-guards.sh` created with 11 named guards (AC1–AC7 coverage); script exits 0 when all guards pass. 11/11 passing against ripgrep. Script mirrors `scripts/m-E19-03-grep-guards.sh` structure and adds a fail-fast `command -v rg` check at the top so silent no-ops on machines without ripgrep are turned into loud errors — see Note 5 below. (Bundle C)
 - [ ] **AC9.** Full build + full test suite green, grep guards green, no new compiler warnings. (Wrap)
 - [ ] **AC10.** Tracking doc finalized; status reconciled across spec, epic spec milestone table, ROADMAP.md, epic-roadmap.md, CLAUDE.md Current Work. (Wrap)
 
@@ -27,25 +27,25 @@ Per milestone spec Technical Notes — four focused commits plus the wrap.
 
 - [ ] **Status-sync commit** (this doc + spec draft→in-progress + epic spec table + ROADMAP.md + epic-roadmap.md + CLAUDE.md) — runs before Bundle A.
 - [x] **Bundle A** (AC1 + AC2 + AC3 + AC4 + AC5): stale Sim client deletion + caller rewire. Single conceptual cleanup; one commit pending. Result: `dotnet build` green with no new warnings; full solution test suite 1246 passed / 9 skipped / 0 failed (−4 from baseline due to deleted tests exercising deleted code — see Note 2 below).
-- [ ] **Bundle B** (AC6 + AC7): alignment audit. Typically no code change; folded into tracking doc update if no drift, otherwise its own commit.
-- [ ] **Bundle C** (AC8): grep-guard script. Its own commit. Script must pass against the tree from Bundles A (+B if any).
+- [x] **Bundle B** (AC6 + AC7): alignment audit. No drift found on any of the three audited rows (63, 66, 67). No code change; findings recorded in AC6/AC7 checkboxes above and folded into the Bundle C (grep-guard script) or wrap commit per spec.
+- [x] **Bundle C** (AC8): grep-guard script. Its own commit pending. Script passes 11/11 against ripgrep on the tree produced by Bundle A (Bundle B was no-op).
 - [ ] **Wrap** (AC9 + AC10): tracking doc finalization and status-surface reconciliation in a single commit after grep guards + build/test pass.
 
 ## Grep Guards
 
 Each must return zero matches (or the expected count) after the milestone completes. Full script: `scripts/m-E19-04-grep-guards.sh`.
 
-- [ ] Guard 1: No `RunAsync(` declaration on `IFlowTimeSimApiClient` in `src/FlowTime.UI/Services/FlowTimeSimApiClient.cs` or implementation in `FlowTimeSimApiClient`/`FlowTimeSimApiClientWithFallback`.
-- [ ] Guard 2: No `api/v1/run"` literal in `src/FlowTime.UI/Services/FlowTimeSimApiClient.cs` or `FlowTimeSimApiClientWithFallback.cs`.
-- [ ] Guard 3: No `GetIndexAsync(` or `GetSeriesAsync(` declaration on `IFlowTimeSimApiClient` or implementation in `FlowTimeSimApiClient`/`FlowTimeSimApiClientWithFallback`.
-- [ ] Guard 4: No `api/v1/runs/{` literal constructed against a Sim base address in `FlowTimeSimApiClient.cs` or `FlowTimeSimApiClientWithFallback.cs`.
-- [ ] Guard 5: No `simClient.RunAsync(`, `simClient.GetIndexAsync(`, or `simClient.GetSeriesAsync(` in `src/FlowTime.UI/Services/TemplateServiceImplementations.cs`.
-- [ ] Guard 6: No `simClient.GetIndexAsync(` or `simClient.GetSeriesAsync(` in `src/FlowTime.UI/Services/SimResultsService.cs`.
-- [ ] Guard 7: No `IFlowTimeSimApiClient` dependency on the `SimResultsService` constructor signature.
-- [ ] Guard 8: No `/sim/runs/` URL literal anywhere in `src/FlowTime.UI/`.
-- [ ] Guard 9: `IFlowTimeSimApiClient` interface surface is exactly `{BaseAddress, HealthAsync, GetDetailedHealthAsync, GetTemplatesAsync, GetTemplateAsync, GenerateModelAsync, CreateRunAsync}`.
-- [ ] Guard 10: No `catalogs`, `drafts`, `bundlePath`, `bundleArchiveBase64`, or `bundleRef` literal in `ui/src/lib/api/sim.ts`.
-- [ ] Guard 11: No `POST /v1/runs`, `bundlePath`, `bundleArchiveBase64`, `bundleRef`, or `/v1/debug/` literal in `ui/src/lib/api/flowtime.ts`.
+- [x] Guard 1: No `\bRunAsync\b` member on `IFlowTimeSimApiClient`/`FlowTimeSimApiClient`/`FlowTimeSimApiClientWithFallback` (word-boundary anchored so `CreateRunAsync` is not a false positive).
+- [x] Guard 2: No `api/v1/run"` literal in the Sim client files.
+- [x] Guard 3: No `GetIndexAsync` or `GetSeriesAsync` member on the Sim client files.
+- [x] Guard 4: No Sim run-query path literal (`api/v1/runs/{` or `apiBasePath.*runs/`) in the Sim client files.
+- [x] Guard 5: No `simClient.RunAsync(`, `simClient.GetIndexAsync(`, or `simClient.GetSeriesAsync(` call site in `TemplateServiceImplementations.cs`.
+- [x] Guard 6: No `simClient.GetIndexAsync(` or `simClient.GetSeriesAsync(` call site in `SimResultsService.cs`.
+- [x] Guard 7: No `IFlowTimeSimApiClient` dependency on the `SimResultsService` constructor signature.
+- [x] Guard 8: No `/sim/runs/` URL literal anywhere in `src/FlowTime.UI/`.
+- [x] Guard 9: `IFlowTimeSimApiClient` interface surface is exactly `{BaseAddress, HealthAsync, GetDetailedHealthAsync, GetTemplatesAsync, GetTemplateAsync, GenerateModelAsync, CreateRunAsync}` — enforced by awk-extracted interface block + rg allowlist filter. Sanity-checked against a simulated `RunAsync` regression; guard correctly flags the regression.
+- [x] Guard 10: No `catalogs`, `drafts`, `bundlePath`, `bundleArchiveBase64`, or `bundleRef` literal in `ui/src/lib/api/sim.ts`.
+- [x] Guard 11: No `POST /v1/runs`, `bundlePath`, `bundleArchiveBase64`, `bundleRef`, or `/v1/debug/` literal in `ui/src/lib/api/flowtime.ts`.
 
 ## Preserved Surfaces (Must Not Regress)
 
@@ -117,6 +117,24 @@ Defined in `FlowTimeSimApiClient.cs:256-259` with a single `SimRunId` string fie
 **Note 4: `FlowTimeSimApiClientWithFallback` retained — port discovery is legit.**
 
 The class name was initially misleading ("Fallback" suggested a compatibility shim). On inspection, it is actually a port-discovery bootstrap (via `PortDiscoveryService.GetAvailableFlowTimeSimUrlAsync`) that picks the first available Sim service URL from a configurable list. That is legitimate dev-environment ergonomics, not a stale wrapper. Preserved unchanged; only the pass-through methods for the three deleted `IFlowTimeSimApiClient` members were removed.
+
+### Bundle C — implementation decisions
+
+**Note 5: Fail-fast `rg` availability check added to the m-E19-04 guard script (improvement over m-E19-03).**
+
+While writing `scripts/m-E19-04-grep-guards.sh`, discovered that the m-E19-03 script silently no-ops on machines without `rg` on PATH: every guard wraps its `rg` call with `2>/dev/null || true`, so when `rg` is missing the command errors quietly, produces empty stdout, and the `check` helper interprets the empty string as "no matches found" → `PASS`. On this devcontainer `rg` is not installed (bundled ripgrep binaries exist under `/vscode/vscode-server/.../node_modules/@vscode/ripgrep/bin/rg` but are not on `$PATH`), so a naive run of either the m-E19-03 or m-E19-04 script reports all-PASS without actually checking anything.
+
+The m-E19-04 script adds a `command -v rg` check at the top that exits with code 2 and a clear install hint (`apt-get install ripgrep` / `brew install ripgrep`) when ripgrep is missing. This turns silent no-ops into loud failures and preserves the invariant that "11/11 passing" actually means 11 guards verified their targets. The m-E19-03 script is not retroactively fixed — out of scope for m-E19-04.
+
+Verification of the m-E19-04 script was performed by prepending the VS Code Server ripgrep directory to `$PATH` for the run, then sanity-checking Guard 9 (the surface-check) against a simulated `RunAsync` regression in a temp file. Guard 9 correctly flagged the regression. All 11 guards reported PASS on the actual milestone tree.
+
+**Note 6: Guard 1 uses `\bRunAsync\b` word boundaries.**
+
+First draft of Guard 1 used the literal `RunAsync` which also matched `CreateRunAsync` as a substring, producing 4 false positives on the row 63 supported `CreateRunAsync` method. Fixed by anchoring with `\b` word boundaries. Guards 3, 5, 6 use `GetIndexAsync` and `GetSeriesAsync` tokens that don't collide with any supported member, so they don't need word boundaries.
+
+**Note 7: Guard 9 regex simplified from `Task<[^>]+>\s+(\w+Async)` to `\s(\w+Async)\(`.**
+
+The original regex failed to match members with nested generic return types like `Task<Result<List<ApiTemplateInfo>>>` because `[^>]+` stops at the first `>`. Simplified to "whitespace, Async-ending word, open paren" which matches every interface method signature regardless of return type complexity.
 
 ## Completion
 
