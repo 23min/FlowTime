@@ -15,8 +15,17 @@ public sealed class ServiceWithBufferNode : INode
     private readonly NodeId? lossId;
     private readonly double initialDepth;
     private readonly DispatchScheduleConfig? dispatchSchedule;
+    private readonly double? wipLimit;
 
     public NodeId Id { get; }
+
+    /// <summary>
+    /// Per-bin overflow from WIP limit enforcement. Populated after Evaluate
+    /// if wipLimit is set and any bin's queue exceeded the limit. Null if no
+    /// wipLimit is configured.
+    /// </summary>
+    public double[]? LastOverflow { get; private set; }
+
     public IEnumerable<NodeId> Inputs
     {
         get
@@ -36,7 +45,8 @@ public sealed class ServiceWithBufferNode : INode
         NodeId outflow,
         NodeId? loss,
         double initialDepth,
-        DispatchScheduleConfig? dispatchSchedule)
+        DispatchScheduleConfig? dispatchSchedule,
+        double? wipLimit = null)
     {
         Id = new NodeId(id);
         inflowId = inflow;
@@ -44,6 +54,7 @@ public sealed class ServiceWithBufferNode : INode
         lossId = loss;
         this.initialDepth = initialDepth;
         this.dispatchSchedule = dispatchSchedule;
+        this.wipLimit = wipLimit;
     }
 
     public Series Evaluate(TimeGrid grid, Func<NodeId, Series> getInput)
@@ -69,15 +80,32 @@ public sealed class ServiceWithBufferNode : INode
         }
 
         var loss = lossId.HasValue ? getInput(lossId.Value) : null;
+        var overflow = wipLimit.HasValue ? new double[grid.Bins] : null;
 
         var result = new double[grid.Bins];
         double q = Math.Max(0, initialDepth + Safe(inflow[0]) - Safe(outflow[0]) - Safe(loss?[0]));
+
+        if (wipLimit.HasValue && q > wipLimit.Value)
+        {
+            overflow![0] = q - wipLimit.Value;
+            q = wipLimit.Value;
+        }
+
         result[0] = q;
         for (int t = 1; t < grid.Bins; t++)
         {
             q = Math.Max(0, q + Safe(inflow[t]) - Safe(outflow[t]) - Safe(loss?[t]));
+
+            if (wipLimit.HasValue && q > wipLimit.Value)
+            {
+                overflow![t] = q - wipLimit.Value;
+                q = wipLimit.Value;
+            }
+
             result[t] = q;
         }
+
+        LastOverflow = overflow;
         return new Series(result);
     }
 
