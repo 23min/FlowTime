@@ -2,6 +2,16 @@
 
 Accumulated learnings from implementation sessions.
 
+## 2026-04-09: E-20 m-E20-04 Routing and Constraints
+
+### Patterns that worked
+- **Router as compiler-only abstraction.** Weight-based routing decomposes to ScalarMul + VecAdd + Copy — no new Op needed. The router logic lives entirely in the compiler. Keeps the evaluator simple and reuses existing ops.
+- **Constraint insertion via ops patching.** `compile_constraints` scans for QueueRecurrence ops consuming constrained arrivals, inserts ProportionalAlloc before the earliest one, then patches the QueueRecurrence inflow. Works correctly with bin-major evaluation since ProportionalAlloc appears before QueueRecurrence in op order.
+- **Per-class columns from traffic.arrivals.** Class routing resolves per-class arrival rates from `traffic.arrivals[].pattern.ratePerBin`, emits Const ops for each class column using `{sourceId}__class_{classId}` naming, then subtracts class-routed flow before weight-distributing the remainder.
+
+### Pitfalls encountered
+- None significant. The architecture established in m-E20-03 (bin-major evaluation, unified topo sort) made routing and constraints straightforward additions.
+
 ## 2026-04-09: E-20 m-E20-03 Topology and Sequential Ops
 
 ### Patterns that worked
