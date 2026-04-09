@@ -1,36 +1,31 @@
 # Tracking: m-ec-p3d Constraint Enforcement
 
-**Status:** in-progress
+**Status:** completed (2026-04-09)
 **Started:** 2026-04-08
+**Completed:** 2026-04-09
 **Epic:** [E-10 Engine Correctness & Analytical Primitives](./spec.md)
 **Milestone spec:** [m-ec-p3d-constraint-enforcement.md](./m-ec-p3d-constraint-enforcement.md)
 **Branch:** `milestone/m-ec-p3d-constraint-enforcement` (off `main`)
-**Baseline test count (main HEAD `5d59f06`):** 1246 passed, 9 skipped, 0 failed (per epic/E-19 → main post-merge verification in this session)
+**Baseline test count (main HEAD `5d59f06`):** 1246 passed, 9 skipped, 0 failed
+**Final test count:** 1254 passed, 9 skipped, 0 failed (+8 new constraint enforcement tests)
 
 ## Acceptance Criteria
 
-- [ ] **AC-1.** Constraint allocation during evaluation. After all nodes in the DAG have been evaluated, apply constraint allocation per bin:
-  - For each constraint, collect the unconstrained `served[t]` for all assigned nodes.
-  - If total demand exceeds constraint `capacity[t]`, allocate proportionally via `ConstraintAllocator.AllocateProportional`.
-  - Cap each node's `served[t]` to its allocation.
-  - Store the allocation results in the evaluation context for downstream consumption (state/state_window).
-- [ ] **AC-2.** Downstream propagation. Capped `served` values propagate correctly through the DAG. Nodes that depend on a constrained node's output see the constrained (reduced) values, not the unconstrained originals. This may require a re-evaluation pass for downstream nodes after constraints are applied.
-- [ ] **AC-3.** Constraint metadata in evaluation results. The evaluation result includes per-constraint, per-node, per-bin allocation data so `StateQueryService` can expose constraint status (limited/unlimited) without recomputing.
-- [ ] **AC-4.** Tests and gate. Tests cover: single constraint with two nodes (proportional split), unconstrained case (demand ≤ capacity, no capping), constraint with zero capacity (all nodes get zero), downstream propagation (constrained served affects downstream queue), multiple constraints on different node groups. Full test suite green. Determinism test updated.
+- [x] **AC-1.** Constraint allocation during evaluation. `ConstraintAwareEvaluator.Evaluate` composes `RouterAwareGraphEvaluator.Evaluate` → `ConstraintAllocator.AllocateProportional` per bin → `Graph.EvaluateWithOverrides` to cap served and re-evaluate downstream. Graph stays pure; constraint layer composes it. (Bundle A, commit `3e21791`)
+- [x] **AC-2.** Downstream propagation. Works automatically via `Graph.EvaluateWithOverrides` — the capped served series is an override, and every downstream node re-evaluates correctly through the existing dependency mechanism. No special re-evaluation logic needed. Verified by `DownstreamPropagation_ConsumerSeesConstrainedValues` test. (Bundle A, commit `3e21791`)
+- [x] **AC-3.** Constraint metadata in evaluation results. `ConstraintEvaluationResult` includes `Allocations: IReadOnlyDictionary<string, ConstraintAllocation>` with per-node per-bin allocation arrays and per-bin `Limited` bool flags. Allocations computed for ALL bins (not just constrained bins) for metadata completeness. (Bundle B, commit `ca6f371`)
+- [x] **AC-4.** Tests and gate. 8 tests in `ConstraintEnforcementTests.cs`: (1) single constraint proportional split, (2) unconstrained pass-through, (3) zero capacity, (4) downstream propagation, (5) multiple constraints on different groups, (6) AC-3 metadata constrained case, (7) AC-3 metadata unconstrained case, (8) constraint-aware determinism (bitwise comparison). Full test suite 1254/9/0 green. (Bundles A+B)
 
 ## Commit Plan
 
 Status-sync commit first (this doc + spec approved→in-progress + p3a status drift fix + epic spec table + CLAUDE.md + epic-roadmap.md), then implementation bundles determined by TDD cycle complexity.
 
-- [ ] **Status-sync commit** — create branch, flip statuses, fix pre-existing p3a drift, create this tracking doc.
-- [ ] **Bundle A (tentative)** — AC-4 red tests for the simple cases (unconstrained pass-through, single-constraint proportional split, zero-capacity all-zero), then AC-1 implementation until those tests pass.
-- [ ] **Bundle B (tentative)** — AC-2 downstream propagation: the tricky one. Capped `served` must propagate through the DAG. Two design options from the spec's Technical Notes:
-  1. **Re-evaluate downstream nodes** after constraint application (simpler, potentially wasteful).
-  2. **Integrate constraints into the evaluation loop** — defer final `served` until all nodes in the constraint group are evaluated, then allocate (more efficient, complicates topological traversal).
+- [x] **Status-sync commit** — commit `2ccef08`. Created branch, flipped statuses, fixed pre-existing p3a drift, created this tracking doc. 6 files, +87/−16.
+- [x] **Bundle A** (AC-1 + AC-2 + AC-4 first 5 tests) — commit `3e21791`. New `ConstraintAwareEvaluator` (201 lines) + `ConstraintEnforcementTests` (367 lines). 2 files, +568. Tests: 1251 passed, 9 skipped, 0 failed (+5 from baseline).
+- [x] **Bundle B** (AC-3 metadata + AC-4 remaining 3 tests) — commit `ca6f371`. Extended `ConstraintEvaluationResult` with `Allocations` property + `ConstraintAllocation` record type. Added metadata and determinism tests. 2 files, +130/−16. Tests: 1254 passed, 9 skipped, 0 failed (+8 from baseline).
+- [x] **Wrap** — tracking doc finalization + status reconciliation. (this commit)
 
-  Decision deferred to implementation time after profiling the simple case and measuring the blast radius of option 1.
-- [ ] **Bundle C (tentative)** — AC-3 metadata emission + `StateQueryService` simplification: drop the view-time constraint filter now that evaluation produces authoritative allocation results.
-- [ ] **Wrap** — full test suite, determinism test, tracking doc finalization, status reconciliation across all five surfaces.
+**Note: Bundles A and B landed more cleanly than the original tentative plan.** The spec's Technical Notes described two approaches for downstream propagation (option 1: re-evaluate downstream after constraint application; option 2: integrate constraints into the evaluation loop). In practice, the existing `Graph.EvaluateWithOverrides` mechanism IS option 1 — it re-evaluates every node in topological order, using override values where provided. Downstream propagation was automatic, not a separate concern. This collapsed what the original plan called "Bundle A (simple cases)" and "Bundle B (downstream propagation)" into a single Bundle A, and freed Bundle B to focus on AC-3 metadata. No "Bundle C (StateQueryService simplification)" was needed as a separate commit because the metadata is now available for StateQueryService to consume; the actual consumption is a follow-up improvement, not a p3d requirement.
 
 ## Preserved Surfaces (Must Not Regress)
 
@@ -56,16 +51,33 @@ Baseline test count carried forward from the epic/E-19 → main merge sanity che
 
 ## Test Summary
 
-- **Baseline:** 1246 passed, 9 skipped, 0 failed
-- **Current:** (status-sync only — no code changes yet)
-- **Build:** green
+- **Baseline (main `5d59f06`):** 1246 passed, 9 skipped, 0 failed
+- **After Bundle A:** 1251 passed (+5), 9 skipped, 0 failed
+- **After Bundle B (final):** 1254 passed (+8), 9 skipped, 0 failed
+- **Build:** green (1 pre-existing xUnit2031 warning in `ClassMetricsAggregatorTests.cs:126`, not introduced)
+- **Per-project final counts:**
+  - FlowTime.Core.Tests: 277 (+8 from baseline 269)
+  - All other projects unchanged from baseline
 
 ## Notes
 
-_Decisions made, issues encountered, deviations from spec — appended per bundle._
+### Design decision: compose via EvaluateWithOverrides, not modify Graph
+
+The spec's Technical Notes described two approaches. At implementation time a third emerged: the existing `Graph.EvaluateWithOverrides(grid, overrides)` mechanism (built for time-travel parameter overrides) IS the natural composition point. The constraint layer evaluates unconstrained → allocates → caps served series as overrides → calls `EvaluateWithOverrides` which automatically re-evaluates every downstream node with the capped values. Graph stays pure. No changes to `Graph.cs`, `Graph.Evaluate`, or `EvaluateWithOverrides`. No changes to `RouterAwareGraphEvaluator`. The constraint layer sits on top and composes them.
+
+### Follow-up: StateQueryService simplification not in scope for p3d
+
+AC-3 says "so StateQueryService CAN expose constraint status without recomputing." The metadata is now available (`ConstraintEvaluationResult.Allocations`). The actual StateQueryService change — dropping its view-time `AllocateConstraintCapacity` call and consuming evaluation-time metadata instead — is a follow-up improvement. It touches the API layer (~5000-line file, different project) and is better scoped as either a p3d follow-up patch or as part of the orchestration wiring that connects `ConstraintAwareEvaluator` to the run pipeline (`RunOrchestrationService` / `RunArtifactWriter`). Currently `ConstraintAwareEvaluator` is callable from tests but not yet wired into the production run pipeline. Wiring it in requires changes to `FlowTime.Generator` — and E-19's shared framing says "Generator is frozen during E-19 scope; Path B extraction belongs to E-18." Since p3d is E-10 (not E-19), Generator changes are not blocked — but the wiring is a separate concern from the Core-level constraint enforcement logic that p3d delivers.
 
 ## Completion
 
-- **Completed:** pending
-- **Final test count:** pending
-- **Deferred items:** (none yet)
+- **Completed:** 2026-04-09
+- **Final test count:** 1254 passed, 9 skipped, 0 failed
+- **Commits on `milestone/m-ec-p3d-constraint-enforcement`:**
+  - `2ccef08` — status-sync (approved→in-progress, p3a drift fix, tracking doc)
+  - `3e21791` — Bundle A: wire constraint enforcement into evaluation pipeline (AC-1, AC-2, AC-4 tests 1-5)
+  - `ca6f371` — Bundle B: emit constraint allocation metadata (AC-3, AC-4 tests 6-8)
+  - _(pending wrap commit)_ — tracking doc finalization + status reconciliation
+- **Deferred items:**
+  - StateQueryService simplification (consume evaluation-time constraint metadata instead of recomputing at view-time) — follow-up improvement, not a p3d requirement
+  - Production pipeline wiring (`RunOrchestrationService` / `RunArtifactWriter` calling `ConstraintAwareEvaluator` instead of `RouterAwareGraphEvaluator`) — a Generator/orchestration change, separate from Core-level enforcement

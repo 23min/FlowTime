@@ -2,7 +2,7 @@
 
 **ID:** m-ec-p3d
 **Epic:** Engine Correctness & Analytical Primitives
-**Status:** in-progress
+**Status:** complete
 **Branch:** `milestone/m-ec-p3d-constraint-enforcement` (off `main`)
 
 ## Goal
