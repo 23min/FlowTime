@@ -1,0 +1,15 @@
+schemaVersion: 1
+grid:
+  bins: 8
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: demand
+    kind: const
+    values: [10,10,10,10,10,10,10,10]
+  - id: served
+    kind: expr
+    expr: "demand * 0.8"
+outputs:
+  - series: served
+    as: served.csv

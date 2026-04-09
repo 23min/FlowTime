@@ -1,0 +1,29 @@
+metadata:
+  id: m15.complex-pmf
+  title: SIM-M2.1 Complex PMF example (node-based)
+  description: Complex PMF arrivals with a derived route node
+schemaVersion: 1
+rng:
+  kind: pcg32
+  seed: 123
+grid:
+  bins: 24
+  binSize: 60
+  binUnit: minutes
+  start: "2025-09-11T00:00:00Z"
+nodes:
+  - id: arrivals
+    kind: pmf
+    pmf:
+      values: [1, 2, 3, 5, 8]
+      probabilities: [0.1, 0.2, 0.3, 0.3, 0.1]
+  - id: COMP_A
+    kind: expr
+    expression: arrivals
+    dependencies: [arrivals]
+  - id: service_rate
+    kind: const
+    values: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+outputs:
+  - id: events
+    source: COMP_A
