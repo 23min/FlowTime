@@ -59,6 +59,8 @@ public static class ModelCompiler
                             Outflow = outflow,
                             Loss = loss,
                             DispatchSchedule = CloneSchedule(topoNode.DispatchSchedule),
+                            WipLimit = topoNode.WipLimit,
+                            WipOverflow = topoNode.WipOverflow,
                             Metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                             {
                                 ["graph.hidden"] = "true",
@@ -279,11 +281,14 @@ public static class ModelCompiler
             NodeRole = source.NodeRole,
             Group = source.Group,
             Ui = source.Ui is null ? null : new UiHintsDefinition { X = source.Ui.X, Y = source.Ui.Y },
+            Constraints = source.Constraints is null ? null : new List<string>(source.Constraints),
             Semantics = CloneSemantics(source.Semantics),
             InitialCondition = source.InitialCondition is null
                 ? null
                 : new InitialConditionDefinition { QueueDepth = source.InitialCondition.QueueDepth },
-            DispatchSchedule = CloneSchedule(source.DispatchSchedule)
+            DispatchSchedule = CloneSchedule(source.DispatchSchedule),
+            WipLimit = source.WipLimit,
+            WipOverflow = source.WipOverflow
         };
     }
 

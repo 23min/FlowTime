@@ -1,3 +1,4 @@
+using FlowTime.Core.Compiler;
 using FlowTime.Core.Execution;
 using FlowTime.Core.Models;
 using FlowTime.Core.Nodes;
@@ -153,6 +154,60 @@ public sealed class WipLimitTests
         Assert.Equal(13.0, node.LastOverflow[1], precision: 10);
         Assert.Equal(14.0, node.LastOverflow[2], precision: 10);
         Assert.Equal(14.0, node.LastOverflow[3], precision: 10);
+    }
+
+    /// <summary>
+    /// AC-1 + AC-3: WIP limit defined on topology node flows through ModelCompiler
+    /// and ModelParser into the evaluated graph. End-to-end pipeline test.
+    /// </summary>
+    [Fact]
+    public void WipLimit_EndToEnd_TopologyThroughCompiler()
+    {
+        var model = new ModelDefinition
+        {
+            Grid = new GridDefinition { Bins = 4, BinSize = 1, BinUnit = "hours" },
+            Nodes =
+            {
+                new NodeDefinition { Id = "arrivals", Kind = "const", Values = new[] { 10.0, 10.0, 10.0, 10.0 } },
+                new NodeDefinition { Id = "capacity", Kind = "const", Values = new[] { 2.0, 2.0, 2.0, 2.0 } },
+                new NodeDefinition { Id = "served", Kind = "expr", Expr = "capacity" },
+                new NodeDefinition { Id = "errors", Kind = "const", Values = new[] { 0.0, 0.0, 0.0, 0.0 } },
+            },
+            Topology = new TopologyDefinition
+            {
+                Nodes =
+                {
+                    new TopologyNodeDefinition
+                    {
+                        Id = "Queue",
+                        Kind = "serviceWithBuffer",
+                        WipLimit = 15.0,
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "arrivals",
+                            Served = "served",
+                            Errors = "errors",
+                            QueueDepth = "queue_depth"
+                        }
+                    }
+                }
+            }
+        };
+
+        var compiled = ModelCompiler.Compile(model);
+        var (grid, graph) = ModelParser.ParseModel(compiled);
+        var result = graph.Evaluate(grid);
+
+        var queueId = new NodeId("queue_depth");
+        Assert.True(result.ContainsKey(queueId));
+
+        var queue = result[queueId].ToArray();
+        // inflow=10, outflow=2, net=8 per bin
+        // Q[0]=8, Q[1]=16→capped at 15, Q[2]=15+8=23→15, Q[3]=15+8=23→15
+        Assert.Equal(8.0, queue[0], precision: 10);
+        Assert.Equal(15.0, queue[1], precision: 10);
+        Assert.Equal(15.0, queue[2], precision: 10);
+        Assert.Equal(15.0, queue[3], precision: 10);
     }
 
     /// <summary>

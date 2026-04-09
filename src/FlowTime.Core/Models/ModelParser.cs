@@ -350,7 +350,7 @@ public static class ModelParser
                 var outflow = new NodeId(nodeDef.Outflow ?? throw new ModelParseException($"ServiceWithBuffer node {nodeDef.Id} requires 'outflow'."));
                 NodeId? loss = string.IsNullOrWhiteSpace(nodeDef.Loss) ? null : new NodeId(nodeDef.Loss!);
                 var scheduleConfig = CreateDispatchSchedule(nodeDef);
-                node = new Nodes.ServiceWithBufferNode(nodeDef.Id, inflow, outflow, loss, seed, scheduleConfig);
+                node = new Nodes.ServiceWithBufferNode(nodeDef.Id, inflow, outflow, loss, seed, scheduleConfig, nodeDef.WipLimit);
             }
             nodes.Add(node);
         }
@@ -456,7 +456,7 @@ public static class ModelParser
         NodeId? loss = string.IsNullOrWhiteSpace(nodeDef.Loss) ? null : new NodeId(nodeDef.Loss!);
         var scheduleConfig = CreateDispatchSchedule(nodeDef);
         // Initial seed is injected later from topology (see ParseNodes(model))
-        return new Nodes.ServiceWithBufferNode(nodeDef.Id, new NodeId(inflowId), new NodeId(outflowId), loss, 0d, scheduleConfig);
+        return new Nodes.ServiceWithBufferNode(nodeDef.Id, new NodeId(inflowId), new NodeId(outflowId), loss, 0d, scheduleConfig, nodeDef.WipLimit);
     }
 
     private static INode ParseRouterNode(NodeDefinition nodeDef)
@@ -588,6 +588,10 @@ public class NodeDefinition
     public string? Outflow { get; set; }
     public string? Loss { get; set; }
     public DispatchScheduleDefinition? DispatchSchedule { get; set; }
+    /// <summary>Optional WIP limit (scalar). When set, queue depth is capped at this value and overflow is tracked.</summary>
+    public double? WipLimit { get; set; }
+    /// <summary>Optional WIP overflow target. "loss" (default) or a node ID to receive overflow as inflow.</summary>
+    public string? WipOverflow { get; set; }
     // For router nodes
     public RouterDefinition? Router { get; set; }
 }
@@ -648,6 +652,10 @@ public class TopologyNodeDefinition
     public TopologyNodeSemanticsDefinition Semantics { get; set; } = new();
     public InitialConditionDefinition? InitialCondition { get; set; }
     public DispatchScheduleDefinition? DispatchSchedule { get; set; }
+    /// <summary>Optional WIP limit for queue-like nodes (scalar). When set, queue depth is capped at this value.</summary>
+    public double? WipLimit { get; set; }
+    /// <summary>Optional WIP overflow target: "loss" (default) or a node ID to receive overflow as inflow.</summary>
+    public string? WipOverflow { get; set; }
 }
 
 public class TopologyNodeSemanticsDefinition
