@@ -2,7 +2,7 @@
 
 **ID:** m-E20-06
 **Epic:** E-20 Matrix Engine
-**Status:** approved
+**Status:** complete
 **Branch:** `milestone/m-E20-06-artifacts-cli-and-integration` (off `epic/E-20-matrix-engine`)
 
 ## Goal
