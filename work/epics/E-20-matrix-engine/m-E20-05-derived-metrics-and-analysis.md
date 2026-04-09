@@ -2,7 +2,7 @@
 
 **ID:** m-E20-05
 **Epic:** E-20 Matrix Engine
-**Status:** approved
+**Status:** complete
 **Branch:** `milestone/m-E20-05-derived-metrics-and-analysis` (off `epic/E-20-matrix-engine`)
 
 ## Goal
