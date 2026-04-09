@@ -16,16 +16,137 @@ namespace FlowTime.Core.Expressions;
 /// </summary>
 public class ExprNode : INode
 {
-    private readonly ExpressionNode ast;
-    
+    internal readonly ExpressionNode ast;
+
     public NodeId Id { get; }
     public IEnumerable<NodeId> Inputs { get; }
-    
-    public ExprNode(string id, ExpressionNode ast, IEnumerable<NodeId> inputs)
+
+    /// <summary>
+    /// True if this expression references nodes via SHIFT with lag >= 1
+    /// that are not also direct (same-bin) dependencies. Used by the graph
+    /// to detect feedback subgraphs requiring bin-by-bin evaluation.
+    /// </summary>
+    public bool HasLaggedReferences { get; }
+
+    public ExprNode(string id, ExpressionNode ast, IEnumerable<NodeId> inputs, bool hasLaggedRefs = false)
     {
         Id = new NodeId(id);
         this.ast = ast;
         Inputs = inputs;
+        HasLaggedReferences = hasLaggedRefs;
+    }
+
+    /// <summary>
+    /// Evaluate the expression at a single bin. Used by the feedback subgraph
+    /// evaluator for bin-by-bin evaluation. The getBinValue function reads from
+    /// the shared mutable column state, allowing SHIFT to read previous bins.
+    /// </summary>
+    public double EvaluateAtBin(int t, TimeGrid grid, Func<NodeId, int, double> getBinValue)
+    {
+        return EvaluateBinExpression(ast, t, grid, getBinValue);
+    }
+
+    private double EvaluateBinExpression(ExpressionNode expr, int t, TimeGrid grid, Func<NodeId, int, double> getBinValue)
+    {
+        return expr switch
+        {
+            LiteralNode literal => literal.Value,
+            NodeReferenceNode nodeRef => getBinValue(new NodeId(nodeRef.NodeId), t),
+            BinaryOpNode binOp => EvaluateBinBinaryOp(binOp, t, grid, getBinValue),
+            FunctionCallNode funcCall => EvaluateBinFunctionCall(funcCall, t, grid, getBinValue),
+            ArrayLiteralNode array => t < array.Values.Count ? array.Values[t] : 0.0,
+            _ => throw new ArgumentException($"Unsupported expression node type: {expr.GetType()}")
+        };
+    }
+
+    private double EvaluateBinBinaryOp(BinaryOpNode node, int t, TimeGrid grid, Func<NodeId, int, double> getBinValue)
+    {
+        var left = EvaluateBinExpression(node.Left, t, grid, getBinValue);
+        var right = EvaluateBinExpression(node.Right, t, grid, getBinValue);
+        return node.Operator switch
+        {
+            BinaryOperator.Add => left + right,
+            BinaryOperator.Subtract => left - right,
+            BinaryOperator.Multiply => left * right,
+            BinaryOperator.Divide => right != 0.0 ? left / right : 0.0,
+            _ => throw new ArgumentException($"Unsupported operator: {node.Operator}")
+        };
+    }
+
+    private double EvaluateBinFunctionCall(FunctionCallNode node, int t, TimeGrid grid, Func<NodeId, int, double> getBinValue)
+    {
+        return node.FunctionName.ToUpperInvariant() switch
+        {
+            "SHIFT" => EvaluateBinShift(node, t, grid, getBinValue),
+            "CONV" => EvaluateBinConv(node, t, grid, getBinValue),
+            "MIN" => EvaluateBinMinMax(node, t, grid, getBinValue, Math.Min),
+            "MAX" => EvaluateBinMinMax(node, t, grid, getBinValue, Math.Max),
+            "CLAMP" => EvaluateBinClamp(node, t, grid, getBinValue),
+            "MOD" => EvaluateBinMod(node, t, grid, getBinValue),
+            "FLOOR" => Math.Floor(EvaluateBinExpression(node.Arguments[0], t, grid, getBinValue)),
+            "CEIL" => Math.Ceiling(EvaluateBinExpression(node.Arguments[0], t, grid, getBinValue)),
+            "ROUND" => Math.Round(EvaluateBinExpression(node.Arguments[0], t, grid, getBinValue), MidpointRounding.AwayFromZero),
+            "STEP" => EvaluateBinExpression(node.Arguments[0], t, grid, getBinValue)
+                       >= EvaluateBinExpression(node.Arguments[1], t, grid, getBinValue) ? 1.0 : 0.0,
+            "PULSE" => EvaluateBinPulse(node, t, grid, getBinValue),
+            _ => throw new ArgumentException($"Unknown function: {node.FunctionName}")
+        };
+    }
+
+    private double EvaluateBinShift(FunctionCallNode node, int t, TimeGrid grid, Func<NodeId, int, double> getBinValue)
+    {
+        if (node.Arguments[1] is not LiteralNode lagLiteral)
+            throw new ArgumentException("SHIFT lag must be a literal integer");
+        var lag = (int)lagLiteral.Value;
+        if (t < lag) return 0.0;
+        return EvaluateBinExpression(node.Arguments[0], t - lag, grid, getBinValue);
+    }
+
+    private double EvaluateBinConv(FunctionCallNode node, int t, TimeGrid grid, Func<NodeId, int, double> getBinValue)
+    {
+        var kernel = ExtractKernel(node.Arguments[1]);
+        double sum = 0;
+        for (int k = 0; k < kernel.Length; k++)
+        {
+            var sourceIndex = t - k;
+            if (sourceIndex < 0) break;
+            var sample = EvaluateBinExpression(node.Arguments[0], sourceIndex, grid, getBinValue);
+            if (double.IsFinite(sample)) sum += sample * kernel[k];
+        }
+        return sum;
+    }
+
+    private double EvaluateBinMinMax(FunctionCallNode node, int t, TimeGrid grid, Func<NodeId, int, double> getBinValue, Func<double, double, double> op)
+    {
+        var left = EvaluateBinExpression(node.Arguments[0], t, grid, getBinValue);
+        var right = EvaluateBinExpression(node.Arguments[1], t, grid, getBinValue);
+        return op(left, right);
+    }
+
+    private double EvaluateBinClamp(FunctionCallNode node, int t, TimeGrid grid, Func<NodeId, int, double> getBinValue)
+    {
+        var value = EvaluateBinExpression(node.Arguments[0], t, grid, getBinValue);
+        var lo = EvaluateBinExpression(node.Arguments[1], t, grid, getBinValue);
+        var hi = EvaluateBinExpression(node.Arguments[2], t, grid, getBinValue);
+        return Math.Max(lo, Math.Min(hi, value));
+    }
+
+    private double EvaluateBinMod(FunctionCallNode node, int t, TimeGrid grid, Func<NodeId, int, double> getBinValue)
+    {
+        var value = EvaluateBinExpression(node.Arguments[0], t, grid, getBinValue);
+        var divisor = EvaluateBinExpression(node.Arguments[1], t, grid, getBinValue);
+        return Math.Abs(divisor) <= double.Epsilon ? 0d : Modulo(value, divisor);
+    }
+
+    private double EvaluateBinPulse(FunctionCallNode node, int t, TimeGrid grid, Func<NodeId, int, double> getBinValue)
+    {
+        if (node.Arguments[0] is not LiteralNode periodLiteral) return 0.0;
+        var period = (int)periodLiteral.Value;
+        if (period <= 0) return 0.0;
+        var phase = node.Arguments.Count >= 2 && node.Arguments[1] is LiteralNode phaseLit ? (int)phaseLit.Value : 0;
+        var delta = t - phase;
+        if (delta < 0 || delta % period != 0) return 0.0;
+        return node.Arguments.Count == 3 ? EvaluateBinExpression(node.Arguments[2], t, grid, getBinValue) : 1.0;
     }
     
     public Series Evaluate(TimeGrid grid, Func<NodeId, Series> getInput)

@@ -6,9 +6,8 @@ using FlowTime.Core.Nodes;
 namespace FlowTime.Core.Tests.Nodes;
 
 /// <summary>
-/// Tests for AC-1 and AC-5 of m-ec-p3b WIP Limits.
-/// Verifies that ServiceWithBufferNode clamps queue depth at the WIP limit
-/// and tracks overflow.
+/// Tests for m-ec-p3b WIP Limits (AC-1, AC-2, AC-5).
+/// Verifies WIP clamping, overflow tracking, and overflow routing.
 /// </summary>
 public sealed class WipLimitTests
 {
@@ -242,5 +241,294 @@ public sealed class WipLimitTests
         Assert.Equal(5.0, node.LastOverflow![0], precision: 10); // 10-5=5, all overflow
         Assert.Equal(5.0, node.LastOverflow[1], precision: 10);
         Assert.Equal(5.0, node.LastOverflow[2], precision: 10);
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // AC-2: WIP overflow routing
+    // ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// AC-2 + AC-5: Overflow routed to a DLQ node (target nodeId).
+    /// Main queue has wipLimit=10, wipOverflow="DLQ". Overflow items
+    /// become additional inflow to the DLQ queue.
+    /// </summary>
+    [Fact]
+    public void WipOverflow_ToDlqNode_OverflowBecomesTargetInflow()
+    {
+        var model = new ModelDefinition
+        {
+            Grid = new GridDefinition { Bins = 3, BinSize = 1, BinUnit = "hours" },
+            Nodes =
+            {
+                new NodeDefinition { Id = "main_arrivals", Kind = "const", Values = new[] { 15.0, 15.0, 15.0 } },
+                new NodeDefinition { Id = "main_capacity", Kind = "const", Values = new[] { 5.0, 5.0, 5.0 } },
+                new NodeDefinition { Id = "main_served", Kind = "expr", Expr = "main_capacity" },
+                new NodeDefinition { Id = "main_errors", Kind = "const", Values = new[] { 0.0, 0.0, 0.0 } },
+                new NodeDefinition { Id = "dlq_arrivals", Kind = "const", Values = new[] { 0.0, 0.0, 0.0 } },
+                new NodeDefinition { Id = "dlq_capacity", Kind = "const", Values = new[] { 0.0, 0.0, 0.0 } },
+                new NodeDefinition { Id = "dlq_served", Kind = "expr", Expr = "dlq_capacity" },
+                new NodeDefinition { Id = "dlq_errors", Kind = "const", Values = new[] { 0.0, 0.0, 0.0 } },
+            },
+            Topology = new TopologyDefinition
+            {
+                Nodes =
+                {
+                    new TopologyNodeDefinition
+                    {
+                        Id = "Main",
+                        Kind = "serviceWithBuffer",
+                        WipLimit = 10.0,
+                        WipOverflow = "DLQ",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "main_arrivals",
+                            Served = "main_served",
+                            Errors = "main_errors",
+                            QueueDepth = "main_queue"
+                        }
+                    },
+                    new TopologyNodeDefinition
+                    {
+                        Id = "DLQ",
+                        Kind = "serviceWithBuffer",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "dlq_arrivals",
+                            Served = "dlq_served",
+                            Errors = "dlq_errors",
+                            QueueDepth = "dlq_queue"
+                        }
+                    }
+                }
+            }
+        };
+
+        var compiled = ModelCompiler.Compile(model);
+        var (grid, graph) = ModelParser.ParseModel(compiled);
+        var result = WipOverflowEvaluator.Evaluate(graph, grid);
+
+        var mainQueue = result[new NodeId("main_queue")].ToArray();
+        var dlqQueue = result[new NodeId("dlq_queue")].ToArray();
+
+        // Main: inflow=15, outflow=5, wipLimit=10
+        // Q[0]=10 (at limit), overflow=0
+        // Q[1]=10+15-5=20 → clamped to 10, overflow=10
+        // Q[2]=10+15-5=20 → clamped to 10, overflow=10
+        Assert.Equal(10.0, mainQueue[0], precision: 10);
+        Assert.Equal(10.0, mainQueue[1], precision: 10);
+        Assert.Equal(10.0, mainQueue[2], precision: 10);
+
+        // DLQ receives overflow as inflow: [0, 10, 10], outflow=0
+        // Q[0]=0, Q[1]=10, Q[2]=20
+        Assert.Equal(0.0, dlqQueue[0], precision: 10);
+        Assert.Equal(10.0, dlqQueue[1], precision: 10);
+        Assert.Equal(20.0, dlqQueue[2], precision: 10);
+    }
+
+    /// <summary>
+    /// AC-2 + AC-5: Cascading overflow. A→B→C.
+    /// A overflows to B (wipLimit=5), B overflows to C (no limit).
+    /// </summary>
+    [Fact]
+    public void WipOverflow_Cascading_OverflowChainsToFinalTarget()
+    {
+        var model = new ModelDefinition
+        {
+            Grid = new GridDefinition { Bins = 3, BinSize = 1, BinUnit = "hours" },
+            Nodes =
+            {
+                new NodeDefinition { Id = "a_arrivals", Kind = "const", Values = new[] { 20.0, 20.0, 20.0 } },
+                new NodeDefinition { Id = "a_capacity", Kind = "const", Values = new[] { 5.0, 5.0, 5.0 } },
+                new NodeDefinition { Id = "a_served", Kind = "expr", Expr = "a_capacity" },
+                new NodeDefinition { Id = "a_errors", Kind = "const", Values = new[] { 0.0, 0.0, 0.0 } },
+                new NodeDefinition { Id = "b_arrivals", Kind = "const", Values = new[] { 0.0, 0.0, 0.0 } },
+                new NodeDefinition { Id = "b_capacity", Kind = "const", Values = new[] { 0.0, 0.0, 0.0 } },
+                new NodeDefinition { Id = "b_served", Kind = "expr", Expr = "b_capacity" },
+                new NodeDefinition { Id = "b_errors", Kind = "const", Values = new[] { 0.0, 0.0, 0.0 } },
+                new NodeDefinition { Id = "c_arrivals", Kind = "const", Values = new[] { 0.0, 0.0, 0.0 } },
+                new NodeDefinition { Id = "c_capacity", Kind = "const", Values = new[] { 0.0, 0.0, 0.0 } },
+                new NodeDefinition { Id = "c_served", Kind = "expr", Expr = "c_capacity" },
+                new NodeDefinition { Id = "c_errors", Kind = "const", Values = new[] { 0.0, 0.0, 0.0 } },
+            },
+            Topology = new TopologyDefinition
+            {
+                Nodes =
+                {
+                    new TopologyNodeDefinition
+                    {
+                        Id = "NodeA",
+                        Kind = "serviceWithBuffer",
+                        WipLimit = 10.0,
+                        WipOverflow = "NodeB",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "a_arrivals",
+                            Served = "a_served",
+                            Errors = "a_errors",
+                            QueueDepth = "a_queue"
+                        }
+                    },
+                    new TopologyNodeDefinition
+                    {
+                        Id = "NodeB",
+                        Kind = "serviceWithBuffer",
+                        WipLimit = 5.0,
+                        WipOverflow = "NodeC",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "b_arrivals",
+                            Served = "b_served",
+                            Errors = "b_errors",
+                            QueueDepth = "b_queue"
+                        }
+                    },
+                    new TopologyNodeDefinition
+                    {
+                        Id = "NodeC",
+                        Kind = "serviceWithBuffer",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "c_arrivals",
+                            Served = "c_served",
+                            Errors = "c_errors",
+                            QueueDepth = "c_queue"
+                        }
+                    }
+                }
+            }
+        };
+
+        var compiled = ModelCompiler.Compile(model);
+        var (grid, graph) = ModelParser.ParseModel(compiled);
+        var result = WipOverflowEvaluator.Evaluate(graph, grid);
+
+        var aQueue = result[new NodeId("a_queue")].ToArray();
+        var bQueue = result[new NodeId("b_queue")].ToArray();
+        var cQueue = result[new NodeId("c_queue")].ToArray();
+
+        // A: inflow=20, outflow=5, wipLimit=10
+        // Q[0]=15→10, overflow=5; Q[1]=10+15=25→10, overflow=15; Q[2]=25→10, overflow=15
+        Assert.Equal(10.0, aQueue[0], precision: 10);
+        Assert.Equal(10.0, aQueue[1], precision: 10);
+        Assert.Equal(10.0, aQueue[2], precision: 10);
+
+        // B: receives A overflow [5,15,15] as inflow, outflow=0, wipLimit=5
+        // Q[0]=5 (at limit), overflow=0; Q[1]=5+15=20→5, overflow=15; Q[2]=5+15=20→5, overflow=15
+        Assert.Equal(5.0, bQueue[0], precision: 10);
+        Assert.Equal(5.0, bQueue[1], precision: 10);
+        Assert.Equal(5.0, bQueue[2], precision: 10);
+
+        // C: receives B overflow [0,15,15] as inflow, outflow=0, no limit
+        // Q[0]=0; Q[1]=15; Q[2]=15+15=30
+        Assert.Equal(0.0, cQueue[0], precision: 10);
+        Assert.Equal(15.0, cQueue[1], precision: 10);
+        Assert.Equal(30.0, cQueue[2], precision: 10);
+    }
+
+    /// <summary>
+    /// AC-2: Cycle in overflow routing detected at compile time.
+    /// A→B and B→A creates a cycle — compiler must reject.
+    /// </summary>
+    [Fact]
+    public void WipOverflow_CycleDetection_ThrowsOnCycle()
+    {
+        var model = new ModelDefinition
+        {
+            Grid = new GridDefinition { Bins = 3, BinSize = 1, BinUnit = "hours" },
+            Nodes =
+            {
+                new NodeDefinition { Id = "a_arrivals", Kind = "const", Values = new[] { 10.0, 10.0, 10.0 } },
+                new NodeDefinition { Id = "a_capacity", Kind = "const", Values = new[] { 5.0, 5.0, 5.0 } },
+                new NodeDefinition { Id = "a_served", Kind = "expr", Expr = "a_capacity" },
+                new NodeDefinition { Id = "a_errors", Kind = "const", Values = new[] { 0.0, 0.0, 0.0 } },
+                new NodeDefinition { Id = "b_arrivals", Kind = "const", Values = new[] { 10.0, 10.0, 10.0 } },
+                new NodeDefinition { Id = "b_capacity", Kind = "const", Values = new[] { 5.0, 5.0, 5.0 } },
+                new NodeDefinition { Id = "b_served", Kind = "expr", Expr = "b_capacity" },
+                new NodeDefinition { Id = "b_errors", Kind = "const", Values = new[] { 0.0, 0.0, 0.0 } },
+            },
+            Topology = new TopologyDefinition
+            {
+                Nodes =
+                {
+                    new TopologyNodeDefinition
+                    {
+                        Id = "NodeA",
+                        Kind = "serviceWithBuffer",
+                        WipLimit = 5.0,
+                        WipOverflow = "NodeB",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "a_arrivals",
+                            Served = "a_served",
+                            Errors = "a_errors",
+                            QueueDepth = "a_queue"
+                        }
+                    },
+                    new TopologyNodeDefinition
+                    {
+                        Id = "NodeB",
+                        Kind = "serviceWithBuffer",
+                        WipLimit = 5.0,
+                        WipOverflow = "NodeA",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "b_arrivals",
+                            Served = "b_served",
+                            Errors = "b_errors",
+                            QueueDepth = "b_queue"
+                        }
+                    }
+                }
+            }
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => ModelCompiler.Compile(model));
+        Assert.Contains("cycle", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // AC-5: Time-varying wipLimit (series reference)
+    // ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// AC-5: wipLimit as a series reference — limit changes per bin.
+    /// Limit series = [20, 10, 5], inflow=15, outflow=2.
+    /// Q[0]=13 (&lt;20, no clamp), Q[1]=13+13=26→10 overflow=16, Q[2]=10+13=23→5 overflow=18.
+    /// </summary>
+    [Fact]
+    public void WipLimit_TimeVarying_LimitChangesPerBin()
+    {
+        var grid = new TimeGrid(3, 1, TimeUnit.Hours);
+        var node = new ServiceWithBufferNode(
+            "queue", inflow: new NodeId("inflow"), outflow: new NodeId("outflow"),
+            loss: null, initialDepth: 0, dispatchSchedule: null,
+            wipLimit: null, wipOverflowTarget: null,
+            wipLimitSeriesId: new NodeId("wip_limit_series"));
+
+        var inflow = new Series(new double[] { 15, 15, 15 });
+        var outflow = new Series(new double[] { 2, 2, 2 });
+        var wipLimitSeries = new Series(new double[] { 20, 10, 5 });
+
+        Series GetInput(NodeId id) => id.Value switch
+        {
+            "inflow" => inflow,
+            "outflow" => outflow,
+            "wip_limit_series" => wipLimitSeries,
+            _ => throw new InvalidOperationException($"Unknown node: {id}")
+        };
+
+        var result = node.Evaluate(grid, GetInput);
+
+        // Q[0] = max(0, 0 + 15 - 2) = 13 (< 20, no clamp)
+        // Q[1] = max(0, 13 + 15 - 2) = 26 → clamped to 10, overflow = 16
+        // Q[2] = max(0, 10 + 15 - 2) = 23 → clamped to 5, overflow = 18
+        Assert.Equal(13.0, result[0], precision: 10);
+        Assert.Equal(10.0, result[1], precision: 10);
+        Assert.Equal(5.0, result[2], precision: 10);
+
+        Assert.NotNull(node.LastOverflow);
+        Assert.Equal(0.0, node.LastOverflow![0], precision: 10);
+        Assert.Equal(16.0, node.LastOverflow[1], precision: 10);
+        Assert.Equal(18.0, node.LastOverflow[2], precision: 10);
     }
 }

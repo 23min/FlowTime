@@ -60,6 +60,7 @@ public static class ModelCompiler
                             Loss = loss,
                             DispatchSchedule = CloneSchedule(topoNode.DispatchSchedule),
                             WipLimit = topoNode.WipLimit,
+                            WipLimitSeries = topoNode.WipLimitSeries,
                             WipOverflow = topoNode.WipOverflow,
                             Metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                             {
@@ -119,6 +120,9 @@ public static class ModelCompiler
         {
             return model;
         }
+
+        // Second pass: resolve wipOverflow from topology node ID to queue node ID
+        ResolveWipOverflowTargets(nodes, topology);
 
         return new ModelDefinition
         {
@@ -288,6 +292,7 @@ public static class ModelCompiler
                 : new InitialConditionDefinition { QueueDepth = source.InitialCondition.QueueDepth },
             DispatchSchedule = CloneSchedule(source.DispatchSchedule),
             WipLimit = source.WipLimit,
+            WipLimitSeries = source.WipLimitSeries,
             WipOverflow = source.WipOverflow
         };
     }
@@ -337,5 +342,84 @@ public static class ModelCompiler
             Multiplier = source.Multiplier,
             Lag = source.Lag
         };
+    }
+
+    /// <summary>
+    /// Resolves wipOverflow values on generated ServiceWithBuffer NodeDefinitions
+    /// from topology node IDs to the corresponding queue node IDs.
+    /// Also validates that the overflow routing graph has no cycles.
+    /// </summary>
+    private static void ResolveWipOverflowTargets(List<NodeDefinition> nodes, TopologyDefinition topology)
+    {
+        // Build mapping: topology node ID → queue node ID (from semantics.queueDepth)
+        var topoIdToQueueId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var topoNode in topology.Nodes)
+        {
+            var queueId = topoNode.Semantics?.QueueDepth;
+            if (!string.IsNullOrWhiteSpace(topoNode.Id) && !string.IsNullOrWhiteSpace(queueId))
+            {
+                topoIdToQueueId[topoNode.Id] = queueId!.Trim();
+            }
+        }
+
+        // Validate no cycles in the overflow routing graph before resolving
+        ValidateNoOverflowCycles(topology.Nodes);
+
+        // Resolve wipOverflow on generated ServiceWithBuffer nodes
+        foreach (var node in nodes)
+        {
+            if (!string.Equals(node.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (string.IsNullOrWhiteSpace(node.WipOverflow))
+                continue;
+            if (string.Equals(node.WipOverflow, "loss", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var targetTopoId = node.WipOverflow!.Trim();
+            if (!topoIdToQueueId.TryGetValue(targetTopoId, out var targetQueueId))
+            {
+                throw new InvalidOperationException(
+                    $"WIP overflow target '{targetTopoId}' on node '{node.Id}' " +
+                    $"does not match any topology node with a queue depth series.");
+            }
+
+            node.WipOverflow = targetQueueId;
+        }
+    }
+
+    /// <summary>
+    /// Validates that the WIP overflow routing graph (topology node → topology node)
+    /// contains no cycles. Throws if a cycle is detected.
+    /// </summary>
+    private static void ValidateNoOverflowCycles(List<TopologyNodeDefinition> topoNodes)
+    {
+        // Build adjacency: topology node ID → overflow target topology node ID
+        var edges = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var node in topoNodes)
+        {
+            if (string.IsNullOrWhiteSpace(node.WipOverflow)) continue;
+            if (string.Equals(node.WipOverflow, "loss", StringComparison.OrdinalIgnoreCase)) continue;
+            edges[node.Id] = node.WipOverflow!.Trim();
+        }
+
+        if (edges.Count == 0) return;
+
+        // Detect cycles via path traversal from each source
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var start in edges.Keys)
+        {
+            visited.Clear();
+            var current = start;
+            while (current != null && edges.TryGetValue(current, out var next))
+            {
+                if (!visited.Add(next))
+                {
+                    throw new InvalidOperationException(
+                        $"WIP overflow routing contains a cycle: " +
+                        $"'{current}' → '{next}' creates a loop.");
+                }
+                current = next;
+            }
+        }
     }
 }
