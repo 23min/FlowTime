@@ -1,0 +1,42 @@
+# Constraint below capacity: demand=70 < capacity=80, no capping
+# Expected: Q_a=[20,40,60], Q_b=[30,60,90]
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: demand_a
+    kind: const
+    values: [30, 30, 30]
+  - id: demand_b
+    kind: const
+    values: [40, 40, 40]
+  - id: capacity
+    kind: const
+    values: [80, 80, 80]
+  - id: served_a
+    kind: const
+    values: [10, 10, 10]
+  - id: served_b
+    kind: const
+    values: [10, 10, 10]
+topology:
+  nodes:
+    - id: NodeA
+      kind: serviceWithBuffer
+      constraints: [shared]
+      semantics:
+        arrivals: demand_a
+        served: served_a
+    - id: NodeB
+      kind: serviceWithBuffer
+      constraints: [shared]
+      semantics:
+        arrivals: demand_b
+        served: served_b
+  edges: []
+  constraints:
+    - id: shared
+      semantics:
+        arrivals: total_demand
+        served: capacity

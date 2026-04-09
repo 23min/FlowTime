@@ -130,6 +130,9 @@ pub fn compile(model: &ModelDefinition) -> Result<Plan, CompileError> {
                             .sum();
                         ops.push(Op::Const { out, values: vec![expected; bins] });
                     }
+                    "router" => {
+                        compile_router(node, model, &mut column_map, &mut ops, bins)?;
+                    }
                     other => {
                         return Err(CompileError(format!("Unsupported node kind '{}' on node '{}'", other, node.id)));
                     }
@@ -142,6 +145,12 @@ pub fn compile(model: &ModelDefinition) -> Result<Plan, CompileError> {
                 }
             }
         }
+    }
+
+    // Phase 4: Constraint allocation — emit ProportionalAlloc ops and patch
+    // QueueRecurrence inflows to use capped arrivals.
+    if let Some(topo) = &model.topology {
+        compile_constraints(topo, &mut column_map, &mut ops, bins)?;
     }
 
     Ok(Plan { ops, column_map, bins })
@@ -218,7 +227,7 @@ fn gather_topology_columns(model: &ModelDefinition, cm: &ColumnMap) -> Vec<TopoC
 /// SHIFT dependencies are excluded from same-bin edges (they read t-1).
 fn unified_topo_sort(
     nodes: &[crate::model::NodeDefinition],
-    cm: &ColumnMap,
+    _cm: &ColumnMap,
     topo_columns: &[TopoColumnInfo],
 ) -> Result<Vec<CompileItem>, CompileError> {
     // Assign unique IDs: model nodes get index 0..n, topo columns get n..n+m
@@ -374,9 +383,240 @@ fn to_snake_case(s: &str) -> String {
     result
 }
 
+/// Compile a router node: split source series across targets by weight and/or class.
+fn compile_router(
+    node: &crate::model::NodeDefinition,
+    model: &ModelDefinition,
+    cm: &mut ColumnMap,
+    ops: &mut Vec<Op>,
+    bins: usize,
+) -> Result<(), CompileError> {
+    let router = node.router.as_ref()
+        .ok_or_else(|| CompileError(format!("Router node '{}' requires router field", node.id)))?;
+
+    // Resolve source column
+    let source_ref = router.inputs.queue.as_deref()
+        .ok_or_else(|| CompileError(format!("Router '{}': inputs.queue is required", node.id)))?;
+    let source_col = cm.get(source_ref)
+        .ok_or_else(|| CompileError(format!("Router '{}': source '{}' not found", node.id, source_ref)))?;
+
+    if router.routes.is_empty() {
+        return Err(CompileError(format!("Router '{}': must have at least one route", node.id)));
+    }
+
+    // Separate class routes and weight routes
+    let weight_routes: Vec<&crate::model::RouterRouteDefinition> = router.routes.iter()
+        .filter(|r| r.classes.as_ref().map_or(true, |c| c.is_empty()))
+        .collect();
+
+    let class_routes: Vec<&crate::model::RouterRouteDefinition> = router.routes.iter()
+        .filter(|r| r.classes.as_ref().map_or(false, |c| !c.is_empty()))
+        .collect();
+
+    // Track accumulated target columns for multi-route-to-same-target
+    let mut target_cols: HashMap<String, usize> = HashMap::new();
+
+    // Build per-class column map from traffic.arrivals
+    // Maps (sourceNodeId, classId) → column with per-class arrival values
+    let mut class_columns: HashMap<String, usize> = HashMap::new();
+    if let Some(traffic) = &model.traffic {
+        for arrival in &traffic.arrivals {
+            if arrival.node_id == source_ref && !arrival.class_id.is_empty() {
+                // Look for an explicit per-class const node named {classId}_arrivals or similar
+                let class_col_name = format!("{}__class_{}", source_ref, arrival.class_id);
+                // Try to find a pre-existing column, or create from rate
+                if let Some(col) = cm.get(&class_col_name) {
+                    class_columns.insert(arrival.class_id.clone(), col);
+                } else if let Some(rate) = arrival.pattern.rate_per_bin {
+                    let col = cm.get_or_insert(&class_col_name);
+                    ops.push(Op::Const { out: col, values: vec![rate; bins] });
+                    class_columns.insert(arrival.class_id.clone(), col);
+                }
+            }
+        }
+    }
+
+    // Phase 1: Class-based routes (extract per-class columns)
+    let mut class_routed_total: Option<usize> = None;
+    for route in &class_routes {
+        let classes = route.classes.as_ref().unwrap();
+        // Sum all class columns for this route
+        let mut route_sum: Option<usize> = None;
+        for class_id in classes {
+            let class_col = class_columns.get(class_id)
+                .ok_or_else(|| CompileError(format!("Router '{}': class '{}' not found in traffic arrivals", node.id, class_id)))?;
+            route_sum = Some(match route_sum {
+                None => *class_col,
+                Some(prev) => {
+                    let combined = cm.alloc_temp();
+                    ops.push(Op::VecAdd { out: combined, a: prev, b: *class_col });
+                    combined
+                }
+            });
+        }
+
+        if let Some(route_col) = route_sum {
+            // Accumulate class-routed total (for subtracting from source later)
+            class_routed_total = Some(match class_routed_total {
+                None => route_col,
+                Some(prev) => {
+                    let combined = cm.alloc_temp();
+                    ops.push(Op::VecAdd { out: combined, a: prev, b: route_col });
+                    combined
+                }
+            });
+
+            // Write to target
+            let target_col = cm.get_or_insert(&route.target);
+            if let Some(&existing) = target_cols.get(&route.target) {
+                let combined = cm.alloc_temp();
+                ops.push(Op::VecAdd { out: combined, a: existing, b: route_col });
+                ops.push(Op::Copy { out: target_col, input: combined });
+                target_cols.insert(route.target.clone(), combined);
+            } else {
+                ops.push(Op::Copy { out: target_col, input: route_col });
+                target_cols.insert(route.target.clone(), route_col);
+            }
+        }
+    }
+
+    // Phase 2: Weight-based routes (split remaining flow by weight)
+    let total_weight: f64 = weight_routes.iter()
+        .map(|r| r.weight.unwrap_or(1.0))
+        .sum();
+
+    if total_weight <= 0.0 && !weight_routes.is_empty() {
+        return Err(CompileError(format!("Router '{}': total weight must be positive", node.id)));
+    }
+
+    // Source for weight routes: source minus class-routed total
+    let weight_source = match class_routed_total {
+        Some(class_total) => {
+            let remaining = cm.alloc_temp();
+            ops.push(Op::VecSub { out: remaining, a: source_col, b: class_total });
+            remaining
+        }
+        None => source_col,
+    };
+
+    for route in &weight_routes {
+        let weight = route.weight.unwrap_or(1.0);
+        let fraction = weight / total_weight;
+
+        let route_col = cm.alloc_temp();
+        ops.push(Op::ScalarMul { out: route_col, input: weight_source, k: fraction });
+
+        let target_col = cm.get_or_insert(&route.target);
+        if let Some(&existing) = target_cols.get(&route.target) {
+            let combined = cm.alloc_temp();
+            ops.push(Op::VecAdd { out: combined, a: existing, b: route_col });
+            ops.push(Op::Copy { out: target_col, input: combined });
+            target_cols.insert(route.target.clone(), combined);
+        } else {
+            ops.push(Op::Copy { out: target_col, input: route_col });
+            target_cols.insert(route.target.clone(), route_col);
+        }
+    }
+
+    Ok(())
+}
+
 /// Synthesize queue column ID from topology node ID (e.g., "Queue" → "queue_queue").
 fn queue_column_id(topo_node_id: &str) -> String {
     format!("{}_queue", to_snake_case(topo_node_id))
+}
+
+/// Compile constraint allocation: emit ProportionalAlloc ops and patch QueueRecurrence inflows.
+fn compile_constraints(
+    topo: &crate::model::TopologyDefinition,
+    cm: &mut ColumnMap,
+    ops: &mut Vec<Op>,
+    bins: usize,
+) -> Result<(), CompileError> {
+    for constraint in &topo.constraints {
+        // Find topology nodes that reference this constraint
+        let constrained_nodes: Vec<&crate::model::TopologyNodeDefinition> = topo.nodes.iter()
+            .filter(|n| n.constraints.as_ref().map_or(false, |cs| cs.iter().any(|c| c == &constraint.id)))
+            .collect();
+
+        if constrained_nodes.is_empty() { continue; }
+
+        // Resolve capacity column
+        let cap_ref = &constraint.semantics.served;
+        if cap_ref.is_empty() {
+            return Err(CompileError(format!("Constraint '{}': missing semantics.served (capacity)", constraint.id)));
+        }
+        let cap_col = cm.get(cap_ref)
+            .ok_or_else(|| CompileError(format!("Constraint '{}': capacity ref '{}' not found", constraint.id, cap_ref)))?;
+
+        // Resolve demand columns (arrivals of each constrained node)
+        let mut demand_cols = Vec::new();
+        let mut capped_cols = Vec::new();
+        for tnode in &constrained_nodes {
+            let arrivals_ref = &tnode.semantics.arrivals;
+            if arrivals_ref.is_empty() {
+                return Err(CompileError(format!("Constraint '{}': node '{}' has no arrivals", constraint.id, tnode.id)));
+            }
+            let demand_col = cm.get(arrivals_ref)
+                .ok_or_else(|| CompileError(format!("Constraint '{}': arrivals '{}' not found for node '{}'", constraint.id, arrivals_ref, tnode.id)))?;
+            demand_cols.push(demand_col);
+
+            // Create capped output column
+            let capped_name = format!("{}_capped_{}", to_snake_case(&tnode.id), constraint.id);
+            let capped_col = cm.get_or_insert(&capped_name);
+            capped_cols.push(capped_col);
+        }
+
+        // Emit ProportionalAlloc op
+        let alloc_op = Op::ProportionalAlloc {
+            outs: capped_cols.clone(),
+            demands: demand_cols,
+            capacity: cap_col,
+        };
+
+        // Insert before the first QueueRecurrence that uses any of these arrivals.
+        // Find the earliest QueueRecurrence position in ops.
+        let mut insert_pos: Option<usize> = None;
+        for (i, op) in ops.iter().enumerate() {
+            if let Op::QueueRecurrence { inflow, .. } = op {
+                for tnode in &constrained_nodes {
+                    let arrivals_ref = &tnode.semantics.arrivals;
+                    if let Some(arr_col) = cm.get(arrivals_ref) {
+                        if *inflow == arr_col {
+                            insert_pos = Some(match insert_pos {
+                                None => i,
+                                Some(prev) => prev.min(i),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Some(pos) = insert_pos {
+            ops.insert(pos, alloc_op);
+            // Patch QueueRecurrence inflows to use capped columns
+            // (indices shifted by 1 after insert)
+            for (j, tnode) in constrained_nodes.iter().enumerate() {
+                let arrivals_ref = &tnode.semantics.arrivals;
+                if let Some(arr_col) = cm.get(arrivals_ref) {
+                    for op in ops.iter_mut() {
+                        if let Op::QueueRecurrence { inflow, .. } = op {
+                            if *inflow == arr_col {
+                                *inflow = capped_cols[j];
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // No QueueRecurrence found — just append (edge case)
+            ops.push(alloc_op);
+        }
+    }
+
+    Ok(())
 }
 
 /// Compile a single topology node into ops (QueueRecurrence + optional DispatchGate, Convolve).
@@ -1430,6 +1670,316 @@ topology:
         // C: inflow=0+B_overflow=[0,15,15], outflow=0
         // Q[0]=0, Q[1]=15, Q[2]=30
         assert_eq!(result.series("c_queue").unwrap(), vec![0.0, 15.0, 30.0]);
+    }
+
+    #[test]
+    fn compile_router_weight_based() {
+        // Router splits source [100, 100, 100] by weights [0.5, 0.3, 0.2]
+        let yaml = r#"
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: source
+    kind: const
+    values: [100, 100, 100]
+  - id: splitter
+    kind: router
+    router:
+      inputs:
+        queue: source
+      routes:
+        - target: target_a
+          weight: 0.5
+        - target: target_b
+          weight: 0.3
+        - target: target_c
+          weight: 0.2
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        assert_approx(&result.series("target_a").unwrap(), &[50.0, 50.0, 50.0]);
+        assert_approx(&result.series("target_b").unwrap(), &[30.0, 30.0, 30.0]);
+        assert_approx(&result.series("target_c").unwrap(), &[20.0, 20.0, 20.0]);
+    }
+
+    #[test]
+    fn compile_router_default_weights() {
+        // Router with no explicit weights → equal split
+        let yaml = r#"
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: source
+    kind: const
+    values: [90, 90, 90]
+  - id: splitter
+    kind: router
+    router:
+      inputs:
+        queue: source
+      routes:
+        - target: target_a
+        - target: target_b
+        - target: target_c
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        assert_approx(&result.series("target_a").unwrap(), &[30.0, 30.0, 30.0]);
+        assert_approx(&result.series("target_b").unwrap(), &[30.0, 30.0, 30.0]);
+        assert_approx(&result.series("target_c").unwrap(), &[30.0, 30.0, 30.0]);
+    }
+
+    #[test]
+    fn compile_router_accumulate_same_target() {
+        // Two routes to the same target → accumulated
+        let yaml = r#"
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: source
+    kind: const
+    values: [100, 100, 100]
+  - id: splitter
+    kind: router
+    router:
+      inputs:
+        queue: source
+      routes:
+        - target: combined
+          weight: 0.6
+        - target: combined
+          weight: 0.4
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        assert_approx(&result.series("combined").unwrap(), &[100.0, 100.0, 100.0]);
+    }
+
+    #[test]
+    fn compile_router_class_based() {
+        // Two classes routed to different targets
+        // Alpha=40/bin → airport, Beta=60/bin → general
+        let yaml = r#"
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: total_arrivals
+    kind: const
+    values: [100, 100, 100]
+  - id: alpha_arrivals
+    kind: const
+    values: [40, 40, 40]
+  - id: beta_arrivals
+    kind: const
+    values: [60, 60, 60]
+  - id: splitter
+    kind: router
+    router:
+      inputs:
+        queue: total_arrivals
+      routes:
+        - target: airport
+          classes: [Alpha]
+        - target: general
+          classes: [Beta]
+classes:
+  - id: Alpha
+  - id: Beta
+traffic:
+  arrivals:
+    - nodeId: total_arrivals
+      classId: Alpha
+      pattern:
+        kind: const
+        ratePerBin: 40
+    - nodeId: total_arrivals
+      classId: Beta
+      pattern:
+        kind: const
+        ratePerBin: 60
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        assert_approx(&result.series("airport").unwrap(), &[40.0, 40.0, 40.0]);
+        assert_approx(&result.series("general").unwrap(), &[60.0, 60.0, 60.0]);
+    }
+
+    #[test]
+    fn compile_router_mixed_class_and_weight() {
+        // Alpha=40 routed by class to airport
+        // Remaining 60 split by weight: general=0.75(45), overflow=0.25(15)
+        let yaml = r#"
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: total_arrivals
+    kind: const
+    values: [100, 100, 100]
+  - id: alpha_arrivals
+    kind: const
+    values: [40, 40, 40]
+  - id: beta_arrivals
+    kind: const
+    values: [60, 60, 60]
+  - id: splitter
+    kind: router
+    router:
+      inputs:
+        queue: total_arrivals
+      routes:
+        - target: airport
+          classes: [Alpha]
+        - target: general
+          weight: 0.75
+        - target: overflow_target
+          weight: 0.25
+classes:
+  - id: Alpha
+  - id: Beta
+traffic:
+  arrivals:
+    - nodeId: total_arrivals
+      classId: Alpha
+      pattern:
+        kind: const
+        ratePerBin: 40
+    - nodeId: total_arrivals
+      classId: Beta
+      pattern:
+        kind: const
+        ratePerBin: 60
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        assert_approx(&result.series("airport").unwrap(), &[40.0, 40.0, 40.0]);
+        assert_approx(&result.series("general").unwrap(), &[45.0, 45.0, 45.0]);
+        assert_approx(&result.series("overflow_target").unwrap(), &[15.0, 15.0, 15.0]);
+    }
+
+    #[test]
+    fn compile_constraint_proportional_split() {
+        // Two demand sources sharing capacity=80, demands [60, 60] → capped [40, 40]
+        // Verify the ProportionalAlloc op directly via eval_model
+        let yaml = r#"
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: demand_a
+    kind: const
+    values: [60, 60, 60]
+  - id: demand_b
+    kind: const
+    values: [60, 60, 60]
+  - id: capacity
+    kind: const
+    values: [80, 80, 80]
+  - id: served_a
+    kind: const
+    values: [10, 10, 10]
+  - id: served_b
+    kind: const
+    values: [10, 10, 10]
+topology:
+  nodes:
+    - id: NodeA
+      kind: serviceWithBuffer
+      constraints: [shared]
+      semantics:
+        arrivals: demand_a
+        served: served_a
+    - id: NodeB
+      kind: serviceWithBuffer
+      constraints: [shared]
+      semantics:
+        arrivals: demand_b
+        served: served_b
+  edges: []
+  constraints:
+    - id: shared
+      semantics:
+        arrivals: total_demand
+        served: capacity
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        // totalDemand=120 > capacity=80 → capped_a=40, capped_b=40
+        // Queue A: inflow=40, outflow=10 → Q=[30, 60, 90]
+        // Queue B: same
+        assert_approx(&result.series("node_a_queue").unwrap(), &[30.0, 60.0, 90.0]);
+        assert_approx(&result.series("node_b_queue").unwrap(), &[30.0, 60.0, 90.0]);
+    }
+
+    #[test]
+    fn compile_constraint_below_capacity() {
+        // Total demand=70 < capacity=80 → no capping
+        let yaml = r#"
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: demand_a
+    kind: const
+    values: [30, 30, 30]
+  - id: demand_b
+    kind: const
+    values: [40, 40, 40]
+  - id: capacity
+    kind: const
+    values: [80, 80, 80]
+  - id: served_a
+    kind: const
+    values: [10, 10, 10]
+  - id: served_b
+    kind: const
+    values: [10, 10, 10]
+topology:
+  nodes:
+    - id: NodeA
+      kind: serviceWithBuffer
+      constraints: [shared]
+      semantics:
+        arrivals: demand_a
+        served: served_a
+    - id: NodeB
+      kind: serviceWithBuffer
+      constraints: [shared]
+      semantics:
+        arrivals: demand_b
+        served: served_b
+  edges: []
+  constraints:
+    - id: shared
+      semantics:
+        arrivals: total_demand
+        served: capacity
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        // totalDemand=70 < capacity=80 → no capping, arrivals unchanged
+        // Queue A: inflow=30, outflow=10 → Q=[20, 40, 60]
+        // Queue B: inflow=40, outflow=10 → Q=[30, 60, 90]
+        assert_approx(&result.series("node_a_queue").unwrap(), &[20.0, 40.0, 60.0]);
+        assert_approx(&result.series("node_b_queue").unwrap(), &[30.0, 60.0, 90.0]);
     }
 
     /// Assert approximate equality with f64 tolerance.

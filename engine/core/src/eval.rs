@@ -183,6 +183,20 @@ fn execute_op_at_bin(op: &Op, state: &mut [f64], t: usize, bins: usize) {
             set(state, *out, t, bins, val);
         }
 
+        Op::ProportionalAlloc { outs, demands, capacity } => {
+            let cap = get(state, *capacity, t, bins);
+            let total: f64 = demands.iter().map(|&d| safe_val(get(state, d, t, bins))).sum();
+            for (&out_col, &dem_col) in outs.iter().zip(demands.iter()) {
+                let d = safe_val(get(state, dem_col, t, bins));
+                let val = if total > cap && total > 0.0 {
+                    cap * d / total
+                } else {
+                    d
+                };
+                set(state, out_col, t, bins, val);
+            }
+        }
+
         Op::Copy { out, input } => {
             set(state, *out, t, bins, get(state, *input, t, bins));
         }

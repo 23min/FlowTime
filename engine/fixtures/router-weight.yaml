@@ -1,0 +1,22 @@
+# Weight-based router: splits source by weights [0.5, 0.3, 0.2]
+# Expected: target_a=50, target_b=30, target_c=20
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: source
+    kind: const
+    values: [100, 100, 100]
+  - id: splitter
+    kind: router
+    router:
+      inputs:
+        queue: source
+      routes:
+        - target: target_a
+          weight: 0.5
+        - target: target_b
+          weight: 0.3
+        - target: target_c
+          weight: 0.2
