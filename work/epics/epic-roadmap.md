@@ -39,7 +39,7 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 #### E-10 — Engine Correctness & Analytical Primitives
 
 - **Folder:** `work/epics/E-10-engine-correctness-and-analytics/`
-- **Status:** Phases 0-2 complete, p3a and p3a1 merged to main, p3d Constraint Enforcement complete (awaiting merge to main), then p3c -> p3b
+- **Status:** Phases 0-2 complete, p3a/p3a1/p3d merged to main, p3c Variability in progress on `milestone/m-ec-p3c-variability`, then p3b
 - **Goal:** Fix P0 correctness bugs, harden engineering quality, align documentation with code, and build the analytical primitives layer (bottleneck ID, cycle time, WIP limits, variability, constraint enforcement, starvation detection) that downstream epics depend on.
 - **Phases:** 0 (bugs) → 1+2 (engineering + docs, parallel) → 3 (analytical primitives)
 - **Key dependency:** After E-16, resume Phase 3 in the order p3d → p3c → p3b. See `ROADMAP.md` dependency graph.

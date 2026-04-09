@@ -218,11 +218,12 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
-- **Immediate next step:** merge `milestone/m-ec-p3d-constraint-enforcement` into `main` (wrap complete, awaiting approval), then proceed to p3c (Variability/Cv + Kingman). E-19 complete and merged to main.
-- **E-10** Engine Correctness (`work/epics/E-10-engine-correctness-and-analytics/spec.md`) — **Phase 3 in progress (p3d complete, p3c next)**
+- **Immediate next step:** implement m-ec-p3c Variability (Cv + Kingman) on `milestone/m-ec-p3c-variability` (preserve Cv from PMFs, compute sample Cv for observed series, Kingman's approximation per ServiceWithBuffer node). E-19 complete and merged to main. p3d merged to main.
+- **E-10** Engine Correctness (`work/epics/E-10-engine-correctness-and-analytics/spec.md`) — **Phase 3 in progress (p3c)**
   - Phases 0-2 complete. Phase 3 bridge complete (m-ec-p3a cycle time + m-ec-p3a1 analytical projection hardening, both merged to main).
-  - **Completed:** p3d Constraint Enforcement — `ConstraintAwareEvaluator` wired into Core, 8 tests (1254/9/0). Wrap on `milestone/m-ec-p3d-constraint-enforcement`, awaiting merge to main.
-  - **Next:** p3c (Variability/Cv + Kingman), then p3b (WIP Limits).
+  - **Completed:** p3d Constraint Enforcement — `ConstraintAwareEvaluator` wired into Core, 8 tests. Merged to main (`3a53a5f`).
+  - **In progress:** p3c Variability (Cv + Kingman) on `milestone/m-ec-p3c-variability` off main.
+  - **Next after p3c:** p3b (WIP Limits), then E-10 closes.
 - **E-16** Formula-First Core Purification (`work/epics/E-16-formula-first-core-purification/spec.md`) — **completed**
   - **Completed:** m-E16-01 through m-E16-06
   - **Completion branch:** `milestone/m-E16-06-analytical-contract-and-consumer-purification`
