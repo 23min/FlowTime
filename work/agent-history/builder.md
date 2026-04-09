@@ -2,6 +2,16 @@
 
 Accumulated learnings from implementation sessions.
 
+## 2026-04-09: E-20 m-E20-06 Artifacts, CLI, and Integration
+
+### Patterns that worked
+- **Writer as a core module, not CLI-only.** Putting `writer.rs` in `flowtime-core` (not `flowtime-engine` CLI) lets the writer be tested with unit tests that call `write_artifacts()` directly. The CLI is just a thin wrapper.
+- **Atomic temp dir per test.** Using `AtomicU32` counter + PID for unique temp dirs avoids test interference when running in parallel.
+
+### Conventions established
+- **Artifact directory structure.** `{output}/series/{name}.csv` + `{output}/series/index.json` + `{output}/run.json`. Temp columns (`__temp_*`) excluded from output.
+- **CLI output contract.** `eval --output <dir>` writes artifacts and prints summary. `validate` outputs JSON to stdout. Exit code 0/1.
+
 ## 2026-04-09: E-20 m-E20-05 Derived Metrics and Analysis
 
 ### Patterns that worked
