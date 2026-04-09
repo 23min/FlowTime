@@ -2,7 +2,8 @@
 
 **ID:** m-ec-p3c
 **Epic:** Engine Correctness & Analytical Primitives
-**Status:** approved
+**Status:** complete
+**Branch:** `milestone/m-ec-p3c-variability` (off `main`)
 
 ## Goal
 

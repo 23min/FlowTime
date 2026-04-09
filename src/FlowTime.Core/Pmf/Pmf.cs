@@ -24,6 +24,22 @@ public class Pmf
     public double ExpectedValue { get; }
 
     /// <summary>
+    /// The variance of this PMF: Var[X] = Σ (pᵢ × (vᵢ - μ)²).
+    /// </summary>
+    public double Variance { get; }
+
+    /// <summary>
+    /// The standard deviation: σ = √Var[X].
+    /// </summary>
+    public double StandardDeviation { get; }
+
+    /// <summary>
+    /// The coefficient of variation: Cv = σ / μ.
+    /// Returns 0 when μ = 0 (no variation around zero).
+    /// </summary>
+    public double CoefficientOfVariation { get; }
+
+    /// <summary>
     /// Creates a new PMF with the given distribution.
     /// The distribution will be validated and normalized if necessary.
     /// </summary>
@@ -39,6 +55,9 @@ public class Pmf
         ValidateDistribution(distribution);
         Distribution = NormalizeDistribution(distribution);
         ExpectedValue = CalculateExpectedValue();
+        Variance = CalculateVariance();
+        StandardDeviation = Math.Sqrt(Variance);
+        CoefficientOfVariation = ExpectedValue != 0.0 ? StandardDeviation / Math.Abs(ExpectedValue) : 0.0;
     }
 
     /// <summary>
@@ -68,6 +87,9 @@ public class Pmf
         ValidateDistribution(distribution);
         Distribution = NormalizeDistribution(distribution);
         ExpectedValue = CalculateExpectedValue();
+        Variance = CalculateVariance();
+        StandardDeviation = Math.Sqrt(Variance);
+        CoefficientOfVariation = ExpectedValue != 0.0 ? StandardDeviation / Math.Abs(ExpectedValue) : 0.0;
     }
 
     /// <summary>
@@ -125,6 +147,15 @@ public class Pmf
     private double CalculateExpectedValue()
     {
         return Distribution.Sum(kvp => kvp.Key * kvp.Value);
+    }
+
+    /// <summary>
+    /// Calculate the variance: Var[X] = Σ (pᵢ × (vᵢ - μ)²).
+    /// </summary>
+    private double CalculateVariance()
+    {
+        var mu = ExpectedValue;
+        return Distribution.Sum(kvp => kvp.Value * (kvp.Key - mu) * (kvp.Key - mu));
     }
 
     /// <summary>

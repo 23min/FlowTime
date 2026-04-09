@@ -95,7 +95,7 @@ The existing near-term epics (Path Analysis, UI Analytical Views, Anomaly Detect
 | m-ec-p3a | Phase 3a: Cycle time & flow efficiency | complete |
 | m-ec-p3a1 | Phase 3a.1: Analytical projection hardening | complete |
 | m-ec-p3b | Phase 3b: WIP limits | approved |
-| m-ec-p3c | Phase 3c: Variability (Cv + Kingman) | approved |
+| m-ec-p3c | Phase 3c: Variability (Cv + Kingman) | complete |
 | m-ec-p3d | Phase 3d: Constraint enforcement | complete |
 
 **Architecture gate:** `m-ec-p3a1` is the bridge milestone that moved the current analytical capability/computation surface into Core. E-16 owned the remaining formula-first purification work exposed by that review, and with E-16 complete Phase 3 resumes with `p3d` -> `p3c` -> `p3b`.
