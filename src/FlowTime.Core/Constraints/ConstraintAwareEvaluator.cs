@@ -31,17 +31,19 @@ public static class ConstraintAwareEvaluator
         var routerResult = RouterAwareGraphEvaluator.Evaluate(model, graph, grid);
         var evaluation = routerResult.Evaluation;
 
+        var emptyAllocations = new Dictionary<string, ConstraintAllocation>(StringComparer.OrdinalIgnoreCase);
+
         if (topology.Constraints.Count == 0)
         {
-            return new ConstraintEvaluationResult(evaluation, routerResult.Context, ConstraintsApplied: false);
+            return new ConstraintEvaluationResult(evaluation, routerResult.Context, ConstraintsApplied: false, Allocations: emptyAllocations);
         }
 
-        // Step 2: compute constraint overrides
-        var constraintOverrides = ComputeConstraintOverrides(evaluation, topology, grid.Bins);
+        // Step 2: compute constraint overrides and allocation metadata
+        var (constraintOverrides, allocations) = ComputeConstraintOverrides(evaluation, topology, grid.Bins);
 
         if (constraintOverrides.Count == 0)
         {
-            return new ConstraintEvaluationResult(evaluation, routerResult.Context, ConstraintsApplied: false);
+            return new ConstraintEvaluationResult(evaluation, routerResult.Context, ConstraintsApplied: false, Allocations: allocations);
         }
 
         // Step 3: merge router overrides (if any) with constraint overrides.
@@ -84,15 +86,16 @@ public static class ConstraintAwareEvaluator
         var constrained = graph.EvaluateWithOverrides(grid, mergedOverrides);
         var constrainedContext = CopyContext(constrained);
 
-        return new ConstraintEvaluationResult(constrained, constrainedContext, ConstraintsApplied: true);
+        return new ConstraintEvaluationResult(constrained, constrainedContext, ConstraintsApplied: true, Allocations: allocations);
     }
 
-    private static Dictionary<NodeId, double[]> ComputeConstraintOverrides(
+    private static (Dictionary<NodeId, double[]> Overrides, IReadOnlyDictionary<string, ConstraintAllocation> Allocations) ComputeConstraintOverrides(
         IReadOnlyDictionary<NodeId, Series> evaluation,
         Topology topology,
         int bins)
     {
         var overrides = new Dictionary<NodeId, double[]>();
+        var allAllocations = new Dictionary<string, ConstraintAllocation>(StringComparer.OrdinalIgnoreCase);
 
         // Build constraint assignments: constraintId → list of topology node IDs
         var assignments = new Dictionary<string, List<(string TopologyNodeId, CompiledSeriesReference ArrivalsRef, CompiledSeriesReference ServedRef)>>(
@@ -116,7 +119,7 @@ public static class ConstraintAwareEvaluator
             }
         }
 
-        // For each constraint, check if enforcement is needed
+        // For each constraint, compute allocations and build overrides if needed
         foreach (var constraint in topology.Constraints)
         {
             if (!assignments.TryGetValue(constraint.Id, out var assignedNodes))
@@ -127,7 +130,14 @@ public static class ConstraintAwareEvaluator
             if (!evaluation.TryGetValue(capacityNodeId, out var capacitySeries))
                 continue;
 
-            // For each bin, check if total demand exceeds capacity
+            // Initialize per-node allocation arrays
+            var nodeAllocations = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+            var limited = new bool[bins];
+            foreach (var (topoNodeId, _, _) in assignedNodes)
+            {
+                nodeAllocations[topoNodeId] = new double[bins];
+            }
+
             for (int t = 0; t < bins; t++)
             {
                 var capacity = t < capacitySeries.Length ? capacitySeries[t] : 0.0;
@@ -150,25 +160,30 @@ public static class ConstraintAwareEvaluator
                     totalDemand += demand;
                 }
 
-                // Only enforce if demand exceeds capacity
-                if (totalDemand <= capacity) continue;
-
-                // Allocate proportionally
+                // Always compute allocation (even when demand <= capacity, for metadata completeness)
                 var allocations = ConstraintAllocator.AllocateProportional(demands, capacity);
 
-                // Cap each node's served series
+                foreach (var (topoNodeId, _, _) in assignedNodes)
+                {
+                    nodeAllocations[topoNodeId][t] = allocations.TryGetValue(topoNodeId, out var a) ? a : 0.0;
+                }
+
+                // Only enforce (cap) if demand exceeds capacity
+                if (totalDemand <= capacity) continue;
+
+                limited[t] = true;
+
                 foreach (var (topoNodeId, _, servedRef) in assignedNodes)
                 {
                     var servedNodeId = new NodeId(servedRef.LookupKey);
                     if (!evaluation.TryGetValue(servedNodeId, out var servedSeries))
                         continue;
 
-                    var allocation = allocations.TryGetValue(topoNodeId, out var a) ? a : 0.0;
+                    var allocation = allocations.TryGetValue(topoNodeId, out var alloc) ? alloc : 0.0;
                     var currentServed = t < servedSeries.Length ? servedSeries[t] : 0.0;
 
                     if (currentServed > allocation)
                     {
-                        // Need to cap — ensure we have an override array for this node
                         if (!overrides.TryGetValue(servedNodeId, out var overrideValues))
                         {
                             overrideValues = servedSeries.ToArray();
@@ -179,9 +194,11 @@ public static class ConstraintAwareEvaluator
                     }
                 }
             }
+
+            allAllocations[constraint.Id] = new ConstraintAllocation(nodeAllocations, limited);
         }
 
-        return overrides;
+        return (overrides, allAllocations);
     }
 
     private static Dictionary<NodeId, double[]> CopyContext(IReadOnlyDictionary<NodeId, Series> evaluation)
@@ -197,5 +214,15 @@ public static class ConstraintAwareEvaluator
     public sealed record ConstraintEvaluationResult(
         IReadOnlyDictionary<NodeId, Series> Evaluation,
         IReadOnlyDictionary<NodeId, double[]> Context,
-        bool ConstraintsApplied);
+        bool ConstraintsApplied,
+        IReadOnlyDictionary<string, ConstraintAllocation> Allocations);
+
+    /// <summary>
+    /// Per-constraint allocation result produced during evaluation.
+    /// Contains the per-node, per-bin allocation and a per-bin flag
+    /// indicating whether the constraint was limiting (demand > capacity).
+    /// </summary>
+    public sealed record ConstraintAllocation(
+        IReadOnlyDictionary<string, double[]> AllocationByNode,
+        bool[] Limited);
 }

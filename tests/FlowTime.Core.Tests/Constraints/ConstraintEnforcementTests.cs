@@ -135,6 +135,93 @@ public sealed class ConstraintEnforcementTests
         }
     }
 
+    /// <summary>
+    /// AC-3: Constraint metadata includes per-constraint, per-node, per-bin
+    /// allocation data and per-bin limited flags.
+    /// </summary>
+    [Fact]
+    public void ConstraintMetadata_IncludesAllocationAndLimitedFlags()
+    {
+        var model = BuildTwoNodeConstraintModel(
+            nodeADemand: 60, nodeBDemand: 60, constraintCapacity: 80, bins: 4);
+        var compiled = ModelCompiler.Compile(model);
+        var (grid, graph) = ModelParser.ParseModel(compiled);
+        var metadata = ModelParser.ParseMetadata(compiled);
+
+        var result = ConstraintAwareEvaluator.Evaluate(compiled, graph, grid, metadata.Topology!);
+
+        Assert.True(result.ConstraintsApplied);
+        Assert.True(result.Allocations.ContainsKey("shared_pool"));
+
+        var allocation = result.Allocations["shared_pool"];
+
+        // Per-node allocations
+        Assert.True(allocation.AllocationByNode.ContainsKey("ServiceA"));
+        Assert.True(allocation.AllocationByNode.ContainsKey("ServiceB"));
+
+        for (int t = 0; t < 4; t++)
+        {
+            Assert.Equal(40.0, allocation.AllocationByNode["ServiceA"][t], precision: 6);
+            Assert.Equal(40.0, allocation.AllocationByNode["ServiceB"][t], precision: 6);
+            Assert.True(allocation.Limited[t]); // demand (120) > capacity (80) every bin
+        }
+    }
+
+    /// <summary>
+    /// AC-3: When demand ≤ capacity, allocations are still present (for metadata
+    /// completeness) but Limited flags are false.
+    /// </summary>
+    [Fact]
+    public void ConstraintMetadata_UnconstrainedCase_LimitedFlagsFalse()
+    {
+        var model = BuildTwoNodeConstraintModel(
+            nodeADemand: 30, nodeBDemand: 40, constraintCapacity: 100, bins: 4);
+        var compiled = ModelCompiler.Compile(model);
+        var (grid, graph) = ModelParser.ParseModel(compiled);
+        var metadata = ModelParser.ParseMetadata(compiled);
+
+        var result = ConstraintAwareEvaluator.Evaluate(compiled, graph, grid, metadata.Topology!);
+
+        Assert.True(result.Allocations.ContainsKey("shared_pool"));
+        var allocation = result.Allocations["shared_pool"];
+
+        for (int t = 0; t < 4; t++)
+        {
+            // Allocation == demand when unconstrained
+            Assert.Equal(30.0, allocation.AllocationByNode["ServiceA"][t], precision: 6);
+            Assert.Equal(40.0, allocation.AllocationByNode["ServiceB"][t], precision: 6);
+            Assert.False(allocation.Limited[t]);
+        }
+    }
+
+    /// <summary>
+    /// AC-4: Determinism — same model with constraints evaluated twice
+    /// produces bitwise-identical results.
+    /// </summary>
+    [Fact]
+    public void Determinism_ConstrainedModelProducesIdenticalResults()
+    {
+        var model = BuildTwoNodeWithDownstreamModel(
+            nodeADemand: 60, nodeBDemand: 60, constraintCapacity: 80, bins: 8);
+
+        var (result1, _) = EvaluateWithConstraints(model);
+        var (result2, _) = EvaluateWithConstraints(model);
+
+        foreach (var (nodeId, series1) in result1)
+        {
+            Assert.True(result2.ContainsKey(nodeId), $"Run 2 missing node {nodeId}");
+            var arr1 = series1.ToArray();
+            var arr2 = result2[nodeId].ToArray();
+            Assert.Equal(arr1.Length, arr2.Length);
+            for (int i = 0; i < arr1.Length; i++)
+            {
+                Assert.True(
+                    BitConverter.DoubleToInt64Bits(arr1[i]) == BitConverter.DoubleToInt64Bits(arr2[i]),
+                    $"Node {nodeId} bin {i}: {arr1[i]} != {arr2[i]}");
+            }
+        }
+    }
+
     // -----------------------------------------------------------------------
     // Helpers: build models, evaluate, extract series
     // -----------------------------------------------------------------------
