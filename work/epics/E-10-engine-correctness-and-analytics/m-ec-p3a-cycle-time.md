@@ -2,7 +2,7 @@
 
 **ID:** m-ec-p3a
 **Epic:** Engine Correctness & Analytical Primitives
-**Status:** approved
+**Status:** complete
 
 ## Goal
 
