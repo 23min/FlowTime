@@ -2,6 +2,18 @@
 
 Accumulated learnings from implementation sessions.
 
+## 2026-04-09: E-20 m-E20-05 Derived Metrics and Analysis
+
+### Patterns that worked
+- **Derived metrics as composed ops.** Utilization, queue time, cycle time all decompose to existing VecDiv/ScalarMul/VecAdd. No new Op variants needed. Kingman G/G/1 uses a chain of ScalarAdd/ScalarMul/VecDiv/VecMul. The evaluator stays simple.
+- **Retroactive edge case pass.** After the user flagged thin test coverage, a systematic audit of all modules found 17+ untested ops and edge cases in eval.rs alone. Adding 35 edge case tests caught no bugs (the code was correct) but established a safety net for future refactoring. The audit-then-test pattern is worth doing at every milestone wrap.
+
+### Pitfalls encountered
+- **"1 test per AC" is insufficient.** The initial implementation had 4 derived metric tests and 3 analysis tests — 7 total for the milestone. After the edge case pass, the milestone added 35 tests. The ratio of edge-case tests to happy-path tests should be at least 2:1 for numerical code.
+
+### Conventions established
+- **Edge case pass in TDD workflow.** Added step 3 to the builder agent TDD workflow: after all ACs pass, review each function for untested branches (div by zero, NaN/Inf, empty inputs, boundary values, negatives, single-element, degenerate configs). Updated `.ai/rules.md` and `.ai/agents/builder.md`.
+
 ## 2026-04-09: E-20 m-E20-04 Routing and Constraints
 
 ### Patterns that worked

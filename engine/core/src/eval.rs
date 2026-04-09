@@ -455,4 +455,365 @@ mod tests {
         // period=2, phase=1 → dispatch at t=1,3,5; capped at 50
         assert_eq!(extract_column(&state, gated, 6), vec![0.0, 50.0, 0.0, 50.0, 0.0, 50.0]);
     }
+
+    // --- Edge case tests ---
+
+    #[test]
+    fn eval_floor_ceil_round() {
+        let mut cm = ColumnMap::new();
+        let input = cm.insert("input");
+        let fl = cm.insert("fl");
+        let cl = cm.insert("cl");
+        let rn = cm.insert("rn");
+
+        let plan = Plan {
+            ops: vec![
+                Op::Const { out: input, values: vec![1.3, -1.3, 2.5, -2.5, 0.0] },
+                Op::Floor { out: fl, input },
+                Op::Ceil { out: cl, input },
+                Op::Round { out: rn, input },
+            ],
+            column_map: cm,
+            bins: 5,
+        };
+
+        let state = evaluate(&plan);
+        assert_eq!(extract_column(&state, fl, 5), vec![1.0, -2.0, 2.0, -3.0, 0.0]);
+        assert_eq!(extract_column(&state, cl, 5), vec![2.0, -1.0, 3.0, -2.0, 0.0]);
+        // Round half away from zero: 2.5→3, -2.5→-3
+        assert_eq!(extract_column(&state, rn, 5), vec![1.0, -1.0, 3.0, -3.0, 0.0]);
+    }
+
+    #[test]
+    fn eval_step_function() {
+        let mut cm = ColumnMap::new();
+        let input = cm.insert("input");
+        let threshold = cm.insert("threshold");
+        let out = cm.insert("out");
+
+        let plan = Plan {
+            ops: vec![
+                Op::Const { out: input, values: vec![1.0, 5.0, 10.0, 3.0] },
+                Op::Const { out: threshold, values: vec![5.0, 5.0, 5.0, 5.0] },
+                Op::Step { out, input, threshold },
+            ],
+            column_map: cm,
+            bins: 4,
+        };
+
+        let state = evaluate(&plan);
+        // 1<5→0, 5>=5→1, 10>=5→1, 3<5→0
+        assert_eq!(extract_column(&state, out, 4), vec![0.0, 1.0, 1.0, 0.0]);
+    }
+
+    #[test]
+    fn eval_pulse_basic() {
+        let mut cm = ColumnMap::new();
+        let out = cm.insert("out");
+
+        let plan = Plan {
+            ops: vec![
+                Op::Pulse { out, period: 3, phase: 1, amplitude: None },
+            ],
+            column_map: cm,
+            bins: 7,
+        };
+
+        let state = evaluate(&plan);
+        // period=3, phase=1: fires at t=1,4,7(oob) → [0,1,0,0,1,0,0]
+        assert_eq!(extract_column(&state, out, 7), vec![0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn eval_mod_and_scalar_add() {
+        let mut cm = ColumnMap::new();
+        let a = cm.insert("a");
+        let b = cm.insert("b");
+        let modulo = cm.insert("mod");
+        let added = cm.insert("added");
+
+        let plan = Plan {
+            ops: vec![
+                Op::Const { out: a, values: vec![7.0, 10.0, -3.0, 0.0] },
+                Op::Const { out: b, values: vec![3.0, 4.0, 2.0, 0.0] },
+                Op::Mod { out: modulo, a, b },
+                Op::ScalarAdd { out: added, input: a, k: 5.0 },
+            ],
+            column_map: cm,
+            bins: 4,
+        };
+
+        let state = evaluate(&plan);
+        // 7%3=1, 10%4=2, -3 rem_euclid 2 = 1, 0%0=0 (guarded)
+        assert_eq!(extract_column(&state, modulo, 4), vec![1.0, 2.0, 1.0, 0.0]);
+        assert_eq!(extract_column(&state, added, 4), vec![12.0, 15.0, 2.0, 5.0]);
+    }
+
+    #[test]
+    fn eval_copy_op() {
+        let mut cm = ColumnMap::new();
+        let src = cm.insert("src");
+        let dst = cm.insert("dst");
+
+        let plan = Plan {
+            ops: vec![
+                Op::Const { out: src, values: vec![1.0, 2.0, 3.0] },
+                Op::Copy { out: dst, input: src },
+            ],
+            column_map: cm,
+            bins: 3,
+        };
+
+        let state = evaluate(&plan);
+        assert_eq!(extract_column(&state, dst, 3), vec![1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn eval_shift_lag_exceeds_bins() {
+        let mut cm = ColumnMap::new();
+        let input = cm.insert("input");
+        let shifted = cm.insert("shifted");
+
+        let plan = Plan {
+            ops: vec![
+                Op::Const { out: input, values: vec![10.0, 20.0, 30.0] },
+                Op::Shift { out: shifted, input, lag: 10 },
+            ],
+            column_map: cm,
+            bins: 3,
+        };
+
+        let state = evaluate(&plan);
+        // lag > bins → all zeros
+        assert_eq!(extract_column(&state, shifted, 3), vec![0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn eval_convolve_empty_kernel() {
+        let mut cm = ColumnMap::new();
+        let input = cm.insert("input");
+        let output = cm.insert("output");
+
+        let plan = Plan {
+            ops: vec![
+                Op::Const { out: input, values: vec![100.0, 50.0, 25.0] },
+                Op::Convolve { out: output, input, kernel: vec![] },
+            ],
+            column_map: cm,
+            bins: 3,
+        };
+
+        let state = evaluate(&plan);
+        // Empty kernel → all zeros
+        assert_eq!(extract_column(&state, output, 3), vec![0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn eval_convolve_identity_kernel() {
+        let mut cm = ColumnMap::new();
+        let input = cm.insert("input");
+        let output = cm.insert("output");
+
+        let plan = Plan {
+            ops: vec![
+                Op::Const { out: input, values: vec![10.0, 20.0, 30.0] },
+                Op::Convolve { out: output, input, kernel: vec![1.0] },
+            ],
+            column_map: cm,
+            bins: 3,
+        };
+
+        let state = evaluate(&plan);
+        // kernel=[1.0] → identity
+        assert_eq!(extract_column(&state, output, 3), vec![10.0, 20.0, 30.0]);
+    }
+
+    #[test]
+    fn eval_queue_recurrence_negative_net_clamps_to_zero() {
+        let mut cm = ColumnMap::new();
+        let inflow = cm.insert("inflow");
+        let outflow = cm.insert("outflow");
+        let queue = cm.insert("queue");
+
+        let plan = Plan {
+            ops: vec![
+                Op::Const { out: inflow, values: vec![2.0, 2.0, 2.0] },
+                Op::Const { out: outflow, values: vec![10.0, 10.0, 10.0] },
+                Op::QueueRecurrence {
+                    out: queue, inflow, outflow,
+                    loss: None, init: 5.0,
+                    wip_limit: None, overflow_out: None,
+                },
+            ],
+            column_map: cm,
+            bins: 3,
+        };
+
+        let state = evaluate(&plan);
+        // Q[0]=max(0, 5+2-10)=0, Q[1]=max(0, 0+2-10)=0, Q[2]=0
+        assert_eq!(extract_column(&state, queue, 3), vec![0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn eval_queue_recurrence_nan_inf_inputs() {
+        let mut cm = ColumnMap::new();
+        let inflow = cm.insert("inflow");
+        let outflow = cm.insert("outflow");
+        let queue = cm.insert("queue");
+
+        let plan = Plan {
+            ops: vec![
+                Op::Const { out: inflow, values: vec![f64::NAN, f64::INFINITY, 10.0] },
+                Op::Const { out: outflow, values: vec![5.0, 5.0, 5.0] },
+                Op::QueueRecurrence {
+                    out: queue, inflow, outflow,
+                    loss: None, init: 0.0,
+                    wip_limit: None, overflow_out: None,
+                },
+            ],
+            column_map: cm,
+            bins: 3,
+        };
+
+        let state = evaluate(&plan);
+        // NaN→safe=0: Q[0]=max(0, 0+0-5)=0
+        // Inf→safe=0: Q[1]=max(0, 0+0-5)=0
+        // Normal: Q[2]=max(0, 0+10-5)=5
+        assert_eq!(extract_column(&state, queue, 3), vec![0.0, 0.0, 5.0]);
+    }
+
+    #[test]
+    fn eval_dispatch_gate_period1_fires_every_bin() {
+        let mut cm = ColumnMap::new();
+        let input = cm.insert("input");
+        let gated = cm.insert("gated");
+
+        let plan = Plan {
+            ops: vec![
+                Op::Const { out: input, values: vec![10.0; 4] },
+                Op::DispatchGate { out: gated, input, period: 1, phase: 0, capacity: None },
+            ],
+            column_map: cm,
+            bins: 4,
+        };
+
+        let state = evaluate(&plan);
+        // period=1 → every bin is a dispatch bin
+        assert_eq!(extract_column(&state, gated, 4), vec![10.0, 10.0, 10.0, 10.0]);
+    }
+
+    #[test]
+    fn eval_proportional_alloc_zero_capacity() {
+        let mut cm = ColumnMap::new();
+        let d1 = cm.insert("d1");
+        let d2 = cm.insert("d2");
+        let cap = cm.insert("cap");
+        let o1 = cm.insert("o1");
+        let o2 = cm.insert("o2");
+
+        let plan = Plan {
+            ops: vec![
+                Op::Const { out: d1, values: vec![50.0, 50.0] },
+                Op::Const { out: d2, values: vec![30.0, 30.0] },
+                Op::Const { out: cap, values: vec![0.0, 0.0] },
+                Op::ProportionalAlloc { outs: vec![o1, o2], demands: vec![d1, d2], capacity: cap },
+            ],
+            column_map: cm,
+            bins: 2,
+        };
+
+        let state = evaluate(&plan);
+        // cap=0, totalDemand=80 > 0 → capped: 0*50/80=0, 0*30/80=0
+        assert_eq!(extract_column(&state, o1, 2), vec![0.0, 0.0]);
+        assert_eq!(extract_column(&state, o2, 2), vec![0.0, 0.0]);
+    }
+
+    #[test]
+    fn eval_proportional_alloc_zero_demand() {
+        let mut cm = ColumnMap::new();
+        let d1 = cm.insert("d1");
+        let cap = cm.insert("cap");
+        let o1 = cm.insert("o1");
+
+        let plan = Plan {
+            ops: vec![
+                Op::Const { out: d1, values: vec![0.0, 0.0] },
+                Op::Const { out: cap, values: vec![100.0, 100.0] },
+                Op::ProportionalAlloc { outs: vec![o1], demands: vec![d1], capacity: cap },
+            ],
+            column_map: cm,
+            bins: 2,
+        };
+
+        let state = evaluate(&plan);
+        // totalDemand=0 ≤ cap=100 → pass through as-is
+        assert_eq!(extract_column(&state, o1, 2), vec![0.0, 0.0]);
+    }
+
+    #[test]
+    fn eval_proportional_alloc_below_capacity() {
+        let mut cm = ColumnMap::new();
+        let d1 = cm.insert("d1");
+        let d2 = cm.insert("d2");
+        let cap = cm.insert("cap");
+        let o1 = cm.insert("o1");
+        let o2 = cm.insert("o2");
+
+        let plan = Plan {
+            ops: vec![
+                Op::Const { out: d1, values: vec![30.0] },
+                Op::Const { out: d2, values: vec![40.0] },
+                Op::Const { out: cap, values: vec![100.0] },
+                Op::ProportionalAlloc { outs: vec![o1, o2], demands: vec![d1, d2], capacity: cap },
+            ],
+            column_map: cm,
+            bins: 1,
+        };
+
+        let state = evaluate(&plan);
+        // totalDemand=70 ≤ cap=100 → pass through unchanged
+        assert_eq!(extract_column(&state, o1, 1), vec![30.0]);
+        assert_eq!(extract_column(&state, o2, 1), vec![40.0]);
+    }
+
+    #[test]
+    fn eval_vec_div_all_zeros() {
+        let mut cm = ColumnMap::new();
+        let a = cm.insert("a");
+        let b = cm.insert("b");
+        let out = cm.insert("out");
+
+        let plan = Plan {
+            ops: vec![
+                Op::Const { out: a, values: vec![0.0, 10.0] },
+                Op::Const { out: b, values: vec![0.0, 0.0] },
+                Op::VecDiv { out, a, b },
+            ],
+            column_map: cm,
+            bins: 2,
+        };
+
+        let state = evaluate(&plan);
+        // 0/0→0, 10/0→0
+        assert_eq!(extract_column(&state, out, 2), vec![0.0, 0.0]);
+    }
+
+    #[test]
+    fn eval_single_bin() {
+        let mut cm = ColumnMap::new();
+        let a = cm.insert("a");
+        let b = cm.insert("b");
+
+        let plan = Plan {
+            ops: vec![
+                Op::Const { out: a, values: vec![5.0] },
+                Op::ScalarMul { out: b, input: a, k: 3.0 },
+            ],
+            column_map: cm,
+            bins: 1,
+        };
+
+        let state = evaluate(&plan);
+        assert_eq!(extract_column(&state, b, 1), vec![15.0]);
+    }
 }

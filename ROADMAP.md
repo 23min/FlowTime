@@ -105,7 +105,7 @@ These are the lowest-risk leverage layers after purification. They make the pure
 
 ## E-20 — Matrix Engine (in-progress)
 
-**Epic:** `work/epics/E-20-matrix-engine/spec.md` | **Status:** in-progress (m-E20-01 through m-E20-04 complete, m-E20-05 next)
+**Epic:** `work/epics/E-20-matrix-engine/spec.md` | **Status:** in-progress (m-E20-01 through m-E20-05 complete, m-E20-06 next)
 
 Replace the C# object-graph evaluation with a Rust column-store + evaluation-plan engine. All series live in one flat `f64[series_count × bins]` matrix. The evaluation plan is an ordered list of ops (pure functions on columns). Ships as a standalone CLI binary (`flowtime-engine eval/validate/plan`). The .NET API calls the Rust binary as a subprocess.
 

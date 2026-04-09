@@ -25,6 +25,7 @@ pub struct EvalResult {
     pub state: Vec<f64>,
     pub column_map: ColumnMap,
     pub bins: usize,
+    pub warnings: Vec<crate::analysis::Warning>,
 }
 
 impl EvalResult {
@@ -35,15 +36,18 @@ impl EvalResult {
     }
 }
 
-/// Compile and evaluate a model, returning named series.
+/// Compile, evaluate, and analyze a model, returning named series + warnings.
 pub fn eval_model(model: &ModelDefinition) -> Result<EvalResult, CompileError> {
     let plan = compile(model)?;
     let state = crate::eval::evaluate(&plan);
-    Ok(EvalResult {
+    let mut result = EvalResult {
         state,
         column_map: plan.column_map,
         bins: plan.bins,
-    })
+        warnings: Vec::new(),
+    };
+    result.warnings = crate::analysis::analyze(model, &result);
+    Ok(result)
 }
 
 /// Compile a model into an evaluation plan.
@@ -151,6 +155,13 @@ pub fn compile(model: &ModelDefinition) -> Result<Plan, CompileError> {
     // QueueRecurrence inflows to use capped arrivals.
     if let Some(topo) = &model.topology {
         compile_constraints(topo, &mut column_map, &mut ops, bins)?;
+    }
+
+    // Phase 5: Derived metrics — utilization, cycle time, Kingman, etc.
+    if let Some(topo) = &model.topology {
+        let grid = model.grid.as_ref().unwrap();
+        let bin_ms = grid_bin_ms(grid);
+        compile_derived_metrics(topo, model, &mut column_map, &mut ops, bins, bin_ms)?;
     }
 
     Ok(Plan { ops, column_map, bins })
@@ -526,6 +537,11 @@ fn queue_column_id(topo_node_id: &str) -> String {
     format!("{}_queue", to_snake_case(topo_node_id))
 }
 
+/// Public accessor for queue column ID (used by analysis module).
+pub fn queue_column_id_pub(topo_node_id: &str) -> String {
+    queue_column_id(topo_node_id)
+}
+
 /// Compile constraint allocation: emit ProportionalAlloc ops and patch QueueRecurrence inflows.
 fn compile_constraints(
     topo: &crate::model::TopologyDefinition,
@@ -617,6 +633,196 @@ fn compile_constraints(
     }
 
     Ok(())
+}
+
+/// Convert grid bin size + unit to milliseconds.
+fn grid_bin_ms(grid: &crate::model::GridDefinition) -> f64 {
+    let size = grid.bin_size as f64;
+    match grid.bin_unit.to_lowercase().as_str() {
+        "ms" | "milliseconds" => size,
+        "s" | "seconds" => size * 1000.0,
+        "m" | "min" | "minutes" => size * 60_000.0,
+        "h" | "hr" | "hours" => size * 3_600_000.0,
+        "d" | "days" => size * 86_400_000.0,
+        _ => size * 60_000.0, // default to minutes
+    }
+}
+
+/// Emit derived metric ops for topology nodes (utilization, cycle time, Kingman).
+fn compile_derived_metrics(
+    topo: &crate::model::TopologyDefinition,
+    model: &ModelDefinition,
+    cm: &mut ColumnMap,
+    ops: &mut Vec<Op>,
+    bins: usize,
+    bin_ms: f64,
+) -> Result<(), CompileError> {
+    for tnode in &topo.nodes {
+        let kind = tnode.kind.as_deref().unwrap_or("serviceWithBuffer").to_lowercase();
+        let snake = to_snake_case(&tnode.id);
+
+        // Determine node category
+        let has_queue = matches!(kind.as_str(), "servicewithbuffer" | "queue" | "dlq");
+        let has_service = matches!(kind.as_str(), "servicewithbuffer" | "service");
+
+        // --- Utilization ---
+        // Requires served + capacity (or served semantics)
+        if !tnode.semantics.served.is_empty() {
+            if let Some(cap_ref) = &tnode.semantics.capacity {
+                if !cap_ref.is_empty() {
+                    let served_col = cm.get(&tnode.semantics.served).unwrap();
+                    let cap_col = cm.get(cap_ref).unwrap();
+
+                    // Handle parallelism: effectiveCapacity = capacity × parallelism
+                    let effective_cap = if let Some(par) = &tnode.semantics.parallelism {
+                        match par {
+                            crate::model::ParallelismValue::Scalar(p) => {
+                                let eff_col = cm.get_or_insert(&format!("{}_effective_capacity", snake));
+                                ops.push(Op::ScalarMul { out: eff_col, input: cap_col, k: *p });
+                                eff_col
+                            }
+                            crate::model::ParallelismValue::Reference(ref_name) => {
+                                let par_col = cm.get(ref_name)
+                                    .ok_or_else(|| CompileError(format!("Node '{}': parallelism ref '{}' not found", tnode.id, ref_name)))?;
+                                let eff_col = cm.get_or_insert(&format!("{}_effective_capacity", snake));
+                                ops.push(Op::VecMul { out: eff_col, a: cap_col, b: par_col });
+                                eff_col
+                            }
+                        }
+                    } else {
+                        cap_col
+                    };
+
+                    let util_col = cm.get_or_insert(&format!("{}_utilization", snake));
+                    ops.push(Op::VecDiv { out: util_col, a: served_col, b: effective_cap });
+                }
+            }
+        }
+
+        // --- Queue Time ---
+        if has_queue {
+            // Resolve queue depth column
+            let q_col_name = if let Some(qd_ref) = &tnode.semantics.queue_depth {
+                if !qd_ref.is_empty() { qd_ref.clone() } else { queue_column_id(&tnode.id) }
+            } else {
+                queue_column_id(&tnode.id)
+            };
+
+            if let Some(q_col) = cm.get(&q_col_name) {
+                let served_ref = &tnode.semantics.served;
+                if !served_ref.is_empty() {
+                    if let Some(served_col) = cm.get(served_ref) {
+                        // queueTimeMs = (queueDepth / served) * binMs
+                        let ratio_col = cm.get_or_insert(&format!("{}_q_ratio", snake));
+                        ops.push(Op::VecDiv { out: ratio_col, a: q_col, b: served_col });
+                        let qt_col = cm.get_or_insert(&format!("{}_queue_time_ms", snake));
+                        ops.push(Op::ScalarMul { out: qt_col, input: ratio_col, k: bin_ms });
+
+                        // latencyMinutes = queueTimeMs / 60000
+                        let lat_col = cm.get_or_insert(&format!("{}_latency_min", snake));
+                        ops.push(Op::ScalarMul { out: lat_col, input: qt_col, k: 1.0 / 60_000.0 });
+                    }
+                }
+            }
+        }
+
+        // --- Service Time ---
+        if has_service {
+            if let (Some(pt_ref), Some(sc_ref)) = (&tnode.semantics.processing_time_ms_sum, &tnode.semantics.served_count) {
+                if !pt_ref.is_empty() && !sc_ref.is_empty() {
+                    if let (Some(pt_col), Some(sc_col)) = (cm.get(pt_ref), cm.get(sc_ref)) {
+                        let st_col = cm.get_or_insert(&format!("{}_service_time_ms", snake));
+                        ops.push(Op::VecDiv { out: st_col, a: pt_col, b: sc_col });
+                    }
+                }
+            }
+        }
+
+        // --- Cycle Time & Flow Efficiency ---
+        let qt_col = cm.get(&format!("{}_queue_time_ms", snake));
+        let st_col = cm.get(&format!("{}_service_time_ms", snake));
+        if qt_col.is_some() || st_col.is_some() {
+            let ct_col = cm.get_or_insert(&format!("{}_cycle_time_ms", snake));
+            match (qt_col, st_col) {
+                (Some(q), Some(s)) => {
+                    ops.push(Op::VecAdd { out: ct_col, a: q, b: s });
+                }
+                (Some(q), None) => {
+                    ops.push(Op::Copy { out: ct_col, input: q });
+                }
+                (None, Some(s)) => {
+                    ops.push(Op::Copy { out: ct_col, input: s });
+                }
+                (None, None) => unreachable!(),
+            }
+
+            // Flow efficiency = serviceTime / cycleTime (only if both exist)
+            if let (Some(_), Some(s)) = (qt_col, st_col) {
+                let fe_col = cm.get_or_insert(&format!("{}_flow_efficiency", snake));
+                ops.push(Op::VecDiv { out: fe_col, a: s, b: ct_col });
+            }
+        }
+
+        // --- Kingman G/G/1 Approximation ---
+        // E[Wq] ≈ (ρ/(1-ρ)) × ((Ca² + Cs²)/2) × E[S]
+        // Requires: utilization column, arrivals Cv, service Cv, service time
+        // Cv from PMF nodes, 0 for const nodes.
+        if let Some(util_col) = cm.get(&format!("{}_utilization", snake)) {
+            if let Some(st_col) = cm.get(&format!("{}_service_time_ms", snake)) {
+                // Compute Cv for arrivals
+                let ca = compute_node_cv(&tnode.semantics.arrivals, &model.nodes);
+                // Compute Cv for service (from processingTimeMsSum or served)
+                let cs = tnode.semantics.processing_time_ms_sum.as_deref()
+                    .and_then(|r| if r.is_empty() { None } else { Some(compute_node_cv(r, &model.nodes)) })
+                    .unwrap_or(0.0);
+
+                if ca.is_finite() && cs.is_finite() {
+                    let cv_factor = (ca * ca + cs * cs) / 2.0;
+                    // Kingman column: per-bin using utilization and service time
+                    // E[Wq][t] = (ρ[t]/(1-ρ[t])) × cv_factor × serviceTime[t]
+                    // We need a per-bin computation. Use existing ops:
+                    // step1: 1 - ρ
+                    let one_minus_rho = cm.get_or_insert(&format!("{}_one_minus_rho", snake));
+                    ops.push(Op::ScalarAdd { out: one_minus_rho, input: util_col, k: -1.0 });
+                    // Negate: (1-ρ) = -(ρ-1)
+                    let denom = cm.alloc_temp();
+                    ops.push(Op::ScalarMul { out: denom, input: one_minus_rho, k: -1.0 });
+                    // ρ / (1-ρ)
+                    let rho_ratio = cm.alloc_temp();
+                    ops.push(Op::VecDiv { out: rho_ratio, a: util_col, b: denom });
+                    // × cv_factor × serviceTime
+                    let scaled = cm.alloc_temp();
+                    ops.push(Op::ScalarMul { out: scaled, input: rho_ratio, k: cv_factor });
+                    let kingman_col = cm.get_or_insert(&format!("{}_kingman_wq", snake));
+                    ops.push(Op::VecMul { out: kingman_col, a: scaled, b: st_col });
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Compute the coefficient of variation for a node referenced by name.
+/// PMF → σ/μ, Const → 0, otherwise 0 (conservative default).
+fn compute_node_cv(node_ref: &str, nodes: &[crate::model::NodeDefinition]) -> f64 {
+    let node = nodes.iter().find(|n| n.id == node_ref);
+    match node {
+        Some(n) if n.kind.to_lowercase() == "pmf" => {
+            if let Some(pmf) = &n.pmf {
+                let prob_sum: f64 = pmf.probabilities.iter().sum();
+                if prob_sum <= 0.0 { return 0.0; }
+                let mean: f64 = pmf.values.iter().zip(&pmf.probabilities)
+                    .map(|(v, p)| v * p / prob_sum).sum();
+                if mean.abs() < f64::EPSILON { return 0.0; }
+                let variance: f64 = pmf.values.iter().zip(&pmf.probabilities)
+                    .map(|(v, p)| (v - mean).powi(2) * p / prob_sum).sum();
+                variance.sqrt() / mean
+            } else { 0.0 }
+        }
+        Some(n) if n.kind.to_lowercase() == "const" => 0.0,
+        _ => 0.0, // Conservative: treat unknown as deterministic
+    }
 }
 
 /// Compile a single topology node into ops (QueueRecurrence + optional DispatchGate, Convolve).
@@ -1980,6 +2186,411 @@ topology:
         // Queue B: inflow=40, outflow=10 → Q=[30, 60, 90]
         assert_approx(&result.series("node_a_queue").unwrap(), &[20.0, 40.0, 60.0]);
         assert_approx(&result.series("node_b_queue").unwrap(), &[30.0, 60.0, 90.0]);
+    }
+
+    #[test]
+    fn compile_kingman_approximation() {
+        // ρ=0.8, Ca=1.0, Cs=0.5, E[S]=10ms → E[Wq] = (0.8/0.2) * ((1+0.25)/2) * 10 = 4 * 0.625 * 10 = 25
+        let yaml = r#"
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: minutes
+nodes:
+  - id: arrivals
+    kind: const
+    values: [10, 10, 10]
+  - id: served
+    kind: const
+    values: [8, 8, 8]
+  - id: capacity
+    kind: const
+    values: [10, 10, 10]
+  - id: proc_time_sum
+    kind: const
+    values: [100, 100, 100]
+  - id: served_count
+    kind: const
+    values: [10, 10, 10]
+topology:
+  nodes:
+    - id: Service
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arrivals
+        served: served
+        capacity: capacity
+        processingTimeMsSum: proc_time_sum
+        servedCount: served_count
+  edges: []
+  constraints: []
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        // utilization = 8/10 = 0.8 (all bins)
+        assert_approx(&result.series("service_utilization").unwrap(), &[0.8, 0.8, 0.8]);
+        // serviceTimeMs = 100/10 = 10 (all bins)
+        assert_approx(&result.series("service_service_time_ms").unwrap(), &[10.0, 10.0, 10.0]);
+
+        // Kingman: ρ=0.8, Ca=0 (const arrivals), Cs=0 (const service), E[S]=10
+        // E[Wq] = (0.8/0.2) * ((0+0)/2) * 10 = 0 (both Cv=0 for const nodes)
+        let kingman = result.series("service_kingman_wq").unwrap();
+        assert_approx(&kingman, &[0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn compile_derived_utilization() {
+        // served=8, capacity=10 → utilization=0.8
+        let yaml = r#"
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arrivals
+    kind: const
+    values: [10, 10, 10]
+  - id: served
+    kind: const
+    values: [8, 8, 8]
+  - id: capacity
+    kind: const
+    values: [10, 10, 10]
+topology:
+  nodes:
+    - id: Service
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arrivals
+        served: served
+        capacity: capacity
+  edges: []
+  constraints: []
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+        assert_approx(&result.series("service_utilization").unwrap(), &[0.8, 0.8, 0.8]);
+    }
+
+    #[test]
+    fn compile_derived_queue_time() {
+        // queueDepth=10, served=5, binMs=60000 (1 minute) → queueTimeMs=120000
+        let yaml = r#"
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: minutes
+nodes:
+  - id: arrivals
+    kind: const
+    values: [15, 15, 15]
+  - id: served
+    kind: const
+    values: [5, 5, 5]
+topology:
+  nodes:
+    - id: Queue
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
+  constraints: []
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        // Q[0]=10, Q[1]=20, Q[2]=30
+        let q = result.series("queue_queue").unwrap();
+        assert_eq!(q, vec![10.0, 20.0, 30.0]);
+
+        // queueTimeMs = (Q / served) * 60000
+        // t=0: (10/5)*60000 = 120000
+        // t=1: (20/5)*60000 = 240000
+        // t=2: (30/5)*60000 = 360000
+        let qt = result.series("queue_queue_time_ms").unwrap();
+        assert_approx(&qt, &[120_000.0, 240_000.0, 360_000.0]);
+
+        // latencyMinutes = queueTimeMs / 60000
+        let lat = result.series("queue_latency_min").unwrap();
+        assert_approx(&lat, &[2.0, 4.0, 6.0]);
+    }
+
+    #[test]
+    fn compile_derived_cycle_time_service_with_buffer() {
+        // Queue + service → cycleTime = queueTime + serviceTime, flowEfficiency = service/cycle
+        let yaml = r#"
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: minutes
+nodes:
+  - id: arrivals
+    kind: const
+    values: [15, 15, 15]
+  - id: served
+    kind: const
+    values: [5, 5, 5]
+  - id: proc_time_sum
+    kind: const
+    values: [250, 250, 250]
+  - id: served_count
+    kind: const
+    values: [5, 5, 5]
+topology:
+  nodes:
+    - id: Queue
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arrivals
+        served: served
+        processingTimeMsSum: proc_time_sum
+        servedCount: served_count
+  edges: []
+  constraints: []
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        // serviceTimeMs = 250/5 = 50
+        let st = result.series("queue_service_time_ms").unwrap();
+        assert_approx(&st, &[50.0, 50.0, 50.0]);
+
+        // queueTimeMs = (Q/served)*60000 → Q=[10,20,30] → [120000, 240000, 360000]
+        let qt = result.series("queue_queue_time_ms").unwrap();
+        assert_approx(&qt, &[120_000.0, 240_000.0, 360_000.0]);
+
+        // cycleTimeMs = queueTime + serviceTime
+        let ct = result.series("queue_cycle_time_ms").unwrap();
+        assert_approx(&ct, &[120_050.0, 240_050.0, 360_050.0]);
+
+        // flowEfficiency = serviceTime / cycleTime
+        let fe = result.series("queue_flow_efficiency").unwrap();
+        assert_approx(&fe, &[50.0/120_050.0, 50.0/240_050.0, 50.0/360_050.0]);
+    }
+
+    // --- Edge case tests ---
+
+    #[test]
+    fn compile_derived_utilization_zero_capacity() {
+        // capacity=0 → utilization=0 (VecDiv returns 0 for div by zero)
+        let yaml = r#"
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arrivals
+    kind: const
+    values: [10, 10, 10]
+  - id: served
+    kind: const
+    values: [8, 8, 8]
+  - id: capacity
+    kind: const
+    values: [0, 0, 0]
+topology:
+  nodes:
+    - id: Service
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arrivals
+        served: served
+        capacity: capacity
+  edges: []
+  constraints: []
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+        assert_approx(&result.series("service_utilization").unwrap(), &[0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn compile_derived_queue_time_zero_served() {
+        // served=0 → queueTime=0 (VecDiv returns 0 for div by zero)
+        let yaml = r#"
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: minutes
+nodes:
+  - id: arrivals
+    kind: const
+    values: [10, 10, 10]
+  - id: served
+    kind: const
+    values: [0, 0, 0]
+topology:
+  nodes:
+    - id: Queue
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
+  constraints: []
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+        // Q=[10,20,30], served=0 → queueTime = Q/0 * 60000 = 0 (div by zero → 0)
+        assert_approx(&result.series("queue_queue_time_ms").unwrap(), &[0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn compile_constraint_zero_capacity() {
+        let yaml = r#"
+grid:
+  bins: 2
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: demand_a
+    kind: const
+    values: [50, 50]
+  - id: demand_b
+    kind: const
+    values: [50, 50]
+  - id: capacity
+    kind: const
+    values: [0, 0]
+  - id: served_a
+    kind: const
+    values: [10, 10]
+  - id: served_b
+    kind: const
+    values: [10, 10]
+topology:
+  nodes:
+    - id: NodeA
+      kind: serviceWithBuffer
+      constraints: [shared]
+      semantics:
+        arrivals: demand_a
+        served: served_a
+    - id: NodeB
+      kind: serviceWithBuffer
+      constraints: [shared]
+      semantics:
+        arrivals: demand_b
+        served: served_b
+  edges: []
+  constraints:
+    - id: shared
+      semantics:
+        arrivals: total_demand
+        served: capacity
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+        // cap=0 → both capped to 0, queue = max(0, 0 - 10) = 0
+        assert_approx(&result.series("node_a_queue").unwrap(), &[0.0, 0.0]);
+        assert_approx(&result.series("node_b_queue").unwrap(), &[0.0, 0.0]);
+    }
+
+    #[test]
+    fn compile_router_single_route_full_pass() {
+        let yaml = r#"
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: source
+    kind: const
+    values: [100, 200, 300]
+  - id: splitter
+    kind: router
+    router:
+      inputs:
+        queue: source
+      routes:
+        - target: only_target
+          weight: 1.0
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+        assert_approx(&result.series("only_target").unwrap(), &[100.0, 200.0, 300.0]);
+    }
+
+    #[test]
+    fn compile_queue_with_time_varying_wip_limit() {
+        // WIP limit varies per bin via a series
+        let yaml = r#"
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arrivals
+    kind: const
+    values: [15, 15, 15]
+  - id: served
+    kind: const
+    values: [2, 2, 2]
+  - id: wip_series
+    kind: const
+    values: [20, 10, 5]
+topology:
+  nodes:
+    - id: Queue
+      kind: serviceWithBuffer
+      wipLimitSeries: wip_series
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
+  constraints: []
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+        // Q[0]=15-2=13 (limit=20, ok), Q[1]=13+13=26→clamped to 10(ov=16), Q[2]=10+13=23→clamped to 5(ov=18)
+        assert_approx(&result.series("queue_queue").unwrap(), &[13.0, 10.0, 5.0]);
+        assert_approx(&result.series("queue_overflow").unwrap(), &[0.0, 16.0, 18.0]);
+    }
+
+    #[test]
+    fn compile_pmf_normalized_probabilities() {
+        // PMF with probabilities that don't sum to 1 → normalized
+        let model = ModelDefinition {
+            grid: Some(make_grid(2)),
+            nodes: vec![
+                NodeDefinition {
+                    id: "x".into(), kind: "pmf".into(),
+                    pmf: Some(crate::model::PmfDefinition {
+                        values: vec![10.0, 20.0],
+                        probabilities: vec![2.0, 3.0], // sum=5, not 1
+                    }),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+        let result = eval_model(&model).unwrap();
+        // E[X] = (10*2/5) + (20*3/5) = 4 + 12 = 16
+        assert_eq!(result.series("x").unwrap(), vec![16.0, 16.0]);
+    }
+
+    #[test]
+    fn compile_empty_model_no_topology() {
+        let yaml = r#"
+grid:
+  bins: 4
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: a
+    kind: const
+    values: [1, 2, 3, 4]
+  - id: b
+    kind: expr
+    expr: "a * 2"
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+        assert_eq!(result.series("a").unwrap(), vec![1.0, 2.0, 3.0, 4.0]);
+        assert_eq!(result.series("b").unwrap(), vec![2.0, 4.0, 6.0, 8.0]);
+        assert!(result.warnings.is_empty());
     }
 
     /// Assert approximate equality with f64 tolerance.
