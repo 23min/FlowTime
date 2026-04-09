@@ -2,7 +2,7 @@
 
 **ID:** m-E20-02
 **Epic:** E-20 Matrix Engine
-**Status:** in-progress
+**Status:** completed
 **Branch:** `milestone/m-E20-02-compiler-and-evaluator` (off `epic/E-20-matrix-engine`)
 
 ## Goal

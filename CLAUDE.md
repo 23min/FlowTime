@@ -57,11 +57,11 @@ These values are resolved from framework defaults in .ai/paths.md and repo overr
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
-- **Immediate next step:** implement m-E20-02 Compiler and Core Evaluator on `milestone/m-E20-02-compiler-and-evaluator`.
-- **E-20** Matrix Engine (`work/epics/E-20-matrix-engine/spec.md`) — **in progress (m-E20-02)**
+- **Immediate next step:** start m-E20-03 Topology and Sequential Ops.
+- **E-20** Matrix Engine (`work/epics/E-20-matrix-engine/spec.md`) — **in progress**
   - Rust column-store + evaluation-plan engine. Standalone CLI binary. Foundation for E-17/E-18.
-  - **Completed:** m-E20-01 (scaffold, model types, YAML parsing, expression parser). 24 Rust tests.
-  - **In progress:** m-E20-02 (compiler + core evaluator — first series output) on `milestone/m-E20-02-compiler-and-evaluator`.
+  - **Completed:** m-E20-01 (scaffold, types, parsers), m-E20-02 (compiler + evaluator). 38 Rust tests.
+  - **Next:** m-E20-03 (topology synthesis, queue recurrence, Shift, Convolve, WIP limits, feedback).
 - **E-10** Engine Correctness — **completed and merged to main (2026-04-09).** Archived to `work/epics/completed/E-10-engine-correctness-and-analytics/`.
 - **E-16** Formula-First Core Purification — **completed.** Archived to `work/epics/completed/E-16-formula-first-core-purification/`.
 - **E-19** Surface Alignment & Compatibility Cleanup — **completed and merged to main (2026-04-08).** Archived to `work/epics/completed/E-19-surface-alignment-and-compatibility-cleanup/`.
