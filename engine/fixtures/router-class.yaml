@@ -1,0 +1,35 @@
+# Class-based router: Alpha→airport, Beta→general
+# Expected: airport=[40,40,40], general=[60,60,60]
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: total_arrivals
+    kind: const
+    values: [100, 100, 100]
+  - id: splitter
+    kind: router
+    router:
+      inputs:
+        queue: total_arrivals
+      routes:
+        - target: airport
+          classes: [Alpha]
+        - target: general
+          classes: [Beta]
+classes:
+  - id: Alpha
+  - id: Beta
+traffic:
+  arrivals:
+    - nodeId: total_arrivals
+      classId: Alpha
+      pattern:
+        kind: const
+        ratePerBin: 40
+    - nodeId: total_arrivals
+      classId: Beta
+      pattern:
+        kind: const
+        ratePerBin: 60

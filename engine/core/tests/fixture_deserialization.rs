@@ -94,7 +94,7 @@ fn all_fixtures_parse() {
             count += 1;
         }
     }
-    assert!(count >= 15, "Expected at least 15 fixtures, found {count}");
+    assert!(count >= 21, "Expected at least 21 fixtures, found {count}");
 }
 
 // --- Topology fixture evaluation tests (m-E20-03 parity) ---
@@ -151,4 +151,67 @@ fn eval_topology_cascading_overflow() {
     assert_eq!(result.series("b_queue").unwrap(), vec![5.0, 5.0, 5.0]);
     assert_eq!(result.series("b_overflow").unwrap(), vec![0.0, 15.0, 15.0]);
     assert_eq!(result.series("c_queue").unwrap(), vec![0.0, 15.0, 30.0]);
+}
+
+// --- Router and constraint fixture evaluation tests (m-E20-04 parity) ---
+
+fn assert_approx(actual: &[f64], expected: &[f64]) {
+    assert_eq!(actual.len(), expected.len(), "length mismatch: {} vs {}", actual.len(), expected.len());
+    for (i, (a, e)) in actual.iter().zip(expected).enumerate() {
+        assert!((a - e).abs() < 1e-10, "bin {i}: actual={a}, expected={e}");
+    }
+}
+
+#[test]
+fn eval_router_weight() {
+    let model = parse_model_yaml(&load_fixture("router-weight.yaml")).unwrap();
+    let result = eval_model(&model).unwrap();
+    assert_approx(&result.series("target_a").unwrap(), &[50.0, 50.0, 50.0]);
+    assert_approx(&result.series("target_b").unwrap(), &[30.0, 30.0, 30.0]);
+    assert_approx(&result.series("target_c").unwrap(), &[20.0, 20.0, 20.0]);
+}
+
+#[test]
+fn eval_router_class() {
+    let model = parse_model_yaml(&load_fixture("router-class.yaml")).unwrap();
+    let result = eval_model(&model).unwrap();
+    assert_approx(&result.series("airport").unwrap(), &[40.0, 40.0, 40.0]);
+    assert_approx(&result.series("general").unwrap(), &[60.0, 60.0, 60.0]);
+}
+
+#[test]
+fn eval_router_mixed() {
+    let model = parse_model_yaml(&load_fixture("router-mixed.yaml")).unwrap();
+    let result = eval_model(&model).unwrap();
+    assert_approx(&result.series("airport").unwrap(), &[40.0, 40.0, 40.0]);
+    assert_approx(&result.series("general").unwrap(), &[45.0, 45.0, 45.0]);
+    assert_approx(&result.series("overflow_target").unwrap(), &[15.0, 15.0, 15.0]);
+}
+
+#[test]
+fn eval_constraint_proportional() {
+    let model = parse_model_yaml(&load_fixture("constraint-proportional.yaml")).unwrap();
+    let result = eval_model(&model).unwrap();
+    assert_approx(&result.series("node_a_queue").unwrap(), &[30.0, 60.0, 90.0]);
+    assert_approx(&result.series("node_b_queue").unwrap(), &[30.0, 60.0, 90.0]);
+}
+
+#[test]
+fn eval_constraint_below_capacity() {
+    let model = parse_model_yaml(&load_fixture("constraint-below-capacity.yaml")).unwrap();
+    let result = eval_model(&model).unwrap();
+    assert_approx(&result.series("node_a_queue").unwrap(), &[20.0, 40.0, 60.0]);
+    assert_approx(&result.series("node_b_queue").unwrap(), &[30.0, 60.0, 90.0]);
+}
+
+#[test]
+fn eval_router_with_constraint() {
+    let model = parse_model_yaml(&load_fixture("router-with-constraint.yaml")).unwrap();
+    let result = eval_model(&model).unwrap();
+    // Router: route_a=60, route_b=40. Constraint: cap=50, total=100 → proportional
+    // capped_a=50*60/100=30, capped_b=50*40/100=20
+    // Queue A: inflow=30, outflow=5 → Q=[25, 50, 75]
+    // Queue B: inflow=20, outflow=5 → Q=[15, 30, 45]
+    assert_approx(&result.series("queue_a_queue").unwrap(), &[25.0, 50.0, 75.0]);
+    assert_approx(&result.series("queue_b_queue").unwrap(), &[15.0, 30.0, 45.0]);
 }

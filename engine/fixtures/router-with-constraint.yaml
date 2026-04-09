@@ -1,0 +1,52 @@
+# Router + constraint combined: router splits 100 into [60, 40],
+# then constraint caps both at shared capacity=50
+# Expected: capped=[30,20] (proportional of 60+40=100 vs cap=50)
+# Queue A: inflow=30, outflow=5 → Q=[25,50,75]
+# Queue B: inflow=20, outflow=5 → Q=[15,30,45]
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: source
+    kind: const
+    values: [100, 100, 100]
+  - id: splitter
+    kind: router
+    router:
+      inputs:
+        queue: source
+      routes:
+        - target: route_a
+          weight: 0.6
+        - target: route_b
+          weight: 0.4
+  - id: shared_cap
+    kind: const
+    values: [50, 50, 50]
+  - id: served_a
+    kind: const
+    values: [5, 5, 5]
+  - id: served_b
+    kind: const
+    values: [5, 5, 5]
+topology:
+  nodes:
+    - id: QueueA
+      kind: serviceWithBuffer
+      constraints: [bottleneck]
+      semantics:
+        arrivals: route_a
+        served: served_a
+    - id: QueueB
+      kind: serviceWithBuffer
+      constraints: [bottleneck]
+      semantics:
+        arrivals: route_b
+        served: served_b
+  edges: []
+  constraints:
+    - id: bottleneck
+      semantics:
+        arrivals: total_demand
+        served: shared_cap

@@ -134,6 +134,11 @@ pub enum Op {
     /// Dispatch gate: zeros outflow on non-dispatch bins, caps at capacity on dispatch bins.
     DispatchGate { out: usize, input: usize, period: usize, phase: usize, capacity: Option<usize> },
 
+    /// Proportional allocation: when total demand > capacity, cap each demand proportionally.
+    /// demands[i] and outs[i] are paired: outs[i][t] = demand[i][t] if total <= capacity,
+    /// else outs[i][t] = capacity[t] * demand[i][t] / totalDemand[t].
+    ProportionalAlloc { outs: Vec<usize>, demands: Vec<usize>, capacity: usize },
+
     /// Copy one column to another (used for intermediate forwarding).
     Copy { out: usize, input: usize },
 }
@@ -209,6 +214,12 @@ impl Plan {
             Op::DispatchGate { out, input, period, phase, capacity } => {
                 let cap = capacity.map(|c| format!(", cap={}", self.col_name(c))).unwrap_or_default();
                 format!("{} = DISPATCH({}, period={period}, phase={phase}{cap})", self.col_name(*out), self.col_name(*input))
+            }
+            Op::ProportionalAlloc { outs, demands, capacity } => {
+                let demand_names: Vec<&str> = demands.iter().map(|d| self.col_name(*d)).collect();
+                format!("PROPORTIONAL_ALLOC([{}] / {}, cap={})", demand_names.join(", "),
+                    outs.iter().map(|o| self.col_name(*o)).collect::<Vec<_>>().join(", "),
+                    self.col_name(*capacity))
             }
             Op::Copy { out, input } => format!("{} = COPY({})", self.col_name(*out), self.col_name(*input)),
         }
