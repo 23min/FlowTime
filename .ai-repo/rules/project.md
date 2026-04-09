@@ -45,7 +45,7 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 
 ## Branching & Versioning
 
-- Epic integration branches are optional and use `epic/E-{NN}-<slug>` when an epic needs a shared base.
+- Epic integration branches use `epic/E-{NN}-<slug>`. Every numbered epic gets an integration branch; milestone branches branch from it and merge back into it.
 - Milestone branches use `milestone/<milestone-id>`.
 - Feature branches use `feature/<surface>-<milestone-id>/<desc>` when a milestone needs parallel work.
 - Single-surface quick changes can branch from `main` and PR directly back to `main` when no milestone integration branch is needed.
