@@ -204,7 +204,7 @@ Artifacts (CSVs + index.json + run.json)
 
 | ID | Title | Summary | Status |
 |----|-------|---------|--------|
-| m-E20-01 | Scaffold, types, and parsers | Rust crate, model types with serde, YAML deserialization, expression parser. Reference model fixtures. Devcontainer Rust toolchain. | in-progress |
+| m-E20-01 | Scaffold, types, and parsers | Rust crate, model types with serde, YAML deserialization, expression parser. Reference model fixtures. Devcontainer Rust toolchain. | complete |
 | m-E20-02 | Compiler and core evaluator | Column map, topo sort, plan generation for const/expr nodes. Evaluator loop + element-wise ops. First end-to-end parity on simple models. | pending |
 | m-E20-03 | Topology and sequential ops | Queue synthesis, QueueRecurrence, Shift, Convolve, DispatchGate, PMF, WIP limits with overflow. Feedback subgraphs (bin-sequential). | pending |
 | m-E20-04 | Routing and constraints | Router flow materialization, constraint allocation, multi-class flow distribution — all as plan ops. | pending |

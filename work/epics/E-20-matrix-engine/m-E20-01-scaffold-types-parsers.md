@@ -2,7 +2,7 @@
 
 **ID:** m-E20-01
 **Epic:** E-20 Matrix Engine
-**Status:** in-progress
+**Status:** completed
 **Branch:** `milestone/m-E20-01-scaffold-types-parsers` (off `main`)
 
 ## Goal
