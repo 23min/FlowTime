@@ -36,13 +36,11 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 
 ## Immediate
 
-#### E-10 — Engine Correctness & Analytical Primitives
+#### E-10 — Engine Correctness & Analytical Primitives (completed)
 
 - **Folder:** `work/epics/E-10-engine-correctness-and-analytics/`
-- **Status:** Phases 0-2 complete, p3a/p3a1/p3d/p3c merged to main, p3b (WIP Limits) in progress on `milestone/m-ec-p3b-wip-limits` — last E-10 milestone
+- **Status:** Complete — all 8 milestones (p0, p1, p2, p3a, p3a1, p3d, p3c, p3b) delivered
 - **Goal:** Fix P0 correctness bugs, harden engineering quality, align documentation with code, and build the analytical primitives layer (bottleneck ID, cycle time, WIP limits, variability, constraint enforcement, starvation detection) that downstream epics depend on.
-- **Phases:** 0 (bugs) → 1+2 (engineering + docs, parallel) → 3 (analytical primitives)
-- **Key dependency:** After E-16, resume Phase 3 in the order p3d → p3c → p3b. See `ROADMAP.md` dependency graph.
 - **Reference:** `docs/architecture/reviews/review-sequenced-plan-2026-03.md` (historical rationale)
 
 #### E-16 — Formula-First Core Purification

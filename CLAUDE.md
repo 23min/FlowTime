@@ -218,11 +218,10 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
-- **Immediate next step:** implement m-ec-p3b WIP Limits on `milestone/m-ec-p3b-wip-limits` — the last E-10 milestone. E-19 complete. p3d + p3c merged to main.
-- **E-10** Engine Correctness (`work/epics/E-10-engine-correctness-and-analytics/spec.md`) — **Phase 3 in progress (p3b — last milestone)**
-  - Phases 0-2 complete. Phase 3 bridge complete (m-ec-p3a + m-ec-p3a1 merged to main).
-  - **Completed:** p3d Constraint Enforcement, p3c Variability (Cv + Kingman). Both merged to main.
-  - **In progress:** p3b WIP Limits on `milestone/m-ec-p3b-wip-limits` off main. When p3b closes, E-10 is complete.
+- **Immediate next step:** merge `milestone/m-ec-p3b-wip-limits` to main. E-10 is complete. E-19 complete. E-16 complete.
+- **E-10** Engine Correctness (`work/epics/E-10-engine-correctness-and-analytics/spec.md`) — **completed**
+  - All 8 milestones delivered (p0, p1, p2, p3a, p3a1, p3d, p3c, p3b).
+  - p3b (WIP Limits) on `milestone/m-ec-p3b-wip-limits` — awaiting merge to main.
 - **E-16** Formula-First Core Purification (`work/epics/E-16-formula-first-core-purification/spec.md`) — **completed**
   - **Completed:** m-E16-01 through m-E16-06
   - **Completion branch:** `milestone/m-E16-06-analytical-contract-and-consumer-purification`

@@ -2,7 +2,7 @@
 
 **ID:** m-ec-p3b
 **Epic:** Engine Correctness & Analytical Primitives
-**Status:** in-progress
+**Status:** completed
 **Branch:** `milestone/m-ec-p3b-wip-limits` (off `main`)
 
 ## Goal

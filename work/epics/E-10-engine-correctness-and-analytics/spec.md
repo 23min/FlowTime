@@ -94,7 +94,7 @@ The existing near-term epics (Path Analysis, UI Analytical Views, Anomaly Detect
 | m-ec-p2 | Phase 2: Documentation honesty | complete |
 | m-ec-p3a | Phase 3a: Cycle time & flow efficiency | complete |
 | m-ec-p3a1 | Phase 3a.1: Analytical projection hardening | complete |
-| m-ec-p3b | Phase 3b: WIP limits | in-progress |
+| m-ec-p3b | Phase 3b: WIP limits | complete |
 | m-ec-p3c | Phase 3c: Variability (Cv + Kingman) | complete |
 | m-ec-p3d | Phase 3d: Constraint enforcement | complete |
 

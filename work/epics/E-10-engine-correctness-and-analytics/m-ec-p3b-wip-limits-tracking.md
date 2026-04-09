@@ -1,6 +1,6 @@
 # Tracking: m-ec-p3b WIP Limits
 
-**Status:** in-progress
+**Status:** completed
 **Started:** 2026-04-09
 **Epic:** [E-10 Engine Correctness & Analytical Primitives](./spec.md)
 **Milestone spec:** [m-ec-p3b-wip-limits.md](./m-ec-p3b-wip-limits.md)
@@ -20,8 +20,8 @@
 - [x] **Status-sync** — branch, flip statuses, create this tracking doc.
 - [x] **Bundle A** — AC-1 + AC-5 (WIP clamping tests): Extend ServiceWithBufferNode with wipLimit. TDD: write tests for clamping and overflow-to-loss → implement → green.
 - [x] **Bundle B** — AC-3 partial: `NodeDefinition.WipLimit`/`WipOverflow` + `TopologyNodeDefinition.WipLimit`/`WipOverflow` fields. ModelCompiler propagates from topology to generated NodeDefinition. CloneTopologyNode fixed. End-to-end pipeline test passing.
-- [ ] **Bundle C** — AC-2 + AC-3 + AC-4 + AC-5 remaining: Overflow routing to target node. WipOverflowEvaluator. Cycle validation. Time-varying wipLimit (series ref). Backpressure doc + SHIFT test.
-- [ ] **Wrap** — tracking doc, status reconciliation. E-10 epic completion assessment.
+- [x] **Bundle C** — AC-2 + AC-3 + AC-4 + AC-5 remaining: Overflow routing to target node. WipOverflowEvaluator. Cycle validation. Time-varying wipLimit (series ref). Backpressure doc + SHIFT feedback evaluation.
+- [x] **Wrap** — tracking doc, status reconciliation. E-10 epic completion assessment.
 
 ## Implementation Log
 
@@ -75,10 +75,11 @@ NodeDefinition and TopologyNodeDefinition gain `WipLimit` and `WipOverflow` fiel
 ### Design decisions (Bundle C)
 - **Option A from spec chosen for overflow routing:** Post-evaluation override injection via `WipOverflowEvaluator`, same pattern as `ConstraintAwareEvaluator`. No new `IMultiOutputNode` interface needed.
 - **Overflow resolved at compile time:** `ModelCompiler.ResolveWipOverflowTargets` maps topology node IDs to queue node IDs after queue synthesis. Cycle validation also at compile time.
-- **SHIFT backpressure is signal-driven, not queue-feedback:** Cross-node queue→pressure→arrivals feedback creates topological cycles. The documented pattern uses external signal series with SHIFT for time-lagged throttling. Self-referencing SHIFT on expr nodes is validated by the semantic checker but creates self-loops in the graph's topological sort — a pre-existing limitation, not introduced by this milestone.
+- **SHIFT feedback via bin-by-bin evaluation (Approach C):** Cross-node feedback cycles (queue→pressure→SHIFT→arrivals→queue) are now supported. ExpressionCompiler classifies references as same-bin vs lagged (inside SHIFT with lag>=1). Graph topo sort uses only same-bin edges. Feedback subgraphs (nodes with lagged back-edges) get bin-by-bin evaluation on shared mutable columns — structurally identical to the matrix model's sequential evaluation. This is a stepping stone toward the planned matrix-based engine rewrite, not throwaway code.
 
 ## Completion
 
-- **Completed:** pending (all ACs done, awaiting wrap)
-- **Final test count:** 1286 passed, 9 skipped, 0 failed
+- **Completed:** 2026-04-09
+- **Final test count:** 1287 passed, 9 skipped, 0 failed (+13 from baseline)
+- **E-10 epic status:** Complete — all 8 milestones delivered
 - **Deferred items:** (none)

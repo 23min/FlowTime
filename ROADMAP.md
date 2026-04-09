@@ -36,19 +36,12 @@ This arc describes the product capability ladder, not strict implementation orde
 - **UI Performance** — Input/paint/data lane separation, eliminated main-thread stalls.
 - **Package Updates** — .NET 9 dependencies and MudBlazor updated (M-11.01, M-11.02).
 
-## E-10 — Engine Correctness & Analytical Primitives
+## E-10 — Engine Correctness & Analytical Primitives (completed)
 
 **Epic:** `work/epics/E-10-engine-correctness-and-analytics/spec.md`
+**Status:** Complete — all 8 milestones delivered
 
-The engine deep review found 3 P0 correctness bugs, engineering debt, documentation drift, and a missing analytical layer. Phases 0-2 complete. Phase 3 bridge complete (m-ec-p3a cycle time, m-ec-p3a1 analytical projection hardening — both merged to main). Remaining Phase 3 resumes in the order p3d -> p3c -> p3b.
-
-### Phase 3: Analytical Primitives (resume sequence)
-With E-16 complete, Phase 3 resumes in this execution order:
-1. **p3d — Constraint Enforcement** — Wire ConstraintAllocator into evaluation pipeline so declared constraints are real rather than advisory.
-2. **p3c — Variability** — Preserve Cv from PMFs for Kingman's approximation and theory-vs-runtime diagnostics.
-3. **p3b — WIP Limits** — Optional wipLimit on ServiceWithBufferNode (Kanban what-if).
-
-The milestone IDs are historical; the recommended implementation order above is the lower-risk sequence.
+The engine deep review found 3 P0 correctness bugs, engineering debt, documentation drift, and a missing analytical layer. All phases delivered: Phases 0-2 (bugs, engineering, docs), Phase 3 analytical primitives (cycle time, projection hardening, constraint enforcement, variability, WIP limits with overflow routing and SHIFT-based backpressure feedback).
 
 ## E-16 — Formula-First Core Purification (completed)
 
