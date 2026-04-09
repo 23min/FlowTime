@@ -1,0 +1,50 @@
+# Cascading WIP overflow: A→B→C overflow chain
+# A: inflow=20, outflow=5, wipLimit=10 → overflow to B
+# B: inflow=A_overflow, outflow=0, wipLimit=5 → overflow to C
+# C: inflow=B_overflow, outflow=0, no limit
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: a_in
+    kind: const
+    values: [20, 20, 20]
+  - id: a_out
+    kind: const
+    values: [5, 5, 5]
+  - id: b_in
+    kind: const
+    values: [0, 0, 0]
+  - id: b_out
+    kind: const
+    values: [0, 0, 0]
+  - id: c_in
+    kind: const
+    values: [0, 0, 0]
+  - id: c_out
+    kind: const
+    values: [0, 0, 0]
+topology:
+  nodes:
+    - id: A
+      kind: serviceWithBuffer
+      wipLimit: 10
+      wipOverflow: B
+      semantics:
+        arrivals: a_in
+        served: a_out
+    - id: B
+      kind: serviceWithBuffer
+      wipLimit: 5
+      wipOverflow: C
+      semantics:
+        arrivals: b_in
+        served: b_out
+    - id: C
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: c_in
+        served: c_out
+  edges: []
+  constraints: []
