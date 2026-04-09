@@ -218,17 +218,10 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
-- **Immediate next step:** merge `milestone/m-ec-p3b-wip-limits` to main. E-10 is complete. E-19 complete. E-16 complete.
-- **E-10** Engine Correctness (`work/epics/E-10-engine-correctness-and-analytics/spec.md`) — **completed**
-  - All 8 milestones delivered (p0, p1, p2, p3a, p3a1, p3d, p3c, p3b).
-  - p3b (WIP Limits) on `milestone/m-ec-p3b-wip-limits` — awaiting merge to main.
-- **E-16** Formula-First Core Purification (`work/epics/E-16-formula-first-core-purification/spec.md`) — **completed**
-  - **Completed:** m-E16-01 through m-E16-06
-  - **Completion branch:** `milestone/m-E16-06-analytical-contract-and-consumer-purification`
-- **E-19** Surface Alignment & Compatibility Cleanup (`work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md`) — **completed and merged to main (2026-04-08)**
-  - All four milestones complete (m-E19-01 through m-E19-04). All 9 epic success criteria checked. Merge commit `150eeb9`.
-  - Frozen pointer branches retained locally: `epic/E-19`, `milestone/m-E19-01-supported-surface-inventory`, `milestone/m-E19-02-sim-authoring-and-runtime-boundary-cleanup`, `milestone/m-E19-03-schema-template-example-retirement`, `milestone/m-E19-04-blazor-support-alignment`.
-  - Grep guards all passing on main: m-E19-02 20/20 (1 overly broad guard dropped in `chore/grep-guard-cleanup` — see gaps.md resolution note), m-E19-03 11/11, m-E19-04 11/11.
+- **Immediate next step:** pick next epic (E-11 Svelte UI resume, or E-12–E-15).
+- **E-10** Engine Correctness — **completed and merged to main (2026-04-09).** Archived to `work/epics/completed/E-10-engine-correctness-and-analytics/`.
+- **E-16** Formula-First Core Purification — **completed.** Archived to `work/epics/completed/E-16-formula-first-core-purification/`.
+- **E-19** Surface Alignment & Compatibility Cleanup — **completed and merged to main (2026-04-08).** Archived to `work/epics/completed/E-19-surface-alignment-and-compatibility-cleanup/`.
   - Deferred (tracked in `work/gaps.md`): `POST /v1/run` and `POST /v1/graph` Engine route deletion per D-2026-04-08-029 (test-infrastructure migration needed first).
 - **E-11** Svelte UI — paused after M6
   - M1-M4 + M6 done, M5/M7/M8 remain

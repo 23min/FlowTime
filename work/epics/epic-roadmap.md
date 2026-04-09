@@ -38,14 +38,14 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 
 #### E-10 — Engine Correctness & Analytical Primitives (completed)
 
-- **Folder:** `work/epics/E-10-engine-correctness-and-analytics/`
+- **Folder:** `work/epics/completed/E-10-engine-correctness-and-analytics/`
 - **Status:** Complete — all 8 milestones (p0, p1, p2, p3a, p3a1, p3d, p3c, p3b) delivered
 - **Goal:** Fix P0 correctness bugs, harden engineering quality, align documentation with code, and build the analytical primitives layer (bottleneck ID, cycle time, WIP limits, variability, constraint enforcement, starvation detection) that downstream epics depend on.
 - **Reference:** `docs/architecture/reviews/review-sequenced-plan-2026-03.md` (historical rationale)
 
 #### E-16 — Formula-First Core Purification
 
-- **Folder:** `work/epics/E-16-formula-first-core-purification/`
+- **Folder:** `work/epics/completed/E-16-formula-first-core-purification/`
 - **Status:** Completed (`m-E16-06` completed on `milestone/m-E16-06-analytical-contract-and-consumer-purification`)
 - **Goal:** Move semantic truth and analytical identity fully into the compiled Core model so the engine remains a deterministic formula evaluator and API/UI layers consume facts rather than reconstructing meaning from strings.
 - **Sequencing:** Runs immediately and before further E-10 Phase 3 expansion, which resumes in the order `p3d` -> `p3c` -> `p3b`.
@@ -56,7 +56,7 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 
 #### E-19 — Surface Alignment & Compatibility Cleanup
 
-- **Folder:** `work/epics/E-19-surface-alignment-and-compatibility-cleanup/`
+- **Folder:** `work/epics/completed/E-19-surface-alignment-and-compatibility-cleanup/`
 - **Status:** all four milestones (m-E19-01 through m-E19-04) completed; epic→main merge pending; Blazor remains supported in parallel with E-11
 - **Goal:** Tighten the remaining non-analytical legacy and compatibility surfaces across first-party UI, Sim, docs, schemas, and examples so current product surfaces stay aligned to one set of current contracts
 - **Sequencing:** Runs after E-16, in parallel with resumed E-10 Phase 3 work by default; should not silently replace the `p3d` -> `p3c` -> `p3b` sequence

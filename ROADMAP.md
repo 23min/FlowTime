@@ -38,14 +38,14 @@ This arc describes the product capability ladder, not strict implementation orde
 
 ## E-10 — Engine Correctness & Analytical Primitives (completed)
 
-**Epic:** `work/epics/E-10-engine-correctness-and-analytics/spec.md`
+**Epic:** `work/epics/completed/E-10-engine-correctness-and-analytics/spec.md`
 **Status:** Complete — all 8 milestones delivered
 
 The engine deep review found 3 P0 correctness bugs, engineering debt, documentation drift, and a missing analytical layer. All phases delivered: Phases 0-2 (bugs, engineering, docs), Phase 3 analytical primitives (cycle time, projection hardening, constraint enforcement, variability, WIP limits with overflow routing and SHIFT-based backpressure feedback).
 
 ## E-16 — Formula-First Core Purification (completed)
 
-**Epic:** `work/epics/E-16-formula-first-core-purification/spec.md` | **Status:** completed (`m-E16-06` completed on `milestone/m-E16-06-analytical-contract-and-consumer-purification`)
+**Epic:** `work/epics/completed/E-16-formula-first-core-purification/spec.md` | **Status:** completed (`m-E16-06` completed on `milestone/m-E16-06-analytical-contract-and-consumer-purification`)
 
 The architecture gate is complete. Semantic meaning and analytical truth are now compiled into Core once and consumed as facts everywhere else.
 
@@ -67,9 +67,9 @@ Migration is forward-only. Existing runs, fixtures, and approved snapshots are r
 
 Build a parallel SvelteKit + shadcn-svelte UI surface for demos and future evaluation while keeping the Blazor UI supported and in sync. Independent of engine work — both UIs consume existing APIs with zero backend changes.
 
-## E-19 — Surface Alignment & Compatibility Cleanup (planning)
+## E-19 — Surface Alignment & Compatibility Cleanup (completed)
 
-**Epic:** `work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md` | **Status:** all four milestones (m-E19-01 through m-E19-04) completed; epic→main merge pending
+**Epic:** `work/epics/completed/E-19-surface-alignment-and-compatibility-cleanup/spec.md` | **Status:** completed — all four milestones merged to main (2026-04-08)
 
 After E-16 purifies analytical truth, FlowTime still carries broader non-analytical compatibility debt across first-party UI, Sim, docs, examples, and schema surfaces. E-19 removes stale fallback layers and clarifies supported surfaces in a forward-only cut while keeping Blazor current as a supported parallel UI.
 
