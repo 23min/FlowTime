@@ -111,7 +111,29 @@ pub enum Op {
     /// Periodic pulse: amplitude at every period-th bin (with phase offset)
     Pulse { out: usize, period: usize, phase: usize, amplitude: Option<usize> },
 
-    // --- Sequential ops (m-E20-03) will add: Shift, Convolve, QueueRecurrence, DispatchGate ---
+    // --- Sequential ops (process bins in order, reading previous bins) ---
+
+    /// Temporal shift: out[t] = input[t - lag] (0 for t < lag).
+    Shift { out: usize, input: usize, lag: usize },
+
+    /// Causal convolution: out[t] = Σ(k) input[t-k] * kernel[k].
+    Convolve { out: usize, input: usize, kernel: Vec<f64> },
+
+    /// Queue recurrence: Q[t] = max(0, Q[t-1] + inflow - outflow - loss).
+    /// Optional WIP limit clamps Q and writes excess to overflow_out.
+    QueueRecurrence {
+        out: usize,
+        inflow: usize,
+        outflow: usize,
+        loss: Option<usize>,
+        init: f64,
+        wip_limit: Option<usize>,
+        overflow_out: Option<usize>,
+    },
+
+    /// Dispatch gate: zeros outflow on non-dispatch bins, caps at capacity on dispatch bins.
+    DispatchGate { out: usize, input: usize, period: usize, phase: usize, capacity: Option<usize> },
+
     /// Copy one column to another (used for intermediate forwarding).
     Copy { out: usize, input: usize },
 }
@@ -168,6 +190,25 @@ impl Plan {
             Op::Pulse { out, period, phase, amplitude } => {
                 let amp = amplitude.map(|a| self.col_name(a).to_string()).unwrap_or("1.0".to_string());
                 format!("{} = PULSE(period={period}, phase={phase}, amp={amp})", self.col_name(*out))
+            }
+            Op::Shift { out, input, lag } => format!("{} = SHIFT({}, {lag})", self.col_name(*out), self.col_name(*input)),
+            Op::Convolve { out, input, kernel } => {
+                let preview: Vec<String> = kernel.iter().take(4).map(|v| format!("{v}")).collect();
+                let suffix = if kernel.len() > 4 { ", ..." } else { "" };
+                format!("{} = CONV({}, [{}{}])", self.col_name(*out), self.col_name(*input), preview.join(", "), suffix)
+            }
+            Op::QueueRecurrence { out, inflow, outflow, loss, init, wip_limit, overflow_out } => {
+                let mut s = format!("{} = QUEUE({}, {}", self.col_name(*out), self.col_name(*inflow), self.col_name(*outflow));
+                if let Some(l) = loss { s.push_str(&format!(", loss={}", self.col_name(*l))); }
+                if *init != 0.0 { s.push_str(&format!(", init={init}")); }
+                if let Some(w) = wip_limit { s.push_str(&format!(", wip={}", self.col_name(*w))); }
+                if let Some(o) = overflow_out { s.push_str(&format!(", overflow={}", self.col_name(*o))); }
+                s.push(')');
+                s
+            }
+            Op::DispatchGate { out, input, period, phase, capacity } => {
+                let cap = capacity.map(|c| format!(", cap={}", self.col_name(c))).unwrap_or_default();
+                format!("{} = DISPATCH({}, period={period}, phase={phase}{cap})", self.col_name(*out), self.col_name(*input))
             }
             Op::Copy { out, input } => format!("{} = COPY({})", self.col_name(*out), self.col_name(*input)),
         }

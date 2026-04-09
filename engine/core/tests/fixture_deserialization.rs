@@ -94,5 +94,61 @@ fn all_fixtures_parse() {
             count += 1;
         }
     }
-    assert!(count >= 9, "Expected at least 9 fixtures, found {count}");
+    assert!(count >= 15, "Expected at least 15 fixtures, found {count}");
+}
+
+// --- Topology fixture evaluation tests (m-E20-03 parity) ---
+
+use flowtime_core::compiler::eval_model;
+
+#[test]
+fn eval_topology_simple_queue() {
+    let model = parse_model_yaml(&load_fixture("topology-simple-queue.yaml")).unwrap();
+    let result = eval_model(&model).unwrap();
+    assert_eq!(result.series("queue_queue").unwrap(), vec![7.0, 14.0, 21.0, 28.0]);
+}
+
+#[test]
+fn eval_topology_wip_limit() {
+    let model = parse_model_yaml(&load_fixture("topology-wip-limit.yaml")).unwrap();
+    let result = eval_model(&model).unwrap();
+    assert_eq!(result.series("queue_queue").unwrap(), vec![8.0, 16.0, 20.0, 20.0]);
+    assert_eq!(result.series("queue_overflow").unwrap(), vec![0.0, 0.0, 4.0, 8.0]);
+}
+
+#[test]
+fn eval_topology_dispatch() {
+    let model = parse_model_yaml(&load_fixture("topology-dispatch.yaml")).unwrap();
+    let result = eval_model(&model).unwrap();
+    assert_eq!(result.series("queue_queue").unwrap(), vec![5.0, 15.0, 25.0, 30.0, 40.0, 50.0]);
+}
+
+#[test]
+fn eval_topology_retry_echo() {
+    let model = parse_model_yaml(&load_fixture("topology-retry-echo.yaml")).unwrap();
+    let result = eval_model(&model).unwrap();
+    assert_eq!(result.series("retry_echo").unwrap(), vec![0.0, 6.0, 9.0, 10.0, 10.0]);
+}
+
+#[test]
+fn eval_topology_backpressure() {
+    let model = parse_model_yaml(&load_fixture("topology-backpressure.yaml")).unwrap();
+    let result = eval_model(&model).unwrap();
+    let q = result.series("queue_depth").unwrap();
+    // Approximate comparison due to floating-point chained arithmetic
+    let expected = [80.0, 60.0, 40.0, 40.0, 40.0, 40.0];
+    for (i, (a, e)) in q.iter().zip(expected.iter()).enumerate() {
+        assert!((a - e).abs() < 1e-10, "bin {i}: actual={a}, expected={e}");
+    }
+}
+
+#[test]
+fn eval_topology_cascading_overflow() {
+    let model = parse_model_yaml(&load_fixture("topology-cascading-overflow.yaml")).unwrap();
+    let result = eval_model(&model).unwrap();
+    assert_eq!(result.series("a_queue").unwrap(), vec![10.0, 10.0, 10.0]);
+    assert_eq!(result.series("a_overflow").unwrap(), vec![5.0, 15.0, 15.0]);
+    assert_eq!(result.series("b_queue").unwrap(), vec![5.0, 5.0, 5.0]);
+    assert_eq!(result.series("b_overflow").unwrap(), vec![0.0, 15.0, 15.0]);
+    assert_eq!(result.series("c_queue").unwrap(), vec![0.0, 15.0, 30.0]);
 }

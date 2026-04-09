@@ -2,6 +2,23 @@
 
 Accumulated learnings from implementation sessions.
 
+## 2026-04-09: E-20 m-E20-03 Topology and Sequential Ops
+
+### Patterns that worked
+- **Bin-major evaluation enables feedback without special cases.** Refactoring the evaluator from op-major (`for op: for t`) to bin-major (`for t: for op`) makes SHIFT-based feedback cycles work naturally. At each bin, all ops execute in plan order, so QueueRecurrence writes Q[t] before pressure/SHIFT read it. Const ops are pre-written before the bin loop. Produces identical results for non-feedback models — safe to apply universally.
+- **Unified topo sort with SHIFT edge exclusion.** Including both expression nodes and topology-produced "virtual columns" in one dependency graph, with SHIFT references excluded from same-bin edges (they read t-1), correctly breaks feedback cycles while maintaining correct compilation order for non-feedback dependencies.
+- **Overflow routing inline during topology node compilation.** Emitting VecAdd ops for overflow injection inside `compile_single_topology_node` (when the target is compiled) rather than as a post-pass ensures correct op ordering in bin-major evaluation. The unified topo sort orders source queues before target queues via overflow edges.
+- **Pre-allocating topology-produced columns before expression compilation.** Adding Phase 1b to pre-register columns that topology synthesis will fill (e.g., `queue_depth`) allows expressions like `pressure = queue_depth / 50` to compile without forward-reference errors.
+
+### Pitfalls encountered
+- **snake_case conversion for acronyms.** Naive `to_snake_case` that inserts `_` before every uppercase letter produces "d_l_q" from "DLQ". Fixed to handle consecutive uppercase: only insert `_` before an uppercase char if the previous was lowercase OR the next is lowercase (end of acronym). "DLQ" → "dlq", "HTTPService" → "http_service".
+- **Overflow routing as a post-pass breaks bin-major evaluation.** First approach: compile all topology nodes, then patch QueueRecurrence inflows and append VecAdd ops. This places VecAdd ops after the target's QueueRecurrence in the ops list, so in bin-major evaluation the overflow hasn't been added when the target queue processes each bin. Fix: inline overflow routing during target compilation.
+- **Floating-point precision in chained feedback.** The backpressure model produces `effective_arrivals = 19.999999999999996` instead of `20.0` due to chained division/multiplication. Use approximate comparison (`< 1e-10`) for feedback model assertions.
+
+### Conventions established
+- **Miri installed for UB checking.** `cargo +nightly miri test -p flowtime-core --lib -- --skip compile_hello_fixture` runs 48 tests under Miri. File-IO tests must be skipped. Use as a periodic check (~40s), not every iteration.
+- **Topology fixture naming.** `engine/fixtures/topology-{pattern}.yaml` for topology test models. 6 fixtures added this milestone.
+
 ## 2026-04-08: E-19 m-E19-04 Blazor Support Alignment
 
 ### Patterns that worked

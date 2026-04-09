@@ -1,0 +1,27 @@
+# Queue with dispatch schedule: outflow gated to every 3rd bin
+# Dispatch at t=0,3 → outflow=[5,0,0,5,0,0]
+# Expected: Q = [5, 15, 25, 30, 40, 50]
+grid:
+  bins: 6
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arrivals
+    kind: const
+    values: [10, 10, 10, 10, 10, 10]
+  - id: served
+    kind: const
+    values: [5, 5, 5, 5, 5, 5]
+topology:
+  nodes:
+    - id: Queue
+      kind: serviceWithBuffer
+      dispatchSchedule:
+        kind: periodic
+        periodBins: 3
+        phaseOffset: 0
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
+  constraints: []

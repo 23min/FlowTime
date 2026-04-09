@@ -103,9 +103,9 @@ These are the lowest-risk leverage layers after purification. They make the pure
 2. **Telemetry Loop & Parity** (`work/epics/telemetry-loop-parity/spec.md`)
    - Automated parity harness between baseline synthetic runs and telemetry replay runs. Recommended immediately after the first E-15 dataset path and before model fitting, optimization, or anomaly automation.
 
-## E-20 — Matrix Engine (planning)
+## E-20 — Matrix Engine (in-progress)
 
-**Epic:** `work/epics/E-20-matrix-engine/spec.md` | **Status:** in-progress (m-E20-01)
+**Epic:** `work/epics/E-20-matrix-engine/spec.md` | **Status:** in-progress (m-E20-01 through m-E20-03 complete, m-E20-04 next)
 
 Replace the C# object-graph evaluation with a Rust column-store + evaluation-plan engine. All series live in one flat `f64[series_count × bins]` matrix. The evaluation plan is an ordered list of ops (pure functions on columns). Ships as a standalone CLI binary (`flowtime-engine eval/validate/plan`). The .NET API calls the Rust binary as a subprocess.
 

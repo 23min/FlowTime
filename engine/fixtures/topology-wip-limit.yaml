@@ -1,0 +1,23 @@
+# Queue with WIP limit: overflow tracked when queue exceeds limit
+# Expected: Q = [8, 16, 20, 20], overflow = [0, 0, 4, 8]
+grid:
+  bins: 4
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arrivals
+    kind: const
+    values: [10, 10, 10, 10]
+  - id: served
+    kind: const
+    values: [2, 2, 2, 2]
+topology:
+  nodes:
+    - id: Queue
+      kind: serviceWithBuffer
+      wipLimit: 20
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
+  constraints: []
