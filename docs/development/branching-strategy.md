@@ -10,7 +10,7 @@ This repository uses a milestone-first workflow that scales from solo work to sm
 ### Branch types
 
 - Mainline: `main` — always green and releasable
-- Epic integration (optional): `epic/<epic-slug>` — integration branch for an architecture epic spanning multiple milestones (see `docs/architecture/*`)
+- Epic integration: `epic/E-{NN}-<slug>` — integration branch for every numbered epic; milestone branches branch from it and merge back into it
 - Milestone: `milestone/m0` — integration branch for a milestone spanning surfaces
 - Feature: `feature/<surface>-m0/<short-desc>` — actual work branches targeting the milestone branch
 - Release (optional): `release/m0` — brief hardening before tagging

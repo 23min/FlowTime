@@ -103,29 +103,33 @@ These are the lowest-risk leverage layers after purification. They make the pure
 2. **Telemetry Loop & Parity** (`work/epics/telemetry-loop-parity/spec.md`)
    - Automated parity harness between baseline synthetic runs and telemetry replay runs. Recommended immediately after the first E-15 dataset path and before model fitting, optimization, or anomaly automation.
 
+## E-20 — Matrix Engine (planning)
+
+**Epic:** `work/epics/E-20-matrix-engine/spec.md` | **Status:** in-progress (m-E20-01)
+
+Replace the C# object-graph evaluation with a Rust column-store + evaluation-plan engine. All series live in one flat `f64[series_count × bins]` matrix. The evaluation plan is an ordered list of ops (pure functions on columns). Ships as a standalone CLI binary (`flowtime-engine eval/validate/plan`). The .NET API calls the Rust binary as a subprocess.
+
+This is the foundation for E-17 and E-18 — incremental re-evaluation, plan introspection, and parameter sweeps become trivial with the plan-as-data representation.
+
+**Depends on:** E-10 (complete), E-16 (complete)
+
 ## E-17 — Interactive What-If Mode (future)
 
 **Epic:** `work/epics/E-17-interactive-what-if-mode/spec.md` | **Status:** future
 
-Once E-16 makes the engine a pure compiled evaluator, live interactive recalculation becomes possible. Change a parameter via a UI slider, see all metrics/charts/heatmaps update instantly (sub-50ms). No recompilation for parameter value changes.
+Live interactive recalculation: change a parameter, see every metric update instantly (<50ms). With the matrix engine (E-20), this is incremental plan replay — only downstream ops re-execute.
 
-Requires: runtime parameter model, server-side session management, WebSocket/SignalR push channel, auto-generated UI parameter controls.
+Requires: runtime parameter model (shared with E-18), server-side sessions, push channel, UI controls.
 
-Recommended engineering order: build the shared runtime parameter foundation in the E-18 Time Machine first, then add E-17 session management, push delivery, and UI controls.
-
-**Depends on:** E-16
+**Depends on:** E-20
 
 ## E-18 — Time Machine (future)
 
 **Epic:** `work/epics/E-18-headless-pipeline-and-optimization/spec.md` | **Status:** future
 
-Make FlowTime usable as a client-agnostic callable machine in pipelines, optimization loops, model discovery workflows, digital twin architectures, and AI-assisted iteration. SPICE-inspired analysis modes still sit on top, but the first responsibility is the new `FlowTime.TimeMachine` execution component.
+FlowTime as a callable pure function in pipelines, optimization loops, model fitting, digital twin architectures. With the matrix engine (E-20), parameter sweeps are 1 compile + N partial replays. Sensitivity analysis, goal seeking, and batch what-if become column operations.
 
-Requires: `FlowTime.TimeMachine`, tiered validation, in-process SDK, reevaluation/parameter override foundation, CLI/sidecar surfaces, optimization framework, and telemetry source adapters.
-
-Recommended execution layers: (1) m-E18-01a Path B extraction cut, m-E18-01b tiered validation + `ITelemetrySource`, m-E18-01c runtime parameter foundation + reevaluation, (2) CLI/sidecar and richer sweep/optimization/fitting work, (3) chunked/stateful extensions only after a dedicated streaming/stateful execution seam exists.
-
-**Depends on:** E-16
+**Depends on:** E-20
 
 ## UI Paradigm Epics (draft — unnumbered until sequenced)
 
@@ -147,33 +151,21 @@ See `work/epics/ui-workbench/reference/ui-paradigm.md` for the architectural pro
 ## Dependency Graph
 
 ```
-E-10 Phases 0-2 (done)
+E-10 (done) + E-16 (done) + E-19 (done)
   |
-  v
-E-10 Phase 3 bridge: p3a + p3a1 (done, merged to main)
+  +--→ E-20 Matrix Engine (Rust rewrite — NOW)
+  |      |
+  |      +--→ E-18 Time Machine (sweep / optimize / fit — trivial with plan)
+  |      +--→ E-17 Interactive What-If (incremental re-eval via plan replay)
   |
-  v
-E-16 Formula-First Core Purification (NOW — 6 milestones)
+  +--→ E-12 Dependency Constraints (engine feature — defer until after E-20)
+  +--→ E-13 Path Analysis (engine feature — defer until after E-20)
+  +--→ E-15 Telemetry Ingestion (independent — can run in parallel)
+  |      +--→ Telemetry Loop & Parity
+  |             +--→ E-18 fit / optimization against real telemetry
   |
-   +--→ E-10 Phase 3 resume: p3d → p3c → p3b
-   |      |
-   |      +--→ E-12 Dependency Constraints (after p3d)
-   |      +--→ E-13 Path Analysis (after p3c + p3b)
-   |      +--→ Scenario Overlays (after p3c + p3b)
-   |      +--→ Anomaly Detection (after Phase 3 + path/parity basics)
-    |
-   +--→ E-19 Surface Alignment & Compatibility Cleanup (parallel post-purification cleanup lane)
-    |      |
-   |      +--→ shared UI contract discipline across Blazor + Svelte
-   |
-   +--→ E-15 Telemetry Ingestion
-   |      +--→ Telemetry Loop & Parity
-   |             +--→ E-18 fit / optimization against real telemetry
-   |
-   +--→ E-18 Time Machine foundation: runtime parameter model + evaluation SDK + CLI/sidecar
-             |
-             +--→ E-17 Interactive What-If
-             +--→ E-18 advanced modes (sweep / optimize / fit)
+  +--→ Scenario Overlays (after E-20 — parameter override is a plan operation)
+  +--→ Anomaly Detection (after path/parity basics)
 
 E-11 Svelte UI (independent — paused after M6)
 UI Paradigm epics (after E-11 M3-M4 foundation + relevant Phase 3 work)

@@ -1,0 +1,8 @@
+[package]
+name = "flowtime-engine"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+flowtime-core = { path = "../core" }
+serde_yaml = { workspace = true }

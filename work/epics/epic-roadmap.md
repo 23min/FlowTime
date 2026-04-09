@@ -63,6 +63,14 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 - **Key milestones:** supported surface inventory (completed) → runtime endpoint/client cleanup (completed) → schema/template/example retirement (completed) → Blazor support alignment (completed)
 - **Reference:** `work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md`
 
+#### E-20 — Matrix Engine
+
+- **Folder:** `work/epics/E-20-matrix-engine/`
+- **Status:** In progress (m-E20-01 scaffold/types/parsers)
+- **Goal:** Replace C# object-graph evaluation with Rust column-store + evaluation-plan engine. Standalone CLI binary (`flowtime-engine`). Foundation for E-17/E-18.
+- **Depends on:** E-10 (complete), E-16 (complete)
+- **Reference:** `docs/research/engine-rewrite-language-and-representation.md`
+
 #### dag-map Library Evaluation (Spike)
 
 - **Reference:** `docs/architecture/dag-map-evaluation.md`
