@@ -22,6 +22,10 @@ impl std::error::Error for CompileError {}
 /// Per-class series mapping: (node_id, class_id) → column index in the state matrix.
 pub type ClassMap = HashMap<(String, String), usize>;
 
+/// Per-edge series mapping: (edge_id, metric) → column index in the state matrix.
+/// Metrics: "flowVolume", "attemptsVolume", "failuresVolume", "retryVolume".
+pub type EdgeMap = HashMap<(String, String), usize>;
+
 /// Compiled evaluation result with named series access.
 #[derive(Debug)]
 pub struct EvalResult {
@@ -33,6 +37,8 @@ pub struct EvalResult {
     pub class_map: ClassMap,
     /// Declared class definitions from the model.
     pub classes: Vec<crate::model::ClassDefinition>,
+    /// Per-edge series: (edge_id, metric) → column in state matrix.
+    pub edge_map: EdgeMap,
 }
 
 impl EvalResult {
@@ -60,6 +66,9 @@ pub fn eval_model(model: &ModelDefinition) -> Result<EvalResult, CompileError> {
         propagate_class_decomposition(model, &mut state, &mut column_map, &mut class_map, bins);
     }
 
+    // Compute edge series: flowVolume for each topology edge
+    let edge_map = compute_edge_series(model, &mut state, &mut column_map, &class_map, bins);
+
     let mut result = EvalResult {
         state,
         column_map,
@@ -67,6 +76,7 @@ pub fn eval_model(model: &ModelDefinition) -> Result<EvalResult, CompileError> {
         warnings: Vec::new(),
         class_map,
         classes: model.classes.clone(),
+        edge_map,
     };
     result.warnings = crate::analysis::analyze(model, &result);
     Ok(result)
@@ -79,6 +89,9 @@ pub fn eval_model(model: &ModelDefinition) -> Result<EvalResult, CompileError> {
 ///
 /// This is the same proportional decomposition the C# ClassContributionBuilder uses,
 /// but simpler: we only handle the primary source (first dependency).
+///
+/// After model nodes, topology nodes (serviceWithBuffer) also get per-class
+/// decomposition for queue depth based on arrival class fractions.
 fn propagate_class_decomposition(
     model: &ModelDefinition,
     state: &mut Vec<f64>,
@@ -97,7 +110,13 @@ fn propagate_class_decomposition(
 
     if class_ids.is_empty() { return; }
 
-    // Find nodes that need per-class decomposition (those that don't already have it).
+    // Pass 0: Normalize source arrival columns so per-class sums equal node totals.
+    // Phase 1c creates per-class arrival columns with absolute rates from traffic.arrivals.
+    // For normalization (AC-9), we rescale: col[t] = node[t] * (col[t] / sum_classes[t])
+    // This preserves the relative fractions while ensuring sum == total.
+    normalize_source_class_columns(model, state, cm, class_map, &class_ids, bins);
+
+    // Pass 1: Model nodes (const, expr, pmf)
     // Process in model order (respects dependency order for simple chains).
     for node in &model.nodes {
         // Skip if this node already has per-class columns
@@ -112,60 +131,306 @@ fn propagate_class_decomposition(
             None => continue,
         };
 
-        let node_col = match cm.get(&node.id) {
-            Some(col) => col,
-            None => continue,
-        };
-        let source_col = match cm.get(&source_node_id) {
+        allocate_proportional(state, cm, class_map, &class_ids, &node.id, &source_node_id, bins);
+    }
+
+    // Pass 2: Topology nodes — queue depth per-class decomposition
+    // For each serviceWithBuffer node, if its arrivals source has per-class columns,
+    // compute per-class queue depth proportional to arrival class fractions.
+    if let Some(topo) = &model.topology {
+        for tnode in &topo.nodes {
+            let kind = tnode.kind.as_deref().unwrap_or("serviceWithBuffer").to_lowercase();
+            if !matches!(kind.as_str(), "servicewithbuffer" | "queue" | "dlq") {
+                continue;
+            }
+
+            // Resolve queue depth column name
+            let q_col_name = if let Some(qd_ref) = &tnode.semantics.queue_depth {
+                if !qd_ref.is_empty() { qd_ref.clone() }
+                else { queue_column_id(&tnode.id) }
+            } else {
+                queue_column_id(&tnode.id)
+            };
+
+            // Skip if already has per-class columns
+            if class_map.contains_key(&(q_col_name.clone(), class_ids[0].clone())) {
+                continue;
+            }
+
+            // Find the arrivals source — it must have per-class columns
+            let arrivals_ref = &tnode.semantics.arrivals;
+            if arrivals_ref.is_empty() { continue; }
+            if !class_map.contains_key(&(arrivals_ref.clone(), class_ids[0].clone())) {
+                continue;
+            }
+
+            // Proportional decomposition of queue depth based on arrivals fractions
+            allocate_proportional(state, cm, class_map, &class_ids, &q_col_name, arrivals_ref, bins);
+        }
+    }
+}
+
+/// Normalize source arrival per-class columns so their sum equals the node total at each bin.
+///
+/// Traffic arrivals create per-class columns with absolute rates. For the normalization
+/// invariant (AC-9: sum of per-class == total), we rescale each column:
+///   col[t] = node_total[t] * (col[t] / sum_of_classes[t])
+///
+/// This preserves the relative class fractions while ensuring sum == total.
+/// Must run AFTER evaluation (source values are final) and BEFORE downstream propagation
+/// (so downstream nodes inherit the correct proportional values).
+fn normalize_source_class_columns(
+    model: &ModelDefinition,
+    state: &mut Vec<f64>,
+    cm: &ColumnMap,
+    class_map: &ClassMap,
+    class_ids: &[String],
+    bins: usize,
+) {
+    // Find source nodes that have per-class columns from traffic arrivals
+    let traffic = match &model.traffic {
+        Some(t) => t,
+        None => return,
+    };
+
+    let mut source_nodes: HashSet<String> = HashSet::new();
+    for arrival in &traffic.arrivals {
+        if !arrival.class_id.is_empty() {
+            source_nodes.insert(arrival.node_id.clone());
+        }
+    }
+
+    for source_id in &source_nodes {
+        let node_col = match cm.get(source_id) {
             Some(col) => col,
             None => continue,
         };
 
-        // Compute sum of all per-class columns for the source node at each bin.
-        // This may differ from the source total (e.g., const node value vs arrival rates).
-        // The fraction is: class / sum_of_classes (not class / node_total).
+        // Compute sum of all per-class columns
         let mut class_sum = vec![0.0_f64; bins];
-        for class_id in &class_ids {
-            if let Some(&col) = class_map.get(&(source_node_id.clone(), class_id.clone())) {
+        for class_id in class_ids {
+            if let Some(&col) = class_map.get(&(source_id.clone(), class_id.clone())) {
                 for t in 0..bins {
                     class_sum[t] += state[col * bins + t];
                 }
             }
         }
 
-        // Proportional decomposition for each class
-        for class_id in &class_ids {
-            let source_class_col = match class_map.get(&(source_node_id.clone(), class_id.clone())) {
-                Some(&col) => col,
-                None => continue,
-            };
-
-            let class_col_name = format!("{}__class_{}", node.id, class_id);
-            let new_col = cm.get_or_insert(&class_col_name);
-
-            // Extend state to accommodate new column
-            let required_len = (new_col + 1) * bins;
-            if state.len() < required_len {
-                state.resize(required_len, 0.0);
+        // Rescale each per-class column: col[t] = total[t] * (col[t] / class_sum[t])
+        for class_id in class_ids {
+            if let Some(&col) = class_map.get(&(source_id.clone(), class_id.clone())) {
+                for t in 0..bins {
+                    let total = state[node_col * bins + t];
+                    let class_val = state[col * bins + t];
+                    let normalized = if class_sum[t].abs() < 1e-15 {
+                        0.0
+                    } else {
+                        total * (class_val / class_sum[t])
+                    };
+                    state[col * bins + t] = normalized;
+                }
             }
-
-            // Compute: node__class_{c}[t] = node[t] * (source__class_{c}[t] / class_sum[t])
-            for t in 0..bins {
-                let node_val = state[node_col * bins + t];
-                let source_class_val = state[source_class_col * bins + t];
-
-                let class_val = if class_sum[t].abs() < 1e-15 {
-                    0.0 // avoid division by zero
-                } else {
-                    node_val * (source_class_val / class_sum[t])
-                };
-
-                state[new_col * bins + t] = class_val;
-            }
-
-            class_map.insert((node.id.clone(), class_id.clone()), new_col);
         }
     }
+}
+
+/// Allocate per-class columns for `target_id` proportional to class fractions of `source_id`.
+///
+/// Computes: target__class_{c}[t] = target[t] * (source__class_{c}[t] / sum_classes[t])
+fn allocate_proportional(
+    state: &mut Vec<f64>,
+    cm: &mut ColumnMap,
+    class_map: &mut ClassMap,
+    class_ids: &[String],
+    target_id: &str,
+    source_id: &str,
+    bins: usize,
+) {
+    let target_col = match cm.get(target_id) {
+        Some(col) => col,
+        None => return,
+    };
+    // source_col not directly used but needed for validation
+    if cm.get(source_id).is_none() { return; }
+
+    // Compute sum of all per-class columns for the source at each bin
+    let mut class_sum = vec![0.0_f64; bins];
+    for class_id in class_ids {
+        if let Some(&col) = class_map.get(&(source_id.to_string(), class_id.clone())) {
+            for t in 0..bins {
+                class_sum[t] += state[col * bins + t];
+            }
+        }
+    }
+
+    // Proportional decomposition for each class
+    for class_id in class_ids {
+        let source_class_col = match class_map.get(&(source_id.to_string(), class_id.clone())) {
+            Some(&col) => col,
+            None => continue,
+        };
+
+        let class_col_name = format!("{}__class_{}", target_id, class_id);
+        let new_col = cm.get_or_insert(&class_col_name);
+
+        // Extend state to accommodate new column
+        let required_len = (new_col + 1) * bins;
+        if state.len() < required_len {
+            state.resize(required_len, 0.0);
+        }
+
+        for t in 0..bins {
+            let target_val = state[target_col * bins + t];
+            let source_class_val = state[source_class_col * bins + t];
+
+            let class_val = if class_sum[t].abs() < 1e-15 {
+                0.0
+            } else {
+                target_val * (source_class_val / class_sum[t])
+            };
+
+            state[new_col * bins + t] = class_val;
+        }
+
+        class_map.insert((target_id.to_string(), class_id.clone()), new_col);
+    }
+}
+
+/// Compute edge series for each topology edge.
+///
+/// For throughput edges: flowVolume = source_served * (edge_weight / sum_sibling_weights)
+/// Per-class edge flow is proportional to class fractions at source.
+fn compute_edge_series(
+    model: &ModelDefinition,
+    state: &mut Vec<f64>,
+    cm: &mut ColumnMap,
+    class_map: &ClassMap,
+    bins: usize,
+) -> EdgeMap {
+    let mut edge_map = EdgeMap::new();
+
+    let topo = match &model.topology {
+        Some(t) => t,
+        None => return edge_map,
+    };
+
+    if topo.edges.is_empty() { return edge_map; }
+
+    // Group edges by source to compute weight normalization
+    let mut source_total_weight: HashMap<String, f64> = HashMap::new();
+    for edge in &topo.edges {
+        *source_total_weight.entry(edge.source.clone()).or_insert(0.0) += edge.weight;
+    }
+
+    // Collect class IDs
+    let class_ids: Vec<String> = {
+        let mut ids: HashSet<String> = HashSet::new();
+        for ((_, class_id), _) in class_map.iter() {
+            ids.insert(class_id.clone());
+        }
+        ids.into_iter().collect()
+    };
+
+    for edge in &topo.edges {
+        let edge_id = edge.id.clone().unwrap_or_else(|| format!("{}→{}", edge.source, edge.target));
+
+        // Resolve source series: find the topology node's served semantic, or fall back to source node
+        let source_series_name = resolve_edge_source_series(topo, &edge.source, edge.measure.as_deref());
+        let source_col = match cm.get(&source_series_name) {
+            Some(col) => col,
+            None => continue,
+        };
+
+        let total_weight = *source_total_weight.get(&edge.source).unwrap_or(&1.0);
+        let fraction = if total_weight > 0.0 { edge.weight / total_weight } else { 0.0 };
+        let multiplier = edge.multiplier.unwrap_or(1.0);
+
+        // Determine metric name based on measure
+        let metric = match edge.measure.as_deref() {
+            Some("attempts") | Some("load") => "attemptsVolume",
+            Some("errors") | Some("failures") | Some("exhaustedfailures") => "failuresVolume",
+            _ => "flowVolume",
+        };
+
+        // Compute edge flow: source * fraction * multiplier
+        let edge_col_name = format!("__edge_{}_{}", edge_id, metric);
+        let edge_col = cm.get_or_insert(&edge_col_name);
+
+        let required_len = (edge_col + 1) * bins;
+        if state.len() < required_len {
+            state.resize(required_len, 0.0);
+        }
+
+        for t in 0..bins {
+            let source_val = state[source_col * bins + t];
+            state[edge_col * bins + t] = source_val * fraction * multiplier;
+        }
+
+        edge_map.insert((edge_id.clone(), metric.to_string()), edge_col);
+
+        // Per-class edge flow
+        if !class_ids.is_empty() && class_map.contains_key(&(source_series_name.clone(), class_ids[0].clone())) {
+            for class_id in &class_ids {
+                if let Some(&src_class_col) = class_map.get(&(source_series_name.clone(), class_id.clone())) {
+                    let class_edge_name = format!("__edge_{}_{}__class_{}", edge_id, metric, class_id);
+                    let class_edge_col = cm.get_or_insert(&class_edge_name);
+
+                    let required_len = (class_edge_col + 1) * bins;
+                    if state.len() < required_len {
+                        state.resize(required_len, 0.0);
+                    }
+
+                    for t in 0..bins {
+                        let src_class_val = state[src_class_col * bins + t];
+                        state[class_edge_col * bins + t] = src_class_val * fraction * multiplier;
+                    }
+
+                    edge_map.insert(
+                        (format!("{}@{}", edge_id, class_id), metric.to_string()),
+                        class_edge_col,
+                    );
+                }
+            }
+        }
+    }
+
+    edge_map
+}
+
+/// Resolve the source series name for an edge.
+/// Looks at the topology node's served semantic for the source, or uses the source ID directly.
+fn resolve_edge_source_series(
+    topo: &crate::model::TopologyDefinition,
+    source: &str,
+    measure: Option<&str>,
+) -> String {
+    // Check if source is a topology node with semantics
+    if let Some(tnode) = topo.nodes.iter().find(|n| n.id == source) {
+        match measure {
+            Some("attempts") | Some("load") => {
+                if let Some(ref a) = tnode.semantics.attempts {
+                    if !a.is_empty() { return a.clone(); }
+                }
+            }
+            Some("errors") => {
+                if let Some(ref e) = tnode.semantics.errors {
+                    if !e.is_empty() { return e.clone(); }
+                }
+            }
+            Some("failures") => {
+                if let Some(ref f) = tnode.semantics.failures {
+                    if !f.is_empty() { return f.clone(); }
+                }
+            }
+            _ => {}
+        }
+        // Default: use served
+        if !tnode.semantics.served.is_empty() {
+            return tnode.semantics.served.clone();
+        }
+    }
+    // Fall back to source node ID directly (it's a model node, not a topology node)
+    source.to_string()
 }
 
 /// Find the primary class-aware source node for a given node.
@@ -2983,6 +3248,580 @@ traffic:
             let sum = alpha[t] + beta[t];
             assert!((sum - total[t]).abs() < 1e-10,
                 "Normalization violated at bin {t}: class_sum={sum}, total={}", total[t]);
+        }
+    }
+
+    #[test]
+    fn queue_per_class_decomposition() {
+        // ServiceWithBuffer with per-class arrivals:
+        // arrivals=10 (const), served=MIN(arrivals,8)=8, queue grows by 2/bin
+        // Classes: Order=6/bin, Refund=4/bin → fractions 0.6, 0.4
+        // Queue depth per-class should be proportional to arrival fractions
+        let yaml = r#"
+schemaVersion: 1
+classes:
+  - id: Order
+  - id: Refund
+grid:
+  bins: 4
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arrivals
+    kind: const
+    values: [10, 10, 10, 10]
+  - id: served
+    kind: expr
+    expr: "MIN(arrivals, 8)"
+traffic:
+  arrivals:
+    - nodeId: arrivals
+      classId: Order
+      pattern:
+        kind: constant
+        ratePerBin: 6
+    - nodeId: arrivals
+      classId: Refund
+      pattern:
+        kind: constant
+        ratePerBin: 4
+topology:
+  nodes:
+    - id: Processor
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
+  constraints: []
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        // Queue depth: Q[0]=2, Q[1]=4, Q[2]=6, Q[3]=8
+        let q_col_name = queue_column_id("Processor");
+        let queue = result.series(&q_col_name).unwrap();
+        assert_approx(&queue, &[2.0, 4.0, 6.0, 8.0]);
+
+        // Queue depth should have per-class decomposition
+        assert!(result.class_map.contains_key(&(q_col_name.clone(), "Order".to_string())),
+            "queue depth should have per-class column for Order. class_map keys: {:?}",
+            result.class_map.keys().collect::<Vec<_>>());
+        assert!(result.class_map.contains_key(&(q_col_name.clone(), "Refund".to_string())));
+
+        let order_col = result.class_map[&(q_col_name.clone(), "Order".to_string())];
+        let refund_col = result.class_map[&(q_col_name.clone(), "Refund".to_string())];
+        let order_vals = crate::eval::extract_column(&result.state, order_col, result.bins);
+        let refund_vals = crate::eval::extract_column(&result.state, refund_col, result.bins);
+
+        // Order fraction = 6/(6+4) = 0.6, Refund fraction = 0.4
+        // Queue per-class: Q_Order = Q * 0.6, Q_Refund = Q * 0.4
+        assert_approx(&order_vals, &[1.2, 2.4, 3.6, 4.8]);
+        assert_approx(&refund_vals, &[0.8, 1.6, 2.4, 3.2]);
+
+        // Normalization: per-class queue should sum to total queue
+        for t in 0..result.bins {
+            let sum = order_vals[t] + refund_vals[t];
+            assert!((sum - queue[t]).abs() < 1e-10,
+                "Queue normalization at bin {t}: sum={sum}, total={}", queue[t]);
+        }
+    }
+
+    #[test]
+    fn queue_per_class_with_custom_queue_depth_name() {
+        // Queue with explicit queueDepth semantic name
+        let yaml = r#"
+schemaVersion: 1
+classes:
+  - id: A
+  - id: B
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arr
+    kind: const
+    values: [20, 20, 20]
+  - id: cap
+    kind: const
+    values: [10, 10, 10]
+traffic:
+  arrivals:
+    - nodeId: arr
+      classId: A
+      pattern:
+        kind: constant
+        ratePerBin: 12
+    - nodeId: arr
+      classId: B
+      pattern:
+        kind: constant
+        ratePerBin: 8
+topology:
+  nodes:
+    - id: Q1
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arr
+        served: cap
+        queueDepth: q1_depth
+  edges: []
+  constraints: []
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        // Queue: Q[0]=10, Q[1]=20, Q[2]=30
+        let queue = result.series("q1_depth").unwrap();
+        assert_approx(&queue, &[10.0, 20.0, 30.0]);
+
+        // Per-class queue depth: A=60%, B=40%
+        assert!(result.class_map.contains_key(&("q1_depth".to_string(), "A".to_string())),
+            "custom queue depth name should have per-class columns. keys: {:?}",
+            result.class_map.keys().collect::<Vec<_>>());
+
+        let a_col = result.class_map[&("q1_depth".to_string(), "A".to_string())];
+        let b_col = result.class_map[&("q1_depth".to_string(), "B".to_string())];
+        let a_vals = crate::eval::extract_column(&result.state, a_col, result.bins);
+        let b_vals = crate::eval::extract_column(&result.state, b_col, result.bins);
+
+        assert_approx(&a_vals, &[6.0, 12.0, 18.0]);
+        assert_approx(&b_vals, &[4.0, 8.0, 12.0]);
+    }
+
+    #[test]
+    fn edge_series_basic_flow_volume() {
+        // Two topology nodes connected by an edge: A→B with weight 0.5
+        // A.served = 100/bin → edge flowVolume = 100 * (0.5/0.5) = 100
+        // (only one edge from source, so fraction = 1.0)
+        let yaml = r#"
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arr
+    kind: const
+    values: [100, 100, 100]
+  - id: cap
+    kind: const
+    values: [80, 80, 80]
+  - id: arr_b
+    kind: const
+    values: [50, 50, 50]
+  - id: cap_b
+    kind: const
+    values: [30, 30, 30]
+topology:
+  nodes:
+    - id: ServiceA
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arr
+        served: cap
+    - id: ServiceB
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arr_b
+        served: cap_b
+  edges:
+    - source: ServiceA
+      target: ServiceB
+      weight: 1.0
+  constraints: []
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        // Edge should exist with flowVolume
+        let edge_id = "ServiceA→ServiceB".to_string();
+        assert!(result.edge_map.contains_key(&(edge_id.clone(), "flowVolume".to_string())),
+            "edge_map should contain ServiceA→ServiceB flowVolume. Keys: {:?}",
+            result.edge_map.keys().collect::<Vec<_>>());
+
+        let col = result.edge_map[&(edge_id, "flowVolume".to_string())];
+        let flow = crate::eval::extract_column(&result.state, col, result.bins);
+        // ServiceA served=cap=80, single edge from source → fraction=1.0
+        assert_approx(&flow, &[80.0, 80.0, 80.0]);
+    }
+
+    #[test]
+    fn edge_series_weighted_split() {
+        // One source, two edges with weights 0.6 and 0.4
+        let yaml = r#"
+grid:
+  bins: 2
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arrivals
+    kind: const
+    values: [100, 100]
+  - id: served
+    kind: const
+    values: [100, 100]
+  - id: arr_b
+    kind: const
+    values: [0, 0]
+  - id: srv_b
+    kind: const
+    values: [0, 0]
+  - id: arr_c
+    kind: const
+    values: [0, 0]
+  - id: srv_c
+    kind: const
+    values: [0, 0]
+topology:
+  nodes:
+    - id: Source
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arrivals
+        served: served
+    - id: TargetA
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arr_b
+        served: srv_b
+    - id: TargetB
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arr_c
+        served: srv_c
+  edges:
+    - source: Source
+      target: TargetA
+      weight: 0.6
+    - source: Source
+      target: TargetB
+      weight: 0.4
+  constraints: []
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        let a_col = result.edge_map[&("Source→TargetA".to_string(), "flowVolume".to_string())];
+        let b_col = result.edge_map[&("Source→TargetB".to_string(), "flowVolume".to_string())];
+        let a_flow = crate::eval::extract_column(&result.state, a_col, result.bins);
+        let b_flow = crate::eval::extract_column(&result.state, b_col, result.bins);
+
+        // served=100, weight 0.6/(0.6+0.4) = 0.6 → 60, weight 0.4 → 40
+        assert_approx(&a_flow, &[60.0, 60.0]);
+        assert_approx(&b_flow, &[40.0, 40.0]);
+    }
+
+    #[test]
+    fn edge_series_no_edges_empty_map() {
+        let yaml = r#"
+grid:
+  bins: 2
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: x
+    kind: const
+    values: [10, 20]
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+        assert!(result.edge_map.is_empty());
+    }
+
+    #[test]
+    fn edge_series_with_explicit_id() {
+        let yaml = r#"
+grid:
+  bins: 2
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arr
+    kind: const
+    values: [50, 50]
+  - id: srv
+    kind: const
+    values: [40, 40]
+  - id: arr2
+    kind: const
+    values: [0, 0]
+  - id: srv2
+    kind: const
+    values: [0, 0]
+topology:
+  nodes:
+    - id: A
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arr
+        served: srv
+    - id: B
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arr2
+        served: srv2
+  edges:
+    - source: A
+      target: B
+      weight: 1.0
+      id: primary-link
+  constraints: []
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        assert!(result.edge_map.contains_key(&("primary-link".to_string(), "flowVolume".to_string())),
+            "edge_map should use explicit edge id. Keys: {:?}",
+            result.edge_map.keys().collect::<Vec<_>>());
+
+        let col = result.edge_map[&("primary-link".to_string(), "flowVolume".to_string())];
+        let flow = crate::eval::extract_column(&result.state, col, result.bins);
+        assert_approx(&flow, &[40.0, 40.0]);
+    }
+
+    #[test]
+    fn edge_series_with_multiplier() {
+        let yaml = r#"
+grid:
+  bins: 2
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arr
+    kind: const
+    values: [100, 100]
+  - id: srv
+    kind: const
+    values: [80, 80]
+  - id: arr2
+    kind: const
+    values: [0, 0]
+  - id: srv2
+    kind: const
+    values: [0, 0]
+topology:
+  nodes:
+    - id: S
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arr
+        served: srv
+    - id: T
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arr2
+        served: srv2
+  edges:
+    - source: S
+      target: T
+      weight: 1.0
+      multiplier: 2.0
+  constraints: []
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        let col = result.edge_map[&("S→T".to_string(), "flowVolume".to_string())];
+        let flow = crate::eval::extract_column(&result.state, col, result.bins);
+        // served=80, fraction=1.0, multiplier=2.0 → 160
+        assert_approx(&flow, &[160.0, 160.0]);
+    }
+
+    #[test]
+    fn edge_series_per_class_flow() {
+        // Edge with per-class flow: source has class arrivals, edge flow splits by class
+        let yaml = r#"
+schemaVersion: 1
+classes:
+  - id: X
+  - id: Y
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arr
+    kind: const
+    values: [100, 100, 100]
+  - id: srv
+    kind: expr
+    expr: "arr * 0.8"
+  - id: arr2
+    kind: const
+    values: [0, 0, 0]
+  - id: srv2
+    kind: const
+    values: [0, 0, 0]
+traffic:
+  arrivals:
+    - nodeId: arr
+      classId: X
+      pattern:
+        kind: constant
+        ratePerBin: 70
+    - nodeId: arr
+      classId: Y
+      pattern:
+        kind: constant
+        ratePerBin: 30
+topology:
+  nodes:
+    - id: Src
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arr
+        served: srv
+    - id: Dst
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arr2
+        served: srv2
+  edges:
+    - source: Src
+      target: Dst
+      weight: 1.0
+  constraints: []
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        // Total edge flow: srv=80, fraction=1.0 → 80
+        let total_col = result.edge_map[&("Src→Dst".to_string(), "flowVolume".to_string())];
+        let total_flow = crate::eval::extract_column(&result.state, total_col, result.bins);
+        assert_approx(&total_flow, &[80.0, 80.0, 80.0]);
+
+        // Per-class edge flow: X fraction = 70/100 = 0.7, Y = 0.3
+        // But per-class is based on served per-class (propagated): srv__class_X = 80 * 0.7 = 56
+        // Edge class X = 56 * 1.0 = 56, Edge class Y = 24
+        let x_key = ("Src→Dst@X".to_string(), "flowVolume".to_string());
+        let y_key = ("Src→Dst@Y".to_string(), "flowVolume".to_string());
+        assert!(result.edge_map.contains_key(&x_key),
+            "edge_map should have per-class edge. Keys: {:?}",
+            result.edge_map.keys().collect::<Vec<_>>());
+
+        let x_col = result.edge_map[&x_key];
+        let y_col = result.edge_map[&y_key];
+        let x_flow = crate::eval::extract_column(&result.state, x_col, result.bins);
+        let y_flow = crate::eval::extract_column(&result.state, y_col, result.bins);
+
+        assert_approx(&x_flow, &[56.0, 56.0, 56.0]);
+        assert_approx(&y_flow, &[24.0, 24.0, 24.0]);
+
+        // Normalization: per-class edge flow should sum to total edge flow
+        for t in 0..result.bins {
+            let sum = x_flow[t] + y_flow[t];
+            assert!((sum - total_flow[t]).abs() < 1e-10,
+                "Edge per-class normalization at bin {t}: sum={sum}, total={}", total_flow[t]);
+        }
+    }
+
+    #[test]
+    fn normalization_invariant_class_enabled_fixture() {
+        // AC-9: For every node with per-class series, sum of per-class == total within 1e-10
+        let yaml = std::fs::read_to_string("../fixtures/class-enabled.yaml")
+            .expect("class-enabled.yaml fixture not found");
+        let model = crate::model::parse_model_yaml(&yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        verify_normalization_invariant(&result);
+    }
+
+    #[test]
+    fn normalization_invariant_router_class_fixture() {
+        let yaml = std::fs::read_to_string("../fixtures/router-class.yaml")
+            .expect("router-class.yaml fixture not found");
+        let model = crate::model::parse_model_yaml(&yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        verify_normalization_invariant(&result);
+    }
+
+    #[test]
+    fn normalization_invariant_router_mixed_fixture() {
+        let yaml = std::fs::read_to_string("../fixtures/router-mixed.yaml")
+            .expect("router-mixed.yaml fixture not found");
+        let model = crate::model::parse_model_yaml(&yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        verify_normalization_invariant(&result);
+    }
+
+    #[test]
+    fn normalization_invariant_queue_with_classes() {
+        // Normalization for queue per-class decomposition
+        let yaml = r#"
+schemaVersion: 1
+classes:
+  - id: Fast
+  - id: Slow
+grid:
+  bins: 6
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: inflow
+    kind: const
+    values: [20, 20, 20, 20, 20, 20]
+  - id: outflow
+    kind: expr
+    expr: "MIN(inflow, 12)"
+traffic:
+  arrivals:
+    - nodeId: inflow
+      classId: Fast
+      pattern:
+        kind: constant
+        ratePerBin: 15
+    - nodeId: inflow
+      classId: Slow
+      pattern:
+        kind: constant
+        ratePerBin: 5
+topology:
+  nodes:
+    - id: WorkQueue
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: inflow
+        served: outflow
+  edges: []
+  constraints: []
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        verify_normalization_invariant(&result);
+    }
+
+    /// Helper: verify that for every node with per-class series, sum == total
+    fn verify_normalization_invariant(result: &EvalResult) {
+        // Collect unique (node_id, class_id) pairs
+        let mut nodes_with_classes: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+        for ((node_id, class_id), _) in &result.class_map {
+            nodes_with_classes.entry(node_id.clone()).or_default().push(class_id.clone());
+        }
+
+        assert!(!nodes_with_classes.is_empty(), "Expected at least one node with per-class columns");
+
+        for (node_id, class_ids) in &nodes_with_classes {
+            let total = match result.series(node_id) {
+                Some(t) => t,
+                None => continue, // node may be internal (e.g., __temp_ or __edge_)
+            };
+
+            for t in 0..result.bins {
+                let class_sum: f64 = class_ids.iter()
+                    .map(|cid| {
+                        let col = result.class_map[&(node_id.clone(), cid.clone())];
+                        result.state[col * result.bins + t]
+                    })
+                    .sum();
+
+                assert!((class_sum - total[t]).abs() < 1e-10,
+                    "Normalization invariant violated for '{}' at bin {}: class_sum={}, total={}",
+                    node_id, t, class_sum, total[t]);
+            }
         }
     }
 }
