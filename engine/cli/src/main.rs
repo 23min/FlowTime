@@ -31,16 +31,20 @@ fn main() {
     }
 }
 
-fn read_model(args: &[String]) -> model::ModelDefinition {
+fn read_model_yaml(args: &[String]) -> String {
     if args.is_empty() {
         eprintln!("Error: model path required");
         std::process::exit(1);
     }
     let path = &args[0];
-    let yaml = fs::read_to_string(path).unwrap_or_else(|e| {
+    fs::read_to_string(path).unwrap_or_else(|e| {
         eprintln!("Error reading {path}: {e}");
         std::process::exit(1);
-    });
+    })
+}
+
+fn read_model(args: &[String]) -> model::ModelDefinition {
+    let yaml = read_model_yaml(args);
     model::parse_model_yaml(&yaml).unwrap_or_else(|e| {
         eprintln!("YAML parse error: {e}");
         std::process::exit(1);
@@ -89,12 +93,16 @@ fn cmd_plan(args: &[String]) {
 
 fn cmd_eval(args: &[String]) {
     let (model_args, output_dir) = parse_output_flag(args);
-    let model = read_model(model_args);
+    let yaml = read_model_yaml(model_args);
+    let model = model::parse_model_yaml(&yaml).unwrap_or_else(|e| {
+        eprintln!("YAML parse error: {e}");
+        std::process::exit(1);
+    });
     match compiler::eval_model(&model) {
         Ok(result) => {
             if let Some(dir) = output_dir {
-                // Write artifacts to output directory
-                match writer::write_artifacts(Path::new(&dir), &model, &result) {
+                // Write artifacts to output directory (with YAML text for SHA256 hashing)
+                match writer::write_artifacts_with_yaml(Path::new(&dir), &model, &result, Some(&yaml)) {
                     Ok(()) => {
                         let series_count = result.column_map.iter()
                             .filter(|(_, name)| !name.starts_with("__temp_"))

@@ -32,6 +32,24 @@ var builder = WebApplication.CreateBuilder(args);
 // Services
 builder.Services.AddOpenApi();
 builder.Services.AddSingleton<IServiceInfoProvider, ServiceInfoProvider>();
+
+// Rust engine bridge (opt-in via RustEngine:Enabled)
+if (builder.Configuration.GetValue<bool>("RustEngine:Enabled"))
+{
+    var rustBinaryPath = builder.Configuration["RustEngine:BinaryPath"];
+    if (string.IsNullOrWhiteSpace(rustBinaryPath))
+    {
+        // Default: look for the binary relative to the solution root
+        var solutionRoot = FlowTime.Core.Configuration.DirectoryProvider.FindSolutionRoot();
+        rustBinaryPath = solutionRoot is not null
+            ? Path.Combine(solutionRoot, "engine", "target", "release", "flowtime-engine")
+            : "flowtime-engine";
+    }
+    builder.Services.AddSingleton(sp =>
+        new FlowTime.Core.Execution.RustEngineRunner(
+            rustBinaryPath,
+            sp.GetRequiredService<ILogger<FlowTime.Core.Execution.RustEngineRunner>>()));
+}
 builder.Services.AddSingleton<IArtifactRegistry, FileSystemArtifactRegistry>();
 builder.Services.AddSingleton<IArtifactRegistry, FileSystemArtifactRegistry>();
 builder.Services.AddSingleton<IStorageBackend>(provider =>

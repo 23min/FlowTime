@@ -4,20 +4,35 @@
 //! - `series/{seriesId}.csv` — per-series CSV files (bin_index,value)
 //! - `series/index.json` — series metadata index
 //! - `run.json` — run metadata with warnings
+//! - `manifest.json` — SHA256 hashes for model YAML and each series CSV
 
 use crate::analysis::Warning;
 use crate::compiler::EvalResult;
 use crate::eval::extract_column;
 use crate::model::ModelDefinition;
+use sha2::{Sha256, Digest};
 use std::fs;
 use std::io::Write;
 use std::path::Path;
 
 /// Write all artifacts to the given output directory.
+///
+/// `model_yaml` is the raw YAML text used for SHA256 model hashing in manifest.json.
+/// If `None`, manifest.json is still written but `modelHash` will be `null`.
 pub fn write_artifacts(
     output_dir: &Path,
     model: &ModelDefinition,
     result: &EvalResult,
+) -> Result<(), String> {
+    write_artifacts_with_yaml(output_dir, model, result, None)
+}
+
+/// Write all artifacts, including manifest.json with SHA256 hashes.
+pub fn write_artifacts_with_yaml(
+    output_dir: &Path,
+    model: &ModelDefinition,
+    result: &EvalResult,
+    model_yaml: Option<&str>,
 ) -> Result<(), String> {
     let series_dir = output_dir.join("series");
     fs::create_dir_all(&series_dir)
@@ -43,7 +58,31 @@ pub fn write_artifacts(
     // Write run.json
     write_run_json(output_dir, grid, &series_list, &result.warnings)?;
 
+    // Write manifest.json with SHA256 hashes
+    let model_hash = model_yaml.map(sha256_hex);
+    let series_hashes: Vec<(&str, String)> = series_list.iter()
+        .map(|&(_, name)| {
+            let csv_path = series_dir.join(format!("{name}.csv"));
+            let csv_bytes = fs::read(&csv_path)
+                .map_err(|e| format!("Failed to read {}: {e}", csv_path.display()))?;
+            Ok((name, sha256_bytes(&csv_bytes)))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    write_manifest_json(output_dir, grid, model_hash.as_deref(), &series_hashes)?;
+
     Ok(())
+}
+
+fn sha256_hex(input: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(input.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
+
+fn sha256_bytes(input: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(input);
+    format!("{:x}", hasher.finalize())
 }
 
 /// Write a single series as a CSV file.
@@ -155,6 +194,54 @@ fn write_run_json(
 
     fs::write(&path, json)
         .map_err(|e| format!("Failed to write run.json: {e}"))?;
+
+    Ok(())
+}
+
+/// Write manifest.json with SHA256 hashes for provenance.
+fn write_manifest_json(
+    output_dir: &Path,
+    grid: &crate::model::GridDefinition,
+    model_hash: Option<&str>,
+    series_hashes: &[(&str, String)],
+) -> Result<(), String> {
+    let path = output_dir.join("manifest.json");
+
+    let model_hash_json = match model_hash {
+        Some(h) => format!("\"sha256:{h}\""),
+        None => "null".to_string(),
+    };
+
+    let series_entries: Vec<String> = series_hashes.iter()
+        .map(|(name, hash)| {
+            format!(r#"    {{"id": "{name}", "path": "series/{name}.csv", "hash": "sha256:{hash}"}}"#)
+        })
+        .collect();
+
+    let json = format!(
+        r#"{{
+  "schemaVersion": 1,
+  "engine": "flowtime-engine",
+  "engineVersion": "0.1.0",
+  "grid": {{
+    "bins": {bins},
+    "binSize": {bin_size},
+    "binUnit": "{bin_unit}"
+  }},
+  "modelHash": {model_hash},
+  "series": [
+{series}
+  ]
+}}"#,
+        bins = grid.bins,
+        bin_size = grid.bin_size,
+        bin_unit = grid.bin_unit,
+        model_hash = model_hash_json,
+        series = series_entries.join(",\n"),
+    );
+
+    fs::write(&path, json)
+        .map_err(|e| format!("Failed to write manifest.json: {e}"))?;
 
     Ok(())
 }
@@ -364,5 +451,92 @@ nodes:
         }
 
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn write_artifacts_produces_manifest_json() {
+        let yaml = r#"
+grid:
+  bins: 4
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: demand
+    kind: const
+    values: [10, 20, 30, 40]
+"#;
+        let model = parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+        let dir = tmp_dir();
+        write_artifacts_with_yaml(&dir, &model, &result, Some(yaml)).unwrap();
+
+        let manifest = fs::read_to_string(dir.join("manifest.json")).unwrap();
+        assert!(manifest.contains("\"schemaVersion\": 1"));
+        assert!(manifest.contains("\"engine\": \"flowtime-engine\""));
+        assert!(manifest.contains("\"modelHash\": \"sha256:"));
+        assert!(manifest.contains("\"hash\": \"sha256:"));
+        assert!(manifest.contains("\"id\": \"demand\""));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn manifest_model_hash_is_deterministic() {
+        let yaml = r#"
+grid:
+  bins: 2
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: x
+    kind: const
+    values: [1, 2]
+"#;
+        let model = parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        let dir1 = tmp_dir();
+        write_artifacts_with_yaml(&dir1, &model, &result, Some(yaml)).unwrap();
+        let m1 = fs::read_to_string(dir1.join("manifest.json")).unwrap();
+
+        let dir2 = tmp_dir();
+        write_artifacts_with_yaml(&dir2, &model, &result, Some(yaml)).unwrap();
+        let m2 = fs::read_to_string(dir2.join("manifest.json")).unwrap();
+
+        assert_eq!(m1, m2, "Same YAML must produce identical manifest.json");
+
+        let _ = fs::remove_dir_all(&dir1);
+        let _ = fs::remove_dir_all(&dir2);
+    }
+
+    #[test]
+    fn manifest_without_yaml_has_null_model_hash() {
+        let yaml = r#"
+grid:
+  bins: 2
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: a
+    kind: const
+    values: [5, 10]
+"#;
+        let model = parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+        let dir = tmp_dir();
+        // Use write_artifacts (no YAML text) — should still produce manifest with null hash
+        write_artifacts(&dir, &model, &result).unwrap();
+
+        let manifest = fs::read_to_string(dir.join("manifest.json")).unwrap();
+        assert!(manifest.contains("\"modelHash\": null"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn sha256_hex_produces_correct_hash() {
+        // Known SHA256 of empty string
+        let hash = sha256_hex("");
+        assert_eq!(hash, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
     }
 }
