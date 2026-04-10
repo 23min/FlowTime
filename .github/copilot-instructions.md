@@ -7,124 +7,57 @@ This project uses the AI-Assisted Development Framework v2.
 
 Recent GitHub Copilot versions may also read `CLAUDE.md` and `.claude/` automatically.
 In this repo, those are intentionally assistant-neutral shared surfaces, not Claude-only overrides.
-Generated assistant adapter files under `.github/` and `.claude/` are local build outputs by default.
-Keep their source of truth in `.ai/` and `.ai-repo/`, and regenerate them locally with `bash .ai/sync.sh`.
+Generated adapter files under `.github/` and `.claude/` are local build outputs.
+Keep their source of truth in `.ai/` and `.ai-repo/`, and regenerate with `bash .ai/sync.sh`.
 
-You work directly in **Agent mode** with full tool access. Use the routing table below to identify the right workflow, then follow the corresponding agent's instructions and skill.
+**Before starting any task**, read these files:
+- `.ai/rules.md` — Non-negotiable guardrails (full rules and enforcement levels live here)
+- `.ai/paths.md` — Artifact layout defaults
+- `.ai-repo/rules/` — Project-specific rules and conventions (if the directory exists)
+- `.ai-repo/config/artifact-layout.json` — Artifact layout overrides (if it exists)
+- `work/decisions.md` — Active decisions the team has made
+- `work/agent-history/` — Learnings from past sessions (read the file matching current role)
 
-For specific personas with tool restrictions, the user may switch to a named agent: @planner, @builder, @reviewer, @deployer. Otherwise, you operate as the default agent with all tools available.
+## Hard Rules (summary — full rules in `.ai/rules.md`)
 
-**Before starting any task**, read these files for context:
-- `.ai/rules.md` — Non-negotiable guardrails
-- `.ai/paths.md` — Framework default artifact locations
-- `.ai-repo/config/artifact-layout.json` — Repo-owned artifact layout config, if it exists
+- **NEVER commit or push without explicit human approval**
+- **TDD by default** for logic, API, and data code
+- **Identify the agent first** — read the agent file before writing code
+- **Branch discipline** — do NOT commit milestone work directly to `main`
+- Follow Conventional Commits format
 
-## Session Start — Load Memory
+## Agent Routing
 
-Before doing anything else, read these files if they exist:
-1. `work/decisions.md` — shared decision log (active decisions the team has made)
-2. `work/agent-history/` — accumulated learnings from past sessions (read the file matching the current role)
+Switch to a named agent for specific workflows: @planner, @builder, @reviewer, @deployer.
 
-Use this context to avoid re-discovering things or contradicting prior decisions.
+| Intent | Agent | Read first |
+|--------|-------|------------|
+| build, implement, code, start, fix, patch | **@builder** | `.claude/agents/builder.md` + relevant skill |
+| plan, design, scope, epic, architecture | **@planner** | `.claude/agents/planner.md` + relevant skill |
+| review, check, validate, wrap, finish | **@reviewer** | `.claude/agents/reviewer.md` + relevant skill |
+| release, deploy, tag, publish | **@deployer** | `.claude/agents/deployer.md` + relevant skill |
 
-## Subagent Delegation
-
-For **research-heavy or analysis tasks**, use subagents to keep your context clean:
-- **Planning/research:** Spawn a subagent (optionally with `agentName: "planner"`) to analyze the codebase, research options, or draft a plan. Review the summary it returns before proceeding.
-- **Code review:** Spawn a subagent (optionally with `agentName: "reviewer"`) to review changes. It runs in isolated context with read-only tools and returns findings.
-
-Do **not** use subagents for building/implementation — that workflow is interactive and requires back-and-forth with the user.
-
-## FIRST — Identify the Workflow
-
-**Before writing any code or making any changes**, determine which workflow this task needs.
-Use the routing table below or the user's explicit request to pick the approach.
-
-## Agent Instructions
-
-Each agent below has a dedicated instruction file. Read it for role-specific constraints and workflow.
-
-### @planner — Planning, specs, architecture, research
-**Activate when:** user says plan, design, scope, epic, architecture, brainstorm, research, spec, break down
-**Steps:**
-1. Read `.claude/agents/planner.md` — adopt the shared planner role and constraints
-2. Read the relevant skill: `.github/skills/plan-epic/SKILL.md`, `.github/skills/plan-milestones/SKILL.md`, `.github/skills/draft-spec/SKILL.md`, or `.github/skills/architect/SKILL.md`
-3. Follow the skill's step-by-step workflow
-
-### @builder — Implementation, TDD, fixes
-**Activate when:** user says build, implement, code, start, add feature, fix, patch, bug, chore, tweak, hotfix
-**Steps:**
-1. Read `.claude/agents/builder.md` — adopt the shared builder role and constraints
-2. Read the relevant skill: `.github/skills/start-milestone/SKILL.md`, `.github/skills/tdd-cycle/SKILL.md`, or `.github/skills/patch/SKILL.md`
-3. Follow the skill's step-by-step workflow
-
-### @reviewer — Code review, milestone wrap-up
-**Activate when:** user says review, check, validate, wrap, finish, complete milestone
-**Steps:**
-1. Read `.claude/agents/reviewer.md` — adopt the shared reviewer role and constraints
-2. Read the relevant skill: `.github/skills/review-code/SKILL.md` or `.github/skills/wrap-milestone/SKILL.md`
-3. Follow the skill's step-by-step workflow
-
-### @deployer — Releases, deployments, infrastructure
-**Activate when:** user says release, deploy, tag, publish
-**Steps:**
-1. Read `.claude/agents/deployer.md` — adopt the shared deployer role and constraints
-2. Read the relevant skill: `.github/skills/release/SKILL.md`
-3. Follow the skill's step-by-step workflow
-
-**Available skills:** architect,draft-spec patch,plan-epic plan-milestones,release review-code,start-milestone tdd-cycle,wrap-milestone
+**Available skills:** architect, devcontainer, doc-gardening, draft-spec, patch, plan-epic, plan-milestones, quality-score, release, review-code, start-milestone, tdd-cycle, wrap-milestone
 **Project-specific skills:** ui-debug (see `.ai-repo/skills/`)
 **Templates:** epic-spec, milestone-spec, tracking-doc (see `.ai/templates/`)
-## Intent Routing
-
-When the user describes a task, route to the right agent and skill based on intent:
-
-| User intent | Workflow | Skill | Mode | Subagent? |
-|-------------|---------|-------|------|----------|
-| Plan, design, scope, epic, architecture, brainstorm, research | @planner | plan-epic, plan-milestones, architect | Epic or Standard | Yes — good candidate for subagent research |
-| Write a spec, draft spec, break down | @planner | draft-spec | Standard | Yes |
-| Build, implement, code, start milestone, add feature | @builder | start-milestone, tdd-cycle | Standard | No — interactive, work directly |
-| Fix, patch, bug, chore, tweak, hotfix, one-off | @builder | patch | Quick | No — interactive |
-| Review, check, validate, look over | @reviewer | review-code | Standard | Yes — good candidate for subagent review |
-| Wrap, finish, complete milestone | @reviewer | wrap-milestone | Standard | Partial — analysis as subagent, then present |
-| Release, deploy, tag, publish | @deployer | release | Standard | No — needs explicit human gates |
-
-After identifying the workflow, read the corresponding agent instruction file and follow the skill's steps.
 
 ## Workflow Modes
 
-Not every task needs the full ceremony. Match the mode to the task:
-
 | Mode | When | What happens |
 |------|------|-------------|
-| **Quick** | One-off fixes, typos, config changes, single-file edits, issue-linked patches | Use `patch` skill. No spec, no tracking doc. Branch → fix → commit → PR. |
-| **Standard** | Milestone-scoped work with acceptance criteria | Full workflow: spec → branch → TDD → tracking doc → review → merge. |
-| **Epic** | Multi-milestone features, new systems, large initiatives | Plan epic → break into milestones → Standard mode for each → wrap epic → release. |
+| **Quick** | One-off fixes, typos, config changes | `patch` skill. No spec, no tracking doc. |
+| **Standard** | Milestone-scoped work with acceptance criteria | spec → branch → TDD → tracking doc → review → merge |
+| **Epic** | Multi-milestone features, new systems | Plan epic → milestones → Standard for each → release |
 
-**Mode detection hints:**
-- **Quick:** user mentions a bug, issue number, single file, "fix", "patch", "update", "typo", "bump"
-- **Standard:** user references a milestone, says "implement", "add feature", "build", or has a spec
-- **Epic:** user says "plan", "design", "new system", mentions multiple components or phases
-
-When unsure, ask: "This looks like a [Quick/Standard/Epic] task. Should I proceed that way?"
 ## Context Refresh
 
 When the user says **"refresh context"** or **"refresh"**:
-1. Re-read `.ai/rules.md` and `.ai/paths.md` (and `.ai-repo/config/artifact-layout.json` if it exists)
-2. Re-read the active shared agent file if one is invoked (e.g. `.claude/agents/builder.md`)
-3. Read `CLAUDE.md` "Current Work" section for immediate next steps
-4. Read the roadmap at the path specified by `ROADMAP_PATH` in the resolved artifact layout
-5. Read `work/gaps.md` for known issues and blockers
-6. Read `work/decisions.md` — focus on the most recent decisions for current context
-7. Summarize: current branch, active phase, immediate tasks, known blockers, pending changes
-
-This re-grounds context during long sessions or after framework updates (e.g. `sync.sh`, submodule branch switch).
-## Key Rules
-
-- Never commit without explicit human approval
-- TDD by default: write tests first
-- Artifacts gate work, not ceremonies
-- Follow Conventional Commits format
+1. Re-read `.ai/rules.md`, `.ai/paths.md`, `.ai-repo/rules/`, and `.ai-repo/config/artifact-layout.json`
+2. Re-read the active agent file if one is invoked
+3. Read `CLAUDE.md` "Current Work" section
+4. Read the roadmap at the path specified in the resolved artifact layout
+5. Read `work/gaps.md` and `work/decisions.md`
+6. Summarize: current branch, active phase, immediate tasks, known blockers
 
 ## Resolved Artifact Layout
 
@@ -190,7 +123,7 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 
 ## Branching & Versioning
 
-- Epic integration branches are optional and use `epic/E-{NN}-<slug>` when an epic needs a shared base.
+- Epic integration branches use `epic/E-{NN}-<slug>`. Every numbered epic gets an integration branch; milestone branches branch from it and merge back into it.
 - Milestone branches use `milestone/<milestone-id>`.
 - Feature branches use `feature/<surface>-<milestone-id>/<desc>` when a milestone needs parallel work.
 - Single-surface quick changes can branch from `main` and PR directly back to `main` when no milestone integration branch is needed.
