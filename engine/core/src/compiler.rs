@@ -19,6 +19,9 @@ impl std::fmt::Display for CompileError {
 
 impl std::error::Error for CompileError {}
 
+/// Per-class series mapping: (node_id, class_id) → column index in the state matrix.
+pub type ClassMap = HashMap<(String, String), usize>;
+
 /// Compiled evaluation result with named series access.
 #[derive(Debug)]
 pub struct EvalResult {
@@ -26,6 +29,10 @@ pub struct EvalResult {
     pub column_map: ColumnMap,
     pub bins: usize,
     pub warnings: Vec<crate::analysis::Warning>,
+    /// Per-class column indices: (node_id, class_id) → column in state matrix.
+    pub class_map: ClassMap,
+    /// Declared class definitions from the model.
+    pub classes: Vec<crate::model::ClassDefinition>,
 }
 
 impl EvalResult {
@@ -39,15 +46,169 @@ impl EvalResult {
 /// Compile, evaluate, and analyze a model, returning named series + warnings.
 pub fn eval_model(model: &ModelDefinition) -> Result<EvalResult, CompileError> {
     let plan = compile(model)?;
-    let state = crate::eval::evaluate(&plan);
+    let bins = plan.bins;
+    let mut state = crate::eval::evaluate(&plan);
+    let mut column_map = plan.column_map;
+
+    // Build class map from columns named {nodeId}__class_{classId}
+    let mut class_map = build_class_map(&column_map);
+
+    // Post-evaluation: propagate per-class decomposition to downstream nodes.
+    // For each non-class node whose inputs have per-class columns, compute
+    // per-class decomposition via proportional allocation.
+    if !class_map.is_empty() {
+        propagate_class_decomposition(model, &mut state, &mut column_map, &mut class_map, bins);
+    }
+
     let mut result = EvalResult {
         state,
-        column_map: plan.column_map,
-        bins: plan.bins,
+        column_map,
+        bins,
         warnings: Vec::new(),
+        class_map,
+        classes: model.classes.clone(),
     };
     result.warnings = crate::analysis::analyze(model, &result);
     Ok(result)
+}
+
+/// Propagate per-class series to downstream nodes using proportional allocation.
+///
+/// For each expr node that depends on a class-aware source, we compute:
+///   node__class_{c}[t] = node[t] * (source__class_{c}[t] / source[t])
+///
+/// This is the same proportional decomposition the C# ClassContributionBuilder uses,
+/// but simpler: we only handle the primary source (first dependency).
+fn propagate_class_decomposition(
+    model: &ModelDefinition,
+    state: &mut Vec<f64>,
+    cm: &mut ColumnMap,
+    class_map: &mut ClassMap,
+    bins: usize,
+) {
+    // Collect class IDs from class_map
+    let class_ids: Vec<String> = {
+        let mut ids: HashSet<String> = HashSet::new();
+        for ((_, class_id), _) in class_map.iter() {
+            ids.insert(class_id.clone());
+        }
+        ids.into_iter().collect()
+    };
+
+    if class_ids.is_empty() { return; }
+
+    // Find nodes that need per-class decomposition (those that don't already have it).
+    // Process in model order (respects dependency order for simple chains).
+    for node in &model.nodes {
+        // Skip if this node already has per-class columns
+        if class_map.contains_key(&(node.id.clone(), class_ids[0].clone())) {
+            continue;
+        }
+
+        // Find the primary class-aware source for this node
+        let source_node_id = find_class_source(node, model, class_map, &class_ids);
+        let source_node_id = match source_node_id {
+            Some(id) => id,
+            None => continue,
+        };
+
+        let node_col = match cm.get(&node.id) {
+            Some(col) => col,
+            None => continue,
+        };
+        let source_col = match cm.get(&source_node_id) {
+            Some(col) => col,
+            None => continue,
+        };
+
+        // Compute sum of all per-class columns for the source node at each bin.
+        // This may differ from the source total (e.g., const node value vs arrival rates).
+        // The fraction is: class / sum_of_classes (not class / node_total).
+        let mut class_sum = vec![0.0_f64; bins];
+        for class_id in &class_ids {
+            if let Some(&col) = class_map.get(&(source_node_id.clone(), class_id.clone())) {
+                for t in 0..bins {
+                    class_sum[t] += state[col * bins + t];
+                }
+            }
+        }
+
+        // Proportional decomposition for each class
+        for class_id in &class_ids {
+            let source_class_col = match class_map.get(&(source_node_id.clone(), class_id.clone())) {
+                Some(&col) => col,
+                None => continue,
+            };
+
+            let class_col_name = format!("{}__class_{}", node.id, class_id);
+            let new_col = cm.get_or_insert(&class_col_name);
+
+            // Extend state to accommodate new column
+            let required_len = (new_col + 1) * bins;
+            if state.len() < required_len {
+                state.resize(required_len, 0.0);
+            }
+
+            // Compute: node__class_{c}[t] = node[t] * (source__class_{c}[t] / class_sum[t])
+            for t in 0..bins {
+                let node_val = state[node_col * bins + t];
+                let source_class_val = state[source_class_col * bins + t];
+
+                let class_val = if class_sum[t].abs() < 1e-15 {
+                    0.0 // avoid division by zero
+                } else {
+                    node_val * (source_class_val / class_sum[t])
+                };
+
+                state[new_col * bins + t] = class_val;
+            }
+
+            class_map.insert((node.id.clone(), class_id.clone()), new_col);
+        }
+    }
+}
+
+/// Find the primary class-aware source node for a given node.
+/// Walks expression dependencies to find the first source that has per-class columns.
+fn find_class_source(
+    node: &crate::model::NodeDefinition,
+    model: &ModelDefinition,
+    class_map: &ClassMap,
+    class_ids: &[String],
+) -> Option<String> {
+    // For expr nodes: find dependencies that have per-class columns
+    if let Some(expr_str) = &node.expr {
+        let expr = crate::expr::parse(expr_str).ok()?;
+        let deps = collect_refs(&expr); // returns HashSet<String>
+        for dep in deps.iter() {
+            if class_map.contains_key(&(dep.clone(), class_ids[0].clone())) {
+                return Some(dep.clone());
+            }
+            // Check if any model node by this name has a class-aware source (transitive)
+            let dep_node = model.nodes.iter().find(|n| n.id == *dep)?;
+            if let Some(source) = find_class_source(dep_node, model, class_map, class_ids) {
+                return Some(source);
+            }
+        }
+    }
+    None
+}
+
+// collect_refs is defined later in this file (line ~1349) — reused here.
+
+/// Extract class map from column names matching the pattern `{nodeId}__class_{classId}`.
+fn build_class_map(cm: &ColumnMap) -> ClassMap {
+    let mut map = ClassMap::new();
+    for (idx, name) in cm.iter() {
+        if let Some(pos) = name.find("__class_") {
+            let node_id = &name[..pos];
+            let class_id = &name[pos + 8..]; // len("__class_") == 8
+            if !class_id.is_empty() {
+                map.insert((node_id.to_string(), class_id.to_string()), idx);
+            }
+        }
+    }
+    map
 }
 
 /// Compile a model into an evaluation plan.
@@ -87,6 +248,21 @@ pub fn compile(model: &ModelDefinition) -> Result<Plan, CompileError> {
                 if let Some(echo_ref) = &tnode.semantics.retry_echo {
                     if !echo_ref.is_empty() { column_map.get_or_insert(echo_ref); }
                 }
+            }
+        }
+    }
+
+    // Phase 1c: create per-class arrival columns from traffic.arrivals.
+    // These are created as Const ops with the declared per-class rate.
+    // The column name convention is {sourceNodeId}__class_{classId}.
+    if let Some(traffic) = &model.traffic {
+        for arrival in &traffic.arrivals {
+            if arrival.class_id.is_empty() { continue; }
+            let class_col_name = format!("{}__class_{}", arrival.node_id, arrival.class_id);
+            if column_map.get(&class_col_name).is_some() { continue; } // already created by router
+            if let Some(rate) = arrival.pattern.rate_per_bin {
+                let col = column_map.get_or_insert(&class_col_name);
+                ops.push(Op::Const { out: col, values: vec![rate; bins] });
             }
         }
     }
@@ -2598,6 +2774,215 @@ nodes:
         assert_eq!(actual.len(), expected.len(), "length mismatch: {} vs {}", actual.len(), expected.len());
         for (i, (a, e)) in actual.iter().zip(expected).enumerate() {
             assert!((a - e).abs() < 1e-10, "bin {i}: actual={a}, expected={e}");
+        }
+    }
+
+    #[test]
+    fn class_map_populated_for_router_class_model() {
+        let yaml = r#"
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: total
+    kind: const
+    values: [100, 100, 100]
+  - id: splitter
+    kind: router
+    router:
+      inputs:
+        queue: total
+      routes:
+        - target: fast
+          classes: [Alpha]
+        - target: slow
+          classes: [Beta]
+classes:
+  - id: Alpha
+  - id: Beta
+traffic:
+  arrivals:
+    - nodeId: total
+      classId: Alpha
+      pattern:
+        kind: const
+        ratePerBin: 40
+    - nodeId: total
+      classId: Beta
+      pattern:
+        kind: const
+        ratePerBin: 60
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        // Class map should contain entries for per-class arrivals at 'total'
+        assert!(result.class_map.contains_key(&("total".to_string(), "Alpha".to_string())),
+            "class_map missing (total, Alpha). Keys: {:?}", result.class_map.keys().collect::<Vec<_>>());
+        assert!(result.class_map.contains_key(&("total".to_string(), "Beta".to_string())));
+
+        // Verify per-class series values
+        let alpha_col = result.class_map[&("total".to_string(), "Alpha".to_string())];
+        let beta_col = result.class_map[&("total".to_string(), "Beta".to_string())];
+        let alpha_vals = crate::eval::extract_column(&result.state, alpha_col, result.bins);
+        let beta_vals = crate::eval::extract_column(&result.state, beta_col, result.bins);
+
+        assert_approx(&alpha_vals, &[40.0, 40.0, 40.0]);
+        assert_approx(&beta_vals, &[60.0, 60.0, 60.0]);
+
+        // Router targets should have correct values
+        assert_approx(&result.series("fast").unwrap(), &[40.0, 40.0, 40.0]);
+        assert_approx(&result.series("slow").unwrap(), &[60.0, 60.0, 60.0]);
+
+        // Classes metadata should be populated
+        assert_eq!(result.classes.len(), 2);
+        assert_eq!(result.classes[0].id, "Alpha");
+        assert_eq!(result.classes[1].id, "Beta");
+    }
+
+    #[test]
+    fn class_decomposition_propagates_to_expr_nodes() {
+        // class-enabled fixture pattern: ingest has per-class arrivals,
+        // served = MIN(ingest, 8) should get per-class decomposition
+        let yaml = r#"
+schemaVersion: 1
+classes:
+  - id: Order
+  - id: Refund
+grid:
+  bins: 4
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: ingest
+    kind: const
+    values: [10, 10, 10, 10]
+  - id: served
+    kind: expr
+    expr: "MIN(ingest, 8)"
+traffic:
+  arrivals:
+    - nodeId: ingest
+      classId: Order
+      pattern:
+        kind: constant
+        ratePerBin: 20
+    - nodeId: ingest
+      classId: Refund
+      pattern:
+        kind: constant
+        ratePerBin: 5
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        // ingest has per-class columns
+        assert!(result.class_map.contains_key(&("ingest".to_string(), "Order".to_string())));
+        assert!(result.class_map.contains_key(&("ingest".to_string(), "Refund".to_string())));
+
+        // served should also have per-class columns (propagated from ingest)
+        assert!(result.class_map.contains_key(&("served".to_string(), "Order".to_string())),
+            "served should have per-class decomposition. class_map keys: {:?}",
+            result.class_map.keys().collect::<Vec<_>>());
+        assert!(result.class_map.contains_key(&("served".to_string(), "Refund".to_string())));
+
+        // Verify proportional decomposition:
+        // ingest = 10, ingest__class_Order = 20, ingest__class_Refund = 5
+        // total class = 25, Order fraction = 20/25 = 0.8, Refund fraction = 5/25 = 0.2
+        // served = MIN(10, 8) = 8
+        // served__class_Order = 8 * 0.8 = 6.4
+        // served__class_Refund = 8 * 0.2 = 1.6
+        let served_total = result.series("served").unwrap();
+        assert_approx(&served_total, &[8.0, 8.0, 8.0, 8.0]);
+
+        let order_col = result.class_map[&("served".to_string(), "Order".to_string())];
+        let refund_col = result.class_map[&("served".to_string(), "Refund".to_string())];
+        let order_vals = crate::eval::extract_column(&result.state, order_col, result.bins);
+        let refund_vals = crate::eval::extract_column(&result.state, refund_col, result.bins);
+
+        assert_approx(&order_vals, &[6.4, 6.4, 6.4, 6.4]);
+        assert_approx(&refund_vals, &[1.6, 1.6, 1.6, 1.6]);
+
+        // Normalization: per-class should sum to total
+        for t in 0..result.bins {
+            let sum = order_vals[t] + refund_vals[t];
+            assert!((sum - served_total[t]).abs() < 1e-10,
+                "Normalization at bin {t}: sum={sum}, total={}", served_total[t]);
+        }
+    }
+
+    #[test]
+    fn class_map_empty_for_model_without_classes() {
+        let yaml = r#"
+grid:
+  bins: 2
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: x
+    kind: const
+    values: [10, 20]
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        assert!(result.class_map.is_empty());
+        assert!(result.classes.is_empty());
+    }
+
+    #[test]
+    fn class_series_sum_equals_total() {
+        // Normalization invariant: per-class series should sum to total at each bin
+        let yaml = r#"
+grid:
+  bins: 4
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arrivals
+    kind: const
+    values: [100, 100, 100, 100]
+  - id: router
+    kind: router
+    router:
+      inputs:
+        queue: arrivals
+      routes:
+        - target: lane_a
+          classes: [A]
+        - target: lane_b
+          classes: [B]
+classes:
+  - id: A
+  - id: B
+traffic:
+  arrivals:
+    - nodeId: arrivals
+      classId: A
+      pattern:
+        kind: const
+        ratePerBin: 30
+    - nodeId: arrivals
+      classId: B
+      pattern:
+        kind: const
+        ratePerBin: 70
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+
+        let alpha_col = result.class_map[&("arrivals".to_string(), "A".to_string())];
+        let beta_col = result.class_map[&("arrivals".to_string(), "B".to_string())];
+        let alpha = crate::eval::extract_column(&result.state, alpha_col, result.bins);
+        let beta = crate::eval::extract_column(&result.state, beta_col, result.bins);
+        let total = result.series("arrivals").unwrap();
+
+        // Sum of per-class series should equal total
+        for t in 0..result.bins {
+            let sum = alpha[t] + beta[t];
+            assert!((sum - total[t]).abs() < 1e-10,
+                "Normalization violated at bin {t}: class_sum={sum}, total={}", total[t]);
         }
     }
 }

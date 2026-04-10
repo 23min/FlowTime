@@ -27,7 +27,7 @@ pub struct GridDefinition {
     pub start_time_utc: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Clone, Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct ClassDefinition {
     pub id: String,
