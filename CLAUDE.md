@@ -179,7 +179,8 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 
 - **E-18** Time Machine (`work/epics/E-18-headless-pipeline-and-optimization/spec.md`) — **in-progress**
   - Headless engine: parameterized evaluation → streaming protocol → pipeline component.
-  - **m-E18-01** (in-progress): Parameterized evaluation — ParamTable, evaluate_with_params, compile-once eval-many. Branch: `milestone/m-E18-01-parameterized-evaluation`.
+  - **m-E18-01** (complete): Parameterized evaluation — ParamTable, evaluate_with_params, compile-once eval-many.
+  - **m-E18-02** (in-progress): Engine session + streaming protocol — persistent process, MessagePack over stdin/stdout. Branch: `milestone/m-E18-02-engine-session-protocol`.
   - **Architecture:** `docs/architecture/headless-engine-architecture.md` — four-layer design.
 - **E-20** Matrix Engine — **completed and merged to main (2026-04-10).** Archived to `work/epics/completed/E-20-matrix-engine/`.
   - 10 milestones. 172 Rust tests + 1,332 .NET tests. E-17/E-18 unblocked.

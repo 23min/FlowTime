@@ -3,6 +3,9 @@ use std::fs;
 use std::path::Path;
 use flowtime_core::{model, compiler, eval, sink};
 
+mod protocol;
+mod session;
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -13,6 +16,7 @@ fn main() {
         eprintln!("  plan <model.yaml>                 — compile and print the evaluation plan");
         eprintln!("  eval <model.yaml> [--output <dir>] — evaluate (optionally write artifacts)");
         eprintln!("  validate <model.yaml>             — parse, compile, analyze (no artifacts)");
+        eprintln!("  session                           — persistent session (MessagePack over stdin/stdout)");
         std::process::exit(1);
     }
 
@@ -22,6 +26,7 @@ fn main() {
         "plan" => cmd_plan(&args[2..]),
         "eval" => cmd_eval(&args[2..]),
         "validate" => cmd_validate(&args[2..]),
+        "session" => session::run_session(),
         // Legacy: bare path treated as parse
         path if path.ends_with(".yaml") || path.ends_with(".yml") => cmd_parse(&args[1..]),
         _ => {
