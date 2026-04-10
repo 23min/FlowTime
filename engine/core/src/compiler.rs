@@ -51,9 +51,21 @@ impl EvalResult {
 
 /// Compile, evaluate, and analyze a model, returning named series + warnings.
 pub fn eval_model(model: &ModelDefinition) -> Result<EvalResult, CompileError> {
+    eval_model_with_params(model, &[])
+}
+
+/// Compile, evaluate with parameter overrides, and analyze a model.
+///
+/// This is the full pipeline: compile → evaluate (with overrides) → class decomposition →
+/// edge series → analysis warnings. The Plan is compiled fresh each call.
+/// For compile-once eval-many, use `compile()` + `evaluate_with_params()` directly.
+pub fn eval_model_with_params(
+    model: &ModelDefinition,
+    overrides: &[(String, crate::plan::ParamValue)],
+) -> Result<EvalResult, CompileError> {
     let plan = compile(model)?;
     let bins = plan.bins;
-    let mut state = crate::eval::evaluate(&plan);
+    let mut state = crate::eval::evaluate_with_params(&plan, overrides);
     let mut column_map = plan.column_map;
 
     // Build class map from columns named {nodeId}__class_{classId}
@@ -462,6 +474,83 @@ fn find_class_source(
 // collect_refs is defined later in this file (line ~1349) — reused here.
 
 /// Extract class map from column names matching the pattern `{nodeId}__class_{classId}`.
+/// Build the parameter table by identifying user-visible constants in the model.
+fn build_param_table(model: &ModelDefinition, cm: &crate::plan::ColumnMap) -> crate::plan::ParamTable {
+    use crate::plan::{ParamTable, ParamEntry, ParamValue, ParamKind};
+
+    let mut params = ParamTable::new();
+    let bins = model.grid.as_ref().map_or(0, |g| g.bins as usize);
+
+    // 1. Const nodes
+    for node in &model.nodes {
+        if node.kind.to_lowercase() != "const" { continue; }
+        if let Some(col) = cm.get(&node.id) {
+            if let Some(values) = &node.values {
+                let is_uniform = values.iter().all(|v| (*v - values[0]).abs() < 1e-15);
+                let default = if is_uniform && !values.is_empty() {
+                    ParamValue::Scalar(values[0])
+                } else {
+                    ParamValue::Vector(values.clone())
+                };
+                params.register(ParamEntry {
+                    id: node.id.clone(),
+                    column: col,
+                    default,
+                    kind: ParamKind::ConstNode,
+                });
+            }
+        }
+    }
+
+    // 2. Traffic arrival rates
+    if let Some(traffic) = &model.traffic {
+        for arrival in &traffic.arrivals {
+            if arrival.class_id.is_empty() { continue; }
+            if let Some(rate) = arrival.pattern.rate_per_bin {
+                let class_col_name = format!("{}__class_{}", arrival.node_id, arrival.class_id);
+                if let Some(col) = cm.get(&class_col_name) {
+                    params.register(ParamEntry {
+                        id: format!("{}.{}", arrival.node_id, arrival.class_id),
+                        column: col,
+                        default: ParamValue::Scalar(rate),
+                        kind: ParamKind::ArrivalRate,
+                    });
+                }
+            }
+        }
+    }
+
+    // 3. Topology: WIP limits and initial conditions
+    if let Some(topo) = &model.topology {
+        for tnode in &topo.nodes {
+            // WIP limit scalar
+            if let Some(wl) = tnode.wip_limit {
+                let wl_col_name = format!("{}_wip_limit", to_snake_case(&tnode.id));
+                if let Some(col) = cm.get(&wl_col_name) {
+                    params.register(ParamEntry {
+                        id: format!("{}.wipLimit", tnode.id),
+                        column: col,
+                        default: ParamValue::Scalar(wl),
+                        kind: ParamKind::WipLimit,
+                    });
+                }
+            }
+
+            // Initial condition
+            if let Some(ic) = &tnode.initial_condition {
+                if ic.queue_depth != 0.0 {
+                    // Initial condition is baked into QueueRecurrence init field,
+                    // not a Const op column. Register it for schema visibility
+                    // but it can't be overridden via column patching.
+                    // Future: add Op::QueueRecurrence init override support.
+                }
+            }
+        }
+    }
+
+    params
+}
+
 fn build_class_map(cm: &ColumnMap) -> ClassMap {
     let mut map = ClassMap::new();
     for (idx, name) in cm.iter() {
@@ -605,7 +694,10 @@ pub fn compile(model: &ModelDefinition) -> Result<Plan, CompileError> {
         compile_derived_metrics(topo, model, &mut column_map, &mut ops, bins, bin_ms)?;
     }
 
-    Ok(Plan { ops, column_map, bins })
+    // Build parameter table: register user-visible constants
+    let params = build_param_table(model, &column_map);
+
+    Ok(Plan { ops, column_map, bins, params })
 }
 
 /// An item in the unified compilation order.
@@ -3823,5 +3915,377 @@ topology:
                     node_id, t, class_sum, total[t]);
             }
         }
+    }
+
+    // ── Parameter table tests ──
+
+    #[test]
+    fn param_table_registers_const_nodes() {
+        let yaml = r#"
+grid:
+  bins: 4
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arrivals
+    kind: const
+    values: [10, 10, 10, 10]
+  - id: capacity
+    kind: const
+    values: [5, 5, 5, 5]
+  - id: served
+    kind: expr
+    expr: "MIN(arrivals, capacity)"
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let plan = compile(&model).unwrap();
+
+        assert!(plan.params.get("arrivals").is_some(), "const node 'arrivals' should be a param");
+        assert!(plan.params.get("capacity").is_some(), "const node 'capacity' should be a param");
+        assert!(plan.params.get("served").is_none(), "expr node should not be a param");
+
+        let arr_param = plan.params.get("arrivals").unwrap();
+        assert_eq!(arr_param.default, crate::plan::ParamValue::Scalar(10.0));
+        assert_eq!(arr_param.kind, crate::plan::ParamKind::ConstNode);
+    }
+
+    #[test]
+    fn param_table_registers_arrival_rates() {
+        let yaml = r#"
+schemaVersion: 1
+classes:
+  - id: Order
+  - id: Refund
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: ingest
+    kind: const
+    values: [10, 10, 10]
+traffic:
+  arrivals:
+    - nodeId: ingest
+      classId: Order
+      pattern:
+        kind: constant
+        ratePerBin: 6
+    - nodeId: ingest
+      classId: Refund
+      pattern:
+        kind: constant
+        ratePerBin: 4
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let plan = compile(&model).unwrap();
+
+        assert!(plan.params.get("ingest.Order").is_some(), "arrival rate should be a param");
+        assert!(plan.params.get("ingest.Refund").is_some());
+
+        let order_param = plan.params.get("ingest.Order").unwrap();
+        assert_eq!(order_param.default, crate::plan::ParamValue::Scalar(6.0));
+        assert_eq!(order_param.kind, crate::plan::ParamKind::ArrivalRate);
+    }
+
+    #[test]
+    fn param_table_registers_wip_limit() {
+        let yaml = r#"
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arr
+    kind: const
+    values: [20, 20, 20]
+  - id: srv
+    kind: const
+    values: [5, 5, 5]
+topology:
+  nodes:
+    - id: Queue
+      kind: serviceWithBuffer
+      wipLimit: 50
+      semantics:
+        arrivals: arr
+        served: srv
+  edges: []
+  constraints: []
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let plan = compile(&model).unwrap();
+
+        assert!(plan.params.get("Queue.wipLimit").is_some(),
+            "WIP limit should be a param. Params: {:?}",
+            plan.params.entries.iter().map(|p| &p.id).collect::<Vec<_>>());
+
+        let wip_param = plan.params.get("Queue.wipLimit").unwrap();
+        assert_eq!(wip_param.default, crate::plan::ParamValue::Scalar(50.0));
+        assert_eq!(wip_param.kind, crate::plan::ParamKind::WipLimit);
+    }
+
+    #[test]
+    fn param_table_varying_const_is_vector() {
+        let yaml = r#"
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: demand
+    kind: const
+    values: [10, 20, 30]
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let plan = compile(&model).unwrap();
+
+        let param = plan.params.get("demand").unwrap();
+        assert_eq!(param.default, crate::plan::ParamValue::Vector(vec![10.0, 20.0, 30.0]));
+    }
+
+    #[test]
+    fn param_table_empty_for_expr_only_model() {
+        let yaml = r#"
+grid:
+  bins: 2
+  binSize: 1
+  binUnit: hours
+nodes: []
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let plan = compile(&model).unwrap();
+        assert!(plan.params.is_empty());
+    }
+
+    #[test]
+    fn extract_params_returns_param_table() {
+        let yaml = r#"
+grid:
+  bins: 2
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: x
+    kind: const
+    values: [5, 5]
+  - id: y
+    kind: const
+    values: [10, 10]
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let plan = compile(&model).unwrap();
+
+        let params = &plan.params;
+        assert_eq!(params.len(), 2);
+        assert!(params.get("x").is_some());
+        assert!(params.get("y").is_some());
+    }
+
+    // ── AC-5/6: eval_model_with_params propagation ──
+
+    #[test]
+    fn eval_model_with_params_override_propagates_downstream() {
+        // AC-6: override arrivals → served, queue_depth, per-class, edges all update
+        let yaml = r#"
+grid:
+  bins: 4
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arrivals
+    kind: const
+    values: [10, 10, 10, 10]
+  - id: served
+    kind: expr
+    expr: "MIN(arrivals, 8)"
+topology:
+  nodes:
+    - id: Queue
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
+  constraints: []
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+
+        // Default: arrivals=10, served=MIN(10,8)=8, Q grows by 2/bin
+        let result = eval_model(&model).unwrap();
+        assert_approx(&result.series("served").unwrap(), &[8.0, 8.0, 8.0, 8.0]);
+
+        // Override: arrivals=20 → served=MIN(20,8)=8 (still capped), Q grows by 12/bin
+        let overrides = vec![("arrivals".to_string(), crate::plan::ParamValue::Scalar(20.0))];
+        let result2 = eval_model_with_params(&model, &overrides).unwrap();
+        assert_approx(&result2.series("served").unwrap(), &[8.0, 8.0, 8.0, 8.0]);
+        let q_name = queue_column_id("Queue");
+        let queue = result2.series(&q_name).unwrap();
+        assert_approx(&queue, &[12.0, 24.0, 36.0, 48.0]); // 20-8=12 per bin
+
+        // Override: arrivals=5 → served=MIN(5,8)=5, Q grows by 0 (no queue)
+        let overrides3 = vec![("arrivals".to_string(), crate::plan::ParamValue::Scalar(5.0))];
+        let result3 = eval_model_with_params(&model, &overrides3).unwrap();
+        assert_approx(&result3.series("served").unwrap(), &[5.0, 5.0, 5.0, 5.0]);
+        let queue3 = result3.series(&q_name).unwrap();
+        assert_approx(&queue3, &[0.0, 0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn eval_model_with_params_class_rate_override() {
+        // AC-7: override class arrival rate, verify normalization holds
+        let yaml = r#"
+schemaVersion: 1
+classes:
+  - id: Fast
+  - id: Slow
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arrivals
+    kind: const
+    values: [100, 100, 100]
+  - id: served
+    kind: expr
+    expr: "MIN(arrivals, 80)"
+traffic:
+  arrivals:
+    - nodeId: arrivals
+      classId: Fast
+      pattern:
+        kind: constant
+        ratePerBin: 60
+    - nodeId: arrivals
+      classId: Slow
+      pattern:
+        kind: constant
+        ratePerBin: 40
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+
+        // Default: Fast=60%, Slow=40%
+        let result = eval_model(&model).unwrap();
+        let fast_col = result.class_map[&("served".to_string(), "Fast".to_string())];
+        let slow_col = result.class_map[&("served".to_string(), "Slow".to_string())];
+        let fast_default = crate::eval::extract_column(&result.state, fast_col, result.bins);
+        let slow_default = crate::eval::extract_column(&result.state, slow_col, result.bins);
+        // served=80. Fast fraction = 60/100 = 0.6. served_Fast = 80 * 0.6 = 48
+        assert_approx(&fast_default, &[48.0, 48.0, 48.0]);
+        assert_approx(&slow_default, &[32.0, 32.0, 32.0]);
+
+        // Override: Fast rate 90 (Slow stays 40) → new fractions 90/130, 40/130
+        let overrides = vec![("arrivals.Fast".to_string(), crate::plan::ParamValue::Scalar(90.0))];
+        let result2 = eval_model_with_params(&model, &overrides).unwrap();
+        let fast2_col = result2.class_map[&("served".to_string(), "Fast".to_string())];
+        let slow2_col = result2.class_map[&("served".to_string(), "Slow".to_string())];
+        let fast2 = crate::eval::extract_column(&result2.state, fast2_col, result2.bins);
+        let slow2 = crate::eval::extract_column(&result2.state, slow2_col, result2.bins);
+
+        // served=80, Fast fraction = 90/(90+40) = 90/130 ≈ 0.6923
+        let expected_fast = 80.0 * 90.0 / 130.0;
+        let expected_slow = 80.0 * 40.0 / 130.0;
+        assert!((fast2[0] - expected_fast).abs() < 1e-10,
+            "Fast override: expected {expected_fast}, got {}", fast2[0]);
+        assert!((slow2[0] - expected_slow).abs() < 1e-10);
+
+        // Normalization: per-class should still sum to total
+        let served2 = result2.series("served").unwrap();
+        for t in 0..result2.bins {
+            let sum = fast2[t] + slow2[t];
+            assert!((sum - served2[t]).abs() < 1e-10,
+                "Normalization violated after class override at bin {t}: sum={sum}, total={}", served2[t]);
+        }
+    }
+
+    #[test]
+    fn compile_once_eval_many_independent() {
+        // AC-10: compile once, evaluate 10 times with different rates, verify independence
+        let yaml = r#"
+grid:
+  bins: 4
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arrivals
+    kind: const
+    values: [10, 10, 10, 10]
+  - id: served
+    kind: expr
+    expr: "arrivals * 0.5"
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let plan = compile(&model).unwrap();
+
+        // Verify plan has the parameter
+        assert!(plan.params.get("arrivals").is_some());
+
+        // Evaluate 10 times with different arrival rates
+        let rates = [5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 50.0, 100.0, 0.0, 1.0];
+        let mut results = Vec::new();
+
+        for &rate in &rates {
+            let overrides = vec![("arrivals".to_string(), crate::plan::ParamValue::Scalar(rate))];
+            let state = crate::eval::evaluate_with_params(&plan, &overrides);
+            let served_col = plan.column_map.get("served").unwrap();
+            let served = crate::eval::extract_column(&state, served_col, plan.bins);
+            results.push((rate, served));
+        }
+
+        // Verify each result is independent and correct: served = arrivals * 0.5
+        for (rate, served) in &results {
+            let expected = rate * 0.5;
+            for t in 0..plan.bins {
+                assert!((served[t] - expected).abs() < 1e-10,
+                    "Rate={rate}, bin {t}: expected {expected}, got {}", served[t]);
+            }
+        }
+
+        // Verify original plan is unchanged (re-eval with defaults still works)
+        let default_state = crate::eval::evaluate(&plan);
+        let served_col = plan.column_map.get("served").unwrap();
+        let default_served = crate::eval::extract_column(&default_state, served_col, plan.bins);
+        assert_approx(&default_served, &[5.0, 5.0, 5.0, 5.0]);
+    }
+
+    #[test]
+    fn eval_model_with_params_wip_limit_override() {
+        // AC-8: override WIP limit → overflow changes
+        let yaml = r#"
+grid:
+  bins: 4
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arr
+    kind: const
+    values: [20, 20, 20, 20]
+  - id: srv
+    kind: const
+    values: [5, 5, 5, 5]
+topology:
+  nodes:
+    - id: Q
+      kind: serviceWithBuffer
+      wipLimit: 50
+      semantics:
+        arrivals: arr
+        served: srv
+  edges: []
+  constraints: []
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+
+        // Default: WIP=50, inflow=20, outflow=5 → Q=[15,30,45,50(capped)]
+        let result = eval_model(&model).unwrap();
+        let q = result.series(&queue_column_id("Q")).unwrap();
+        assert_approx(&q, &[15.0, 30.0, 45.0, 50.0]);
+
+        // Override: WIP=25 → Q=[15,25(capped),25,25]
+        let overrides = vec![("Q.wipLimit".to_string(), crate::plan::ParamValue::Scalar(25.0))];
+        let result2 = eval_model_with_params(&model, &overrides).unwrap();
+        let q2 = result2.series(&queue_column_id("Q")).unwrap();
+        assert_approx(&q2, &[15.0, 25.0, 25.0, 25.0]);
     }
 }
