@@ -7,7 +7,7 @@
 //! iterates ops. This naturally supports SHIFT-based feedback cycles —
 //! each bin reads previous-bin state already written by earlier iterations.
 
-use crate::plan::{Op, Plan};
+use crate::plan::{Op, Plan, ParamValue};
 
 /// Execute a plan and return the filled matrix.
 ///
@@ -15,16 +15,52 @@ use crate::plan::{Op, Plan};
 /// This allows SHIFT-based feedback cycles to work without special handling —
 /// when processing bin t, all ops read from bin t-1 (already computed).
 pub fn evaluate(plan: &Plan) -> Vec<f64> {
+    evaluate_with_params(plan, &[])
+}
+
+/// Execute a plan with parameter overrides and return the filled matrix.
+///
+/// Overrides replace the default values for matching parameter IDs before
+/// the eval loop runs. The Plan is not modified — this is a pure function.
+/// Unknown override IDs are silently ignored.
+pub fn evaluate_with_params(plan: &Plan, overrides: &[(String, ParamValue)]) -> Vec<f64> {
     let bins = plan.bins;
     let cols = plan.column_map.len();
     let mut state = vec![0.0f64; cols * bins];
 
-    // Pre-write Const ops (they don't depend on other ops and fill all bins)
+    // Build override lookup
+    let override_map: std::collections::HashMap<&str, &ParamValue> = overrides.iter()
+        .map(|(id, val)| (id.as_str(), val))
+        .collect();
+
+    // Pre-write Const ops (they don't depend on other ops and fill all bins).
+    // If a Const op's column has a parameter override, use the override value instead.
     for op in &plan.ops {
         if let Op::Const { out, values } = op {
-            let len = values.len().min(bins);
-            for t in 0..len {
-                set(&mut state, *out, t, bins, values[t]);
+            // Check if this column has a parameter override
+            let overridden = plan.params.entries.iter()
+                .find(|p| p.column == *out)
+                .and_then(|p| override_map.get(p.id.as_str()));
+
+            if let Some(override_val) = overridden {
+                match override_val {
+                    ParamValue::Scalar(v) => {
+                        for t in 0..bins {
+                            set(&mut state, *out, t, bins, *v);
+                        }
+                    }
+                    ParamValue::Vector(vs) => {
+                        let len = vs.len().min(bins);
+                        for t in 0..len {
+                            set(&mut state, *out, t, bins, vs[t]);
+                        }
+                    }
+                }
+            } else {
+                let len = values.len().min(bins);
+                for t in 0..len {
+                    set(&mut state, *out, t, bins, values[t]);
+                }
             }
         }
     }
@@ -225,6 +261,7 @@ mod tests {
                 Op::ScalarMul { out: served, input: demand, k: 0.8 },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 4,
         };
 
@@ -253,6 +290,7 @@ mod tests {
                 Op::VecDiv { out: div, a, b },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 3,
         };
 
@@ -285,6 +323,7 @@ mod tests {
                 Op::Clamp { out: cl, val: a, lo, hi },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 3,
         };
 
@@ -306,6 +345,7 @@ mod tests {
                 Op::Shift { out: shifted, input, lag: 2 },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 5,
         };
 
@@ -326,6 +366,7 @@ mod tests {
                 Op::Shift { out: shifted, input, lag: 0 },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 3,
         };
 
@@ -346,6 +387,7 @@ mod tests {
                 Op::Convolve { out: output, input, kernel: vec![0.0, 0.6, 0.3, 0.1] },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 5,
         };
 
@@ -376,6 +418,7 @@ mod tests {
                 },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 4,
         };
 
@@ -405,6 +448,7 @@ mod tests {
                 },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 4,
         };
 
@@ -426,6 +470,7 @@ mod tests {
                 Op::DispatchGate { out: gated, input, period: 3, phase: 0, capacity: None },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 6,
         };
 
@@ -448,6 +493,7 @@ mod tests {
                 Op::DispatchGate { out: gated, input, period: 2, phase: 1, capacity: Some(cap) },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 6,
         };
 
@@ -474,6 +520,7 @@ mod tests {
                 Op::Round { out: rn, input },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 5,
         };
 
@@ -498,6 +545,7 @@ mod tests {
                 Op::Step { out, input, threshold },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 4,
         };
 
@@ -516,6 +564,7 @@ mod tests {
                 Op::Pulse { out, period: 3, phase: 1, amplitude: None },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 7,
         };
 
@@ -540,6 +589,7 @@ mod tests {
                 Op::ScalarAdd { out: added, input: a, k: 5.0 },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 4,
         };
 
@@ -561,6 +611,7 @@ mod tests {
                 Op::Copy { out: dst, input: src },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 3,
         };
 
@@ -580,6 +631,7 @@ mod tests {
                 Op::Shift { out: shifted, input, lag: 10 },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 3,
         };
 
@@ -600,6 +652,7 @@ mod tests {
                 Op::Convolve { out: output, input, kernel: vec![] },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 3,
         };
 
@@ -620,6 +673,7 @@ mod tests {
                 Op::Convolve { out: output, input, kernel: vec![1.0] },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 3,
         };
 
@@ -646,6 +700,7 @@ mod tests {
                 },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 3,
         };
 
@@ -672,6 +727,7 @@ mod tests {
                 },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 3,
         };
 
@@ -694,6 +750,7 @@ mod tests {
                 Op::DispatchGate { out: gated, input, period: 1, phase: 0, capacity: None },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 4,
         };
 
@@ -719,6 +776,7 @@ mod tests {
                 Op::ProportionalAlloc { outs: vec![o1, o2], demands: vec![d1, d2], capacity: cap },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 2,
         };
 
@@ -742,6 +800,7 @@ mod tests {
                 Op::ProportionalAlloc { outs: vec![o1], demands: vec![d1], capacity: cap },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 2,
         };
 
@@ -767,6 +826,7 @@ mod tests {
                 Op::ProportionalAlloc { outs: vec![o1, o2], demands: vec![d1, d2], capacity: cap },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 1,
         };
 
@@ -790,6 +850,7 @@ mod tests {
                 Op::VecDiv { out, a, b },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 2,
         };
 
@@ -810,10 +871,169 @@ mod tests {
                 Op::ScalarMul { out: b, input: a, k: 3.0 },
             ],
             column_map: cm,
+            params: crate::plan::ParamTable::new(),
             bins: 1,
         };
 
         let state = evaluate(&plan);
         assert_eq!(extract_column(&state, b, 1), vec![15.0]);
+    }
+
+    // ── Parameterized evaluation tests ──
+
+    #[test]
+    fn evaluate_with_params_no_overrides_equals_evaluate() {
+        let mut cm = ColumnMap::new();
+        let a = cm.insert("arrivals");
+        let b = cm.insert("served");
+
+        let plan = Plan {
+            ops: vec![
+                Op::Const { out: a, values: vec![10.0, 20.0, 30.0] },
+                Op::ScalarMul { out: b, input: a, k: 0.5 },
+            ],
+            column_map: cm,
+            params: crate::plan::ParamTable::new(),
+            bins: 3,
+        };
+
+        let state_default = evaluate(&plan);
+        let state_no_override = evaluate_with_params(&plan, &[]);
+        assert_eq!(state_default, state_no_override, "No overrides should produce identical results");
+    }
+
+    #[test]
+    fn evaluate_with_params_scalar_override() {
+        use crate::plan::{ParamEntry, ParamValue, ParamKind, ParamTable};
+
+        let mut cm = ColumnMap::new();
+        let a = cm.insert("arrivals");
+        let b = cm.insert("served");
+
+        let mut params = ParamTable::new();
+        params.register(ParamEntry {
+            id: "arrivals".to_string(),
+            column: a,
+            default: ParamValue::Scalar(10.0),
+            kind: ParamKind::ConstNode,
+        });
+
+        let plan = Plan {
+            ops: vec![
+                Op::Const { out: a, values: vec![10.0, 10.0, 10.0] },
+                Op::ScalarMul { out: b, input: a, k: 0.5 },
+            ],
+            column_map: cm,
+            params,
+            bins: 3,
+        };
+
+        // Default: arrivals=10 → served=5
+        let state = evaluate(&plan);
+        assert_eq!(extract_column(&state, b, 3), vec![5.0, 5.0, 5.0]);
+
+        // Override: arrivals=20 → served=10
+        let overrides = vec![("arrivals".to_string(), ParamValue::Scalar(20.0))];
+        let state2 = evaluate_with_params(&plan, &overrides);
+        assert_eq!(extract_column(&state2, b, 3), vec![10.0, 10.0, 10.0]);
+
+        // Original plan unchanged (pure function)
+        let state3 = evaluate(&plan);
+        assert_eq!(extract_column(&state3, b, 3), vec![5.0, 5.0, 5.0]);
+    }
+
+    #[test]
+    fn evaluate_with_params_vector_override() {
+        use crate::plan::{ParamEntry, ParamValue, ParamKind, ParamTable};
+
+        let mut cm = ColumnMap::new();
+        let a = cm.insert("demand");
+        let b = cm.insert("doubled");
+
+        let mut params = ParamTable::new();
+        params.register(ParamEntry {
+            id: "demand".to_string(),
+            column: a,
+            default: ParamValue::Vector(vec![1.0, 2.0, 3.0]),
+            kind: ParamKind::ConstNode,
+        });
+
+        let plan = Plan {
+            ops: vec![
+                Op::Const { out: a, values: vec![1.0, 2.0, 3.0] },
+                Op::ScalarMul { out: b, input: a, k: 2.0 },
+            ],
+            column_map: cm,
+            params,
+            bins: 3,
+        };
+
+        let overrides = vec![("demand".to_string(), ParamValue::Vector(vec![10.0, 20.0, 30.0]))];
+        let state = evaluate_with_params(&plan, &overrides);
+        assert_eq!(extract_column(&state, b, 3), vec![20.0, 40.0, 60.0]);
+    }
+
+    #[test]
+    fn evaluate_with_params_unknown_override_ignored() {
+        use crate::plan::{ParamValue, ParamTable};
+
+        let mut cm = ColumnMap::new();
+        let a = cm.insert("x");
+
+        let plan = Plan {
+            ops: vec![
+                Op::Const { out: a, values: vec![5.0, 5.0] },
+            ],
+            column_map: cm,
+            params: ParamTable::new(),
+            bins: 2,
+        };
+
+        // Override for non-existent param — should be silently ignored
+        let overrides = vec![("nonexistent".to_string(), ParamValue::Scalar(99.0))];
+        let state = evaluate_with_params(&plan, &overrides);
+        assert_eq!(extract_column(&state, a, 2), vec![5.0, 5.0]);
+    }
+
+    #[test]
+    fn evaluate_with_params_propagates_through_queue() {
+        use crate::plan::{ParamEntry, ParamValue, ParamKind, ParamTable};
+
+        let mut cm = ColumnMap::new();
+        let inflow = cm.insert("inflow");
+        let outflow = cm.insert("outflow");
+        let queue = cm.insert("queue");
+
+        let mut params = ParamTable::new();
+        params.register(ParamEntry {
+            id: "inflow".to_string(),
+            column: inflow,
+            default: ParamValue::Scalar(10.0),
+            kind: ParamKind::ConstNode,
+        });
+
+        let plan = Plan {
+            ops: vec![
+                Op::Const { out: inflow, values: vec![10.0; 4] },
+                Op::Const { out: outflow, values: vec![3.0; 4] },
+                Op::QueueRecurrence {
+                    out: queue, inflow, outflow,
+                    loss: None, init: 0.0,
+                    wip_limit: None, overflow_out: None,
+                },
+            ],
+            column_map: cm,
+            params,
+            bins: 4,
+        };
+
+        // Default: inflow=10, outflow=3 → Q=[7,14,21,28]
+        let state = evaluate(&plan);
+        assert_eq!(extract_column(&state, queue, 4), vec![7.0, 14.0, 21.0, 28.0]);
+
+        // Override: inflow=5 → Q=[2,4,6,8]
+        let overrides = vec![("inflow".to_string(), ParamValue::Scalar(5.0))];
+        let state2 = evaluate_with_params(&plan, &overrides);
+        assert_eq!(extract_column(&state2, queue, 4), vec![2.0, 4.0, 6.0, 8.0]);
     }
 }

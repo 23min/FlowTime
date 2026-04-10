@@ -143,12 +143,82 @@ pub enum Op {
     Copy { out: usize, input: usize },
 }
 
+/// A parameter value: either a single scalar (fills all bins) or a per-bin vector.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ParamValue {
+    /// Fill all bins with this value.
+    Scalar(f64),
+    /// Per-bin values (length must equal plan.bins).
+    Vector(Vec<f64>),
+}
+
+/// What kind of model input this parameter represents.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParamKind {
+    /// A `kind: const` node.
+    ConstNode,
+    /// A `traffic.arrivals` entry with `ratePerBin`.
+    ArrivalRate,
+    /// A topology node's scalar `wipLimit`.
+    WipLimit,
+    /// A topology node's `initialCondition.queueDepth`.
+    InitialCondition,
+}
+
+/// A single tweakable parameter extracted from the model.
+#[derive(Debug, Clone)]
+pub struct ParamEntry {
+    /// Stable identifier matching the model YAML source.
+    /// Examples: `"arrivals"`, `"arrivals.Order"`, `"Queue.wipLimit"`, `"Queue.init"`.
+    pub id: String,
+    /// Column index in the state matrix that this parameter fills.
+    pub column: usize,
+    /// Original value from the model.
+    pub default: ParamValue,
+    /// What kind of model input this is.
+    pub kind: ParamKind,
+}
+
+/// Parameter table: all tweakable parameters in a compiled Plan.
+#[derive(Debug, Clone, Default)]
+pub struct ParamTable {
+    pub entries: Vec<ParamEntry>,
+}
+
+impl ParamTable {
+    pub fn new() -> Self {
+        Self { entries: Vec::new() }
+    }
+
+    /// Register a parameter. Duplicates (same id) are silently ignored.
+    pub fn register(&mut self, entry: ParamEntry) {
+        if !self.entries.iter().any(|e| e.id == entry.id) {
+            self.entries.push(entry);
+        }
+    }
+
+    /// Look up a parameter by id.
+    pub fn get(&self, id: &str) -> Option<&ParamEntry> {
+        self.entries.iter().find(|e| e.id == id)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+}
+
 /// The compiled evaluation plan: an ordered list of ops + the column map.
 #[derive(Debug, Clone)]
 pub struct Plan {
     pub ops: Vec<Op>,
     pub column_map: ColumnMap,
     pub bins: usize,
+    /// Tweakable parameters extracted from the model.
+    pub params: ParamTable,
 }
 
 impl Plan {

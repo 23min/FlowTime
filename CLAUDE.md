@@ -177,9 +177,12 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
+- **E-18** Time Machine (`work/epics/E-18-headless-pipeline-and-optimization/spec.md`) — **in-progress**
+  - Headless engine: parameterized evaluation → streaming protocol → pipeline component.
+  - **m-E18-01** (in-progress): Parameterized evaluation — ParamTable, evaluate_with_params, compile-once eval-many. Branch: `milestone/m-E18-01-parameterized-evaluation`.
+  - **Architecture:** `docs/architecture/headless-engine-architecture.md` — four-layer design.
 - **E-20** Matrix Engine — **completed and merged to main (2026-04-10).** Archived to `work/epics/completed/E-20-matrix-engine/`.
-  - 10 milestones: scaffold → compiler → topology → routing → metrics → artifacts → bridge → parity → per-class/edges → artifact sink.
-  - 172 Rust tests + 1,332 .NET tests. E-17/E-18 unblocked.
+  - 10 milestones. 172 Rust tests + 1,332 .NET tests. E-17/E-18 unblocked.
 - **E-10** Engine Correctness — **completed and merged to main (2026-04-09).** Archived to `work/epics/completed/E-10-engine-correctness-and-analytics/`.
 - **E-16** Formula-First Core Purification — **completed.** Archived to `work/epics/completed/E-16-formula-first-core-purification/`.
 - **E-19** Surface Alignment & Compatibility Cleanup — **completed and merged to main (2026-04-08).** Archived to `work/epics/completed/E-19-surface-alignment-and-compatibility-cleanup/`.
