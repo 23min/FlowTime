@@ -2,7 +2,7 @@
 
 **Milestone:** m-E20-10
 **Epic:** E-20 Matrix Engine
-**Status:** in-progress
+**Status:** complete
 **Branch:** `milestone/m-E20-10-artifact-sink-parity`
 **Started:** 2026-04-10
 

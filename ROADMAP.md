@@ -103,13 +103,13 @@ These are the lowest-risk leverage layers after purification. They make the pure
 2. **Telemetry Loop & Parity** (`work/epics/telemetry-loop-parity/spec.md`)
    - Automated parity harness between baseline synthetic runs and telemetry replay runs. Recommended immediately after the first E-15 dataset path and before model fitting, optimization, or anomaly automation.
 
-## E-20 — Matrix Engine (in-progress)
+## E-20 — Matrix Engine (complete)
 
-**Epic:** `work/epics/E-20-matrix-engine/spec.md` | **Status:** in-progress (m-E20-01–09 complete, m-E20-10 pending)
+**Epic:** `work/epics/E-20-matrix-engine/spec.md` | **Status:** complete (m-E20-01–10 all complete)
 
 Replace the C# object-graph evaluation with a Rust column-store + evaluation-plan engine. All series live in one flat `f64[series_count × bins]` matrix. The evaluation plan is an ordered list of ops (pure functions on columns). Ships as a standalone CLI binary (`flowtime-engine eval/validate/plan`). The .NET API calls the Rust binary as a subprocess.
 
-Three-layer architecture (D-2026-04-10-031): engine core (pure function) → artifact sink (mandatory, pluggable persistence) → consumer adapters (per-surface formatting). Engine core is feature-complete after m-E20-09 (per-class decomposition + edge series). Remaining: artifact sink parity (m-E20-10). After m-E20-10, the Rust engine replaces `RunArtifactWriter` and E-17/E-18 are unblocked.
+Three-layer architecture (D-2026-04-10-031): engine core (pure function) → artifact sink (mandatory, pluggable persistence) → consumer adapters (per-surface formatting). All 10 milestones complete. The Rust engine replaces `RunArtifactWriter`. E-17/E-18 are unblocked.
 
 **Depends on:** E-10 (complete), E-16 (complete)
 
