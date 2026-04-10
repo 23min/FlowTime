@@ -213,7 +213,7 @@ Artifacts (CSVs + index.json + run.json)
 | m-E20-07 | .NET subprocess bridge | SHA256 hashing + manifest.json. RustEngineRunner subprocess bridge. Config switch. Parity tests. | complete |
 | m-E20-08 | Full parity harness | All 21 fixtures tested against C# engine. `outputs:` filtering. Green/red parity matrix. | complete |
 | m-E20-09 | Per-class decomposition and edge series | Per-class columns, edge metrics, class assignment. Engine core feature-complete. | complete |
-| m-E20-10 | Artifact sink parity | Full directory layout. StateQueryService compatible. RunArtifactWriter replaceable. | pending |
+| m-E20-10 | Artifact sink parity | Full directory layout. StateQueryService compatible. RunArtifactWriter replaceable. | in-progress |
 
 ### Milestone progression
 

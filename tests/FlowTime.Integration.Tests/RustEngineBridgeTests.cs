@@ -112,10 +112,11 @@ public class RustEngineBridgeTests : IClassFixture<RustEngineBridgeTests.RustBin
         Assert.Equal(8, result.Run.Grid.Bins);
         Assert.Equal(1, result.Run.Grid.BinSize);
         Assert.Equal("hours", result.Run.Grid.BinUnit);
-        Assert.Equal(2, result.Series.Count);
-
-        var demand = result.Series.First(s => s.Id == "demand");
-        var served = result.Series.First(s => s.Id == "served");
+        // Sink uses {measure}@{COMPONENT}@DEFAULT naming
+        var demand = FindSeries(result.Series, "demand");
+        var served = FindSeries(result.Series, "served");
+        Assert.NotNull(demand);
+        Assert.NotNull(served);
 
         Assert.Equal(8, demand.Values.Length);
         Assert.All(demand.Values, v => Assert.Equal(10.0, v));
@@ -135,13 +136,25 @@ public class RustEngineBridgeTests : IClassFixture<RustEngineBridgeTests.RustBin
         var result = await runner.EvaluateAsync(SimpleModelYaml);
 
         Assert.NotNull(result.Manifest);
-        Assert.Equal("flowtime-engine", result.Manifest.Engine);
+        // Full sink manifest follows strict schema (no engine field)
         Assert.StartsWith("sha256:", result.Manifest.ModelHash);
-        Assert.Equal(2, result.Manifest.Series.Count);
 
-        foreach (var s in result.Manifest.Series)
+        // Full sink uses seriesHashes (object) instead of series (array)
+        if (result.Manifest.SeriesHashes is not null)
         {
-            Assert.StartsWith("sha256:", s.Hash);
+            Assert.NotEmpty(result.Manifest.SeriesHashes);
+            foreach (var (_, hash) in result.Manifest.SeriesHashes)
+            {
+                Assert.StartsWith("sha256:", hash);
+            }
+        }
+        else
+        {
+            Assert.Equal(2, result.Manifest.Series.Count);
+            foreach (var s in result.Manifest.Series)
+            {
+                Assert.StartsWith("sha256:", s.Hash);
+            }
         }
     }
 
@@ -191,24 +204,21 @@ public class RustEngineBridgeTests : IClassFixture<RustEngineBridgeTests.RustBin
         // Verify queue depth from Rust: Q[t] = Q[t-1] + arrivals - served
         // Q = [7, 14, 21, 28]
         // Rust engine lowercases topology node IDs → "queue_queue"
-        var queueDepth = rustResult.Series.FirstOrDefault(s =>
-            s.Id.Equals("queue_queue", StringComparison.OrdinalIgnoreCase));
+        var queueDepth = FindSeries(rustResult.Series, "queue_queue");
         Assert.NotNull(queueDepth);
         Assert.Equal(new double[] { 7, 14, 21, 28 }, queueDepth.Values);
 
         // Cross-check input series with C# engine.
-        // Topology-derived series (queue_queue, queue_q_ratio, etc.) are produced
-        // differently: Rust emits them as explicit columns; C# computes them inside
-        // ServiceWithBufferNode evaluation. We verify parity on shared input series
-        // and verify Rust topology values against known-correct expectations.
         var coreModel = ModelService.ParseAndConvert(TopologyQueueYaml);
         var (grid, graph) = ModelParser.ParseModel(coreModel);
         var routerEvaluation = RouterAwareGraphEvaluator.Evaluate(coreModel, graph, grid);
         var csharpContext = routerEvaluation.Context;
 
         // Verify input series match
-        var rustArrivals = rustResult.Series.First(s => s.Id == "arrivals");
-        var rustServed = rustResult.Series.First(s => s.Id == "served");
+        var rustArrivals = FindSeries(rustResult.Series, "arrivals");
+        var rustServed = FindSeries(rustResult.Series, "served");
+        Assert.NotNull(rustArrivals);
+        Assert.NotNull(rustServed);
         Assert.Equal(csharpContext[new NodeId("arrivals")], rustArrivals.Values);
         Assert.Equal(csharpContext[new NodeId("served")], rustServed.Values);
     }
@@ -278,14 +288,16 @@ public class RustEngineBridgeTests : IClassFixture<RustEngineBridgeTests.RustBin
 
         var result = await runner.EvaluateAsync(NegativeAndPrecisionYaml);
 
-        var raw = result.Series.First(s => s.Id == "raw");
+        var raw = FindSeries(result.Series, "raw");
+        Assert.NotNull(raw);
         Assert.Equal(4, raw.Values.Length);
         Assert.Equal(-5.5, raw.Values[0], precision: 10);
         Assert.Equal(0.0, raw.Values[1], precision: 10);
         Assert.Equal(100.123456789, raw.Values[2], precision: 6);
         Assert.Equal(-0.001, raw.Values[3], precision: 10);
 
-        var doubled = result.Series.First(s => s.Id == "doubled");
+        var doubled = FindSeries(result.Series, "doubled");
+        Assert.NotNull(doubled);
         Assert.Equal(-11.0, doubled.Values[0], precision: 10);
         Assert.Equal(0.0, doubled.Values[1], precision: 10);
         Assert.Equal(200.246913578, doubled.Values[2], precision: 6);
@@ -392,12 +404,19 @@ public class RustEngineBridgeTests : IClassFixture<RustEngineBridgeTests.RustBin
     {
         foreach (var rustSeries in rustResult.Series)
         {
-            // Rust engine lowercases topology node IDs; C# preserves casing.
-            // Use case-insensitive lookup.
+            // Rust sink uses {measure}@{COMPONENT}@{CLASS} naming — extract base measure
+            var baseName = rustSeries.Id.Contains('@')
+                ? rustSeries.Id[..rustSeries.Id.IndexOf('@')]
+                : rustSeries.Id;
+
+            // Skip per-class and edge series — only compare DEFAULT (total) series
+            if (rustSeries.Id.Contains('@') && !rustSeries.Id.EndsWith("@DEFAULT", StringComparison.OrdinalIgnoreCase))
+                continue;
+
             var match = csharpContext.Keys.FirstOrDefault(k =>
-                k.Value.Equals(rustSeries.Id, StringComparison.OrdinalIgnoreCase));
+                k.Value.Equals(baseName, StringComparison.OrdinalIgnoreCase));
             Assert.True(match.Value is not null,
-                $"C# engine missing series '{rustSeries.Id}'. Available: {string.Join(", ", csharpContext.Keys.Select(k => k.Value))}");
+                $"C# engine missing series '{baseName}' (Rust ID: '{rustSeries.Id}'). Available: {string.Join(", ", csharpContext.Keys.Select(k => k.Value))}");
 
             var csharpValues = csharpContext[match];
             Assert.Equal(csharpValues.Length, rustSeries.Values.Length);
@@ -407,5 +426,16 @@ public class RustEngineBridgeTests : IClassFixture<RustEngineBridgeTests.RustBin
                 Assert.Equal(csharpValues[i], rustSeries.Values[i], precision: 10);
             }
         }
+    }
+
+    /// <summary>
+    /// Find a series by base name, handling the {measure}@{COMPONENT}@{CLASS} convention.
+    /// </summary>
+    private static RustEngineRunner.RustSeriesResult? FindSeries(
+        IReadOnlyList<RustEngineRunner.RustSeriesResult> series, string baseName)
+    {
+        // Try exact match first, then @...@DEFAULT suffix
+        return series.FirstOrDefault(s => s.Id == baseName)
+            ?? series.FirstOrDefault(s => s.Id.Equals($"{baseName}@{baseName.ToUpperInvariant()}@DEFAULT", StringComparison.OrdinalIgnoreCase));
     }
 }
