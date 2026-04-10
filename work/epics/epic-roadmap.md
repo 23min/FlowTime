@@ -66,7 +66,7 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 #### E-20 — Matrix Engine
 
 - **Folder:** `work/epics/E-20-matrix-engine/`
-- **Status:** Complete (7 milestones: scaffold → compiler → topology → routing → metrics → artifacts → bridge)
+- **Status:** In-progress (m-E20-01–07 complete; m-E20-08 parity harness, m-E20-09 per-class+edges, m-E20-10 artifact sink pending)
 - **Goal:** Replace C# object-graph evaluation with Rust column-store + evaluation-plan engine. Standalone CLI binary (`flowtime-engine`). Foundation for E-17/E-18.
 - **Depends on:** E-10 (complete), E-16 (complete)
 - **Reference:** `docs/research/engine-rewrite-language-and-representation.md`

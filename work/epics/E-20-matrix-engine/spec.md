@@ -1,7 +1,7 @@
 # Epic: Matrix Engine
 
 **ID:** E-20
-**Status:** complete
+**Status:** in-progress (m-E20-08 pending)
 **Owner:** Engine
 
 ## Goal
@@ -211,6 +211,9 @@ Artifacts (CSVs + index.json + run.json)
 | m-E20-05 | Derived metrics and analysis | Utilization, latency, cycle time, Cv, Kingman as plan ops. Invariant analysis as column arithmetic. Warnings. | complete |
 | m-E20-06 | Artifacts, CLI, and integration | CSV/JSON artifact writer. CLI (eval, validate, plan). | complete |
 | m-E20-07 | .NET subprocess bridge | SHA256 hashing + manifest.json. RustEngineRunner subprocess bridge. Config switch. Parity tests. | complete |
+| m-E20-08 | Full parity harness | All 21 fixtures tested against C# engine. `outputs:` filtering. Green/red parity matrix. | pending |
+| m-E20-09 | Per-class decomposition and edge series | Per-class columns, edge metrics, class assignment. Engine core feature-complete. | pending |
+| m-E20-10 | Artifact sink parity | Full directory layout. StateQueryService compatible. RunArtifactWriter replaceable. | pending |
 
 ### Milestone progression
 
@@ -221,4 +224,8 @@ Each milestone delivers a progressively more capable engine, testable against C#
 - After **M3**: evaluate models with queues, SHIFT, WIP, backpressure — core flow dynamics
 - After **M4**: evaluate models with routers, constraints, classes — full flow algebra
 - After **M5**: produce derived metrics and warnings — full analytical layer
-- After **M6**: produce artifacts, run from CLI, integrate with .NET API — production-ready
+- After **M6**: produce artifacts, run from CLI — standalone binary
+- After **M7**: .NET can call the Rust engine as a subprocess — bridge operational
+- After **M8**: parity verified against all fixtures — no surprises before core work
+- After **M9**: engine returns complete results (classes, edges) — evaluation-complete
+- After **M10**: artifact sink produces full layout — C# RunArtifactWriter replaceable, E-17/E-18 unblocked

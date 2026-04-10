@@ -177,11 +177,13 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
-- **E-20** Matrix Engine (`work/epics/E-20-matrix-engine/spec.md`) — **complete**
+- **E-20** Matrix Engine (`work/epics/E-20-matrix-engine/spec.md`) — **in-progress**
   - Rust column-store + evaluation-plan engine. Standalone CLI binary. Foundation for E-17/E-18.
-  - **All 7 milestones delivered:** scaffold → compiler → topology → routing → metrics → artifacts → bridge. 123 Rust tests + 14 bridge integration tests.
-  - **m-E20-07** (.NET subprocess bridge): SHA256 hashing + manifest.json, RustEngineRunner subprocess bridge, config switch, parity tests.
-  - **Follow-up:** per-class output, full C# parity harness across all fixture models.
+  - **m-E20-01 through m-E20-07 complete:** scaffold → compiler → topology → routing → metrics → artifacts → bridge. 123 Rust tests + 14 bridge integration tests.
+  - **m-E20-08** (pending): Full parity harness — all 21 fixtures tested, `outputs:` filtering, green/red parity matrix.
+  - **m-E20-09** (pending): Per-class decomposition + edge series — engine core feature-complete.
+  - **m-E20-10** (pending): Artifact sink parity — full directory layout, StateQueryService compatible, RunArtifactWriter replaceable.
+  - **Architecture:** D-2026-04-10-031 — engine core (pure function) / artifact sink (mandatory, pluggable) / consumer adapters.
 - **E-10** Engine Correctness — **completed and merged to main (2026-04-09).** Archived to `work/epics/completed/E-10-engine-correctness-and-analytics/`.
 - **E-16** Formula-First Core Purification — **completed.** Archived to `work/epics/completed/E-16-formula-first-core-purification/`.
 - **E-19** Surface Alignment & Compatibility Cleanup — **completed and merged to main (2026-04-08).** Archived to `work/epics/completed/E-19-surface-alignment-and-compatibility-cleanup/`.

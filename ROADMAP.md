@@ -105,11 +105,11 @@ These are the lowest-risk leverage layers after purification. They make the pure
 
 ## E-20 — Matrix Engine (in-progress)
 
-**Epic:** `work/epics/E-20-matrix-engine/spec.md` | **Status:** complete — all 7 milestones delivered (6 engine + bridge), 123 Rust tests + 14 bridge integration tests
+**Epic:** `work/epics/E-20-matrix-engine/spec.md` | **Status:** in-progress (m-E20-01–07 complete, m-E20-08–10 pending)
 
 Replace the C# object-graph evaluation with a Rust column-store + evaluation-plan engine. All series live in one flat `f64[series_count × bins]` matrix. The evaluation plan is an ordered list of ops (pure functions on columns). Ships as a standalone CLI binary (`flowtime-engine eval/validate/plan`). The .NET API calls the Rust binary as a subprocess.
 
-This is the foundation for E-17 and E-18 — incremental re-evaluation, plan introspection, and parameter sweeps become trivial with the plan-as-data representation.
+Three-layer architecture (D-2026-04-10-031): engine core (pure function) → artifact sink (mandatory, pluggable persistence) → consumer adapters (per-surface formatting). Remaining milestones: full parity harness (m-E20-08), per-class decomposition + edge series (m-E20-09), artifact sink parity (m-E20-10). After m-E20-10, the Rust engine replaces `RunArtifactWriter` and E-17/E-18 are unblocked.
 
 **Depends on:** E-10 (complete), E-16 (complete)
 
