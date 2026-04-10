@@ -1,7 +1,7 @@
 use std::env;
 use std::fs;
 use std::path::Path;
-use flowtime_core::{model, compiler, eval, writer};
+use flowtime_core::{model, compiler, eval, sink};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -101,8 +101,9 @@ fn cmd_eval(args: &[String]) {
     match compiler::eval_model(&model) {
         Ok(result) => {
             if let Some(dir) = output_dir {
-                // Write artifacts to output directory (with YAML text for SHA256 hashing)
-                match writer::write_artifacts_with_yaml(Path::new(&dir), &model, &result, Some(&yaml)) {
+                // Write full artifact sink (StateQueryService-compatible layout)
+                let config = sink::SinkConfig::default();
+                match sink::write_sink(Path::new(&dir), &model, &result, &yaml, &config) {
                     Ok(()) => {
                         let series_count = result.column_map.iter()
                             .filter(|(_, name)| !name.starts_with("__temp_"))

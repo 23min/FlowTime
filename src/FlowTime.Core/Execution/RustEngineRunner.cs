@@ -74,7 +74,12 @@ public sealed class RustEngineRunner
         public string EngineVersion { get; init; } = string.Empty;
         public RustGridInfo Grid { get; init; } = new();
         public string? ModelHash { get; init; }
+        public string? ScenarioHash { get; init; }
+        public string? CreatedUtc { get; init; }
+        /// Legacy: array format from minimal writer.
         public IReadOnlyList<RustManifestSeries> Series { get; init; } = [];
+        /// Full sink format: map of series ID → hash.
+        public IReadOnlyDictionary<string, string>? SeriesHashes { get; init; }
     }
 
     public sealed record RustManifestSeries
