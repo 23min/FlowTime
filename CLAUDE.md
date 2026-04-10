@@ -181,7 +181,7 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
   - Rust column-store + evaluation-plan engine. Standalone CLI binary. Foundation for E-17/E-18.
   - **m-E20-01 through m-E20-07 complete:** scaffold → compiler → topology → routing → metrics → artifacts → bridge. 123 Rust tests + 14 bridge integration tests.
   - **m-E20-08** (complete): Full parity harness — 9/21 pass, 1 known divergence, 11 skip. Baseline established.
-  - **m-E20-09** (in-progress): Per-class decomposition + edge series — engine core feature-complete. Branch: `milestone/m-E20-09-per-class-and-edge-series`.
+  - **m-E20-09** (complete): Per-class decomposition + edge series — engine core feature-complete. 142 Rust tests, parity 21/21.
   - **m-E20-10** (pending): Artifact sink parity — full directory layout, StateQueryService compatible, RunArtifactWriter replaceable.
   - **Architecture:** D-2026-04-10-031 — engine core (pure function) / artifact sink (mandatory, pluggable) / consumer adapters.
 - **E-10** Engine Correctness — **completed and merged to main (2026-04-09).** Archived to `work/epics/completed/E-10-engine-correctness-and-analytics/`.

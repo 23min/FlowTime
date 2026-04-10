@@ -2,8 +2,8 @@
 
 **ID:** m-E20-09
 **Epic:** E-20 Matrix Engine
-**Status:** in-progress
-**Branch:** `milestone/m-E20-09-per-class-and-edge-series` (off `main`)
+**Status:** complete
+**Branch:** `milestone/m-E20-09-per-class-and-edge-series` (merged to main)
 **Depends on:** m-E20-08 (parity harness, baseline established)
 
 ## Goal
