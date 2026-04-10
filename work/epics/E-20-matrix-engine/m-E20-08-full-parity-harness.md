@@ -2,7 +2,7 @@
 
 **ID:** m-E20-08
 **Epic:** E-20 Matrix Engine
-**Status:** pending
+**Status:** in-progress
 **Branch:** `milestone/m-E20-08-full-parity-harness` (off `main`)
 **Depends on:** m-E20-07 (bridge, complete)
 

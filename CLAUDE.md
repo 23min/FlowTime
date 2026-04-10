@@ -180,7 +180,7 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 - **E-20** Matrix Engine (`work/epics/E-20-matrix-engine/spec.md`) — **in-progress**
   - Rust column-store + evaluation-plan engine. Standalone CLI binary. Foundation for E-17/E-18.
   - **m-E20-01 through m-E20-07 complete:** scaffold → compiler → topology → routing → metrics → artifacts → bridge. 123 Rust tests + 14 bridge integration tests.
-  - **m-E20-08** (pending): Full parity harness — all 21 fixtures tested, `outputs:` filtering, green/red parity matrix.
+  - **m-E20-08** (in-progress): Full parity harness — all 21 fixtures tested, `outputs:` filtering, green/red parity matrix. Branch: `milestone/m-E20-08-full-parity-harness`.
   - **m-E20-09** (pending): Per-class decomposition + edge series — engine core feature-complete.
   - **m-E20-10** (pending): Artifact sink parity — full directory layout, StateQueryService compatible, RunArtifactWriter replaceable.
   - **Architecture:** D-2026-04-10-031 — engine core (pure function) / artifact sink (mandatory, pluggable) / consumer adapters.
