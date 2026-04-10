@@ -179,8 +179,9 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 
 - **E-20** Matrix Engine (`work/epics/E-20-matrix-engine/spec.md`) — **complete**
   - Rust column-store + evaluation-plan engine. Standalone CLI binary. Foundation for E-17/E-18.
-  - **All 6 milestones delivered:** scaffold → compiler → topology → routing → metrics → artifacts. 119 Rust tests.
-  - **Follow-up:** SHA256 hashing, manifest.json, per-class output, .NET subprocess bridge, full C# parity harness.
+  - **All 7 milestones delivered:** scaffold → compiler → topology → routing → metrics → artifacts → bridge. 123 Rust tests + 14 bridge integration tests.
+  - **m-E20-07** (.NET subprocess bridge): SHA256 hashing + manifest.json, RustEngineRunner subprocess bridge, config switch, parity tests.
+  - **Follow-up:** per-class output, full C# parity harness across all fixture models.
 - **E-10** Engine Correctness — **completed and merged to main (2026-04-09).** Archived to `work/epics/completed/E-10-engine-correctness-and-analytics/`.
 - **E-16** Formula-First Core Purification — **completed.** Archived to `work/epics/completed/E-16-formula-first-core-purification/`.
 - **E-19** Surface Alignment & Compatibility Cleanup — **completed and merged to main (2026-04-08).** Archived to `work/epics/completed/E-19-surface-alignment-and-compatibility-cleanup/`.

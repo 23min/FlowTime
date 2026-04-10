@@ -209,7 +209,8 @@ Artifacts (CSVs + index.json + run.json)
 | m-E20-03 | Topology and sequential ops | Queue synthesis, QueueRecurrence, Shift, Convolve, DispatchGate, PMF, WIP limits with overflow. Feedback subgraphs (bin-sequential). | complete |
 | m-E20-04 | Routing and constraints | Router flow materialization, constraint allocation, multi-class flow distribution — all as plan ops. | complete |
 | m-E20-05 | Derived metrics and analysis | Utilization, latency, cycle time, Cv, Kingman as plan ops. Invariant analysis as column arithmetic. Warnings. | complete |
-| m-E20-06 | Artifacts, CLI, and integration | CSV/JSON artifact writer. CLI (eval, validate, plan). .NET subprocess bridge. Full parity harness. | complete |
+| m-E20-06 | Artifacts, CLI, and integration | CSV/JSON artifact writer. CLI (eval, validate, plan). | complete |
+| m-E20-07 | .NET subprocess bridge | SHA256 hashing + manifest.json. RustEngineRunner subprocess bridge. Config switch. Parity tests. | complete |
 
 ### Milestone progression
 
