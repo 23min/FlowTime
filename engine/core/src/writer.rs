@@ -41,10 +41,12 @@ pub fn write_artifacts_with_yaml(
     let grid = model.grid.as_ref()
         .ok_or("Model must have a grid definition")?;
 
-    // Collect non-temp series
-    let series_list: Vec<(usize, &str)> = result.column_map.iter()
+    // Collect non-temp series, filtered by outputs section if present
+    let all_series: Vec<(usize, &str)> = result.column_map.iter()
         .filter(|(_, name)| !name.starts_with("__temp_"))
         .collect();
+
+    let series_list = filter_by_outputs(&all_series, &model.outputs);
 
     // Write CSVs
     for &(idx, name) in &series_list {
@@ -71,6 +73,57 @@ pub fn write_artifacts_with_yaml(
     write_manifest_json(output_dir, grid, model_hash.as_deref(), &series_hashes)?;
 
     Ok(())
+}
+
+/// Filter series list by the model's `outputs` section.
+/// If `outputs` is empty, return all series. Otherwise, only include series
+/// whose name matches an entry's `series` field. Supports `*` (all) and
+/// `prefix/*` (prefix match) patterns.
+fn filter_by_outputs<'a>(
+    all_series: &[(usize, &'a str)],
+    outputs: &[crate::model::OutputDefinition],
+) -> Vec<(usize, &'a str)> {
+    if outputs.is_empty() {
+        return all_series.to_vec();
+    }
+
+    let mut result = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    for output in outputs {
+        let pattern = output.series.trim();
+        if pattern.is_empty() {
+            continue;
+        }
+
+        if pattern == "*" {
+            for &(idx, name) in all_series {
+                if seen.insert(name) {
+                    result.push((idx, name));
+                }
+            }
+        } else if pattern.ends_with("/*") {
+            let prefix = &pattern[..pattern.len() - 2];
+            for &(idx, name) in all_series {
+                if name.starts_with(prefix) && seen.insert(name) {
+                    result.push((idx, name));
+                }
+            }
+        } else {
+            for &(idx, name) in all_series {
+                if name.eq_ignore_ascii_case(pattern) && seen.insert(name) {
+                    result.push((idx, name));
+                }
+            }
+        }
+    }
+
+    // Fallback: if no outputs matched, include all (matches C# behavior)
+    if result.is_empty() {
+        return all_series.to_vec();
+    }
+
+    result
 }
 
 fn sha256_hex(input: &str) -> String {
@@ -538,5 +591,95 @@ nodes:
         // Known SHA256 of empty string
         let hash = sha256_hex("");
         assert_eq!(hash, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+    }
+
+    #[test]
+    fn outputs_filters_to_listed_series() {
+        let yaml = r#"
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: demand
+    kind: const
+    values: [10, 20, 30]
+  - id: served
+    kind: expr
+    expr: "demand * 0.8"
+outputs:
+  - series: served
+    as: served.csv
+"#;
+        let model = parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+        let dir = tmp_dir();
+        write_artifacts(&dir, &model, &result).unwrap();
+
+        // Only 'served' should be written, not 'demand'
+        assert!(dir.join("series/served.csv").exists());
+        assert!(!dir.join("series/demand.csv").exists());
+
+        let index = fs::read_to_string(dir.join("series/index.json")).unwrap();
+        assert!(index.contains("\"id\": \"served\""));
+        assert!(!index.contains("\"id\": \"demand\""));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn outputs_wildcard_includes_all() {
+        let yaml = r#"
+grid:
+  bins: 2
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: a
+    kind: const
+    values: [1, 2]
+  - id: b
+    kind: const
+    values: [3, 4]
+outputs:
+  - series: "*"
+    as: all.csv
+"#;
+        let model = parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+        let dir = tmp_dir();
+        write_artifacts(&dir, &model, &result).unwrap();
+
+        assert!(dir.join("series/a.csv").exists());
+        assert!(dir.join("series/b.csv").exists());
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn outputs_empty_includes_all() {
+        // No outputs section → all series included
+        let yaml = r#"
+grid:
+  bins: 2
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: x
+    kind: const
+    values: [1, 2]
+  - id: y
+    kind: const
+    values: [3, 4]
+"#;
+        let model = parse_model_yaml(yaml).unwrap();
+        let result = eval_model(&model).unwrap();
+        let dir = tmp_dir();
+        write_artifacts(&dir, &model, &result).unwrap();
+
+        assert!(dir.join("series/x.csv").exists());
+        assert!(dir.join("series/y.csv").exists());
+
+        let _ = fs::remove_dir_all(&dir);
     }
 }
