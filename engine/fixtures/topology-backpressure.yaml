@@ -1,0 +1,39 @@
+# Backpressure feedback: SHIFT-based throttle stabilizes queue
+# Cycle: effective_arrivals → queue → pressure → SHIFT → effective_arrivals
+# Expected: Q stabilizes at 40 after t=2
+grid:
+  bins: 6
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: raw_arrivals
+    kind: const
+    values: [100, 100, 100, 100, 100, 100]
+  - id: served
+    kind: const
+    values: [20, 20, 20, 20, 20, 20]
+  - id: wip_capacity
+    kind: const
+    values: [50, 50, 50, 50, 50, 50]
+  - id: pressure
+    kind: expr
+    expr: "CLAMP(queue_depth / wip_capacity, 0, 1)"
+  - id: shifted_pressure
+    kind: expr
+    expr: "SHIFT(pressure, 1)"
+  - id: throttle
+    kind: expr
+    expr: "1 - shifted_pressure"
+  - id: effective_arrivals
+    kind: expr
+    expr: "raw_arrivals * throttle"
+topology:
+  nodes:
+    - id: Queue
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: effective_arrivals
+        served: served
+        queueDepth: queue_depth
+  edges: []
+  constraints: []

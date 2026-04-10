@@ -1,0 +1,22 @@
+# Simple queue: const arrivals/served → queue depth
+# Expected: Q = [7, 14, 21, 28] (inflow=10, outflow=3, no limit)
+grid:
+  bins: 4
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arrivals
+    kind: const
+    values: [10, 10, 10, 10]
+  - id: served
+    kind: const
+    values: [3, 3, 3, 3]
+topology:
+  nodes:
+    - id: Queue
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
+  constraints: []

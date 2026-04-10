@@ -1,0 +1,29 @@
+window:
+  bins: 288
+  binSize: 5
+  binUnit: minutes
+  startTimeUtc: "2025-10-07T00:00:00Z"
+
+topology:
+  nodes:
+    - id: "OrderService"
+      semantics:
+        arrivals: "file:OrderService_arrivals.csv"
+        served: "file:OrderService_served.csv"
+        errors: "file:OrderService_errors.csv"
+        externalDemand: null
+        queueDepth: null
+    - id: "PaymentService"
+      semantics:
+        arrivals: "file:PaymentService_arrivals.csv"
+        served: "file:PaymentService_served.csv"
+        errors: "file:PaymentService_errors.csv"
+        externalDemand: null
+        queueDepth: null
+  edges:
+    - source: "OrderService"
+      target: "PaymentService"
+      weight: 0.85
+
+variables: []
+constraints: []

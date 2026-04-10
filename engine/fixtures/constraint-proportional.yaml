@@ -1,0 +1,42 @@
+# Constraint proportional split: 2 nodes, demand=120 > capacity=80
+# Expected: capped_a=40, capped_b=40, Q_a=[30,60,90], Q_b=[30,60,90]
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: demand_a
+    kind: const
+    values: [60, 60, 60]
+  - id: demand_b
+    kind: const
+    values: [60, 60, 60]
+  - id: capacity
+    kind: const
+    values: [80, 80, 80]
+  - id: served_a
+    kind: const
+    values: [10, 10, 10]
+  - id: served_b
+    kind: const
+    values: [10, 10, 10]
+topology:
+  nodes:
+    - id: NodeA
+      kind: serviceWithBuffer
+      constraints: [shared]
+      semantics:
+        arrivals: demand_a
+        served: served_a
+    - id: NodeB
+      kind: serviceWithBuffer
+      constraints: [shared]
+      semantics:
+        arrivals: demand_b
+        served: served_b
+  edges: []
+  constraints:
+    - id: shared
+      semantics:
+        arrivals: total_demand
+        served: capacity
