@@ -1075,6 +1075,33 @@ pub fn queue_column_id_pub(topo_node_id: &str) -> String {
     queue_column_id(topo_node_id)
 }
 
+/// Public accessor for build_class_map (used by session for post-eval pipeline).
+pub fn build_class_map_pub(cm: &crate::plan::ColumnMap) -> ClassMap {
+    build_class_map(cm)
+}
+
+/// Public accessor for propagate_class_decomposition (used by session).
+pub fn propagate_class_decomposition_pub(
+    model: &ModelDefinition,
+    state: &mut Vec<f64>,
+    cm: &mut crate::plan::ColumnMap,
+    class_map: &mut ClassMap,
+    bins: usize,
+) {
+    propagate_class_decomposition(model, state, cm, class_map, bins)
+}
+
+/// Public accessor for compute_edge_series (used by session).
+pub fn compute_edge_series_pub(
+    model: &ModelDefinition,
+    state: &mut Vec<f64>,
+    cm: &mut crate::plan::ColumnMap,
+    class_map: &ClassMap,
+    bins: usize,
+) -> EdgeMap {
+    compute_edge_series(model, state, cm, class_map, bins)
+}
+
 /// Compile constraint allocation: emit ProportionalAlloc ops and patch QueueRecurrence inflows.
 fn compile_constraints(
     topo: &crate::model::TopologyDefinition,
