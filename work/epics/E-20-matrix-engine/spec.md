@@ -1,7 +1,7 @@
 # Epic: Matrix Engine
 
 **ID:** E-20
-**Status:** in-progress (m-E20-08 in-progress)
+**Status:** in-progress (m-E20-09 in-progress)
 **Owner:** Engine
 
 ## Goal
@@ -211,8 +211,8 @@ Artifacts (CSVs + index.json + run.json)
 | m-E20-05 | Derived metrics and analysis | Utilization, latency, cycle time, Cv, Kingman as plan ops. Invariant analysis as column arithmetic. Warnings. | complete |
 | m-E20-06 | Artifacts, CLI, and integration | CSV/JSON artifact writer. CLI (eval, validate, plan). | complete |
 | m-E20-07 | .NET subprocess bridge | SHA256 hashing + manifest.json. RustEngineRunner subprocess bridge. Config switch. Parity tests. | complete |
-| m-E20-08 | Full parity harness | All 21 fixtures tested against C# engine. `outputs:` filtering. Green/red parity matrix. | in-progress |
-| m-E20-09 | Per-class decomposition and edge series | Per-class columns, edge metrics, class assignment. Engine core feature-complete. | pending |
+| m-E20-08 | Full parity harness | All 21 fixtures tested against C# engine. `outputs:` filtering. Green/red parity matrix. | complete |
+| m-E20-09 | Per-class decomposition and edge series | Per-class columns, edge metrics, class assignment. Engine core feature-complete. | in-progress |
 | m-E20-10 | Artifact sink parity | Full directory layout. StateQueryService compatible. RunArtifactWriter replaceable. | pending |
 
 ### Milestone progression

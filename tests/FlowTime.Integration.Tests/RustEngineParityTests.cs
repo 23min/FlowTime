@@ -39,10 +39,11 @@ public class RustEngineParityTests : IClassFixture<RustEngineParityTests.ParityF
     /// <summary>
     /// Class-enabled fixtures that are expected to diverge on topology-derived per-class series.
     /// Shared input series (const, expr nodes) should still match.
+    /// m-E20-09: class-enabled.yaml removed — per-class decomposition now matches C#.
+    /// Router fixtures remain because they are in RustOnlyFixtures (C# parser can't handle them).
     /// </summary>
     private static readonly HashSet<string> ClassFixtures = new(StringComparer.OrdinalIgnoreCase)
     {
-        "class-enabled.yaml",
         "router-class.yaml",
         "router-mixed.yaml",
     };
