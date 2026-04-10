@@ -2,7 +2,7 @@
 
 **Milestone:** m-E20-09
 **Epic:** E-20 Matrix Engine
-**Status:** in-progress
+**Status:** complete
 **Branch:** `milestone/m-E20-09-per-class-and-edge-series`
 **Started:** 2026-04-10
 

@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\src\FlowTime.Contracts\FlowTime.Contracts.csproj" />
     <ProjectReference Include="..\..\src\FlowTime.Generator\FlowTime.Generator.csproj" />
     <ProjectReference Include="..\..\src\FlowTime.API\FlowTime.API.csproj" />
+    <ProjectReference Include="..\..\src\FlowTime.Adapters.Synthetic\FlowTime.Adapters.Synthetic.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -156,8 +156,20 @@ public class RustEngineParityTests : IClassFixture<RustEngineParityTests.ParityF
 
         foreach (var rustSeries in rustResult.Series)
         {
+            // Rust sink uses {measure}@{COMPONENT}@{CLASS} naming — extract base measure for C# match
+            var rustBaseName = rustSeries.Id.Contains('@')
+                ? rustSeries.Id[..rustSeries.Id.IndexOf('@')]
+                : rustSeries.Id;
+
+            // Only compare DEFAULT (total) series, skip per-class and edge series
+            if (rustSeries.Id.Contains('@') && !rustSeries.Id.EndsWith("@DEFAULT", StringComparison.OrdinalIgnoreCase))
+            {
+                skipCount++;
+                continue;
+            }
+
             var csharpMatch = csharpContext.Keys.FirstOrDefault(k =>
-                k.Value.Equals(rustSeries.Id, StringComparison.OrdinalIgnoreCase));
+                k.Value.Equals(rustBaseName, StringComparison.OrdinalIgnoreCase));
 
             if (csharpMatch.Value is null)
             {
@@ -259,8 +271,15 @@ public class RustEngineParityTests : IClassFixture<RustEngineParityTests.ParityF
 
                 foreach (var rs in rustResult.Series)
                 {
+                    // Extract base name from {measure}@{COMPONENT}@{CLASS} convention
+                    var baseName = rs.Id.Contains('@') ? rs.Id[..rs.Id.IndexOf('@')] : rs.Id;
+
+                    // Skip per-class and edge series for parity comparison
+                    if (rs.Id.Contains('@') && !rs.Id.EndsWith("@DEFAULT", StringComparison.OrdinalIgnoreCase))
+                    { skipped2++; continue; }
+
                     var csMatch = csharpContext.Keys.FirstOrDefault(k =>
-                        k.Value.Equals(rs.Id, StringComparison.OrdinalIgnoreCase));
+                        k.Value.Equals(baseName, StringComparison.OrdinalIgnoreCase));
 
                     if (csMatch.Value is null) { skipped2++; continue; }
 
