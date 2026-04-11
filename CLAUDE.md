@@ -177,10 +177,13 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
+- **E-17** Interactive What-If Mode (`work/epics/E-17-interactive-what-if-mode/spec.md`) — **in-progress**
+  - Tweak parameters in UI, see live updates via WebSocket to engine session.
+  - **m-E17-01** (in-progress): WebSocket engine bridge — .NET proxy to engine session subprocess. Branch: `milestone/m-E17-01-websocket-engine-bridge`.
 - **E-18** Time Machine (`work/epics/E-18-headless-pipeline-and-optimization/spec.md`) — **in-progress**
   - Headless engine: parameterized evaluation → streaming protocol → pipeline component.
   - **m-E18-01** (complete): Parameterized evaluation — ParamTable, evaluate_with_params, compile-once eval-many.
-  - **m-E18-02** (in-progress): Engine session + streaming protocol — persistent process, MessagePack over stdin/stdout. Branch: `milestone/m-E18-02-engine-session-protocol`.
+  - **m-E18-02** (complete): Engine session + streaming protocol — persistent process, MessagePack over stdin/stdout.
   - **Architecture:** `docs/architecture/headless-engine-architecture.md` — four-layer design.
 - **E-20** Matrix Engine — **completed and merged to main (2026-04-10).** Archived to `work/epics/completed/E-20-matrix-engine/`.
   - 10 milestones. 172 Rust tests + 1,332 .NET tests. E-17/E-18 unblocked.
