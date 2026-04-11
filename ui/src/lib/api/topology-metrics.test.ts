@@ -4,6 +4,7 @@ import {
 	availableMetrics,
 	seriesMean,
 	buildMetricMap,
+	buildEdgeMetricMap,
 	seriesRange,
 	normalizeMetricMap,
 	type MetricMap,
@@ -135,6 +136,115 @@ describe('buildMetricMap', () => {
 
 	it('returns empty map when no nodes match', () => {
 		const map = buildMetricMap(graph, { totally_different: [1] });
+		expect(map.size).toBe(0);
+	});
+});
+
+// ── buildEdgeMetricMap ──
+//
+// Edge key format: `${fromId}\u2192${toId}` (Unicode right arrow →)
+// Confirmed from dag-map/src/render.js:151
+
+describe('buildEdgeMetricMap', () => {
+	// Simple two-node graph: arrivals → Service
+	const graph: EngineGraph = {
+		nodes: [
+			{ id: 'arrivals', kind: 'const' },
+			{ id: 'Service', kind: 'servicewithbuffer' },
+		],
+		edges: [{ from: 'arrivals', to: 'Service' }],
+	};
+
+	it('uses Unicode arrow key: from→to', () => {
+		const series = { arrivals: [10, 10, 10] };
+		const map = buildEdgeMetricMap(graph, series);
+		// Key must be the exact Unicode arrow character
+		expect(map.has('arrivals\u2192Service')).toBe(true);
+	});
+
+	it('does NOT use ASCII arrow key', () => {
+		const series = { arrivals: [10, 10, 10] };
+		const map = buildEdgeMetricMap(graph, series);
+		expect(map.has('arrivals->Service')).toBe(false);
+	});
+
+	it('assigns the mean of the from-node series', () => {
+		const series = { arrivals: [10, 20, 30] };
+		const map = buildEdgeMetricMap(graph, series);
+		expect(map.get('arrivals\u2192Service')?.value).toBe(20);
+	});
+
+	it('omits edge when from-node has no series', () => {
+		const series = { served: [5, 5, 5] }; // no 'arrivals' series
+		const map = buildEdgeMetricMap(graph, series);
+		expect(map.size).toBe(0);
+	});
+
+	it('handles multiple edges — correct keys and values', () => {
+		const multiGraph: EngineGraph = {
+			nodes: [
+				{ id: 'a', kind: 'const' },
+				{ id: 'b', kind: 'expr' },
+				{ id: 'c', kind: 'expr' },
+			],
+			edges: [
+				{ from: 'a', to: 'b' },
+				{ from: 'b', to: 'c' },
+			],
+		};
+		const series = { a: [2, 4], b: [6, 8] };
+		const map = buildEdgeMetricMap(multiGraph, series);
+		expect(map.get('a\u2192b')?.value).toBe(3);   // mean([2,4])
+		expect(map.get('b\u2192c')?.value).toBe(7);   // mean([6,8])
+		expect(map.size).toBe(2);
+	});
+
+	it('map size equals edges with known from-series', () => {
+		// 3 edges, only 2 from-nodes have series
+		const g: EngineGraph = {
+			nodes: [
+				{ id: 'x', kind: 'const' },
+				{ id: 'y', kind: 'expr' },
+				{ id: 'z', kind: 'expr' },
+				{ id: 'w', kind: 'expr' },
+			],
+			edges: [
+				{ from: 'x', to: 'y' },
+				{ from: 'y', to: 'z' },
+				{ from: 'z', to: 'w' }, // 'z' has no series
+			],
+		};
+		const series = { x: [1], y: [2] };
+		const map = buildEdgeMetricMap(g, series);
+		expect(map.size).toBe(2);
+	});
+
+	it('uses queue column fallback for topology from-nodes', () => {
+		// Edge from topology node MyQueue (whose series is "my_queue_queue") to expr
+		const g: EngineGraph = {
+			nodes: [
+				{ id: 'MyQueue', kind: 'servicewithbuffer' },
+				{ id: 'downstream', kind: 'expr' },
+			],
+			edges: [{ from: 'MyQueue', to: 'downstream' }],
+		};
+		const series = { my_queue_queue: [3, 6, 9] };
+		const map = buildEdgeMetricMap(g, series);
+		expect(map.get('MyQueue\u2192downstream')?.value).toBe(6); // mean([3,6,9])
+	});
+
+	it('attaches label equal to from-node id', () => {
+		const series = { arrivals: [15] };
+		const map = buildEdgeMetricMap(graph, series);
+		expect(map.get('arrivals\u2192Service')?.label).toBe('arrivals');
+	});
+
+	it('returns empty map when graph has no edges', () => {
+		const noEdgeGraph: EngineGraph = {
+			nodes: [{ id: 'solo', kind: 'const' }],
+			edges: [],
+		};
+		const map = buildEdgeMetricMap(noEdgeGraph, { solo: [1, 2, 3] });
 		expect(map.size).toBe(0);
 	});
 });

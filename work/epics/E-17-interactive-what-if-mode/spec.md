@@ -57,6 +57,8 @@ The circuit simulator analogy: SPICE compiles a netlist once, then allows parame
 | m-E17-02 | Svelte Parameter Panel | complete | SvelteKit `/what-if` page with live-bound sliders, example model picker, series mini-charts, latency badge |
 | m-E17-03 | Live Topology + Charts | complete | Dag-map topology graph with heatmap, per-series charts with hover tooltips, layout stability across tweaks |
 | m-E17-04 | Warnings Surface | complete | Engine warnings flow through session protocol into banner, details panel, and topology node badges; capacity-constrained example model drives the demo loop |
+| m-E17-05 | Edge Heatmap | in-progress | Color topology edges by their throughput series mean; wires up the already-present `edgeMetrics` prop in dag-map-view |
+| m-E17-06 | Time Scrubber | pending | Bin-position slider switches heatmap (nodes + edges) from mean to per-bin value; vertical crosshair on all charts |
 
 ## Dependencies
 
