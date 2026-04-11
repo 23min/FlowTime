@@ -1,7 +1,8 @@
 //! Engine session: persistent process holding compiled Plan and current state.
 
 use crate::protocol::{
-    self, CompileResult, EvalResultMsg, GridInfo, ParamInfo, Request, Response,
+    self, CompileResult, EvalResultMsg, GraphEdgeMsg, GraphInfoMsg, GraphNodeMsg, GridInfo,
+    ParamInfo, Request, Response,
 };
 use flowtime_core::compiler::{self, EvalResult};
 use flowtime_core::eval;
@@ -62,6 +63,19 @@ impl Session {
         // Build initial series
         let series = extract_all_series(&result);
 
+        // Derive graph for UI topology visualization
+        let graph = compiler::derive_graph(&md);
+        let graph_msg = GraphInfoMsg {
+            nodes: graph.nodes.iter().map(|n| GraphNodeMsg {
+                id: n.id.clone(),
+                kind: n.kind.clone(),
+            }).collect(),
+            edges: graph.edges.iter().map(|e| GraphEdgeMsg {
+                from: e.from.clone(),
+                to: e.to.clone(),
+            }).collect(),
+        };
+
         let grid = md.grid.as_ref().unwrap();
         let compile_result = CompileResult {
             params: param_infos,
@@ -72,6 +86,7 @@ impl Session {
                 bin_size: grid.bin_size,
                 bin_unit: grid.bin_unit.clone(),
             },
+            graph: graph_msg,
         };
 
         self.model = Some(md);

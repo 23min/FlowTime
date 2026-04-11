@@ -30,13 +30,33 @@ pub struct ErrorInfo {
     pub message: String,
 }
 
-/// Compile result: parameter schema + initial series.
+/// Compile result: parameter schema + initial series + graph topology.
 #[derive(Debug, Serialize)]
 pub struct CompileResult {
     pub params: Vec<ParamInfo>,
     pub series: HashMap<String, Vec<f64>>,
     pub bins: usize,
     pub grid: GridInfo,
+    pub graph: GraphInfoMsg,
+}
+
+/// Graph structure for UI visualization (nodes + edges).
+#[derive(Debug, Serialize)]
+pub struct GraphInfoMsg {
+    pub nodes: Vec<GraphNodeMsg>,
+    pub edges: Vec<GraphEdgeMsg>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct GraphNodeMsg {
+    pub id: String,
+    pub kind: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct GraphEdgeMsg {
+    pub from: String,
+    pub to: String,
 }
 
 #[derive(Debug, Serialize)]
