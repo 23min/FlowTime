@@ -2,8 +2,8 @@
 
 **ID:** m-E17-02
 **Epic:** E-17 Interactive What-If Mode
-**Status:** in-progress
-**Branch:** `milestone/m-E17-02-svelte-parameter-panel` (off `main`)
+**Status:** complete
+**Branch:** `milestone/m-E17-02-svelte-parameter-panel` (merged to main)
 **Depends on:** m-E17-01 (WebSocket engine bridge + EngineSession client)
 
 ## Goal
