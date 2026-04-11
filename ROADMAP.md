@@ -123,6 +123,8 @@ Live interactive recalculation: change a parameter, see every metric update inst
 - **m-E17-02 Svelte Parameter Panel** — complete. SvelteKit `/what-if` page with live sliders, example picker, mini-charts, latency badge.
 - **m-E17-03 Live Topology + Charts** — complete. Dag-map topology with heatmap, per-series charts, hover tooltips, layout stability.
 - **m-E17-04 Warnings Surface** — complete. Engine warnings flow through session protocol to banner, details panel, topology node badges. Capacity-constrained example model drives the demo loop.
+- **m-E17-05 Edge Heatmap** — complete. Topology edges colored by throughput series mean; wires up `edgeMetrics` prop in dag-map-view.
+- **m-E17-06 Time Scrubber** — complete. Bin-position slider switches heatmap (nodes + edges) from mean to per-bin; vertical crosshair on all charts. 199 vitest + 26 Playwright.
 
 **Depends on:** E-20
 

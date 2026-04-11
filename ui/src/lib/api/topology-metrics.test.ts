@@ -138,6 +138,44 @@ describe('buildMetricMap', () => {
 		const map = buildMetricMap(graph, { totally_different: [1] });
 		expect(map.size).toBe(0);
 	});
+
+	// per-bin mode (AC-10)
+	it('uses value at bin 0 when bin=0', () => {
+		const series = { arrivals: [10, 20, 30] };
+		const map = buildMetricMap(graph, series, 0);
+		expect(map.get('arrivals')?.value).toBe(10);
+	});
+
+	it('uses value at last bin when bin=N-1', () => {
+		const series = { arrivals: [10, 20, 30] };
+		const map = buildMetricMap(graph, series, 2);
+		expect(map.get('arrivals')?.value).toBe(30);
+	});
+
+	it('falls back to mean when bin is out of range (>= length)', () => {
+		const series = { arrivals: [10, 20, 30] };
+		const map = buildMetricMap(graph, series, 99);
+		expect(map.get('arrivals')?.value).toBe(20); // mean
+	});
+
+	it('falls back to mean when bin is negative', () => {
+		const series = { arrivals: [10, 20, 30] };
+		const map = buildMetricMap(graph, series, -1);
+		expect(map.get('arrivals')?.value).toBe(20); // mean
+	});
+
+	it('falls back to mean when bin is undefined (no bin arg)', () => {
+		const series = { arrivals: [10, 20, 30] };
+		const map = buildMetricMap(graph, series);
+		expect(map.get('arrivals')?.value).toBe(20); // unchanged mean behaviour
+	});
+
+	it('per-bin and mean produce different values for non-uniform series', () => {
+		const series = { arrivals: [0, 100] };
+		const binMap = buildMetricMap(graph, series, 0);
+		const meanMap = buildMetricMap(graph, series);
+		expect(binMap.get('arrivals')?.value).not.toBe(meanMap.get('arrivals')?.value);
+	});
 });
 
 // ── buildEdgeMetricMap ──
@@ -246,6 +284,31 @@ describe('buildEdgeMetricMap', () => {
 		};
 		const map = buildEdgeMetricMap(noEdgeGraph, { solo: [1, 2, 3] });
 		expect(map.size).toBe(0);
+	});
+
+	// per-bin mode (AC-11)
+	it('uses value at bin 0 for edge when bin=0', () => {
+		const series = { arrivals: [5, 15, 25] };
+		const map = buildEdgeMetricMap(graph, series, 0);
+		expect(map.get('arrivals\u2192Service')?.value).toBe(5);
+	});
+
+	it('uses value at bin N-1 for edge when bin=N-1', () => {
+		const series = { arrivals: [5, 15, 25] };
+		const map = buildEdgeMetricMap(graph, series, 2);
+		expect(map.get('arrivals\u2192Service')?.value).toBe(25);
+	});
+
+	it('falls back to mean for edge when bin is out of range', () => {
+		const series = { arrivals: [5, 15, 25] };
+		const map = buildEdgeMetricMap(graph, series, 99);
+		expect(map.get('arrivals\u2192Service')?.value).toBe(15); // mean
+	});
+
+	it('falls back to mean for edge when bin is undefined', () => {
+		const series = { arrivals: [5, 15, 25] };
+		const map = buildEdgeMetricMap(graph, series);
+		expect(map.get('arrivals\u2192Service')?.value).toBe(15); // mean
 	});
 });
 

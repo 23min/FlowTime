@@ -183,7 +183,8 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
   - **m-E17-02** (complete): Svelte parameter panel — auto-generated controls, reactive stores, debounced eval.
   - **m-E17-03** (complete): Live topology + charts — heatmap, reactive charts, layout stability. 154 vitest + 14 Playwright E2E.
   - **m-E17-04** (complete): Warnings surface — engine warnings through session protocol to banner/panel/node-badge. Capacity-constrained example model drives the demo loop. 173 vitest + 19 Playwright.
-  - **m-E17-05** (in-progress): Edge heatmap — color topology edges by throughput series; wires up `edgeMetrics` prop in dag-map-view. Branch: `milestone/m-E17-05-edge-heatmap`.
+  - **m-E17-05** (complete): Edge heatmap — color topology edges by throughput series; wires up `edgeMetrics` prop in dag-map-view. 182 vitest + 22 Playwright.
+  - **m-E17-06** (complete): Time scrubber — bin-position slider switches heatmap from mean to per-bin; crosshair on charts. 199 vitest + 26 Playwright.
 - **E-18** Time Machine (`work/epics/E-18-headless-pipeline-and-optimization/spec.md`) — **in-progress**
   - Headless engine: parameterized evaluation → streaming protocol → pipeline component.
   - **m-E18-01** (complete): Parameterized evaluation — ParamTable, evaluate_with_params, compile-once eval-many.

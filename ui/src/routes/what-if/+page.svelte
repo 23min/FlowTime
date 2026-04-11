@@ -37,8 +37,13 @@
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import type { GraphResponse } from '$lib/api/types.js';
 
-	// Derive WebSocket URL from API base
-	const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8081';
+	// Derive WebSocket URL from API base.
+	// In dev (no VITE_API_BASE set) use the current page origin so the Vite proxy
+	// forwards the WebSocket upgrade to the API (port 5173 → 8081).
+	// In production set VITE_API_BASE to the API origin.
+	const API_BASE =
+		import.meta.env.VITE_API_BASE ??
+		(typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8081');
 	const WS_URL = API_BASE.replace(/^http/, 'ws') + '/v1/engine/session';
 
 	// ── State ──
@@ -50,6 +55,10 @@
 	let evalInFlight = $state<boolean>(false);
 	let lastElapsedUs = $state<number | null>(null);
 	let error = $state<string | null>(null);
+	let bins = $state<number>(0);
+
+	// Time scrubber state (m-E17-06). null = mean mode (default); number = bin T.
+	let selectedBin = $state<number | null>(null);
 
 	// Graph state — only updated on compile (never on eval), so dag-map-view
 	// keeps its layout stable across parameter tweaks.
@@ -83,7 +92,10 @@
 			const result: CompileResult = await getSession().compile(model.yaml);
 			params = result.params;
 			series = result.series;
+			bins = result.bins;
 			warnings = result.warnings ?? [];
+			// Reset scrubber to mean mode when a new model is compiled.
+			selectedBin = null;
 			// Set graph ONCE on compile — never in runEval. This keeps
 			// dag-map-view's layout stable across parameter tweaks.
 			engineGraph = result.graph;
@@ -104,23 +116,23 @@
 		}
 	}
 
-	// Derived metric map for topology heatmap. Recomputes when series changes,
-	// but does NOT touch graphResponse — so dag-map-view layout is preserved.
-	// Each node is colored by its own primary series (by name, with topology
-	// queue fallback). Values are normalized to [0, 1] for dag-map's colorScale.
+	// Derived metric map for topology heatmap. Recomputes when series or selectedBin
+	// changes, but does NOT touch graphResponse — so dag-map-view layout is preserved.
+	// In mean mode (selectedBin=null): each node colored by its series mean.
+	// In scrubber mode (selectedBin=T): each node colored by its series value at bin T.
 	const metricMap = $derived.by(() => {
 		if (!engineGraph) return new Map();
-		return normalizeMetricMap(buildMetricMap(engineGraph, series));
+		const bin = selectedBin !== null ? selectedBin : undefined;
+		return normalizeMetricMap(buildMetricMap(engineGraph, series, bin));
 	});
 
-	// Derived edge metric map for topology edge heatmap (m-E17-05).
+	// Derived edge metric map for topology edge heatmap (m-E17-05 / m-E17-06).
 	// Key format: `${fromId}\u2192${toId}` — confirmed from dag-map/src/render.js:151.
-	// Each edge is colored by the from-node's primary series mean.
-	// Recomputes on series change; does NOT trigger re-layout (edgeMetrics is
-	// only consumed by renderSVG, not layoutMetro — see dag-map-view.svelte).
+	// Respects selectedBin in the same way as metricMap.
 	const edgeMetricMap = $derived.by(() => {
 		if (!engineGraph) return new Map();
-		return normalizeMetricMap(buildEdgeMetricMap(engineGraph, series));
+		const bin = selectedBin !== null ? selectedBin : undefined;
+		return normalizeMetricMap(buildEdgeMetricMap(engineGraph, series, bin));
 	});
 
 	// Derived warning state (m-E17-04)
@@ -460,6 +472,35 @@
 						</div>
 					</div>
 
+					<!-- Time scrubber (m-E17-06) — only when model has > 1 bin -->
+					{#if bins > 1}
+						<div class="rounded-lg border p-4" data-testid="time-scrubber-panel">
+							<div class="mb-2 flex items-center justify-between">
+								<div class="text-sm font-semibold">Time</div>
+								<div class="text-muted-foreground font-mono text-[11px]">
+									{selectedBin !== null ? `Bin ${selectedBin} / ${bins - 1}` : 'Mean'}
+								</div>
+							</div>
+							<div class="flex items-center gap-3">
+								<input
+									type="range"
+									min="0"
+									max={bins - 1}
+									step="1"
+									value={selectedBin ?? 0}
+									oninput={(e) => selectedBin = parseInt((e.target as HTMLInputElement).value)}
+									class="flex-1"
+									data-testid="bin-scrubber"
+								/>
+								<button
+									class="rounded border px-2 py-1 text-xs {selectedBin === null ? 'border-blue-400 bg-blue-50' : 'hover:bg-gray-50'}"
+									onclick={() => selectedBin = null}
+									data-testid="bin-mean-toggle"
+								>Mean</button>
+							</div>
+						</div>
+					{/if}
+
 					<!-- Warnings panel (m-E17-04) -->
 					{#if warningGroups.length > 0}
 						<div class="rounded-lg border border-amber-200 p-4" data-testid="warnings-panel">
@@ -532,7 +573,7 @@
 										</div>
 									{/if}
 								</div>
-								<Chart series={group.series} width={240} height={100} />
+								<Chart series={group.series} width={240} height={100} crosshairBin={selectedBin ?? undefined} />
 								<div class="mt-1 space-y-0.5">
 									{#each group.all as entry (entry.name)}
 										<div

@@ -2,7 +2,7 @@
 
 **ID:** m-E17-06
 **Epic:** E-17 Interactive What-If Mode
-**Status:** pending
+**Status:** complete
 **Branch:** `milestone/m-E17-06-time-scrubber` (off `epic/E-17-interactive-what-if-mode`)
 **Depends on:** m-E17-05 (Edge Heatmap)
 
