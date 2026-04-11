@@ -6,6 +6,7 @@
 	import PlayIcon from '@lucide/svelte/icons/play';
 	import HeartPulseIcon from '@lucide/svelte/icons/heart-pulse';
 	import HomeIcon from '@lucide/svelte/icons/home';
+	import SlidersHorizontalIcon from '@lucide/svelte/icons/sliders-horizontal';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 
 	const navGroups = [
@@ -21,6 +22,7 @@
 			label: 'Tools',
 			items: [
 				{ label: 'Run Model', href: '/run', icon: PlayIcon },
+				{ label: 'What-If', href: '/what-if', icon: SlidersHorizontalIcon },
 				{ label: 'Health', href: '/health', icon: HeartPulseIcon }
 			]
 		}
