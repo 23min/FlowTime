@@ -179,7 +179,8 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 
 - **E-17** Interactive What-If Mode (`work/epics/E-17-interactive-what-if-mode/spec.md`) — **in-progress**
   - Tweak parameters in UI, see live updates via WebSocket to engine session.
-  - **m-E17-01** (in-progress): WebSocket engine bridge — .NET proxy to engine session subprocess. Branch: `milestone/m-E17-01-websocket-engine-bridge`.
+  - **m-E17-01** (complete): WebSocket engine bridge — .NET proxy, Svelte client, 25 unit tests + 7 integration tests.
+  - **m-E17-02** (in-progress): Svelte parameter panel — auto-generated controls, reactive stores, debounced eval, sparklines. Branch: `milestone/m-E17-02-svelte-parameter-panel`.
 - **E-18** Time Machine (`work/epics/E-18-headless-pipeline-and-optimization/spec.md`) — **in-progress**
   - Headless engine: parameterized evaluation → streaming protocol → pipeline component.
   - **m-E18-01** (complete): Parameterized evaluation — ParamTable, evaluate_with_params, compile-once eval-many.
