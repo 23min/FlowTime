@@ -181,6 +181,7 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
   - Tweak parameters in UI, see live updates via WebSocket to engine session.
   - **m-E17-01** (complete): WebSocket engine bridge — .NET proxy, Svelte client, 25 unit tests + 7 integration tests.
   - **m-E17-02** (complete): Svelte parameter panel — auto-generated controls, reactive stores, debounced eval, sparklines. 85 vitest + 7 Playwright E2E.
+  - **m-E17-03** (in-progress): Live topology + charts — topology heatmap, reactive charts with axes/hover, layout stability. Branch: `milestone/m-E17-03-live-topology-and-charts`.
 - **E-18** Time Machine (`work/epics/E-18-headless-pipeline-and-optimization/spec.md`) — **in-progress**
   - Headless engine: parameterized evaluation → streaming protocol → pipeline component.
   - **m-E18-01** (complete): Parameterized evaluation — ParamTable, evaluate_with_params, compile-once eval-many.

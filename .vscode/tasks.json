@@ -274,6 +274,119 @@
         "showReuseMessage": false,
         "clear": false
       }
+    },
+    {
+      "label": "demo-1-build-engine",
+      "detail": "Build the Rust flowtime-engine release binary (required by the Engine API).",
+      "type": "shell",
+      "command": ". \"$HOME/.cargo/env\" && cargo build --release",
+      "options": {
+        "cwd": "${workspaceFolder}/engine"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "demo-2-start-api",
+      "detail": "Start the .NET Engine API on :8081 (WebSocket bridge to flowtime-engine session).",
+      "type": "shell",
+      "command": "dotnet run --project src/FlowTime.API",
+      "isBackground": true,
+      "options": {
+        "env": {
+          "ASPNETCORE_URLS": "http://0.0.0.0:8081"
+        }
+      },
+      "dependsOn": ["demo-1-build-engine"],
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^.*$",
+          "file": 0,
+          "location": 1,
+          "message": 2
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^(Building|info:)",
+          "endsPattern": "Now listening on|Application started"
+        }
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "group": "demo"
+      }
+    },
+    {
+      "label": "demo-3-start-ui",
+      "detail": "Start the Svelte dev server on :5173 (the What-If page).",
+      "type": "shell",
+      "command": "pnpm dev --host",
+      "isBackground": true,
+      "options": {
+        "cwd": "${workspaceFolder}/ui"
+      },
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^.*$",
+          "file": 0,
+          "location": 1,
+          "message": 2
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "VITE",
+          "endsPattern": "ready in"
+        }
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "group": "demo"
+      }
+    },
+    {
+      "label": "demo-start",
+      "detail": "Full demo startup: build engine → start API → start Svelte UI. Then open http://localhost:5173/what-if",
+      "dependsOn": ["demo-1-build-engine", "demo-2-start-api", "demo-3-start-ui"],
+      "dependsOrder": "sequence",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "demo-teardown",
+      "detail": "Stop the Engine API and Svelte dev server started by the demo tasks.",
+      "type": "shell",
+      "command": "bash scripts/stop-all.sh",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      }
     }
   ]
 }

@@ -27,6 +27,23 @@ export interface CompileResult {
 	series: Record<string, number[]>;
 	bins: number;
 	grid: GridInfo;
+	graph: EngineGraph;
+}
+
+/** Graph structure derived from the model, for UI topology visualization. */
+export interface EngineGraph {
+	nodes: EngineGraphNode[];
+	edges: EngineGraphEdge[];
+}
+
+export interface EngineGraphNode {
+	id: string;
+	kind: string;
+}
+
+export interface EngineGraphEdge {
+	from: string;
+	to: string;
 }
 
 export interface EvalResult {
