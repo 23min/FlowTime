@@ -45,6 +45,7 @@ apis/
 *.suo
 *.userprefs
 .claude/settings.local.json
+.claude/*.lock
 
 # AI framework sync-generated (rebuilt by .ai/sync.sh)
 .claude/agents/
