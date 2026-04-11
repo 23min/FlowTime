@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { formatValue, formatSeries, isInternalSeries } from './format';
+import {
+	formatValue,
+	formatSeries,
+	isInternalSeries,
+	isCompilerTemp,
+	isPerClassSeries,
+	parseClassSeries,
+} from './format';
 
 describe('formatValue', () => {
 	it('formats integers without decimal', () => {
@@ -62,22 +69,79 @@ describe('isInternalSeries', () => {
 		expect(isInternalSeries('__temp_42')).toBe(true);
 	});
 
-	it('returns true for any __ prefixed name', () => {
+	it('returns true for __edge_ prefixed names', () => {
 		expect(isInternalSeries('__edge_foo')).toBe(true);
-		expect(isInternalSeries('__anything')).toBe(true);
 	});
 
-	it('returns true for per-class column names', () => {
-		expect(isInternalSeries('arrivals__class_Order')).toBe(true);
-		expect(isInternalSeries('served__class_Refund')).toBe(true);
+	it('returns false for per-class column names (user-visible now)', () => {
+		// Per-class series are user-visible in class-based models
+		expect(isInternalSeries('arrivals__class_Order')).toBe(false);
+		expect(isInternalSeries('served__class_Refund')).toBe(false);
 	});
 
 	it('is case-sensitive', () => {
-		// Uppercase variants are not filtered
 		expect(isInternalSeries('ARRIVALS')).toBe(false);
 	});
 
 	it('empty string is not internal', () => {
 		expect(isInternalSeries('')).toBe(false);
+	});
+});
+
+describe('isCompilerTemp', () => {
+	it('matches only __temp_ and __edge_ prefixes', () => {
+		expect(isCompilerTemp('__temp_0')).toBe(true);
+		expect(isCompilerTemp('__edge_a_b_flowVolume')).toBe(true);
+		expect(isCompilerTemp('arrivals')).toBe(false);
+		expect(isCompilerTemp('arrivals__class_Order')).toBe(false);
+	});
+
+	it('does not match bare __ prefix', () => {
+		// e.g. hypothetical __foo that isn't __temp_ or __edge_
+		expect(isCompilerTemp('__foo')).toBe(false);
+	});
+});
+
+describe('isPerClassSeries', () => {
+	it('matches columns containing __class_', () => {
+		expect(isPerClassSeries('arrivals__class_Order')).toBe(true);
+		expect(isPerClassSeries('served__class_Refund')).toBe(true);
+	});
+
+	it('does not match base series', () => {
+		expect(isPerClassSeries('arrivals')).toBe(false);
+		expect(isPerClassSeries('served')).toBe(false);
+	});
+
+	it('does not match compiler temps', () => {
+		expect(isPerClassSeries('__temp_0')).toBe(false);
+	});
+});
+
+describe('parseClassSeries', () => {
+	it('parses a valid per-class name', () => {
+		expect(parseClassSeries('arrivals__class_Order')).toEqual({
+			base: 'arrivals',
+			classId: 'Order',
+		});
+	});
+
+	it('parses class id with underscores', () => {
+		expect(parseClassSeries('served__class_Premium_Tier')).toEqual({
+			base: 'served',
+			classId: 'Premium_Tier',
+		});
+	});
+
+	it('returns null for non-class name', () => {
+		expect(parseClassSeries('arrivals')).toBeNull();
+	});
+
+	it('returns null when class id is empty', () => {
+		expect(parseClassSeries('arrivals__class_')).toBeNull();
+	});
+
+	it('returns null when base is empty', () => {
+		expect(parseClassSeries('__class_Order')).toBeNull();
 	});
 });

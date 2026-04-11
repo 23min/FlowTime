@@ -4,15 +4,29 @@
 		EngineSession,
 		type ParamInfo,
 		type CompileResult,
+		type EngineGraph,
 	} from '$lib/api/engine-session.js';
 	import { paramControlConfig, kindLabel } from '$lib/api/param-controls.js';
 	import { EXAMPLE_MODELS, type ExampleModel } from '$lib/api/example-models.js';
 	import { createDebouncer } from '$lib/utils/debounce.js';
-	import { formatValue, formatSeries, isInternalSeries } from '$lib/utils/format.js';
-	import Sparkline from '$lib/components/sparkline.svelte';
+	import {
+		formatValue,
+		formatSeries,
+		isCompilerTemp,
+		parseClassSeries,
+	} from '$lib/utils/format.js';
+	import type { ChartSeries } from '$lib/components/chart-geometry.js';
+	import {
+		buildMetricMap,
+		normalizeMetricMap,
+	} from '$lib/api/topology-metrics.js';
+	import { adaptEngineGraph } from '$lib/api/graph-adapter.js';
+	import Chart from '$lib/components/chart.svelte';
+	import DagMapView from '$lib/components/dag-map-view.svelte';
 	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
+	import type { GraphResponse } from '$lib/api/types.js';
 
 	// Derive WebSocket URL from API base
 	const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8081';
@@ -27,6 +41,11 @@
 	let evalInFlight = $state<boolean>(false);
 	let lastElapsedUs = $state<number | null>(null);
 	let error = $state<string | null>(null);
+
+	// Graph state — only updated on compile (never on eval), so dag-map-view
+	// keeps its layout stable across parameter tweaks.
+	let engineGraph = $state<EngineGraph | null>(null);
+	let graphResponse = $state<GraphResponse | null>(null);
 
 	// ── Session lifecycle ──
 	let session: EngineSession | null = null;
@@ -48,6 +67,10 @@
 			const result: CompileResult = await getSession().compile(model.yaml);
 			params = result.params;
 			series = result.series;
+			// Set graph ONCE on compile — never in runEval. This keeps
+			// dag-map-view's layout stable across parameter tweaks.
+			engineGraph = result.graph;
+			graphResponse = adaptEngineGraph(result.graph);
 			overrides = {};
 			// Seed overrides with defaults for scalar params (so reset works cleanly)
 			for (const p of result.params) {
@@ -63,6 +86,77 @@
 			error = e instanceof Error ? e.message : String(e);
 		}
 	}
+
+	// Derived metric map for topology heatmap. Recomputes when series changes,
+	// but does NOT touch graphResponse — so dag-map-view layout is preserved.
+	// Each node is colored by its own primary series (by name, with topology
+	// queue fallback). Values are normalized to [0, 1] for dag-map's colorScale.
+	const metricMap = $derived.by(() => {
+		if (!engineGraph) return new Map();
+		return normalizeMetricMap(buildMetricMap(engineGraph, series));
+	});
+
+	// Grouped chart series: for each base series, collect its per-class children.
+	// The Chart component renders the group as a multi-series overlay.
+	// Colors: base is blue, per-class rotate through a palette.
+	const PER_CLASS_COLORS = ['#16a34a', '#ea580c', '#9333ea', '#dc2626', '#0891b2'];
+
+	interface ChartGroup {
+		baseName: string;
+		series: ChartSeries[];
+		// Raw values list for data-testid exposure (base + per-class)
+		all: { name: string; values: number[] }[];
+	}
+
+	const chartGroups = $derived.by<ChartGroup[]>(() => {
+		// Collect base series and per-class children into a map keyed by base name
+		const byBase = new Map<string, { base?: number[]; classes: Map<string, number[]> }>();
+
+		for (const [name, values] of Object.entries(series)) {
+			if (isCompilerTemp(name)) continue;
+			const parsed = parseClassSeries(name);
+			if (parsed) {
+				if (!byBase.has(parsed.base)) {
+					byBase.set(parsed.base, { classes: new Map() });
+				}
+				byBase.get(parsed.base)!.classes.set(parsed.classId, values);
+			} else {
+				if (!byBase.has(name)) {
+					byBase.set(name, { classes: new Map() });
+				}
+				byBase.get(name)!.base = values;
+			}
+		}
+
+		const groups: ChartGroup[] = [];
+		for (const [baseName, data] of byBase) {
+			const chartSeries: ChartSeries[] = [];
+			const all: { name: string; values: number[] }[] = [];
+
+			if (data.base) {
+				chartSeries.push({ name: baseName, values: data.base, color: '#2563eb' });
+				all.push({ name: baseName, values: data.base });
+			}
+
+			// Sort class ids for stable ordering
+			const classIds = Array.from(data.classes.keys()).sort();
+			classIds.forEach((classId, i) => {
+				const values = data.classes.get(classId)!;
+				chartSeries.push({
+					name: classId,
+					values,
+					color: PER_CLASS_COLORS[i % PER_CLASS_COLORS.length],
+				});
+				all.push({ name: `${baseName}__class_${classId}`, values });
+			});
+
+			if (chartSeries.length > 0) {
+				groups.push({ baseName, series: chartSeries, all });
+			}
+		}
+
+		return groups;
+	});
 
 	async function runEval(ov: Record<string, number>) {
 		if (!session || compileStatus !== 'ready') return;
@@ -266,29 +360,67 @@
 			</div>
 
 			<!-- Series display -->
-			<div class="rounded-lg border p-4" data-testid="series-panel">
-				<div class="mb-3 flex items-center justify-between">
-					<div class="text-sm font-semibold">Series</div>
-					{#if evalInFlight}
-						<div class="text-muted-foreground flex items-center gap-1 text-xs" data-testid="eval-spinner">
-							<Loader2Icon class="size-3 animate-spin" />
-							evaluating…
+			<div class="flex flex-col gap-6">
+				<!-- Topology graph -->
+				{#if graphResponse && graphResponse.nodes.length > 0}
+					<div class="rounded-lg border p-4" data-testid="topology-panel">
+						<div class="mb-3 flex items-center justify-between">
+							<div class="text-sm font-semibold">Topology</div>
+							<div class="text-muted-foreground text-[10px]">
+								heatmap: each node colored by its own series mean
+							</div>
 						</div>
-					{/if}
-				</div>
+						<div class="h-64 overflow-hidden" data-testid="topology-graph">
+							<DagMapView graph={graphResponse} metrics={metricMap} />
+						</div>
+					</div>
+				{/if}
 
-				<div class="space-y-3">
-					{#each Object.entries(series).filter(([name]) => !isInternalSeries(name)) as [name, values] (name)}
-						<div class="rounded border p-3" data-testid="series-row-{name}">
-							<div class="mb-2 flex items-center justify-between gap-2">
-								<div class="font-mono text-sm font-medium">{name}</div>
-								<Sparkline {values} width={140} height={28} stroke="#2563eb" />
+				<!-- Charts panel -->
+				<div class="rounded-lg border p-4" data-testid="series-panel">
+					<div class="mb-3 flex items-center justify-between">
+						<div class="text-sm font-semibold">Charts</div>
+						{#if evalInFlight}
+							<div class="text-muted-foreground flex items-center gap-1 text-xs" data-testid="eval-spinner">
+								<Loader2Icon class="size-3 animate-spin" />
+								evaluating…
 							</div>
-							<div class="text-muted-foreground font-mono text-xs" data-testid="series-values-{name}">
-								{formatSeries(values)}
+						{/if}
+					</div>
+
+					<div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+						{#each chartGroups as group (group.baseName)}
+							<div class="rounded border p-2" data-testid="series-row-{group.baseName}">
+								<div class="mb-1 flex items-center justify-between gap-2">
+									<div class="font-mono text-xs font-medium truncate">{group.baseName}</div>
+									{#if group.series.length > 1}
+										<div class="flex items-center gap-1.5 text-[10px]">
+											{#each group.series as s (s.name)}
+												<div class="flex items-center gap-0.5">
+													<span
+														class="inline-block h-1.5 w-1.5 rounded-full"
+														style="background: {s.color};"
+													></span>
+													<span class="text-muted-foreground font-mono">{s.name}</span>
+												</div>
+											{/each}
+										</div>
+									{/if}
+								</div>
+								<Chart series={group.series} width={240} height={100} />
+								<div class="mt-1 space-y-0.5">
+									{#each group.all as entry (entry.name)}
+										<div
+											class="text-muted-foreground font-mono text-[10px] truncate"
+											data-testid="series-values-{entry.name}"
+										>
+											{formatSeries(entry.values)}
+										</div>
+									{/each}
+								</div>
 							</div>
-						</div>
-					{/each}
+						{/each}
+					</div>
 				</div>
 			</div>
 		</div>

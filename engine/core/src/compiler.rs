@@ -1102,6 +1102,114 @@ pub fn compute_edge_series_pub(
     compute_edge_series(model, state, cm, class_map, bins)
 }
 
+/// A single graph node (for the UI topology visualization).
+#[derive(Debug, Clone)]
+pub struct GraphNodeInfo {
+    pub id: String,
+    pub kind: String,
+}
+
+/// A single graph edge (from → to).
+#[derive(Debug, Clone)]
+pub struct GraphEdgeInfo {
+    pub from: String,
+    pub to: String,
+}
+
+/// Graph derived from a model: logical computation DAG.
+#[derive(Debug, Clone, Default)]
+pub struct GraphInfo {
+    pub nodes: Vec<GraphNodeInfo>,
+    pub edges: Vec<GraphEdgeInfo>,
+}
+
+/// Derive a computation-graph view of the model for UI visualization.
+///
+/// Nodes:
+/// - Every model.nodes entry (const, expr, pmf, router) becomes a node
+/// - Every topology.nodes entry (queue/service) becomes a node with kind="queue"
+///   (or the declared topology kind)
+///
+/// Edges:
+/// - For expr nodes: edges from each referenced node → this expr node
+/// - For topology nodes: edges from semantics.arrivals → topology node,
+///   and topology node → semantics.served (if served references a different node)
+/// - For router nodes: edges from inputs.queue → router, router → each route target
+///
+/// This is a one-shot derivation from the model definition — no evaluation needed.
+pub fn derive_graph(model: &ModelDefinition) -> GraphInfo {
+    let mut nodes = Vec::new();
+    let mut edges = Vec::new();
+    let mut node_ids: HashSet<String> = HashSet::new();
+
+    // Pass 1: model.nodes
+    for node in &model.nodes {
+        let kind = node.kind.to_lowercase();
+        nodes.push(GraphNodeInfo { id: node.id.clone(), kind: kind.clone() });
+        node_ids.insert(node.id.clone());
+
+        // Expr dependencies
+        if kind == "expr" {
+            if let Some(expr_str) = &node.expr {
+                if let Ok(ast) = crate::expr::parse(expr_str) {
+                    let refs = collect_refs(&ast);
+                    for r in refs {
+                        edges.push(GraphEdgeInfo { from: r, to: node.id.clone() });
+                    }
+                }
+            }
+        }
+
+        // Router dependencies
+        if kind == "router" {
+            if let Some(router) = &node.router {
+                if let Some(ref q) = router.inputs.queue {
+                    if !q.is_empty() {
+                        edges.push(GraphEdgeInfo { from: q.clone(), to: node.id.clone() });
+                    }
+                }
+                for route in &router.routes {
+                    if !route.target.is_empty() {
+                        edges.push(GraphEdgeInfo { from: node.id.clone(), to: route.target.clone() });
+                    }
+                }
+            }
+        }
+    }
+
+    // Pass 2: topology.nodes
+    if let Some(topo) = &model.topology {
+        for tnode in &topo.nodes {
+            // Skip if already in model.nodes under the same id (shouldn't happen for topology)
+            if node_ids.contains(&tnode.id) {
+                continue;
+            }
+            let kind = tnode.kind.as_deref().unwrap_or("queue").to_lowercase();
+            nodes.push(GraphNodeInfo { id: tnode.id.clone(), kind });
+            node_ids.insert(tnode.id.clone());
+
+            // Edge: arrivals source → topology node
+            if !tnode.semantics.arrivals.is_empty() {
+                edges.push(GraphEdgeInfo {
+                    from: tnode.semantics.arrivals.clone(),
+                    to: tnode.id.clone(),
+                });
+            }
+            // Edge: topology node → served source (if different from arrivals)
+            if !tnode.semantics.served.is_empty()
+                && tnode.semantics.served != tnode.semantics.arrivals
+            {
+                edges.push(GraphEdgeInfo {
+                    from: tnode.id.clone(),
+                    to: tnode.semantics.served.clone(),
+                });
+            }
+        }
+    }
+
+    GraphInfo { nodes, edges }
+}
+
 /// Compile constraint allocation: emit ProportionalAlloc ops and patch QueueRecurrence inflows.
 fn compile_constraints(
     topo: &crate::model::TopologyDefinition,
@@ -4314,5 +4422,184 @@ topology:
         let result2 = eval_model_with_params(&model, &overrides).unwrap();
         let q2 = result2.series(&queue_column_id("Q")).unwrap();
         assert_approx(&q2, &[15.0, 25.0, 25.0, 25.0]);
+    }
+
+    // ── Graph derivation tests (m-E17-03) ──
+
+    #[test]
+    fn derive_graph_simple_expr() {
+        let yaml = r#"
+grid:
+  bins: 4
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arrivals
+    kind: const
+    values: [10, 10, 10, 10]
+  - id: served
+    kind: expr
+    expr: "arrivals * 0.8"
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let graph = derive_graph(&model);
+
+        assert_eq!(graph.nodes.len(), 2);
+        let arrivals = graph.nodes.iter().find(|n| n.id == "arrivals").unwrap();
+        assert_eq!(arrivals.kind, "const");
+        let served = graph.nodes.iter().find(|n| n.id == "served").unwrap();
+        assert_eq!(served.kind, "expr");
+
+        // Edge: arrivals → served
+        assert_eq!(graph.edges.len(), 1);
+        assert_eq!(graph.edges[0].from, "arrivals");
+        assert_eq!(graph.edges[0].to, "served");
+    }
+
+    #[test]
+    fn derive_graph_multi_ref_expr() {
+        let yaml = r#"
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: a
+    kind: const
+    values: [1, 2, 3]
+  - id: b
+    kind: const
+    values: [4, 5, 6]
+  - id: sum
+    kind: expr
+    expr: "a + b"
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let graph = derive_graph(&model);
+
+        assert_eq!(graph.nodes.len(), 3);
+        // Both a and b should be referenced by sum
+        let edges_to_sum: Vec<&GraphEdgeInfo> = graph.edges.iter().filter(|e| e.to == "sum").collect();
+        assert_eq!(edges_to_sum.len(), 2);
+        let froms: HashSet<&str> = edges_to_sum.iter().map(|e| e.from.as_str()).collect();
+        assert!(froms.contains("a"));
+        assert!(froms.contains("b"));
+    }
+
+    #[test]
+    fn derive_graph_with_topology() {
+        let yaml = r#"
+grid:
+  bins: 4
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: inflow
+    kind: const
+    values: [10, 10, 10, 10]
+  - id: outflow
+    kind: const
+    values: [5, 5, 5, 5]
+topology:
+  nodes:
+    - id: Queue
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: inflow
+        served: outflow
+  edges: []
+  constraints: []
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let graph = derive_graph(&model);
+
+        // 3 nodes: inflow, outflow, Queue
+        assert_eq!(graph.nodes.len(), 3);
+        let queue_node = graph.nodes.iter().find(|n| n.id == "Queue").unwrap();
+        assert_eq!(queue_node.kind, "servicewithbuffer");
+
+        // Edges: inflow → Queue, Queue → outflow
+        let inflow_to_q = graph.edges.iter().any(|e| e.from == "inflow" && e.to == "Queue");
+        let q_to_outflow = graph.edges.iter().any(|e| e.from == "Queue" && e.to == "outflow");
+        assert!(inflow_to_q, "Should have edge inflow → Queue. Edges: {:?}", graph.edges);
+        assert!(q_to_outflow, "Should have edge Queue → outflow");
+    }
+
+    #[test]
+    fn derive_graph_router() {
+        let yaml = r#"
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+classes:
+  - id: Alpha
+nodes:
+  - id: total
+    kind: const
+    values: [100, 100, 100]
+  - id: splitter
+    kind: router
+    router:
+      inputs:
+        queue: total
+      routes:
+        - target: fast
+          classes: [Alpha]
+        - target: slow
+traffic:
+  arrivals:
+    - nodeId: total
+      classId: Alpha
+      pattern:
+        kind: const
+        ratePerBin: 60
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let graph = derive_graph(&model);
+
+        // splitter should have edge from "total" and edges to "fast" and "slow"
+        let total_to_splitter = graph.edges.iter().any(|e| e.from == "total" && e.to == "splitter");
+        let splitter_to_fast = graph.edges.iter().any(|e| e.from == "splitter" && e.to == "fast");
+        let splitter_to_slow = graph.edges.iter().any(|e| e.from == "splitter" && e.to == "slow");
+        assert!(total_to_splitter);
+        assert!(splitter_to_fast);
+        assert!(splitter_to_slow);
+    }
+
+    #[test]
+    fn derive_graph_empty_model() {
+        let yaml = r#"
+grid:
+  bins: 2
+  binSize: 1
+  binUnit: hours
+nodes: []
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let graph = derive_graph(&model);
+        assert!(graph.nodes.is_empty());
+        assert!(graph.edges.is_empty());
+    }
+
+    #[test]
+    fn derive_graph_const_only_no_edges() {
+        let yaml = r#"
+grid:
+  bins: 2
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: a
+    kind: const
+    values: [1, 2]
+  - id: b
+    kind: const
+    values: [3, 4]
+"#;
+        let model = crate::model::parse_model_yaml(yaml).unwrap();
+        let graph = derive_graph(&model);
+        assert_eq!(graph.nodes.len(), 2);
+        assert_eq!(graph.edges.len(), 0);
     }
 }
