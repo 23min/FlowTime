@@ -2,7 +2,7 @@
 
 **Milestone:** m-E17-01
 **Epic:** E-17 Interactive What-If Mode
-**Status:** in-progress
+**Status:** complete
 **Branch:** `milestone/m-E17-01-websocket-engine-bridge`
 **Started:** 2026-04-10
 

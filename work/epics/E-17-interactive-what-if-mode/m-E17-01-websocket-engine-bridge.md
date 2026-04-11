@@ -2,8 +2,8 @@
 
 **ID:** m-E17-01
 **Epic:** E-17 Interactive What-If Mode
-**Status:** in-progress
-**Branch:** `milestone/m-E17-01-websocket-engine-bridge` (off `main`)
+**Status:** complete
+**Branch:** `milestone/m-E17-01-websocket-engine-bridge` (merged to main)
 **Depends on:** m-E18-02 (engine session + MessagePack protocol)
 
 ## Goal
