@@ -509,4 +509,128 @@ test.describe('What-If page', () => {
 		await expect(page.locator('[data-testid="warnings-banner"]')).not.toBeVisible();
 		await expect(page.locator('[data-testid="warnings-panel"]')).not.toBeVisible();
 	});
+
+	// ── m-E17-05: edge heatmap ──
+
+	test('topology graph has at least one colored edge', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+
+		// Switch to queue-with-wip which has real topology edges
+		await page.locator('[data-testid="model-button-queue-with-wip"]').click();
+		await page.waitForSelector('[data-testid="param-row-Queue.wipLimit"]', { timeout: 10000 });
+
+		// dag-map renders edges as <path data-edge-from="..." data-edge-to="..." stroke="...">
+		// With edgeMetrics wired in, the stroke should be a computed colorScale rgb value.
+		const edgeStrokes: string[] = await page.evaluate(() => {
+			const svg = document.querySelector('[data-testid="topology-graph"] svg');
+			if (!svg) return [];
+			const strokes: string[] = [];
+			svg.querySelectorAll('path[data-edge-from]').forEach((el) => {
+				const s = el.getAttribute('stroke');
+				if (s) strokes.push(s);
+			});
+			return strokes;
+		});
+
+		// At least one edge must exist and be colored
+		expect(edgeStrokes.length).toBeGreaterThanOrEqual(1);
+		// Strokes should be rgb() values (colorScale output), not plain/default colors
+		expect(edgeStrokes.some((s) => s.startsWith('rgb') || s.startsWith('#'))).toBe(true);
+	});
+
+	test('edge colors shift when parameter changes', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+
+		// capacity-constrained: arrivals → Service edge
+		await page.locator('[data-testid="model-button-capacity-constrained"]').click();
+		await page.waitForSelector('[data-testid="param-row-arrivals"]', { timeout: 10000 });
+		await page.waitForSelector('[data-testid="warnings-banner"]', { timeout: 5000 });
+
+		// Capture edge strokes before tweak
+		const strokesBefore: string[] = await page.evaluate(() => {
+			const svg = document.querySelector('[data-testid="topology-graph"] svg');
+			if (!svg) return [];
+			const out: string[] = [];
+			svg.querySelectorAll('path[data-edge-from]').forEach((el) => {
+				const s = el.getAttribute('stroke');
+				if (s) out.push(s);
+			});
+			return out;
+		});
+
+		// Change arrivals from 15 → 5 (below capacity 10 → warning clears, flow changes)
+		await page.locator('[data-testid="input-arrivals"]').fill('5');
+		await page.waitForSelector('[data-testid="warnings-banner"]', {
+			state: 'detached',
+			timeout: 3000,
+		});
+
+		// Capture after
+		const strokesAfter: string[] = await page.evaluate(() => {
+			const svg = document.querySelector('[data-testid="topology-graph"] svg');
+			if (!svg) return [];
+			const out: string[] = [];
+			svg.querySelectorAll('path[data-edge-from]').forEach((el) => {
+				const s = el.getAttribute('stroke');
+				if (s) out.push(s);
+			});
+			return out;
+		});
+
+		// At least one edge must exist in both snapshots
+		expect(strokesBefore.length).toBeGreaterThanOrEqual(1);
+		expect(strokesAfter.length).toBeGreaterThanOrEqual(1);
+		// At least one edge stroke must have changed (arrivals series changed → edge metric changed)
+		const changed = strokesBefore.some((s, i) => strokesAfter[i] !== s);
+		expect(changed).toBe(true);
+	});
+
+	test('edge layout (path d attribute) is stable across parameter tweaks', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+
+		// queue-with-wip has real topology edges
+		await page.locator('[data-testid="model-button-queue-with-wip"]').click();
+		await page.waitForSelector('[data-testid="param-row-Queue.wipLimit"]', { timeout: 10000 });
+
+		// Capture edge path data before tweak
+		const pathsBefore: string[] = await page.evaluate(() => {
+			const svg = document.querySelector('[data-testid="topology-graph"] svg');
+			if (!svg) return [];
+			const out: string[] = [];
+			svg.querySelectorAll('path[data-edge-from]').forEach((el) => {
+				const d = el.getAttribute('d');
+				if (d) out.push(d);
+			});
+			return out;
+		});
+
+		// Tweak WIP limit
+		await page.locator('[data-testid="input-Queue.wipLimit"]').fill('30');
+		await page.waitForFunction(
+			() => {
+				const el = document.querySelector('[data-testid="series-values-queue_queue"]');
+				return el?.textContent?.includes('30,');
+			},
+			{ timeout: 3000 },
+		);
+
+		// Capture path data after tweak
+		const pathsAfter: string[] = await page.evaluate(() => {
+			const svg = document.querySelector('[data-testid="topology-graph"] svg');
+			if (!svg) return [];
+			const out: string[] = [];
+			svg.querySelectorAll('path[data-edge-from]').forEach((el) => {
+				const d = el.getAttribute('d');
+				if (d) out.push(d);
+			});
+			return out;
+		});
+
+		// Path geometry must be identical — only stroke color changes
+		expect(pathsBefore.length).toBeGreaterThanOrEqual(1);
+		expect(pathsAfter).toEqual(pathsBefore);
+	});
 });

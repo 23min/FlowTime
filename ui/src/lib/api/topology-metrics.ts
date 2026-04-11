@@ -77,6 +77,34 @@ export function buildMetricMap(
 }
 
 /**
+ * Build the edge metrics map consumed by dag-map-view's edgeMetrics prop.
+ *
+ * For each edge {from, to}, the flow value is the mean of the from-node's
+ * primary series (same lookup order as buildMetricMap: exact name, then
+ * snake_case queue column). Edges whose from-node has no matching series
+ * are omitted — dag-map renders them with default styling.
+ *
+ * Key format: `${fromId}\u2192${toId}` — the Unicode right-arrow character (→),
+ * confirmed from dag-map/src/render.js:151: `\`${fromId}\u2192${toId}\``
+ *
+ * Values are raw — call normalizeMetricMap before passing to dag-map-view.
+ */
+export function buildEdgeMetricMap(
+	graph: EngineGraph,
+	series: Record<string, number[]>,
+): MetricMap {
+	const map = new Map<string, NodeMetric>();
+
+	for (const edge of graph.edges) {
+		const values = findNodeSeries(edge.from, series);
+		if (values === undefined) continue;
+		const key = `${edge.from}\u2192${edge.to}`;
+		map.set(key, { value: seriesMean(values), label: edge.from });
+	}
+	return map;
+}
+
+/**
  * Find the primary series for a graph node, trying multiple naming conventions.
  * Returns undefined if no match is found.
  */

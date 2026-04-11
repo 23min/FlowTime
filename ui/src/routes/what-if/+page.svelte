@@ -19,6 +19,7 @@
 	import type { ChartSeries } from '$lib/components/chart-geometry.js';
 	import {
 		buildMetricMap,
+		buildEdgeMetricMap,
 		normalizeMetricMap,
 	} from '$lib/api/topology-metrics.js';
 	import { adaptEngineGraph } from '$lib/api/graph-adapter.js';
@@ -110,6 +111,16 @@
 	const metricMap = $derived.by(() => {
 		if (!engineGraph) return new Map();
 		return normalizeMetricMap(buildMetricMap(engineGraph, series));
+	});
+
+	// Derived edge metric map for topology edge heatmap (m-E17-05).
+	// Key format: `${fromId}\u2192${toId}` — confirmed from dag-map/src/render.js:151.
+	// Each edge is colored by the from-node's primary series mean.
+	// Recomputes on series change; does NOT trigger re-layout (edgeMetrics is
+	// only consumed by renderSVG, not layoutMetro — see dag-map-view.svelte).
+	const edgeMetricMap = $derived.by(() => {
+		if (!engineGraph) return new Map();
+		return normalizeMetricMap(buildEdgeMetricMap(engineGraph, series));
 	});
 
 	// Derived warning state (m-E17-04)
@@ -445,7 +456,7 @@
 							class="topology-graph-container h-64 overflow-hidden"
 							data-testid="topology-graph"
 						>
-							<DagMapView graph={graphResponse} metrics={metricMap} />
+							<DagMapView graph={graphResponse} metrics={metricMap} edgeMetrics={edgeMetricMap} />
 						</div>
 					</div>
 
