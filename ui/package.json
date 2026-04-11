@@ -9,7 +9,9 @@
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"test": "vitest run",
+		"test:watch": "vitest"
 	},
 	"pnpm": {
 		"onlyBuiltDependencies": [
@@ -26,10 +28,12 @@
 		"svelte-check": "^4.4.2",
 		"tailwindcss": "^4.2.2",
 		"typescript": "^5.9.3",
-		"vite": "^7.3.1"
+		"vite": "^7.3.1",
+		"vitest": "^4.1.4"
 	},
 	"dependencies": {
 		"@internationalized/date": "^3.12.0",
+		"@msgpack/msgpack": "^3.1.3",
 		"bits-ui": "^2.16.5",
 		"clsx": "^2.1.1",
 		"dag-map": "link:../lib/dag-map",

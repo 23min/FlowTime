@@ -50,6 +50,10 @@ if (builder.Configuration.GetValue<bool>("RustEngine:Enabled"))
             rustBinaryPath,
             sp.GetRequiredService<ILogger<FlowTime.Core.Execution.RustEngineRunner>>()));
 }
+// Engine session bridge (WebSocket → engine subprocess proxy)
+// Always registered so /v1/engine/session/health can report availability.
+builder.Services.AddSingleton<FlowTime.API.Services.EngineSessionBridge>();
+
 builder.Services.AddSingleton<IArtifactRegistry, FileSystemArtifactRegistry>();
 builder.Services.AddSingleton<IArtifactRegistry, FileSystemArtifactRegistry>();
 builder.Services.AddSingleton<IStorageBackend>(provider =>
@@ -114,6 +118,9 @@ if (app.Environment.IsDevelopment())
 app.UseHttpLogging();
 app.UseCors();
 
+// WebSocket support (for engine session bridge)
+app.UseWebSockets();
+
 // Explicit startup log so you can confirm the app is running
 app.Lifetime.ApplicationStarted.Register(() =>
 {
@@ -154,6 +161,24 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider) =>
 var v1 = app.MapGroup("/v1");
 v1.MapRunOrchestrationEndpoints();
 v1.MapTelemetryCaptureEndpoints();
+
+// Engine session bridge — WebSocket → engine subprocess proxy (m-E17-01)
+v1.MapGet("/engine/session/health", (FlowTime.API.Services.EngineSessionBridge bridge) =>
+{
+    return Results.Ok(new { available = bridge.IsAvailable, enginePath = bridge.EnginePath });
+});
+
+app.Map("/v1/engine/session", async (HttpContext context, FlowTime.API.Services.EngineSessionBridge bridge) =>
+{
+    if (!context.WebSockets.IsWebSocketRequest)
+    {
+        context.Response.StatusCode = 400;
+        await context.Response.WriteAsync("WebSocket request required");
+        return;
+    }
+    using var ws = await context.WebSockets.AcceptWebSocketAsync();
+    await bridge.ProxyAsync(ws, context.RequestAborted);
+});
 v1.MapPost("/templates/refresh", async (SimITemplateService templateService, ILogger<Program> logger) =>
 {
     var count = await templateService.RefreshAsync().ConfigureAwait(false);
