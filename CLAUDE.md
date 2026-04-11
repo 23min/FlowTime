@@ -177,11 +177,12 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
-- **E-17** Interactive What-If Mode (`work/epics/E-17-interactive-what-if-mode/spec.md`) — **m-E17-01/02/03 complete**
+- **E-17** Interactive What-If Mode (`work/epics/E-17-interactive-what-if-mode/spec.md`) — **in-progress**
   - Tweak parameters in UI, see live updates via WebSocket to engine session.
   - **m-E17-01** (complete): WebSocket engine bridge — .NET proxy, Svelte client.
   - **m-E17-02** (complete): Svelte parameter panel — auto-generated controls, reactive stores, debounced eval.
   - **m-E17-03** (complete): Live topology + charts — heatmap, reactive charts, layout stability. 154 vitest + 14 Playwright E2E.
+  - **m-E17-04** (complete): Warnings surface — engine warnings through session protocol to banner/panel/node-badge. Capacity-constrained example model drives the demo loop. 173 vitest + 19 Playwright.
 - **E-18** Time Machine (`work/epics/E-18-headless-pipeline-and-optimization/spec.md`) — **in-progress**
   - Headless engine: parameterized evaluation → streaming protocol → pipeline component.
   - **m-E18-01** (complete): Parameterized evaluation — ParamTable, evaluate_with_params, compile-once eval-many.

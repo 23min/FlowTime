@@ -5,6 +5,7 @@
 		type ParamInfo,
 		type CompileResult,
 		type EngineGraph,
+		type WarningInfo,
 	} from '$lib/api/engine-session.js';
 	import { paramControlConfig, kindLabel } from '$lib/api/param-controls.js';
 	import { EXAMPLE_MODELS, type ExampleModel } from '$lib/api/example-models.js';
@@ -21,9 +22,16 @@
 		normalizeMetricMap,
 	} from '$lib/api/topology-metrics.js';
 	import { adaptEngineGraph } from '$lib/api/graph-adapter.js';
+	import {
+		groupWarningsByNode,
+		nodesWithWarnings,
+		warningBannerTitle,
+		warningSummary,
+	} from '$lib/api/warnings.js';
 	import Chart from '$lib/components/chart.svelte';
 	import DagMapView from '$lib/components/dag-map-view.svelte';
 	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
+	import AlertTriangleIcon from '@lucide/svelte/icons/alert-triangle';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import type { GraphResponse } from '$lib/api/types.js';
@@ -47,6 +55,13 @@
 	let engineGraph = $state<EngineGraph | null>(null);
 	let graphResponse = $state<GraphResponse | null>(null);
 
+	// Warnings state — refreshed on every compile AND every eval.
+	let warnings = $state<WarningInfo[]>([]);
+
+	// DOM handle for the topology graph container — used to apply warning highlights
+	// to SVG nodes via a post-render effect.
+	let topologyGraphEl = $state<HTMLDivElement | null>(null);
+
 	// ── Session lifecycle ──
 	let session: EngineSession | null = null;
 
@@ -67,6 +82,7 @@
 			const result: CompileResult = await getSession().compile(model.yaml);
 			params = result.params;
 			series = result.series;
+			warnings = result.warnings ?? [];
 			// Set graph ONCE on compile — never in runEval. This keeps
 			// dag-map-view's layout stable across parameter tweaks.
 			engineGraph = result.graph;
@@ -94,6 +110,36 @@
 	const metricMap = $derived.by(() => {
 		if (!engineGraph) return new Map();
 		return normalizeMetricMap(buildMetricMap(engineGraph, series));
+	});
+
+	// Derived warning state (m-E17-04)
+	const warningGroups = $derived(groupWarningsByNode(warnings));
+	const flaggedNodes = $derived(nodesWithWarnings(warnings));
+	const bannerTitle = $derived(warningBannerTitle(warnings));
+
+	// Side effect: after metric/graph/warning updates are applied to the DOM,
+	// toggle the `.has-warning` class on flagged SVG node wrappers so they
+	// get the highlight styling defined in the page's style block.
+	$effect(() => {
+		// Re-run when any of these change — Svelte tracks the reads
+		void flaggedNodes;
+		void metricMap;
+		void graphResponse;
+		if (!topologyGraphEl) return;
+
+		// Defer one microtask so dag-map-view's {@html svg} has been applied
+		queueMicrotask(() => {
+			if (!topologyGraphEl) return;
+			const nodeEls = topologyGraphEl.querySelectorAll<SVGElement>('[data-node-id]');
+			for (const el of nodeEls) {
+				const id = el.getAttribute('data-node-id');
+				if (id && flaggedNodes.has(id)) {
+					el.classList.add('has-warning');
+				} else {
+					el.classList.remove('has-warning');
+				}
+			}
+		});
 	});
 
 	// Grouped chart series: for each base series, collect its per-class children.
@@ -165,6 +211,7 @@
 		try {
 			const result = await session.eval(ov);
 			series = result.series;
+			warnings = result.warnings ?? [];
 			lastElapsedUs = result.elapsed_us;
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
@@ -274,6 +321,29 @@
 		</div>
 	{/if}
 
+	<!-- Warnings banner (m-E17-04) -->
+	{#if bannerTitle !== null}
+		<div
+			class="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm"
+			data-testid="warnings-banner"
+		>
+			<AlertTriangleIcon class="mt-0.5 size-4 text-amber-600" />
+			<div class="flex-1">
+				<div class="font-medium text-amber-800" data-testid="warnings-banner-title">
+					{bannerTitle}
+				</div>
+				<div class="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-[11px] text-amber-700">
+					{#each warnings.slice(0, 5) as w (w.node_id + w.code)}
+						<span>{warningSummary(w)}</span>
+					{/each}
+					{#if warnings.length > 5}
+						<span class="italic">…and {warnings.length - 5} more</span>
+					{/if}
+				</div>
+			</div>
+		</div>
+	{/if}
+
 	<!-- Loading state -->
 	{#if compileStatus === 'compiling'}
 		<div class="flex items-center gap-2 text-sm">
@@ -370,10 +440,54 @@
 								heatmap: each node colored by its own series mean
 							</div>
 						</div>
-						<div class="h-64 overflow-hidden" data-testid="topology-graph">
+						<div
+							bind:this={topologyGraphEl}
+							class="topology-graph-container h-64 overflow-hidden"
+							data-testid="topology-graph"
+						>
 							<DagMapView graph={graphResponse} metrics={metricMap} />
 						</div>
 					</div>
+
+					<!-- Warnings panel (m-E17-04) -->
+					{#if warningGroups.length > 0}
+						<div class="rounded-lg border border-amber-200 p-4" data-testid="warnings-panel">
+							<div class="mb-3 flex items-center gap-2">
+								<AlertTriangleIcon class="size-4 text-amber-600" />
+								<div class="text-sm font-semibold">Warnings</div>
+							</div>
+							<div class="space-y-3">
+								{#each warningGroups as group (group.nodeId)}
+									<div
+										class="rounded border border-amber-200 bg-amber-50 p-2"
+										data-testid="warning-group-{group.nodeId}"
+									>
+										<div class="mb-1 font-mono text-xs font-semibold text-amber-900">
+											{group.nodeId}
+										</div>
+										<div class="space-y-1">
+											{#each group.warnings as w (w.code + w.bins.join(','))}
+												<div
+													class="text-[11px]"
+													data-testid="warning-row-{group.nodeId}-{w.code}"
+												>
+													<span
+														class="font-mono font-medium text-amber-800"
+													>{w.code}</span>
+													<span class="text-amber-700"> — {w.message}</span>
+													{#if w.bins.length > 0}
+														<span class="text-muted-foreground">
+															({w.bins.length} bin{w.bins.length === 1 ? '' : 's'})
+														</span>
+													{/if}
+												</div>
+											{/each}
+										</div>
+									</div>
+								{/each}
+							</div>
+						</div>
+					{/if}
 				{/if}
 
 				<!-- Charts panel -->
@@ -426,3 +540,18 @@
 		</div>
 	{/if}
 </div>
+
+<style>
+	/* Topology warning highlight — applied by the $effect hook in the script. */
+	/* dag-map-view's SVG is injected via {@html}, so these rules use :global. */
+	.topology-graph-container :global(.has-warning circle),
+	.topology-graph-container :global(.has-warning rect) {
+		stroke: #d97706;
+		stroke-width: 3;
+	}
+
+	/* Secondary "aura" so the highlight reads against the heatmap fill. */
+	.topology-graph-container :global(.has-warning circle) {
+		filter: drop-shadow(0 0 3px rgba(217, 119, 6, 0.6));
+	}
+</style>

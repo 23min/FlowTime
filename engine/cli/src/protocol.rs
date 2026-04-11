@@ -30,7 +30,7 @@ pub struct ErrorInfo {
     pub message: String,
 }
 
-/// Compile result: parameter schema + initial series + graph topology.
+/// Compile result: parameter schema + initial series + graph topology + warnings.
 #[derive(Debug, Serialize)]
 pub struct CompileResult {
     pub params: Vec<ParamInfo>,
@@ -38,6 +38,18 @@ pub struct CompileResult {
     pub bins: usize,
     pub grid: GridInfo,
     pub graph: GraphInfoMsg,
+    pub warnings: Vec<WarningMsg>,
+}
+
+/// A single analyzer warning. Field names are snake_case on the wire to match
+/// the Rust `analysis::Warning` struct.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct WarningMsg {
+    pub node_id: String,
+    pub code: String,
+    pub message: String,
+    pub bins: Vec<usize>,
+    pub severity: String,
 }
 
 /// Graph structure for UI visualization (nodes + edges).
@@ -75,11 +87,12 @@ pub struct GridInfo {
     pub bin_unit: String,
 }
 
-/// Eval result: updated series + timing.
+/// Eval result: updated series + timing + warnings.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EvalResultMsg {
     pub series: HashMap<String, Vec<f64>>,
     pub elapsed_us: u64,
+    pub warnings: Vec<WarningMsg>,
 }
 
 impl Response {
@@ -205,7 +218,7 @@ mod tests {
             ("served".to_string(), vec![8.0, 16.0, 24.0]),
         ].into();
 
-        let result = EvalResultMsg { series, elapsed_us: 42 };
+        let result = EvalResultMsg { series, elapsed_us: 42, warnings: vec![] };
         let resp = Response::ok(serde_json::to_value(&result).unwrap());
 
         let mut buf = Vec::new();

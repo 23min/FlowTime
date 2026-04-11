@@ -49,13 +49,14 @@ The circuit simulator analogy: SPICE compiles a netlist once, then allows parame
 - [ ] Analytical results (cycle time, flow efficiency, warnings) update through the pure Core evaluator
 - [ ] UI parameter controls are generated from model metadata, not hand-coded per template
 
-## Milestones (sketch)
+## Milestones
 
-| ID | Title | Summary |
-|----|-------|---------|
-| m-E17-01 | Consume Shared Runtime Parameter Foundation | Reuse the shared parameter model and reevaluation API delivered by the headless foundation; add UI/session-facing parameter surfaces |
-| m-E17-02 | Session & Push Channel | Server-side session management, WebSocket/SignalR push for live result delivery |
-| m-E17-03 | UI Parameter Controls | Auto-generated sliders/inputs from model metadata, live-bound to evaluation results |
+| ID | Title | Status | Summary |
+|----|-------|--------|---------|
+| m-E17-01 | WebSocket Engine Bridge | complete | .NET WebSocket proxy over persistent Rust `flowtime-engine session` subprocess; MessagePack compile/eval/get_series round-trip |
+| m-E17-02 | Svelte Parameter Panel | complete | SvelteKit `/what-if` page with live-bound sliders, example model picker, series mini-charts, latency badge |
+| m-E17-03 | Live Topology + Charts | complete | Dag-map topology graph with heatmap, per-series charts with hover tooltips, layout stability across tweaks |
+| m-E17-04 | Warnings Surface | complete | Engine warnings flow through session protocol into banner, details panel, and topology node badges; capacity-constrained example model drives the demo loop |
 
 ## Dependencies
 
