@@ -92,10 +92,43 @@ traffic:
 `,
 };
 
+const CAPACITY_CONSTRAINED: ExampleModel = {
+	id: 'capacity-constrained',
+	name: 'Capacity constrained',
+	description:
+		'Served forced equal to arrivals; exceeds capacity by default. Raise capacity or drop arrivals to clear the warning.',
+	yaml: `grid:
+  bins: 4
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arrivals
+    kind: const
+    values: [15, 15, 15, 15]
+  - id: capacity
+    kind: const
+    values: [10, 10, 10, 10]
+  - id: served
+    kind: expr
+    expr: "arrivals"
+topology:
+  nodes:
+    - id: Service
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arrivals
+        served: served
+        capacity: capacity
+  edges: []
+  constraints: []
+`,
+};
+
 export const EXAMPLE_MODELS: ExampleModel[] = [
 	SIMPLE_PIPELINE,
 	QUEUE_WITH_WIP,
 	CLASS_DECOMPOSITION,
+	CAPACITY_CONSTRAINED,
 ];
 
 export function findExampleModel(id: string): ExampleModel | undefined {

@@ -2,8 +2,8 @@
 
 **ID:** m-E17-03
 **Epic:** E-17 Interactive What-If Mode
-**Status:** in-progress
-**Branch:** `milestone/m-E17-03-live-topology-and-charts` (off `main`)
+**Status:** complete
+**Branch:** `milestone/m-E17-03-live-topology-and-charts` (merged to main)
 **Depends on:** m-E17-02 (Svelte parameter panel)
 
 ## Goal

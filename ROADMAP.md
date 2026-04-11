@@ -113,13 +113,16 @@ Three-layer architecture (D-2026-04-10-031): engine core (pure function) → art
 
 **Depends on:** E-10 (complete), E-16 (complete)
 
-## E-17 — Interactive What-If Mode (future)
+## E-17 — Interactive What-If Mode (in-progress)
 
-**Epic:** `work/epics/E-17-interactive-what-if-mode/spec.md` | **Status:** future
+**Epic:** `work/epics/E-17-interactive-what-if-mode/spec.md` | **Status:** in-progress
 
 Live interactive recalculation: change a parameter, see every metric update instantly (<50ms). With the matrix engine (E-20), this is incremental plan replay — only downstream ops re-execute.
 
-Requires: runtime parameter model (shared with E-18), server-side sessions, push channel, UI controls.
+- **m-E17-01 WebSocket Engine Bridge** — complete. .NET WebSocket proxy over persistent Rust `flowtime-engine session` subprocess; MessagePack round-trip.
+- **m-E17-02 Svelte Parameter Panel** — complete. SvelteKit `/what-if` page with live sliders, example picker, mini-charts, latency badge.
+- **m-E17-03 Live Topology + Charts** — complete. Dag-map topology with heatmap, per-series charts, hover tooltips, layout stability.
+- **m-E17-04 Warnings Surface** — complete. Engine warnings flow through session protocol to banner, details panel, topology node badges. Capacity-constrained example model drives the demo loop.
 
 **Depends on:** E-20
 

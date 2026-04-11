@@ -393,4 +393,120 @@ test.describe('What-If page', () => {
 		const servedRefundAfter = await getSeriesValues(page, 'served__class_Refund');
 		expect(servedRefundAfter[0]).toBeCloseTo(2.0, 1);
 	});
+
+	// ── m-E17-04: warnings surface ──
+
+	test('capacity-constrained model shows warnings banner and panel on load', async ({
+		page,
+	}) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+		await page.locator('[data-testid="model-button-capacity-constrained"]').click();
+		await page.waitForSelector('[data-testid="param-row-arrivals"]', { timeout: 10000 });
+		// Wait for initial eval to complete (warnings should appear)
+		await page.waitForSelector('[data-testid="warnings-banner"]', { timeout: 5000 });
+
+		// Banner title
+		const bannerTitle = await page
+			.locator('[data-testid="warnings-banner-title"]')
+			.innerText();
+		expect(bannerTitle).toMatch(/\d+ warning/);
+
+		// Panel shows a group for Service
+		await expect(page.locator('[data-testid="warnings-panel"]')).toBeVisible();
+		await expect(page.locator('[data-testid="warning-group-Service"]')).toBeVisible();
+
+		// Row for the specific warning code
+		await expect(
+			page.locator('[data-testid="warning-row-Service-served_exceeds_capacity"]'),
+		).toBeVisible();
+	});
+
+	test('topology Service node is flagged when warning is active', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+		await page.locator('[data-testid="model-button-capacity-constrained"]').click();
+		await page.waitForSelector('[data-testid="warnings-banner"]', { timeout: 10000 });
+
+		// Wait for the effect hook to add the has-warning class after the SVG render
+		await page.waitForFunction(
+			() => {
+				const svc = document.querySelector(
+					'[data-testid="topology-graph"] [data-node-id="Service"]',
+				);
+				return svc !== null && svc.classList.contains('has-warning');
+			},
+			{ timeout: 5000 },
+		);
+
+		// Verify the class is present
+		const hasClass = await page
+			.locator('[data-testid="topology-graph"] [data-node-id="Service"]')
+			.first()
+			.evaluate((el) => el.classList.contains('has-warning'));
+		expect(hasClass).toBe(true);
+	});
+
+	test('raising capacity clears warnings banner, panel, and node highlight', async ({
+		page,
+	}) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+		await page.locator('[data-testid="model-button-capacity-constrained"]').click();
+		await page.waitForSelector('[data-testid="warnings-banner"]', { timeout: 10000 });
+
+		// Tweak capacity 10 → 20 → warning should clear
+		await page.locator('[data-testid="input-capacity"]').fill('20');
+
+		// Banner disappears
+		await page.waitForSelector('[data-testid="warnings-banner"]', {
+			state: 'detached',
+			timeout: 3000,
+		});
+
+		// Panel disappears
+		await expect(page.locator('[data-testid="warnings-panel"]')).not.toBeVisible();
+
+		// Service node no longer has-warning class
+		await page.waitForFunction(
+			() => {
+				const svc = document.querySelector(
+					'[data-testid="topology-graph"] [data-node-id="Service"]',
+				);
+				return svc !== null && !svc.classList.contains('has-warning');
+			},
+			{ timeout: 3000 },
+		);
+	});
+
+	test('dropping capacity back below arrivals re-triggers warnings', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+		await page.locator('[data-testid="model-button-capacity-constrained"]').click();
+		await page.waitForSelector('[data-testid="warnings-banner"]', { timeout: 10000 });
+
+		// Clear first
+		await page.locator('[data-testid="input-capacity"]').fill('20');
+		await page.waitForSelector('[data-testid="warnings-banner"]', {
+			state: 'detached',
+			timeout: 3000,
+		});
+
+		// Drop capacity back to 8 — warning returns (arrivals=15 > cap=8)
+		await page.locator('[data-testid="input-capacity"]').fill('8');
+		await page.waitForSelector('[data-testid="warnings-banner"]', { timeout: 3000 });
+
+		await expect(
+			page.locator('[data-testid="warning-row-Service-served_exceeds_capacity"]'),
+		).toBeVisible();
+	});
+
+	test('simple-pipeline model has no warnings banner (regression)', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+
+		// Default model is simple-pipeline → no topology, no warnings possible
+		await expect(page.locator('[data-testid="warnings-banner"]')).not.toBeVisible();
+		await expect(page.locator('[data-testid="warnings-panel"]')).not.toBeVisible();
+	});
 });
