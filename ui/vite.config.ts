@@ -15,7 +15,8 @@ export default defineConfig({
 			},
 			'/v1': {
 				target: 'http://localhost:8081',
-				changeOrigin: true
+				changeOrigin: true,
+				ws: true
 			},
 			'/healthz': {
 				target: 'http://localhost:8081',

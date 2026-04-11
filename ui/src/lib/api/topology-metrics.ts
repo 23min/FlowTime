@@ -51,27 +51,42 @@ export function seriesMean(values: number[]): number {
 }
 
 /**
+ * Pick a single scalar from a series.
+ * When `bin` is a valid index, returns `values[bin]`.
+ * Otherwise (undefined, negative, or out of range) falls back to the mean.
+ */
+function pickValue(values: number[], bin?: number): number {
+	if (bin !== undefined && bin >= 0 && bin < values.length) {
+		return values[bin];
+	}
+	return seriesMean(values);
+}
+
+/**
  * Build the metrics map consumed by dag-map-view.
  *
- * For each graph node, use the mean of the node's primary series as the metric value.
+ * For each graph node, use the node's primary series as the metric value.
+ * When `bin` is provided and in range, uses the value at that bin (scrubber
+ * mode); otherwise uses the mean across all bins (default / mean mode).
+ *
  * Primary series lookup order:
  *   1. series[node.id]          — matches const/expr nodes named identically
- *   2. series[snake(id)_queue]  — topology queue synthesized column (queue_column_id pattern)
+ *   2. series[snake(id)_queue]  — topology queue synthesized column
  *   3. omit from the map        — node renders with default dag-map base color
  *
- * Nodes without a matching series are simply not colored. The resulting values are
- * raw — call `normalizeMetricMap` before passing to dag-map-view.
+ * Values are raw — call `normalizeMetricMap` before passing to dag-map-view.
  */
 export function buildMetricMap(
 	graph: EngineGraph,
 	series: Record<string, number[]>,
+	bin?: number,
 ): MetricMap {
 	const map = new Map<string, NodeMetric>();
 
 	for (const node of graph.nodes) {
 		const values = findNodeSeries(node.id, series);
 		if (values === undefined) continue;
-		map.set(node.id, { value: seriesMean(values), label: node.id });
+		map.set(node.id, { value: pickValue(values, bin), label: node.id });
 	}
 	return map;
 }
@@ -79,10 +94,9 @@ export function buildMetricMap(
 /**
  * Build the edge metrics map consumed by dag-map-view's edgeMetrics prop.
  *
- * For each edge {from, to}, the flow value is the mean of the from-node's
- * primary series (same lookup order as buildMetricMap: exact name, then
- * snake_case queue column). Edges whose from-node has no matching series
- * are omitted — dag-map renders them with default styling.
+ * For each edge {from, to}, the flow value is the from-node's primary series.
+ * When `bin` is provided and in range, uses the value at that bin (scrubber
+ * mode); otherwise uses the mean across all bins (default / mean mode).
  *
  * Key format: `${fromId}\u2192${toId}` — the Unicode right-arrow character (→),
  * confirmed from dag-map/src/render.js:151: `\`${fromId}\u2192${toId}\``
@@ -92,6 +106,7 @@ export function buildMetricMap(
 export function buildEdgeMetricMap(
 	graph: EngineGraph,
 	series: Record<string, number[]>,
+	bin?: number,
 ): MetricMap {
 	const map = new Map<string, NodeMetric>();
 
@@ -99,7 +114,7 @@ export function buildEdgeMetricMap(
 		const values = findNodeSeries(edge.from, series);
 		if (values === undefined) continue;
 		const key = `${edge.from}\u2192${edge.to}`;
-		map.set(key, { value: seriesMean(values), label: edge.from });
+		map.set(key, { value: pickValue(values, bin), label: edge.from });
 	}
 	return map;
 }

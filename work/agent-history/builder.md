@@ -274,3 +274,15 @@ Accumulated learnings from implementation sessions.
 ### Pitfalls encountered
 - Removing adapter-local analytical helpers piecemeal from `StateQueryService` can leave duplicate method bodies stranded inside unrelated helpers; parser errors far from the real edit site are a sign to restore blocks, not keep patching locally.
 - Projecting overload and age-risk warnings for every analytical node breaks existing API goldens; backlog-style warnings still need the queue-like emission boundary even after the warning facts move to Core.
+
+## 2026-04-11: m-E17-04 Warnings Surface
+
+### Patterns that worked
+- **Pre-flight demo verification**: before writing any UI code, validate the demo model at the engine CLI level (`flowtime-engine validate`) to confirm it trips the expected warning and clears on the intended override. Catches broken demo arcs before they cost implementation time.
+- **Pure helper module first**: extracting all warning logic into `warnings.ts` (groupByNode, severityClass, bannerTitle, etc.) with 19 unit tests before touching the component made the UI phase fast and confidence high. The component just calls functions that are already proven.
+- **DOM-class toggling via `$effect` + `queueMicrotask`**: adding `.has-warning` CSS class to `[data-node-id]` SVG groups from a Svelte 5 `$effect` using `queueMicrotask` to defer until after the DOM update cycle — keeps topology node badges entirely local to the What-If page without touching the shared `dag-map-view` component.
+- **Example model as spec**: the capacity-constrained model doubles as both a test fixture (known warning trigger/clear cycle) and the product demo — one artifact serves both purposes.
+
+### Pitfalls encountered
+- **Svelte parser chokes on `<style>` in a `<script>` comment**: a line comment containing the literal string `<style>` inside a `<script>` block caused a "script was left open" parse error. The Svelte block-structure parser sees the tag name even inside comments. Fix: avoid bare HTML tag names in `<script>` comments; rephrase as "the page's style block" instead.
+- **Protocol field addition breaks Rust test constructors**: adding a new field (`warnings`) to a MessagePack struct immediately fails all `EvalResultMsg { .. }` struct-literal initializers in tests (Rust exhaustive structs). Must add `warnings: vec![]` to every test fixture at the same time as the protocol change.

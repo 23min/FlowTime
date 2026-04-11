@@ -3,6 +3,7 @@ import {
 	computeChartGeometry,
 	binFromX,
 	xFromBin,
+	crosshairX,
 	DEFAULT_PADDING,
 	type ChartLayout,
 	type ChartSeries,
@@ -184,5 +185,55 @@ describe('xFromBin', () => {
 
 	it('returns plotLeft for single-bin chart', () => {
 		expect(xFromBin(0, 50, 200, 1)).toBe(50);
+	});
+});
+
+
+// ── crosshairX (AC-12) ──
+// Uses LAYOUT: width=300, height=120, padding={top:8,right:8,bottom:20,left:36}
+// plotLeft=36, plotRight=292, bins from the geometry passed in
+
+describe('crosshairX', () => {
+	// Build a reference geometry with known bins
+	function makeGeom(bins: number) {
+		const series: ChartSeries[] = [{ name: 'x', values: Array(bins).fill(1) }];
+		return computeChartGeometry(series, LAYOUT);
+	}
+
+	it('returns plotLeft for bin 0', () => {
+		const geom = makeGeom(4);
+		expect(crosshairX(0, geom)).toBe(geom.plotLeft);
+	});
+
+	it('returns plotRight for last bin', () => {
+		const geom = makeGeom(4);
+		expect(crosshairX(3, geom)).toBe(geom.plotRight);
+	});
+
+	it('returns midpoint x for middle bin in even-length series', () => {
+		const geom = makeGeom(3); // bins=3 → plotLeft, mid, plotRight
+		const mid = geom.plotLeft + (geom.plotRight - geom.plotLeft) / 2;
+		expect(crosshairX(1, geom)).toBeCloseTo(mid, 5);
+	});
+
+	it('returns null for negative bin', () => {
+		const geom = makeGeom(4);
+		expect(crosshairX(-1, geom)).toBeNull();
+	});
+
+	it('returns null for bin >= bins', () => {
+		const geom = makeGeom(4);
+		expect(crosshairX(4, geom)).toBeNull();
+		expect(crosshairX(99, geom)).toBeNull();
+	});
+
+	it('returns plotLeft for single-bin chart (bin=0)', () => {
+		const geom = makeGeom(1);
+		expect(crosshairX(0, geom)).toBe(geom.plotLeft);
+	});
+
+	it('returns null for empty geometry (bins=0)', () => {
+		const geom = computeChartGeometry([], LAYOUT);
+		expect(crosshairX(0, geom)).toBeNull();
 	});
 });

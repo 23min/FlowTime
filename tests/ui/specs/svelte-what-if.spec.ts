@@ -587,6 +587,94 @@ test.describe('What-If page', () => {
 		expect(changed).toBe(true);
 	});
 
+	// ── m-E17-06: time scrubber ──
+
+	test('time scrubber panel is visible for multi-bin models', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+
+		// Default model (simple-pipeline) has 4 bins — scrubber should be visible
+		await expect(page.locator('[data-testid="time-scrubber-panel"]')).toBeVisible();
+		await expect(page.locator('[data-testid="bin-scrubber"]')).toBeVisible();
+		await expect(page.locator('[data-testid="bin-mean-toggle"]')).toBeVisible();
+	});
+
+	test('scrubber in Mean mode: no crosshair lines in charts', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+
+		// In mean mode (default), no crosshair should appear
+		const crosshairs = page.locator('[data-testid="crosshair"]');
+		await expect(crosshairs.first()).not.toBeVisible();
+	});
+
+	test('moving scrubber shows crosshair on all charts', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+
+		// Move scrubber to bin 1
+		await page.locator('[data-testid="bin-scrubber"]').fill('1');
+
+		// Each chart should now have a crosshair line
+		const crosshairs = page.locator('[data-testid="crosshair"]');
+		const count = await crosshairs.count();
+		expect(count).toBeGreaterThanOrEqual(1);
+		await expect(crosshairs.first()).toBeVisible();
+	});
+
+	test('Mean toggle clears crosshair', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+
+		// Activate scrubber
+		await page.locator('[data-testid="bin-scrubber"]').fill('2');
+		await expect(page.locator('[data-testid="crosshair"]').first()).toBeVisible();
+
+		// Click Mean — crosshair should disappear
+		await page.locator('[data-testid="bin-mean-toggle"]').click();
+		await expect(page.locator('[data-testid="crosshair"]').first()).not.toBeVisible();
+	});
+
+	test('moving scrubber shifts topology heatmap colors', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+
+		// Switch to queue-with-wip: queue_depth grows bin by bin (non-uniform series)
+		await page.locator('[data-testid="model-button-queue-with-wip"]').click();
+		await page.waitForSelector('[data-testid="param-row-Queue.wipLimit"]', { timeout: 10000 });
+
+		// Capture node fill colors in mean mode
+		const fillsBefore: string[] = await page.evaluate(() => {
+			const svg = document.querySelector('[data-testid="topology-graph"] svg');
+			if (!svg) return [];
+			return [...svg.querySelectorAll('[data-node-id]')].map(
+				(el) => el.querySelector('[fill]')?.getAttribute('fill') ?? '',
+			);
+		});
+
+		// Move scrubber to last bin
+		const scrubber = page.locator('[data-testid="bin-scrubber"]');
+		const max = await scrubber.getAttribute('max');
+		await scrubber.fill(max ?? '5');
+
+		// Wait a tick for reactivity
+		await page.waitForTimeout(100);
+
+		// Capture after
+		const fillsAfter: string[] = await page.evaluate(() => {
+			const svg = document.querySelector('[data-testid="topology-graph"] svg');
+			if (!svg) return [];
+			return [...svg.querySelectorAll('[data-node-id]')].map(
+				(el) => el.querySelector('[fill]')?.getAttribute('fill') ?? '',
+			);
+		});
+
+		// At least one node color must have changed (queue depth varies across bins)
+		expect(fillsBefore.length).toBeGreaterThanOrEqual(1);
+		const changed = fillsBefore.some((f, i) => fillsAfter[i] !== f);
+		expect(changed).toBe(true);
+	});
+
 	test('edge layout (path d attribute) is stable across parameter tweaks', async ({ page }) => {
 		await page.goto(`${SVELTE_URL}/what-if`);
 		await waitForReady(page);
