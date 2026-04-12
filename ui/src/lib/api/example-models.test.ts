@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { EXAMPLE_MODELS, findExampleModel } from './example-models';
 
 describe('EXAMPLE_MODELS', () => {
-	it('exports exactly 4 models', () => {
-		expect(EXAMPLE_MODELS).toHaveLength(4);
+	it('exports exactly 6 models', () => {
+		expect(EXAMPLE_MODELS).toHaveLength(6);
 	});
 
 	it('each model has unique id', () => {
@@ -32,7 +32,9 @@ describe('EXAMPLE_MODELS', () => {
 		expect(ids).toEqual([
 			'capacity-constrained',
 			'class-decomposition',
+			'ecommerce-order-pipeline',
 			'queue-with-wip',
+			'saas-api-platform',
 			'simple-pipeline',
 		]);
 	});

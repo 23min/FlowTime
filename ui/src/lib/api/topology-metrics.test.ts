@@ -180,11 +180,19 @@ describe('buildMetricMap', () => {
 
 // ── buildEdgeMetricMap ──
 //
-// Edge key format: `${fromId}\u2192${toId}` (Unicode right arrow →)
+// Edge color semantic: each edge is colored by the DESTINATION node's queue
+// depth (its load), not the source node's value. This shows "how congested
+// is the node this edge flows into?" — all incoming edges to a bottlenecked
+// node turn red simultaneously.
+//
+// Only edges into operational topology nodes (serviceWithBuffer, queue, …)
+// are included. Edges into const/expr nodes are skipped.
+//
+// Key format: `${fromId}\u2192${toId}` (Unicode right arrow →)
 // Confirmed from dag-map/src/render.js:151
 
 describe('buildEdgeMetricMap', () => {
-	// Simple two-node graph: arrivals → Service
+	// Base graph: const arrivals → serviceWithBuffer Service
 	const graph: EngineGraph = {
 		nodes: [
 			{ id: 'arrivals', kind: 'const' },
@@ -194,87 +202,90 @@ describe('buildEdgeMetricMap', () => {
 	};
 
 	it('uses Unicode arrow key: from→to', () => {
-		const series = { arrivals: [10, 10, 10] };
+		// Edge is included because Service is a topology node with a queue series
+		const series = { service_queue: [10, 10, 10] };
 		const map = buildEdgeMetricMap(graph, series);
-		// Key must be the exact Unicode arrow character
 		expect(map.has('arrivals\u2192Service')).toBe(true);
 	});
 
 	it('does NOT use ASCII arrow key', () => {
-		const series = { arrivals: [10, 10, 10] };
+		const series = { service_queue: [10, 10, 10] };
 		const map = buildEdgeMetricMap(graph, series);
 		expect(map.has('arrivals->Service')).toBe(false);
 	});
 
-	it('assigns the mean of the from-node series', () => {
-		const series = { arrivals: [10, 20, 30] };
+	it('colors edge by the destination topology node queue depth, not source value', () => {
+		// arrivals = [100, 200, 300], service_queue = [10, 20, 30]
+		// Edge color = mean(service_queue) = 20, NOT mean(arrivals) = 200
+		const series = { arrivals: [100, 200, 300], service_queue: [10, 20, 30] };
 		const map = buildEdgeMetricMap(graph, series);
 		expect(map.get('arrivals\u2192Service')?.value).toBe(20);
 	});
 
-	it('omits edge when from-node has no series', () => {
-		const series = { served: [5, 5, 5] }; // no 'arrivals' series
+	it('omits edge when destination topology node has no queue series', () => {
+		// Service has no series → edge skipped
+		const series = { arrivals: [5, 5, 5] };
 		const map = buildEdgeMetricMap(graph, series);
 		expect(map.size).toBe(0);
 	});
 
-	it('handles multiple edges — correct keys and values', () => {
-		const multiGraph: EngineGraph = {
+	it('omits edges that flow into non-topology nodes (expr, const)', () => {
+		// a → b where b is an expr node — skipped entirely
+		const nonTopoGraph: EngineGraph = {
 			nodes: [
 				{ id: 'a', kind: 'const' },
 				{ id: 'b', kind: 'expr' },
-				{ id: 'c', kind: 'expr' },
+			],
+			edges: [{ from: 'a', to: 'b' }],
+		};
+		const series = { a: [10], b: [5] };
+		const map = buildEdgeMetricMap(nonTopoGraph, series);
+		expect(map.size).toBe(0);
+	});
+
+	it('all incoming edges to a bottlenecked node share the same color', () => {
+		// arrivals and capacity both feed Service — both edges colored by service_queue
+		const multiInputGraph: EngineGraph = {
+			nodes: [
+				{ id: 'arrivals', kind: 'const' },
+				{ id: 'capacity', kind: 'const' },
+				{ id: 'Service', kind: 'servicewithbuffer' },
 			],
 			edges: [
-				{ from: 'a', to: 'b' },
-				{ from: 'b', to: 'c' },
+				{ from: 'arrivals', to: 'Service' },
+				{ from: 'capacity', to: 'Service' },
 			],
 		};
-		const series = { a: [2, 4], b: [6, 8] };
-		const map = buildEdgeMetricMap(multiGraph, series);
-		expect(map.get('a\u2192b')?.value).toBe(3);   // mean([2,4])
-		expect(map.get('b\u2192c')?.value).toBe(7);   // mean([6,8])
+		const series = { arrivals: [100], capacity: [50], service_queue: [7] };
+		const map = buildEdgeMetricMap(multiInputGraph, series);
 		expect(map.size).toBe(2);
+		expect(map.get('arrivals\u2192Service')?.value).toBe(7);
+		expect(map.get('capacity\u2192Service')?.value).toBe(7);
 	});
 
-	it('map size equals edges with known from-series', () => {
-		// 3 edges, only 2 from-nodes have series
-		const g: EngineGraph = {
+	it('topology-to-topology chain: each edge colored by destination load', () => {
+		// A → B → C pipeline; A→B colored by B's queue; B→C colored by C's queue
+		const chainGraph: EngineGraph = {
 			nodes: [
-				{ id: 'x', kind: 'const' },
-				{ id: 'y', kind: 'expr' },
-				{ id: 'z', kind: 'expr' },
-				{ id: 'w', kind: 'expr' },
+				{ id: 'A', kind: 'servicewithbuffer' },
+				{ id: 'B', kind: 'servicewithbuffer' },
+				{ id: 'C', kind: 'servicewithbuffer' },
 			],
 			edges: [
-				{ from: 'x', to: 'y' },
-				{ from: 'y', to: 'z' },
-				{ from: 'z', to: 'w' }, // 'z' has no series
+				{ from: 'A', to: 'B' },
+				{ from: 'B', to: 'C' },
 			],
 		};
-		const series = { x: [1], y: [2] };
-		const map = buildEdgeMetricMap(g, series);
-		expect(map.size).toBe(2);
+		const series = { a_queue: [2, 2], b_queue: [5, 5], c_queue: [8, 8] };
+		const map = buildEdgeMetricMap(chainGraph, series);
+		expect(map.get('A\u2192B')?.value).toBe(5); // B's load
+		expect(map.get('B\u2192C')?.value).toBe(8); // C's load
 	});
 
-	it('uses queue column fallback for topology from-nodes', () => {
-		// Edge from topology node MyQueue (whose series is "my_queue_queue") to expr
-		const g: EngineGraph = {
-			nodes: [
-				{ id: 'MyQueue', kind: 'servicewithbuffer' },
-				{ id: 'downstream', kind: 'expr' },
-			],
-			edges: [{ from: 'MyQueue', to: 'downstream' }],
-		};
-		const series = { my_queue_queue: [3, 6, 9] };
-		const map = buildEdgeMetricMap(g, series);
-		expect(map.get('MyQueue\u2192downstream')?.value).toBe(6); // mean([3,6,9])
-	});
-
-	it('attaches label equal to from-node id', () => {
-		const series = { arrivals: [15] };
+	it('attaches label equal to the destination node id', () => {
+		const series = { service_queue: [15] };
 		const map = buildEdgeMetricMap(graph, series);
-		expect(map.get('arrivals\u2192Service')?.label).toBe('arrivals');
+		expect(map.get('arrivals\u2192Service')?.label).toBe('Service');
 	});
 
 	it('returns empty map when graph has no edges', () => {
@@ -286,27 +297,27 @@ describe('buildEdgeMetricMap', () => {
 		expect(map.size).toBe(0);
 	});
 
-	// per-bin mode (AC-11)
+	// per-bin mode
 	it('uses value at bin 0 for edge when bin=0', () => {
-		const series = { arrivals: [5, 15, 25] };
+		const series = { service_queue: [5, 15, 25] };
 		const map = buildEdgeMetricMap(graph, series, 0);
 		expect(map.get('arrivals\u2192Service')?.value).toBe(5);
 	});
 
 	it('uses value at bin N-1 for edge when bin=N-1', () => {
-		const series = { arrivals: [5, 15, 25] };
+		const series = { service_queue: [5, 15, 25] };
 		const map = buildEdgeMetricMap(graph, series, 2);
 		expect(map.get('arrivals\u2192Service')?.value).toBe(25);
 	});
 
 	it('falls back to mean for edge when bin is out of range', () => {
-		const series = { arrivals: [5, 15, 25] };
+		const series = { service_queue: [5, 15, 25] };
 		const map = buildEdgeMetricMap(graph, series, 99);
 		expect(map.get('arrivals\u2192Service')?.value).toBe(15); // mean
 	});
 
 	it('falls back to mean for edge when bin is undefined', () => {
-		const series = { arrivals: [5, 15, 25] };
+		const series = { service_queue: [5, 15, 25] };
 		const map = buildEdgeMetricMap(graph, series);
 		expect(map.get('arrivals\u2192Service')?.value).toBe(15); // mean
 	});
@@ -357,19 +368,22 @@ describe('normalizeMetricMap', () => {
 		expect(result.size).toBe(0);
 	});
 
-	it('normalizes values to [0, 1] range', () => {
+	it('zero-anchored normalization: 0 is always cold, max maps to 1', () => {
+		// Zero-anchored: min is fixed at 0, not the observed minimum.
+		// values [10, 20, 30] → each divided by max (30), not shifted by min.
 		const map: MetricMap = new Map([
 			['a', { value: 10 }],
 			['b', { value: 20 }],
 			['c', { value: 30 }],
 		]);
 		const result = normalizeMetricMap(map);
-		expect(result.get('a')?.value).toBe(0);
-		expect(result.get('b')?.value).toBe(0.5);
+		expect(result.get('a')?.value).toBeCloseTo(1 / 3);
+		expect(result.get('b')?.value).toBeCloseTo(2 / 3);
 		expect(result.get('c')?.value).toBe(1);
 	});
 
-	it('handles flat distribution (all equal) with mid-scale 0.5', () => {
+	it('handles flat distribution (all equal): every node gets 1.0 (all are at max)', () => {
+		// With zero-anchored normalization, all-equal values all equal the max → 1.0.
 		const map: MetricMap = new Map([
 			['a', { value: 5 }],
 			['b', { value: 5 }],
@@ -377,14 +391,28 @@ describe('normalizeMetricMap', () => {
 		]);
 		const result = normalizeMetricMap(map);
 		for (const entry of result.values()) {
-			expect(entry.value).toBe(0.5);
+			expect(entry.value).toBe(1);
 		}
 	});
 
-	it('handles single-node map', () => {
+	it('handles single-node map: sole value is the max → normalizes to 1.0', () => {
 		const map: MetricMap = new Map([['only', { value: 42 }]]);
 		const result = normalizeMetricMap(map);
-		expect(result.get('only')?.value).toBe(0.5);
+		expect(result.get('only')?.value).toBe(1);
+	});
+
+	it('all values zero: all nodes get 0 (cold/no-load end of scale)', () => {
+		// This is the bug-fix case: bin 0 with all queues empty must show cold,
+		// not mid-scale orange (which the old 0.5 fallback produced).
+		const map: MetricMap = new Map([
+			['a', { value: 0 }],
+			['b', { value: 0 }],
+			['c', { value: 0 }],
+		]);
+		const result = normalizeMetricMap(map);
+		for (const entry of result.values()) {
+			expect(entry.value).toBe(0);
+		}
 	});
 
 	it('preserves raw value as label when no label present', () => {
@@ -409,10 +437,12 @@ describe('normalizeMetricMap', () => {
 		expect(map.get('a')?.value).toBe(100);
 	});
 
-	it('handles negative values', () => {
+	it('non-negative inputs (valid domain): 0 stays 0, max maps to 1', () => {
+		// Queue depths are always ≥ 0. Zero-anchored normalization is designed for
+		// non-negative inputs: value/max gives correct [0, 1] range.
 		const map: MetricMap = new Map([
-			['a', { value: -10 }],
-			['b', { value: 0 }],
+			['a', { value: 0 }],
+			['b', { value: 5 }],
 			['c', { value: 10 }],
 		]);
 		const result = normalizeMetricMap(map);
