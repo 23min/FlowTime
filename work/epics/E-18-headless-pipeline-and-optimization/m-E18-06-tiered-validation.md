@@ -2,7 +2,7 @@
 
 **Epic:** E-18 Time Machine  
 **Branch:** `milestone/m-E18-06-tiered-validation`  
-**Status:** in-progress
+**Status:** complete
 
 ## Goal
 
@@ -92,12 +92,12 @@ returns `error: { code: "compile_error", ... }` on failure.
 
 ## Acceptance Criteria
 
-- [ ] `TimeMachineValidator.Validate(yaml, ValidationTier.Schema)` returns errors for invalid YAML
-- [ ] `TimeMachineValidator.Validate(yaml, ValidationTier.Compile)` catches structural errors (bad node refs, bad expressions)
-- [ ] `TimeMachineValidator.Validate(yaml, ValidationTier.Analyse)` returns warnings from invariant analyzer
-- [ ] `POST /v1/validate` responds 200 with `{ isValid, tier, errors, warnings }` for all three tiers
-- [ ] Invalid tier value → 400 Bad Request
-- [ ] Empty/null yaml → 400 Bad Request
-- [ ] Rust session `validate_schema` returns `{ is_valid, errors }` without full compile
-- [ ] `rg "FlowTime\.Generator" src/ tests/` still zero (no regressions)
-- [ ] `dotnet test FlowTime.sln` all green; Rust `cargo test` all green
+- [x] `TimeMachineValidator.Validate(yaml, ValidationTier.Schema)` returns errors for invalid YAML
+- [x] `TimeMachineValidator.Validate(yaml, ValidationTier.Compile)` catches structural errors (bad node refs, bad expressions)
+- [x] `TimeMachineValidator.Validate(yaml, ValidationTier.Analyse)` returns warnings from invariant analyzer
+- [x] `POST /v1/validate` responds 200 with `{ isValid, tier, errors, warnings }` for all three tiers
+- [x] Invalid tier value → 400 Bad Request
+- [x] Empty/null yaml → 400 Bad Request
+- [x] Rust session `validate_schema` returns `{ is_valid, errors }` without full compile
+- [x] `rg "FlowTime\.Generator" src/ tests/` still zero (no regressions)
+- [x] `dotnet test FlowTime.sln` all green; Rust `cargo test` all green
