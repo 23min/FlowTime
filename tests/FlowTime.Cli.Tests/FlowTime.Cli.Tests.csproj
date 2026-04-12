@@ -26,7 +26,7 @@
     <ProjectReference Include="..\..\src\FlowTime.API\FlowTime.API.csproj">
       <Aliases>global,FlowTimeApi</Aliases>
     </ProjectReference>
-    <ProjectReference Include="..\..\src\FlowTime.Generator\FlowTime.Generator.csproj" />
+    <ProjectReference Include="..\..\src\FlowTime.TimeMachine\FlowTime.TimeMachine.csproj" />
     <ProjectReference Include="..\..\src\FlowTime.Sim.Service\FlowTime.Sim.Service.csproj">
       <Aliases>global,SimService</Aliases>
     </ProjectReference>

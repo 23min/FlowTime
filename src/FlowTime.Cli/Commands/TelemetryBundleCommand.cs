@@ -1,7 +1,7 @@
 using FlowTime.Cli.Configuration;
-using FlowTime.Generator;
-using FlowTime.Generator.Artifacts;
-using FlowTime.Generator.Models;
+using FlowTime.TimeMachine;
+using FlowTime.TimeMachine.Artifacts;
+using FlowTime.TimeMachine.Models;
 
 namespace FlowTime.Cli.Commands;
 

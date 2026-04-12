@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using FlowTime.Contracts.TimeTravel;
-using FlowTime.Generator;
-using FlowTime.Generator.Models;
+using FlowTime.TimeMachine;
+using FlowTime.TimeMachine.Models;
 using Microsoft.AspNetCore.Http;
 
 namespace FlowTime.API.Endpoints;

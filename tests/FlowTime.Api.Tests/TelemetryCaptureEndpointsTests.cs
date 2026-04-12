@@ -6,7 +6,7 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using FlowTime.Api.Tests.Infrastructure;
-using FlowTime.Generator.Orchestration;
+using FlowTime.TimeMachine.Orchestration;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
