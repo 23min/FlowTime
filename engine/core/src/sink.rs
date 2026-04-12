@@ -285,15 +285,6 @@ fn infer_series_kind(name: &str) -> &'static str {
     }
 }
 
-/// Compute classes coverage: "full" if all classes have per-class series, "partial" if some, "none" if no classes.
-fn classes_coverage(classes: &[crate::model::ClassDefinition], result: &EvalResult) -> &'static str {
-    if classes.is_empty() { return "none"; }
-    if result.class_map.is_empty() { return "none"; }
-    // Check if at least one non-class series has per-class decomposition
-    let has_decomposition = !result.class_map.is_empty();
-    if has_decomposition { "full" } else { "partial" }
-}
-
 // ──────────────────────────────── File Writers ────────────────────────────────
 
 fn write_series_csv(series_dir: &Path, name: &str, values: &[f64]) -> Result<(), String> {
@@ -552,7 +543,7 @@ r#"{{
 
 fn write_full_manifest_json(
     output_dir: &Path,
-    grid: &crate::model::GridDefinition,
+    _grid: &crate::model::GridDefinition,
     model_hash: &str,
     series_hashes: &[(&str, String)],
     classes: &[crate::model::ClassDefinition],
