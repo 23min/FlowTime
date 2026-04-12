@@ -30,7 +30,34 @@ impl Session {
             "eval" => self.handle_eval(req.params),
             "get_params" => self.handle_get_params(),
             "get_series" => self.handle_get_series(req.params),
+            "validate_schema" => self.handle_validate_schema(req.params),
             other => Response::err("unknown_method", &format!("Unknown method: {other}")),
+        }
+    }
+
+    /// Tier 1 validation: parse YAML and check structural validity without compiling.
+    /// Returns `{ is_valid: bool, errors: [string] }`.
+    /// Cheaper than `compile` — no evaluation, no Plan construction.
+    fn handle_validate_schema(&mut self, params: serde_json::Value) -> Response {
+        let yaml = match params.get("yaml").and_then(|v| v.as_str()) {
+            Some(y) => y.to_string(),
+            None => {
+                return Response::err(
+                    "invalid_params",
+                    "validate_schema requires params.yaml (string)",
+                )
+            }
+        };
+
+        match model::parse_model_yaml(&yaml) {
+            Ok(_) => Response::ok(serde_json::json!({
+                "is_valid": true,
+                "errors": []
+            })),
+            Err(e) => Response::ok(serde_json::json!({
+                "is_valid": false,
+                "errors": [e]
+            })),
         }
     }
 

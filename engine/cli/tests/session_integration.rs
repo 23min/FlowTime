@@ -688,3 +688,79 @@ fn session_simple_model_has_empty_warnings_array() {
     drop(stdin);
     child.wait().unwrap();
 }
+
+#[test]
+fn validate_schema_valid_model_returns_is_valid_true() {
+    let mut child = Command::new(engine_path())
+        .arg("session")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    let mut stdin = child.stdin.take().unwrap();
+    let mut stdout = child.stdout.take().unwrap();
+
+    send_request(&mut stdin, "validate_schema", serde_json::json!({ "yaml": SIMPLE_MODEL }));
+    let resp = read_response(&mut stdout);
+
+    assert!(resp.get("error").is_none(), "validate_schema should not return an error envelope: {resp:?}");
+    let result = resp.get("result").expect("validate_schema must return a result");
+    assert_eq!(result["is_valid"], true, "valid model should return is_valid=true");
+    let errors = result["errors"].as_array().expect("errors must be an array");
+    assert!(errors.is_empty(), "valid model should have no errors");
+
+    drop(stdin);
+    child.wait().unwrap();
+}
+
+#[test]
+fn validate_schema_invalid_yaml_returns_is_valid_false() {
+    let mut child = Command::new(engine_path())
+        .arg("session")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    let mut stdin = child.stdin.take().unwrap();
+    let mut stdout = child.stdout.take().unwrap();
+
+    let bad_yaml = "nodes: [\n  invalid: [\n    yaml: {broken";
+    send_request(&mut stdin, "validate_schema", serde_json::json!({ "yaml": bad_yaml }));
+    let resp = read_response(&mut stdout);
+
+    assert!(resp.get("error").is_none(), "validate_schema uses result envelope even on failure: {resp:?}");
+    let result = resp.get("result").expect("validate_schema must return a result");
+    assert_eq!(result["is_valid"], false, "invalid YAML should return is_valid=false");
+    let errors = result["errors"].as_array().expect("errors must be an array");
+    assert!(!errors.is_empty(), "invalid YAML should have at least one error");
+
+    drop(stdin);
+    child.wait().unwrap();
+}
+
+#[test]
+fn validate_schema_missing_yaml_param_returns_error() {
+    let mut child = Command::new(engine_path())
+        .arg("session")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    let mut stdin = child.stdin.take().unwrap();
+    let mut stdout = child.stdout.take().unwrap();
+
+    // Send with wrong param name — should get an error envelope
+    send_request(&mut stdin, "validate_schema", serde_json::json!({ "content": "yaml: wrong key" }));
+    let resp = read_response(&mut stdout);
+
+    assert!(resp.get("error").is_some(), "missing yaml param should return error envelope: {resp:?}");
+
+    drop(stdin);
+    child.wait().unwrap();
+}

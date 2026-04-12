@@ -161,6 +161,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider) =>
 var v1 = app.MapGroup("/v1");
 v1.MapRunOrchestrationEndpoints();
 v1.MapTelemetryCaptureEndpoints();
+v1.MapValidationEndpoints();
 
 // Engine session bridge — WebSocket → engine subprocess proxy (m-E17-01)
 v1.MapGet("/engine/session/health", (FlowTime.API.Services.EngineSessionBridge bridge) =>
