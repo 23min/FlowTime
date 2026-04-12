@@ -140,11 +140,10 @@ These are the lowest-risk leverage layers after the E-16 truth gate. They increa
 
 #### E-17 — Interactive What-If Mode
 
-- **Folder:** `work/epics/E-17-interactive-what-if-mode/`
-- **Status:** In-progress — m-E17-01 through m-E17-06 complete
+- **Folder:** `work/epics/completed/E-17-interactive-what-if-mode/`
+- **Status:** Complete — merged to main 2026-04-12
 - **Goal:** Live interactive recalculation. Change a parameter via UI slider, see all metrics/charts/heatmaps update instantly (sub-50ms). No recompilation for parameter value changes. The spreadsheet comes alive.
-- **Delivered milestones:** m-E17-01 WebSocket Engine Bridge, m-E17-02 Svelte Parameter Panel, m-E17-03 Live Topology + Charts, m-E17-04 Warnings Surface, m-E17-05 Edge Heatmap, m-E17-06 Time Scrubber
-- **Shared foundation:** one runtime parameter model + reevaluation API, owned once and reused by E-18 and E-17.
+- **Delivered:** 6 milestones — WebSocket bridge, parameter panel, topology heatmap, warnings surface, edge heatmap, time scrubber. Advanced demo models. 200 vitest + 26 Playwright E2E.
 - **Depends on:** E-20 (matrix engine — complete)
 
 #### E-18 — Time Machine

@@ -113,18 +113,11 @@ Three-layer architecture (D-2026-04-10-031): engine core (pure function) → art
 
 **Depends on:** E-10 (complete), E-16 (complete)
 
-## E-17 — Interactive What-If Mode (in-progress)
+## E-17 — Interactive What-If Mode (complete)
 
-**Epic:** `work/epics/E-17-interactive-what-if-mode/spec.md` | **Status:** in-progress
+**Epic:** `work/epics/completed/E-17-interactive-what-if-mode/spec.md` | **Status:** complete | **Merged:** 2026-04-12
 
-Live interactive recalculation: change a parameter, see every metric update instantly (<50ms). With the matrix engine (E-20), this is incremental plan replay — only downstream ops re-execute.
-
-- **m-E17-01 WebSocket Engine Bridge** — complete. .NET WebSocket proxy over persistent Rust `flowtime-engine session` subprocess; MessagePack round-trip.
-- **m-E17-02 Svelte Parameter Panel** — complete. SvelteKit `/what-if` page with live sliders, example picker, mini-charts, latency badge.
-- **m-E17-03 Live Topology + Charts** — complete. Dag-map topology with heatmap, per-series charts, hover tooltips, layout stability.
-- **m-E17-04 Warnings Surface** — complete. Engine warnings flow through session protocol to banner, details panel, topology node badges. Capacity-constrained example model drives the demo loop.
-- **m-E17-05 Edge Heatmap** — complete. Topology edges colored by throughput series mean; wires up `edgeMetrics` prop in dag-map-view.
-- **m-E17-06 Time Scrubber** — complete. Bin-position slider switches heatmap (nodes + edges) from mean to per-bin; vertical crosshair on all charts. 199 vitest + 26 Playwright.
+Live interactive recalculation: change a parameter, see every metric update instantly (<50ms). 6 milestones: WebSocket bridge → parameter panel → topology heatmap → warnings surface → edge heatmap → time scrubber. Advanced demo models (SaaS API, e-commerce pipeline). 200 vitest + 26 Playwright E2E.
 
 **Depends on:** E-20
 
