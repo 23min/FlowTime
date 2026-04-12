@@ -2,7 +2,7 @@
 
 **Epic:** E-18 Time Machine  
 **Branch:** `milestone/m-E18-07-generator-extraction`  
-**Status:** in-progress
+**Status:** complete
 
 ## Goal
 
@@ -28,12 +28,12 @@ Pure structural refactor — no behavior change, all tests green, no coexistence
 
 ## Acceptance Criteria
 
-- [ ] `src/FlowTime.TimeMachine/` exists; `src/FlowTime.Generator/` is gone
-- [ ] `tests/FlowTime.TimeMachine.Tests/` exists; `tests/FlowTime.Generator.Tests/` is gone
-- [ ] `dotnet build FlowTime.sln` succeeds with zero errors
-- [ ] `dotnet test FlowTime.sln` passes with the same test count
-- [ ] `rg "FlowTime\.Generator" src/ tests/ --include="*.cs" --include="*.csproj"` returns zero matches
-- [ ] Solution file contains TimeMachine entry; Generator entry is absent
+- [x] `src/FlowTime.TimeMachine/` exists; `src/FlowTime.Generator/` is gone
+- [x] `tests/FlowTime.TimeMachine.Tests/` exists; `tests/FlowTime.Generator.Tests/` is gone
+- [x] `dotnet build FlowTime.sln` succeeds with zero errors
+- [x] `dotnet test FlowTime.sln` passes with the same test count
+- [x] `rg "FlowTime\.Generator" src/ tests/ --include="*.cs" --include="*.csproj"` returns zero matches
+- [x] Solution file contains TimeMachine entry; Generator entry is absent
 
 ## Namespace Mapping
 
