@@ -113,13 +113,11 @@ Three-layer architecture (D-2026-04-10-031): engine core (pure function) → art
 
 **Depends on:** E-10 (complete), E-16 (complete)
 
-## E-17 — Interactive What-If Mode (future)
+## E-17 — Interactive What-If Mode (complete)
 
-**Epic:** `work/epics/E-17-interactive-what-if-mode/spec.md` | **Status:** future
+**Epic:** `work/epics/completed/E-17-interactive-what-if-mode/spec.md` | **Status:** complete | **Merged:** 2026-04-12
 
-Live interactive recalculation: change a parameter, see every metric update instantly (<50ms). With the matrix engine (E-20), this is incremental plan replay — only downstream ops re-execute.
-
-Requires: runtime parameter model (shared with E-18), server-side sessions, push channel, UI controls.
+Live interactive recalculation: change a parameter, see every metric update instantly (<50ms). 6 milestones: WebSocket bridge → parameter panel → topology heatmap → warnings surface → edge heatmap → time scrubber. Advanced demo models (SaaS API, e-commerce pipeline). 200 vitest + 26 Playwright E2E.
 
 **Depends on:** E-20
 

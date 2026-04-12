@@ -2,7 +2,7 @@
 
 use crate::protocol::{
     self, CompileResult, EvalResultMsg, GraphEdgeMsg, GraphInfoMsg, GraphNodeMsg, GridInfo,
-    ParamInfo, Request, Response,
+    ParamInfo, Request, Response, WarningMsg,
 };
 use flowtime_core::compiler::{self, EvalResult};
 use flowtime_core::eval;
@@ -76,6 +76,8 @@ impl Session {
             }).collect(),
         };
 
+        let warnings = convert_warnings(&result.warnings);
+
         let grid = md.grid.as_ref().unwrap();
         let compile_result = CompileResult {
             params: param_infos,
@@ -87,6 +89,7 @@ impl Session {
                 bin_unit: grid.bin_unit.clone(),
             },
             graph: graph_msg,
+            warnings,
         };
 
         self.model = Some(md);
@@ -118,9 +121,11 @@ impl Session {
         let elapsed = start.elapsed();
 
         let series = extract_all_series(&result);
+        let warnings = convert_warnings(&result.warnings);
         let eval_msg = EvalResultMsg {
             series,
             elapsed_us: elapsed.as_micros() as u64,
+            warnings,
         };
 
         self.current = Some(result);
@@ -227,6 +232,17 @@ fn build_param_infos(plan: &Plan) -> Vec<ParamInfo> {
                 ParamValue::Vector(v) => serde_json::json!(v),
             },
         }
+    }).collect()
+}
+
+/// Convert engine analyzer warnings to protocol message form.
+fn convert_warnings(warnings: &[flowtime_core::analysis::Warning]) -> Vec<WarningMsg> {
+    warnings.iter().map(|w| WarningMsg {
+        node_id: w.node_id.clone(),
+        code: w.code.clone(),
+        message: w.message.clone(),
+        bins: w.bins.clone(),
+        severity: w.severity.clone(),
     }).collect()
 }
 

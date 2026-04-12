@@ -393,4 +393,332 @@ test.describe('What-If page', () => {
 		const servedRefundAfter = await getSeriesValues(page, 'served__class_Refund');
 		expect(servedRefundAfter[0]).toBeCloseTo(2.0, 1);
 	});
+
+	// ── m-E17-04: warnings surface ──
+
+	test('capacity-constrained model shows warnings banner and panel on load', async ({
+		page,
+	}) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+		await page.locator('[data-testid="model-button-capacity-constrained"]').click();
+		await page.waitForSelector('[data-testid="param-row-arrivals"]', { timeout: 10000 });
+		// Wait for initial eval to complete (warnings should appear)
+		await page.waitForSelector('[data-testid="warnings-banner"]', { timeout: 5000 });
+
+		// Banner title
+		const bannerTitle = await page
+			.locator('[data-testid="warnings-banner-title"]')
+			.innerText();
+		expect(bannerTitle).toMatch(/\d+ warning/);
+
+		// Panel shows a group for Service
+		await expect(page.locator('[data-testid="warnings-panel"]')).toBeVisible();
+		await expect(page.locator('[data-testid="warning-group-Service"]')).toBeVisible();
+
+		// Row for the specific warning code
+		await expect(
+			page.locator('[data-testid="warning-row-Service-served_exceeds_capacity"]'),
+		).toBeVisible();
+	});
+
+	test('topology Service node is flagged when warning is active', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+		await page.locator('[data-testid="model-button-capacity-constrained"]').click();
+		await page.waitForSelector('[data-testid="warnings-banner"]', { timeout: 10000 });
+
+		// Wait for the effect hook to add the has-warning class after the SVG render
+		await page.waitForFunction(
+			() => {
+				const svc = document.querySelector(
+					'[data-testid="topology-graph"] [data-node-id="Service"]',
+				);
+				return svc !== null && svc.classList.contains('has-warning');
+			},
+			{ timeout: 5000 },
+		);
+
+		// Verify the class is present
+		const hasClass = await page
+			.locator('[data-testid="topology-graph"] [data-node-id="Service"]')
+			.first()
+			.evaluate((el) => el.classList.contains('has-warning'));
+		expect(hasClass).toBe(true);
+	});
+
+	test('raising capacity clears warnings banner, panel, and node highlight', async ({
+		page,
+	}) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+		await page.locator('[data-testid="model-button-capacity-constrained"]').click();
+		await page.waitForSelector('[data-testid="warnings-banner"]', { timeout: 10000 });
+
+		// Tweak capacity 10 → 20 → warning should clear
+		await page.locator('[data-testid="input-capacity"]').fill('20');
+
+		// Banner disappears
+		await page.waitForSelector('[data-testid="warnings-banner"]', {
+			state: 'detached',
+			timeout: 3000,
+		});
+
+		// Panel disappears
+		await expect(page.locator('[data-testid="warnings-panel"]')).not.toBeVisible();
+
+		// Service node no longer has-warning class
+		await page.waitForFunction(
+			() => {
+				const svc = document.querySelector(
+					'[data-testid="topology-graph"] [data-node-id="Service"]',
+				);
+				return svc !== null && !svc.classList.contains('has-warning');
+			},
+			{ timeout: 3000 },
+		);
+	});
+
+	test('dropping capacity back below arrivals re-triggers warnings', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+		await page.locator('[data-testid="model-button-capacity-constrained"]').click();
+		await page.waitForSelector('[data-testid="warnings-banner"]', { timeout: 10000 });
+
+		// Clear first
+		await page.locator('[data-testid="input-capacity"]').fill('20');
+		await page.waitForSelector('[data-testid="warnings-banner"]', {
+			state: 'detached',
+			timeout: 3000,
+		});
+
+		// Drop capacity back to 8 — warning returns (arrivals=15 > cap=8)
+		await page.locator('[data-testid="input-capacity"]').fill('8');
+		await page.waitForSelector('[data-testid="warnings-banner"]', { timeout: 3000 });
+
+		await expect(
+			page.locator('[data-testid="warning-row-Service-served_exceeds_capacity"]'),
+		).toBeVisible();
+	});
+
+	test('simple-pipeline model has no warnings banner (regression)', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+
+		// Default model is simple-pipeline → no topology, no warnings possible
+		await expect(page.locator('[data-testid="warnings-banner"]')).not.toBeVisible();
+		await expect(page.locator('[data-testid="warnings-panel"]')).not.toBeVisible();
+	});
+
+	// ── m-E17-05: edge heatmap ──
+
+	test('topology graph has at least one colored edge', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+
+		// Switch to queue-with-wip which has real topology edges
+		await page.locator('[data-testid="model-button-queue-with-wip"]').click();
+		await page.waitForSelector('[data-testid="param-row-Queue.wipLimit"]', { timeout: 10000 });
+
+		// dag-map renders edges as <path data-edge-from="..." data-edge-to="..." stroke="...">
+		// With edgeMetrics wired in, the stroke should be a computed colorScale rgb value.
+		const edgeStrokes: string[] = await page.evaluate(() => {
+			const svg = document.querySelector('[data-testid="topology-graph"] svg');
+			if (!svg) return [];
+			const strokes: string[] = [];
+			svg.querySelectorAll('path[data-edge-from]').forEach((el) => {
+				const s = el.getAttribute('stroke');
+				if (s) strokes.push(s);
+			});
+			return strokes;
+		});
+
+		// At least one edge must exist and be colored
+		expect(edgeStrokes.length).toBeGreaterThanOrEqual(1);
+		// Strokes should be rgb() values (colorScale output), not plain/default colors
+		expect(edgeStrokes.some((s) => s.startsWith('rgb') || s.startsWith('#'))).toBe(true);
+	});
+
+	test('edge colors shift when parameter changes', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+
+		// capacity-constrained: arrivals → Service edge
+		await page.locator('[data-testid="model-button-capacity-constrained"]').click();
+		await page.waitForSelector('[data-testid="param-row-arrivals"]', { timeout: 10000 });
+		await page.waitForSelector('[data-testid="warnings-banner"]', { timeout: 5000 });
+
+		// Capture edge strokes before tweak
+		const strokesBefore: string[] = await page.evaluate(() => {
+			const svg = document.querySelector('[data-testid="topology-graph"] svg');
+			if (!svg) return [];
+			const out: string[] = [];
+			svg.querySelectorAll('path[data-edge-from]').forEach((el) => {
+				const s = el.getAttribute('stroke');
+				if (s) out.push(s);
+			});
+			return out;
+		});
+
+		// Change arrivals from 15 → 5 (below capacity 10 → warning clears, flow changes)
+		await page.locator('[data-testid="input-arrivals"]').fill('5');
+		await page.waitForSelector('[data-testid="warnings-banner"]', {
+			state: 'detached',
+			timeout: 3000,
+		});
+
+		// Capture after
+		const strokesAfter: string[] = await page.evaluate(() => {
+			const svg = document.querySelector('[data-testid="topology-graph"] svg');
+			if (!svg) return [];
+			const out: string[] = [];
+			svg.querySelectorAll('path[data-edge-from]').forEach((el) => {
+				const s = el.getAttribute('stroke');
+				if (s) out.push(s);
+			});
+			return out;
+		});
+
+		// At least one edge must exist in both snapshots
+		expect(strokesBefore.length).toBeGreaterThanOrEqual(1);
+		expect(strokesAfter.length).toBeGreaterThanOrEqual(1);
+		// At least one edge stroke must have changed (arrivals series changed → edge metric changed)
+		const changed = strokesBefore.some((s, i) => strokesAfter[i] !== s);
+		expect(changed).toBe(true);
+	});
+
+	// ── m-E17-06: time scrubber ──
+
+	test('time scrubber panel is visible for multi-bin models', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+
+		// Default model (simple-pipeline) has 4 bins — scrubber should be visible
+		await expect(page.locator('[data-testid="time-scrubber-panel"]')).toBeVisible();
+		await expect(page.locator('[data-testid="bin-scrubber"]')).toBeVisible();
+		await expect(page.locator('[data-testid="bin-mean-toggle"]')).toBeVisible();
+	});
+
+	test('scrubber in Mean mode: no crosshair lines in charts', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+
+		// In mean mode (default), no crosshair should appear
+		const crosshairs = page.locator('[data-testid="crosshair"]');
+		await expect(crosshairs.first()).not.toBeVisible();
+	});
+
+	test('moving scrubber shows crosshair on all charts', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+
+		// Move scrubber to bin 1
+		await page.locator('[data-testid="bin-scrubber"]').fill('1');
+
+		// Each chart should now have a crosshair line
+		const crosshairs = page.locator('[data-testid="crosshair"]');
+		const count = await crosshairs.count();
+		expect(count).toBeGreaterThanOrEqual(1);
+		await expect(crosshairs.first()).toBeVisible();
+	});
+
+	test('Mean toggle clears crosshair', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+
+		// Activate scrubber
+		await page.locator('[data-testid="bin-scrubber"]').fill('2');
+		await expect(page.locator('[data-testid="crosshair"]').first()).toBeVisible();
+
+		// Click Mean — crosshair should disappear
+		await page.locator('[data-testid="bin-mean-toggle"]').click();
+		await expect(page.locator('[data-testid="crosshair"]').first()).not.toBeVisible();
+	});
+
+	test('moving scrubber shifts topology heatmap colors', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+
+		// Switch to queue-with-wip: queue_depth grows bin by bin (non-uniform series)
+		await page.locator('[data-testid="model-button-queue-with-wip"]').click();
+		await page.waitForSelector('[data-testid="param-row-Queue.wipLimit"]', { timeout: 10000 });
+
+		// Capture node fill colors in mean mode
+		const fillsBefore: string[] = await page.evaluate(() => {
+			const svg = document.querySelector('[data-testid="topology-graph"] svg');
+			if (!svg) return [];
+			return [...svg.querySelectorAll('[data-node-id]')].map(
+				(el) => el.querySelector('[fill]')?.getAttribute('fill') ?? '',
+			);
+		});
+
+		// Move scrubber to last bin
+		const scrubber = page.locator('[data-testid="bin-scrubber"]');
+		const max = await scrubber.getAttribute('max');
+		await scrubber.fill(max ?? '5');
+
+		// Wait a tick for reactivity
+		await page.waitForTimeout(100);
+
+		// Capture after
+		const fillsAfter: string[] = await page.evaluate(() => {
+			const svg = document.querySelector('[data-testid="topology-graph"] svg');
+			if (!svg) return [];
+			return [...svg.querySelectorAll('[data-node-id]')].map(
+				(el) => el.querySelector('[fill]')?.getAttribute('fill') ?? '',
+			);
+		});
+
+		// At least one node color must have changed (queue depth varies across bins)
+		expect(fillsBefore.length).toBeGreaterThanOrEqual(1);
+		const changed = fillsBefore.some((f, i) => fillsAfter[i] !== f);
+		expect(changed).toBe(true);
+	});
+
+	test('edge layout (path d attribute) is stable across parameter tweaks', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/what-if`);
+		await waitForReady(page);
+
+		// queue-with-wip has real topology edges
+		await page.locator('[data-testid="model-button-queue-with-wip"]').click();
+		await page.waitForSelector('[data-testid="param-row-Queue.wipLimit"]', { timeout: 10000 });
+
+		// Capture edge path data before tweak
+		const pathsBefore: string[] = await page.evaluate(() => {
+			const svg = document.querySelector('[data-testid="topology-graph"] svg');
+			if (!svg) return [];
+			const out: string[] = [];
+			svg.querySelectorAll('path[data-edge-from]').forEach((el) => {
+				const d = el.getAttribute('d');
+				if (d) out.push(d);
+			});
+			return out;
+		});
+
+		// Tweak WIP limit
+		await page.locator('[data-testid="input-Queue.wipLimit"]').fill('30');
+		await page.waitForFunction(
+			() => {
+				const el = document.querySelector('[data-testid="series-values-queue_queue"]');
+				return el?.textContent?.includes('30,');
+			},
+			{ timeout: 3000 },
+		);
+
+		// Capture path data after tweak
+		const pathsAfter: string[] = await page.evaluate(() => {
+			const svg = document.querySelector('[data-testid="topology-graph"] svg');
+			if (!svg) return [];
+			const out: string[] = [];
+			svg.querySelectorAll('path[data-edge-from]').forEach((el) => {
+				const d = el.getAttribute('d');
+				if (d) out.push(d);
+			});
+			return out;
+		});
+
+		// Path geometry must be identical — only stroke color changes
+		expect(pathsBefore.length).toBeGreaterThanOrEqual(1);
+		expect(pathsAfter).toEqual(pathsBefore);
+	});
 });

@@ -51,29 +51,96 @@ export function seriesMean(values: number[]): number {
 }
 
 /**
+ * Pick a single scalar from a series.
+ * When `bin` is a valid index, returns `values[bin]`.
+ * Otherwise (undefined, negative, or out of range) falls back to the mean.
+ */
+function pickValue(values: number[], bin?: number): number {
+	if (bin !== undefined && bin >= 0 && bin < values.length) {
+		return values[bin];
+	}
+	return seriesMean(values);
+}
+
+/**
  * Build the metrics map consumed by dag-map-view.
  *
- * For each graph node, use the mean of the node's primary series as the metric value.
+ * For each graph node, use the node's primary series as the metric value.
+ * When `bin` is provided and in range, uses the value at that bin (scrubber
+ * mode); otherwise uses the mean across all bins (default / mean mode).
+ *
  * Primary series lookup order:
  *   1. series[node.id]          — matches const/expr nodes named identically
- *   2. series[snake(id)_queue]  — topology queue synthesized column (queue_column_id pattern)
+ *   2. series[snake(id)_queue]  — topology queue synthesized column
  *   3. omit from the map        — node renders with default dag-map base color
  *
- * Nodes without a matching series are simply not colored. The resulting values are
- * raw — call `normalizeMetricMap` before passing to dag-map-view.
+ * Values are raw — call `normalizeMetricMap` before passing to dag-map-view.
  */
 export function buildMetricMap(
 	graph: EngineGraph,
 	series: Record<string, number[]>,
+	bin?: number,
 ): MetricMap {
 	const map = new Map<string, NodeMetric>();
 
 	for (const node of graph.nodes) {
 		const values = findNodeSeries(node.id, series);
 		if (values === undefined) continue;
-		map.set(node.id, { value: seriesMean(values), label: node.id });
+		map.set(node.id, { value: pickValue(values, bin), label: node.id });
 	}
 	return map;
+}
+
+/**
+ * Build the edge metrics map consumed by dag-map-view's edgeMetrics prop.
+ *
+ * Color semantic: each edge is colored by the **destination** node's load
+ * (queue depth), not the source node's value. This answers the question
+ * "how congested is the node this edge flows into?" so all incoming edges
+ * to a bottlenecked node go red simultaneously.
+ *
+ * Only edges whose destination is an operational topology node
+ * (serviceWithBuffer, queue, router, pmf, …) are included. Edges into
+ * analytical nodes (const, expr) are skipped — those have no queue depth
+ * and mixing capacity constants with queue depths on the same color scale
+ * produces misleading results.
+ *
+ * Key format: `${fromId}\u2192${toId}` — the Unicode right-arrow character (→),
+ * confirmed from dag-map/src/render.js:151: `\`${fromId}\u2192${toId}\``
+ *
+ * Values are raw — call normalizeMetricMap before passing to dag-map-view.
+ */
+export function buildEdgeMetricMap(
+	graph: EngineGraph,
+	series: Record<string, number[]>,
+	bin?: number,
+): MetricMap {
+	const map = new Map<string, NodeMetric>();
+	const nodeById = new Map(graph.nodes.map((n) => [n.id, n]));
+
+	for (const edge of graph.edges) {
+		const toNode = nodeById.get(edge.to);
+		// Skip edges that don't flow into an operational topology node.
+		if (!toNode || !isTopologyNode(toNode.kind)) continue;
+
+		// Color by the destination node's queue depth (its load).
+		const values = findNodeSeries(edge.to, series);
+		if (values === undefined) continue;
+
+		const key = `${edge.from}\u2192${edge.to}`;
+		map.set(key, { value: pickValue(values, bin), label: edge.to });
+	}
+	return map;
+}
+
+/**
+ * Returns true for operational topology nodes (serviceWithBuffer, queue,
+ * router, pmf, …). Excludes analytical nodes (const, expr) which carry
+ * no queue depth and should not drive the edge color scale.
+ */
+function isTopologyNode(kind: string): boolean {
+	const k = kind.toLowerCase();
+	return k !== 'const' && k !== 'expr';
 }
 
 /**
@@ -134,29 +201,31 @@ function toSnakeCase(id: string): string {
  * Normalize a metric map's values to [0, 1] for use with dag-map's colorScale,
  * which expects normalized input. Returns a new Map — does not mutate the input.
  *
- * - Values are linearly scaled: v → (v - min) / (max - min)
- * - When all values are equal (max === min), every node gets 0.5 (middle of scale)
- * - When the map is empty, returns an empty Map
+ * Uses zero-anchored normalization: 0 always maps to 0 (cold/no-load end of the
+ * scale) and the highest value in the current map maps to 1 (hot/peak-load end).
+ * This ensures that nodes with zero queue depth (no load) always appear cold,
+ * even when all nodes are at zero — which would otherwise collapse to the
+ * mid-scale fallback (orange) and give a false impression of load.
+ *
+ * - When the maximum is 0 (all values zero): every node gets 0 (cold/no-load)
+ * - When the map is empty: returns an empty Map
  * - The `label` field preserves the raw value formatted as text for tooltip use
  */
 export function normalizeMetricMap(map: MetricMap): MetricMap {
 	if (map.size === 0) return new Map();
 
-	let min = Infinity;
-	let max = -Infinity;
+	let max = 0;
 	for (const { value } of map.values()) {
-		if (value < min) min = value;
 		if (value > max) max = value;
 	}
 
 	const normalized = new Map<string, NodeMetric>();
-	const range = max - min;
 
-	if (range === 0 || !Number.isFinite(range)) {
-		// All values equal — place every node mid-scale
+	if (max === 0 || !Number.isFinite(max)) {
+		// All values zero (or degenerate) — every node at the cold/no-load end
 		for (const [key, entry] of map) {
 			normalized.set(key, {
-				value: 0.5,
+				value: 0,
 				label: entry.label ?? formatRawValue(entry.value),
 			});
 		}
@@ -164,9 +233,8 @@ export function normalizeMetricMap(map: MetricMap): MetricMap {
 	}
 
 	for (const [key, entry] of map) {
-		const t = (entry.value - min) / range;
 		normalized.set(key, {
-			value: t,
+			value: entry.value / max,
 			label: entry.label ?? formatRawValue(entry.value),
 		});
 	}

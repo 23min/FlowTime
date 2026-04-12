@@ -479,7 +479,6 @@ fn build_param_table(model: &ModelDefinition, cm: &crate::plan::ColumnMap) -> cr
     use crate::plan::{ParamTable, ParamEntry, ParamValue, ParamKind};
 
     let mut params = ParamTable::new();
-    let bins = model.grid.as_ref().map_or(0, |g| g.bins as usize);
 
     // 1. Const nodes
     for node in &model.nodes {
@@ -722,7 +721,7 @@ struct TopoColumnInfo {
 }
 
 /// Gather topology-produced columns and their dependencies.
-fn gather_topology_columns(model: &ModelDefinition, cm: &ColumnMap) -> Vec<TopoColumnInfo> {
+fn gather_topology_columns(model: &ModelDefinition, _cm: &ColumnMap) -> Vec<TopoColumnInfo> {
     let mut result = Vec::new();
     if let Some(topo) = &model.topology {
         for tnode in &topo.nodes {
@@ -1215,7 +1214,7 @@ fn compile_constraints(
     topo: &crate::model::TopologyDefinition,
     cm: &mut ColumnMap,
     ops: &mut Vec<Op>,
-    bins: usize,
+    _bins: usize,
 ) -> Result<(), CompileError> {
     for constraint in &topo.constraints {
         // Find topology nodes that reference this constraint
@@ -1322,7 +1321,7 @@ fn compile_derived_metrics(
     model: &ModelDefinition,
     cm: &mut ColumnMap,
     ops: &mut Vec<Op>,
-    bins: usize,
+    _bins: usize,
     bin_ms: f64,
 ) -> Result<(), CompileError> {
     for tnode in &topo.nodes {
@@ -1613,32 +1612,6 @@ fn compile_single_topology_node(
                 .ok_or_else(|| CompileError(format!("Topology node '{}': failures ref '{}' not found", tnode.id, failures_ref)))?;
             let echo_col = cm.get_or_insert(echo_ref);
             ops.push(Op::Convolve { out: echo_col, input: failures_col, kernel: kernel.clone() });
-        }
-    }
-
-    Ok(())
-}
-
-
-/// Validate no cycles in WIP overflow routing graph.
-fn validate_no_overflow_cycles(topo: &crate::model::TopologyDefinition) -> Result<(), CompileError> {
-    let mut overflow_edges: HashMap<&str, &str> = HashMap::new();
-    for tnode in &topo.nodes {
-        if let Some(target) = &tnode.wip_overflow {
-            if !target.is_empty() {
-                overflow_edges.insert(&tnode.id, target);
-            }
-        }
-    }
-
-    for start in overflow_edges.keys() {
-        let mut visited = HashSet::new();
-        let mut current = *start;
-        while let Some(&next) = overflow_edges.get(current) {
-            if !visited.insert(current) {
-                return Err(CompileError(format!("WIP overflow cycle detected involving '{}'", current)));
-            }
-            current = next;
         }
     }
 

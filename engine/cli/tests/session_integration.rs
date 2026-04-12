@@ -554,3 +554,137 @@ fn session_topology_wip_override() {
     drop(stdin);
     child.wait().unwrap();
 }
+
+// ── m-E17-04: warnings surface ──
+
+const CAPACITY_CONSTRAINED_MODEL: &str = r#"
+grid:
+  bins: 4
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arrivals
+    kind: const
+    values: [15, 15, 15, 15]
+  - id: capacity
+    kind: const
+    values: [10, 10, 10, 10]
+  - id: served
+    kind: expr
+    expr: "arrivals"
+topology:
+  nodes:
+    - id: Service
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arrivals
+        served: served
+        capacity: capacity
+  edges: []
+  constraints: []
+"#;
+
+#[test]
+fn session_compile_returns_warnings() {
+    let mut child = Command::new(engine_path())
+        .arg("session")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    let mut stdin = child.stdin.take().unwrap();
+    let mut stdout = child.stdout.take().unwrap();
+
+    send_request(&mut stdin, "compile", serde_json::json!({ "yaml": CAPACITY_CONSTRAINED_MODEL }));
+    let resp = read_response(&mut stdout);
+
+    assert!(resp.get("result").is_some(), "compile should succeed: {resp:?}");
+    let warnings = resp["result"]["warnings"].as_array().expect("warnings must be an array");
+    assert!(!warnings.is_empty(), "expected served_exceeds_capacity warning. Response: {resp:?}");
+
+    let first = &warnings[0];
+    assert_eq!(first["node_id"], "Service");
+    assert_eq!(first["code"], "served_exceeds_capacity");
+    assert_eq!(first["severity"], "warning");
+    let bins = first["bins"].as_array().unwrap();
+    assert_eq!(bins.len(), 4, "all 4 bins should be affected");
+
+    drop(stdin);
+    child.wait().unwrap();
+}
+
+#[test]
+fn session_eval_warnings_clear_and_return_on_parameter_tweak() {
+    let mut child = Command::new(engine_path())
+        .arg("session")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    let mut stdin = child.stdin.take().unwrap();
+    let mut stdout = child.stdout.take().unwrap();
+
+    send_request(&mut stdin, "compile", serde_json::json!({ "yaml": CAPACITY_CONSTRAINED_MODEL }));
+    let compile_resp = read_response(&mut stdout);
+    let compile_warnings = compile_resp["result"]["warnings"].as_array().unwrap();
+    assert_eq!(compile_warnings.len(), 1, "compile should have 1 warning");
+
+    // Raise capacity 10 → 20 — should clear the warning
+    send_request(&mut stdin, "eval", serde_json::json!({
+        "overrides": { "capacity": 20.0 }
+    }));
+    let eval_resp = read_response(&mut stdout);
+    assert!(eval_resp.get("result").is_some(), "eval should succeed");
+    let eval_warnings = eval_resp["result"]["warnings"]
+        .as_array()
+        .expect("eval result must carry a warnings array");
+    assert!(eval_warnings.is_empty(),
+        "warnings should clear after raising capacity. Got: {eval_warnings:?}");
+
+    // Drop capacity to 8 — warning returns
+    send_request(&mut stdin, "eval", serde_json::json!({
+        "overrides": { "capacity": 8.0 }
+    }));
+    let eval_resp2 = read_response(&mut stdout);
+    let eval_warnings2 = eval_resp2["result"]["warnings"].as_array().unwrap();
+    assert_eq!(eval_warnings2.len(), 1, "warning should return. Got: {eval_warnings2:?}");
+    assert_eq!(eval_warnings2[0]["code"], "served_exceeds_capacity");
+
+    drop(stdin);
+    child.wait().unwrap();
+}
+
+#[test]
+fn session_simple_model_has_empty_warnings_array() {
+    let mut child = Command::new(engine_path())
+        .arg("session")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    let mut stdin = child.stdin.take().unwrap();
+    let mut stdout = child.stdout.take().unwrap();
+
+    send_request(&mut stdin, "compile", serde_json::json!({ "yaml": SIMPLE_MODEL }));
+    let resp = read_response(&mut stdout);
+
+    // Simple model (no topology) → no warnings possible, but array should still be present
+    let warnings = resp["result"]["warnings"].as_array()
+        .expect("warnings array must always be present");
+    assert!(warnings.is_empty(), "simple model should have no warnings. Got: {warnings:?}");
+
+    // Same for eval responses
+    send_request(&mut stdin, "eval", serde_json::json!({ "overrides": {} }));
+    let eval_resp = read_response(&mut stdout);
+    let eval_warnings = eval_resp["result"]["warnings"].as_array().unwrap();
+    assert!(eval_warnings.is_empty());
+
+    drop(stdin);
+    child.wait().unwrap();
+}

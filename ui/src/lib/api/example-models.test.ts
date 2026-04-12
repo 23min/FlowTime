@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { EXAMPLE_MODELS, findExampleModel } from './example-models';
 
 describe('EXAMPLE_MODELS', () => {
-	it('exports exactly 3 models', () => {
-		expect(EXAMPLE_MODELS).toHaveLength(3);
+	it('exports exactly 6 models', () => {
+		expect(EXAMPLE_MODELS).toHaveLength(6);
 	});
 
 	it('each model has unique id', () => {
@@ -29,7 +29,14 @@ describe('EXAMPLE_MODELS', () => {
 
 	it('includes expected model ids', () => {
 		const ids = EXAMPLE_MODELS.map((m) => m.id).sort();
-		expect(ids).toEqual(['class-decomposition', 'queue-with-wip', 'simple-pipeline']);
+		expect(ids).toEqual([
+			'capacity-constrained',
+			'class-decomposition',
+			'ecommerce-order-pipeline',
+			'queue-with-wip',
+			'saas-api-platform',
+			'simple-pipeline',
+		]);
 	});
 });
 

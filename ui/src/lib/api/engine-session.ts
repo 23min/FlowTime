@@ -28,6 +28,19 @@ export interface CompileResult {
 	bins: number;
 	grid: GridInfo;
 	graph: EngineGraph;
+	warnings: WarningInfo[];
+}
+
+/**
+ * A single analyzer warning emitted by the engine.
+ * Field names mirror the Rust `WarningMsg` on the wire (snake_case).
+ */
+export interface WarningInfo {
+	node_id: string;
+	code: string;
+	message: string;
+	bins: number[];
+	severity: string;
 }
 
 /** Graph structure derived from the model, for UI topology visualization. */
@@ -49,6 +62,7 @@ export interface EngineGraphEdge {
 export interface EvalResult {
 	series: Record<string, number[]>;
 	elapsed_us: number;
+	warnings: WarningInfo[];
 }
 
 export interface EngineError {

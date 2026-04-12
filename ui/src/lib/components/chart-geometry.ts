@@ -196,3 +196,17 @@ export function xFromBin(
 	if (bins === 1) return plotLeft;
 	return plotLeft + (binIdx / (bins - 1)) * (plotRight - plotLeft);
 }
+
+/**
+ * Return the SVG x-coordinate for a crosshair at the given bin index.
+ *
+ * Returns null when:
+ *   - `bin` is negative or >= geom.bins (out of range)
+ *   - geom.bins === 0 (empty chart)
+ *
+ * Delegates to xFromBin for the linear interpolation.
+ */
+export function crosshairX(bin: number, geom: ChartGeometry): number | null {
+	if (geom.bins === 0 || bin < 0 || bin >= geom.bins) return null;
+	return xFromBin(bin, geom.plotLeft, geom.plotRight, geom.bins);
+}

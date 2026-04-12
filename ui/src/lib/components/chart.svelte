@@ -9,6 +9,7 @@
 		computeChartGeometry,
 		binFromX,
 		xFromBin,
+		crosshairX,
 		DEFAULT_PADDING,
 		type ChartSeries,
 	} from './chart-geometry.js';
@@ -18,9 +19,11 @@
 		width?: number;
 		height?: number;
 		title?: string;
+		/** When set, renders a dashed vertical crosshair at this bin index. */
+		crosshairBin?: number;
 	}
 
-	let { series, width = 320, height = 140, title }: Props = $props();
+	let { series, width = 320, height = 140, title, crosshairBin }: Props = $props();
 
 	let svgEl = $state<SVGSVGElement | null>(null);
 	let hoverBin = $state<number | null>(null);
@@ -152,6 +155,21 @@
 				data-testid="chart-path-{path.name}"
 			/>
 		{/each}
+
+		<!-- Time-scrubber crosshair (m-E17-06) — fixed bin position from parent -->
+		{#if crosshairBin !== undefined && crosshairX(crosshairBin, geometry) !== null}
+			<line
+				x1={crosshairX(crosshairBin, geometry)!}
+				x2={crosshairX(crosshairBin, geometry)!}
+				y1={geometry.plotTop}
+				y2={geometry.plotBottom}
+				stroke="hsl(240 5% 64.9%)"
+				stroke-width="1"
+				stroke-dasharray="4 2"
+				pointer-events="none"
+				data-testid="crosshair"
+			/>
+		{/if}
 
 		<!-- Hover crosshair -->
 		{#if hoverX !== null}
