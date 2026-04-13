@@ -136,6 +136,24 @@ public sealed class CanonicalBundleSourceTests : IDisposable
 
         Assert.NotNull(data.Provenance);
         Assert.Equal(Path.GetFullPath(bundleDir), data.Provenance!.SourcePath);
+        Assert.NotNull(data.Provenance.CapturedAt);
+    }
+
+    [Fact]
+    public async Task ReadAsync_CancelledToken_ThrowsOperationCancelled()
+    {
+        WriteIndex(4, 15, "minutes", "a", "b", "c");
+        WriteCsv("a", 1, 2, 3, 4);
+        WriteCsv("b", 1, 2, 3, 4);
+        WriteCsv("c", 1, 2, 3, 4);
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();  // already cancelled before ReadAsync is called
+
+        var source = new CanonicalBundleSource(bundleDir);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => source.ReadAsync(cts.Token));
     }
 
     [Fact]

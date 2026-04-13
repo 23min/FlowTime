@@ -42,10 +42,30 @@ public sealed class FileCsvSourceTests : IDisposable
     }
 
     [Fact]
+    public void Constructor_WhitespacePath_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => new FileCsvSource("   ", "demand", Grid()));
+    }
+
+    [Fact]
+    public void Constructor_NullSeriesId_Throws()
+    {
+        var path = WriteCsv("demand.csv", 1, 2, 3, 4);
+        Assert.Throws<ArgumentException>(() => new FileCsvSource(path, null!, Grid()));
+    }
+
+    [Fact]
     public void Constructor_EmptySeriesId_Throws()
     {
         var path = WriteCsv("demand.csv", 1, 2, 3, 4);
         Assert.Throws<ArgumentException>(() => new FileCsvSource(path, "", Grid()));
+    }
+
+    [Fact]
+    public void Constructor_WhitespaceSeriesId_Throws()
+    {
+        var path = WriteCsv("demand.csv", 1, 2, 3, 4);
+        Assert.Throws<ArgumentException>(() => new FileCsvSource(path, "   ", Grid()));
     }
 
     // ── ReadAsync happy path ───────────────────────────────────────────────
@@ -85,6 +105,7 @@ public sealed class FileCsvSourceTests : IDisposable
 
         Assert.NotNull(data.Provenance);
         Assert.Equal(Path.GetFullPath(path), data.Provenance!.SourcePath);
+        Assert.NotNull(data.Provenance.CapturedAt);
     }
 
     [Fact]
@@ -135,10 +156,20 @@ public sealed class FileCsvSourceTests : IDisposable
     }
 
     [Fact]
-    public async Task ReadAsync_WrongRowCount_Throws()
+    public async Task ReadAsync_TooFewRows_Throws()
     {
-        // CSV has 2 rows but grid expects 4 bins
+        // CSV has 2 data rows but grid expects 4 bins
         var path = WriteCsv("short.csv", 1.0, 2.0);
+        var source = new FileCsvSource(path, "x", Grid(4));
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => source.ReadAsync());
+    }
+
+    [Fact]
+    public async Task ReadAsync_TooManyRows_Throws()
+    {
+        // CSV has 6 data rows but grid expects 4 bins
+        var path = WriteCsv("long.csv", 1.0, 2.0, 3.0, 4.0, 5.0, 6.0);
         var source = new FileCsvSource(path, "x", Grid(4));
 
         await Assert.ThrowsAsync<InvalidDataException>(() => source.ReadAsync());
