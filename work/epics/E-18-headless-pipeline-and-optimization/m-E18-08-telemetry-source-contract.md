@@ -2,7 +2,7 @@
 
 **Epic:** E-18 Time Machine  
 **Branch:** `milestone/m-E18-08-telemetry-source-contract`  
-**Status:** in-progress
+**Status:** complete
 
 ## Goal
 
@@ -108,11 +108,11 @@ public sealed class FileCsvSource : ITelemetrySource
 
 ## Acceptance Criteria
 
-- [ ] `ITelemetrySource` interface exists in `FlowTime.TimeMachine.Telemetry`
-- [ ] `TelemetlyData` carries Grid + Series + optional Provenance
-- [ ] `CanonicalBundleSource.ReadAsync` reads a bundle directory and returns correct series values
-- [ ] `FileCsvSource.ReadAsync` reads a single CSV and returns the series under the specified ID
-- [ ] Both implementations compile and have passing unit tests
-- [ ] `ITelemetrySink` is **not** introduced (explicitly documented as deferred)
-- [ ] `rg "FlowTime\.Generator" src/ tests/` still zero (no regressions)
-- [ ] `dotnet test FlowTime.sln` all green
+- [x] `ITelemetrySource` interface exists in `FlowTime.TimeMachine.Telemetry`
+- [x] `TelemetryData` carries Grid + Series + optional Provenance
+- [x] `CanonicalBundleSource.ReadAsync` reads a bundle directory and returns correct series values
+- [x] `FileCsvSource.ReadAsync` reads a single CSV and returns the series under the specified ID
+- [x] Both implementations compile and have passing unit tests (23 tests across 2 suites)
+- [x] `ITelemetrySink` is **not** introduced (explicitly documented as deferred)
+- [x] `rg "FlowTime\.Generator" src/ tests/` still zero (no regressions)
+- [x] `dotnet test FlowTime.sln` all green (72 TimeMachine tests, 0 failures)

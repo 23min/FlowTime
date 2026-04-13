@@ -134,8 +134,9 @@ FlowTime as a callable pure function in pipelines, optimization loops, model fit
 - m-E18-02: Engine session + streaming protocol (Rust) — persistent process, MessagePack over stdin/stdout
 - m-E18-07: `FlowTime.TimeMachine` project created; `FlowTime.Generator` deleted (Path B)
 - m-E18-06: Tiered validation — `TimeMachineValidator` (schema/compile/analyse), `POST /v1/validate`, Rust `validate_schema`
+- m-E18-08: `ITelemetrySource` interface + `CanonicalBundleSource` + `FileCsvSource`
 
-**Next:** m-E18-08 `ITelemetrySource` contract — interface + `CanonicalBundleSource` + `FileCsvSource`
+**Next:** m-E18-09 Parameter Sweep & Sensitivity
 
 ## UI Paradigm Epics (draft — unnumbered until sequenced)
 
