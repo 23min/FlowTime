@@ -264,6 +264,21 @@ Accumulated learnings from implementation sessions.
 ### Pitfalls encountered
 - Milestone specs that say "delete the bridge now, move the math later" can force an impossible coexistence window. If the code proves that tension, record the sequencing change explicitly in decisions and tracking rather than pretending the old scope split still holds.
 
+## 2026-04-13: E-18 m-E18-09 Parameter Sweep
+
+### Patterns that worked
+- **`IModelEvaluator` as the DI seam.** `SweepRunner` depends on an `IModelEvaluator` interface, not `RustEngineRunner` directly. Tests inject a `FakeEvaluator` (inline private class); production wires `RustModelEvaluator`. Same pattern as `ISeriesReader` in m-E18-08 `CanonicalBundleSource`. Use this pattern for any Time Machine operation that calls the Rust engine.
+- **YamlDotNet representation model for YAML DOM mutation.** `ConstNodePatcher` uses `YamlStream` + `YamlMappingNode`/`YamlSequenceNode` to find and replace the `values` array of a named const node. Iterate `Children` manually (key equality via `YamlScalarNode.Value`) rather than using `TryGetValue` with a new node key — safer across YamlDotNet versions.
+- **`IServiceProvider` injection for optional DI in minimal API handlers.** `SweepRunner` is only registered when `RustEngine:Enabled=true`. Using `SweepRunner? runner` as a handler parameter doesn't work when the type isn't registered — the framework tries to bind it from the body (already consumed). Use `IServiceProvider services` + `services.GetService<SweepRunner>()` instead for optional engine-dependent services.
+
+### Pitfalls encountered
+- **`SweepRunner?` as a minimal API handler parameter fails when not registered in DI.** The framework attempts body binding instead of DI resolution for unregistered nullable types, causing 500 on every request. Fix: inject `IServiceProvider` and resolve with `GetService<T>()`.
+- **`internal` classes aren't accessible from test projects.** `ConstNodePatcher` was marked `internal` and the test project immediately errored. Either make it `public` (preferred if the class has external utility) or add `[assembly: InternalsVisibleTo(...)]` to the source project.
+
+### Conventions established
+- **Sweep domain lives in `FlowTime.TimeMachine.Sweep` namespace**, with the concrete Rust evaluator (`RustModelEvaluator`) also in that namespace. The `IModelEvaluator` / `SweepRunner` registrations live inside the existing `RustEngine:Enabled` DI guard in `Program.cs`.
+- **`ConstNodePatcher.Patch` is graceful:** returns the original YAML unchanged for unknown nodes, non-const nodes, or nodes with no `values` key. Callers don't need to guard.
+
 ## 2026-04-06: E-16-05 Warning Facts Projection
 
 ### Patterns that worked

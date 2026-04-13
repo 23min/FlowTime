@@ -135,8 +135,9 @@ FlowTime as a callable pure function in pipelines, optimization loops, model fit
 - m-E18-07: `FlowTime.TimeMachine` project created; `FlowTime.Generator` deleted (Path B)
 - m-E18-06: Tiered validation — `TimeMachineValidator` (schema/compile/analyse), `POST /v1/validate`, Rust `validate_schema`
 - m-E18-08: `ITelemetrySource` interface + `CanonicalBundleSource` + `FileCsvSource`
+- m-E18-09: Parameter sweep — `SweepSpec`/`SweepRunner`/`ConstNodePatcher`, `IModelEvaluator`, `POST /v1/sweep`
 
-**Next:** m-E18-09 Parameter Sweep & Sensitivity
+**Next:** m-E18-10 Sensitivity Analysis
 
 ## UI Paradigm Epics (draft — unnumbered until sequenced)
 
