@@ -158,8 +158,9 @@ These are the lowest-risk leverage layers after the E-16 truth gate. They increa
   - m-E18-06: Tiered validation — `TimeMachineValidator`, `POST /v1/validate`, Rust `validate_schema`
   - m-E18-08: `ITelemetrySource` interface + `CanonicalBundleSource` + `FileCsvSource`
   - m-E18-09: Parameter sweep — `SweepSpec`/`SweepRunner`/`ConstNodePatcher`, `IModelEvaluator`/`RustModelEvaluator`, `POST /v1/sweep`
-- **Next:** m-E18-10 Sensitivity Analysis
-- **Remaining:** sensitivity analysis, optimization & fitting, chunked evaluation, telemetry ingestion adapters
+  - m-E18-10: Sensitivity analysis — `ConstNodeReader`, `SensitivityRunner` (central difference), `POST /v1/sensitivity`
+- **Next:** m-E18-11 Optimization
+- **Remaining:** optimization & fitting, chunked evaluation, telemetry ingestion adapters
 - **Depends on:** E-16, E-20 (both complete)
 - **Analysis modes:** sweep, optimize, fit, sensitivity, Monte Carlo, feedback/chunked
 - **Stateful extension note:** chunked evaluation belongs after a dedicated streaming/stateful seam exists; do not make it part of the first Time Machine cut.

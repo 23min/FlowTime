@@ -187,7 +187,8 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
   - **m-E18-06** (complete): Tiered validation — `TimeMachineValidator` (schema/compile/analyse), `POST /v1/validate`, Rust `validate_schema` session command.
   - **m-E18-08** (complete): `ITelemetrySource` interface + `CanonicalBundleSource` + `FileCsvSource`. 23 tests.
   - **m-E18-09** (complete): Parameter sweep — `SweepSpec`/`SweepRunner`/`ConstNodePatcher`, `IModelEvaluator`/`RustModelEvaluator`, `POST /v1/sweep`. 35 tests.
-  - **Next:** m-E18-10 Sensitivity Analysis.
+  - **m-E18-10** (complete): Sensitivity analysis — `ConstNodeReader`, `SensitivitySpec`/`SensitivityRunner` (central difference), `POST /v1/sensitivity`. 39 tests.
+  - **Next:** m-E18-11 Optimization.
   - **Architecture:** `docs/architecture/headless-engine-architecture.md` — four-layer design.
 - **E-20** Matrix Engine — **completed and merged to main (2026-04-10).** Archived to `work/epics/completed/E-20-matrix-engine/`.
   - 10 milestones. 172 Rust tests + 1,332 .NET tests. E-17/E-18 unblocked.

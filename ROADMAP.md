@@ -136,8 +136,9 @@ FlowTime as a callable pure function in pipelines, optimization loops, model fit
 - m-E18-06: Tiered validation — `TimeMachineValidator` (schema/compile/analyse), `POST /v1/validate`, Rust `validate_schema`
 - m-E18-08: `ITelemetrySource` interface + `CanonicalBundleSource` + `FileCsvSource`
 - m-E18-09: Parameter sweep — `SweepSpec`/`SweepRunner`/`ConstNodePatcher`, `IModelEvaluator`, `POST /v1/sweep`
+- m-E18-10: Sensitivity analysis — `ConstNodeReader`, `SensitivityRunner` (central difference), `POST /v1/sensitivity`
 
-**Next:** m-E18-10 Sensitivity Analysis
+**Next:** m-E18-11 Optimization
 
 ## UI Paradigm Epics (draft — unnumbered until sequenced)
 

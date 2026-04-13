@@ -51,6 +51,7 @@ if (builder.Configuration.GetValue<bool>("RustEngine:Enabled"))
             sp.GetRequiredService<ILogger<FlowTime.Core.Execution.RustEngineRunner>>()));
     builder.Services.AddSingleton<FlowTime.TimeMachine.Sweep.IModelEvaluator, FlowTime.TimeMachine.Sweep.RustModelEvaluator>();
     builder.Services.AddSingleton<FlowTime.TimeMachine.Sweep.SweepRunner>();
+    builder.Services.AddSingleton<FlowTime.TimeMachine.Sweep.SensitivityRunner>();
 }
 // Engine session bridge (WebSocket → engine subprocess proxy)
 // Always registered so /v1/engine/session/health can report availability.
@@ -165,6 +166,7 @@ v1.MapRunOrchestrationEndpoints();
 v1.MapTelemetryCaptureEndpoints();
 v1.MapValidationEndpoints();
 v1.MapSweepEndpoints();
+v1.MapSensitivityEndpoints();
 
 // Engine session bridge — WebSocket → engine subprocess proxy (m-E17-01)
 v1.MapGet("/engine/session/health", (FlowTime.API.Services.EngineSessionBridge bridge) =>
