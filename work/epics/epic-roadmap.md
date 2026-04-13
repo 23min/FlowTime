@@ -149,12 +149,17 @@ These are the lowest-risk leverage layers after the E-16 truth gate. They increa
 #### E-18 — Time Machine
 
 - **Folder:** `work/epics/E-18-headless-pipeline-and-optimization/`
-- **Status:** Future — depends on E-16
+- **Status:** In-progress (on `epic/E-18-time-machine`)
 - **Goal:** FlowTime as a client-agnostic callable machine for pipelines, optimization loops, model fitting against real telemetry, sensitivity analysis, AI iteration, and digital twin architectures.
-- **Key milestones:** m-E18-01a Time Machine creation + Generator extraction, m-E18-01b tiered validation + telemetry source contract, m-E18-01c runtime parameter foundation + reevaluation, then CLI/sidecar, sweep & sensitivity, optimization & fitting, chunked evaluation, and telemetry source adapters
-- **Depends on:** E-16 (pure compiled engine as evaluation function)
+- **Completed milestones:**
+  - m-E18-01: Parameterized evaluation (Rust) — ParamTable, evaluate_with_params, compile-once eval-many
+  - m-E18-02: Engine session + streaming protocol (Rust) — persistent process, MessagePack over stdin/stdout
+  - m-E18-07: `FlowTime.TimeMachine` created, `FlowTime.Generator` deleted (Path B, no coexistence window)
+  - m-E18-06: Tiered validation — `TimeMachineValidator`, `POST /v1/validate`, Rust `validate_schema`
+- **Next:** m-E18-08 `ITelemetrySource` interface + `CanonicalBundleSource` + `FileCsvSource`
+- **Remaining:** parameter sweep & sensitivity, optimization & fitting, chunked evaluation, telemetry ingestion adapters
+- **Depends on:** E-16, E-20 (both complete)
 - **Analysis modes:** sweep, optimize, fit, sensitivity, Monte Carlo, feedback/chunked
-- **Recommended sequencing:** m-E18-01a/b/c first, then E-17 session/push UX, then E-18's richer analysis modes.
 - **Stateful extension note:** chunked evaluation belongs after a dedicated streaming/stateful seam exists; do not make it part of the first Time Machine cut.
 
 ## UI Paradigm Epics (draft — unnumbered until sequenced)

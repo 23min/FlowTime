@@ -121,13 +121,21 @@ Live interactive recalculation: change a parameter, see every metric update inst
 
 **Depends on:** E-20
 
-## E-18 — Time Machine (future)
+## E-18 — Time Machine (in-progress)
 
-**Epic:** `work/epics/E-18-headless-pipeline-and-optimization/spec.md` | **Status:** future
+**Epic:** `work/epics/E-18-headless-pipeline-and-optimization/spec.md` | **Status:** in-progress (branch `epic/E-18-time-machine`)
 
 FlowTime as a callable pure function in pipelines, optimization loops, model fitting, digital twin architectures. With the matrix engine (E-20), parameter sweeps are 1 compile + N partial replays. Sensitivity analysis, goal seeking, and batch what-if become column operations.
 
-**Depends on:** E-20
+**Depends on:** E-20 (complete)
+
+**Completed milestones:**
+- m-E18-01: Parameterized evaluation (Rust) — ParamTable, evaluate_with_params, compile-once eval-many
+- m-E18-02: Engine session + streaming protocol (Rust) — persistent process, MessagePack over stdin/stdout
+- m-E18-07: `FlowTime.TimeMachine` project created; `FlowTime.Generator` deleted (Path B)
+- m-E18-06: Tiered validation — `TimeMachineValidator` (schema/compile/analyse), `POST /v1/validate`, Rust `validate_schema`
+
+**Next:** m-E18-08 `ITelemetrySource` contract — interface + `CanonicalBundleSource` + `FileCsvSource`
 
 ## UI Paradigm Epics (draft — unnumbered until sequenced)
 
