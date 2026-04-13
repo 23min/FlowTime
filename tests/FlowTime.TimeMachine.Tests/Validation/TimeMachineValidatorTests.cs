@@ -46,6 +46,35 @@ public sealed class TimeMachineValidatorTests
                 ratePerBin: 10
         """;
 
+    // YAML where served > capacity on every bin — triggers served_exceeds_capacity tier-3 warning.
+    // arrivals=15, capacity=8, served=arrivals=15 → served (15) > capacity (8).
+    private const string CapacityConstrainedYaml = """
+        schemaVersion: 1
+        grid:
+          bins: 4
+          binSize: 15
+          binUnit: minutes
+        nodes:
+          - id: arrivals
+            kind: const
+            values: [15, 15, 15, 15]
+          - id: capacity
+            kind: const
+            values: [8, 8, 8, 8]
+          - id: served
+            kind: expr
+            expr: "arrivals"
+        topology:
+          nodes:
+            - id: Service
+              kind: service
+              semantics:
+                arrivals: arrivals
+                served: served
+                capacity: capacity
+          edges: []
+        """;
+
 
     #region Null / Empty
 
@@ -157,11 +186,22 @@ public sealed class TimeMachineValidatorTests
     [Fact]
     public void Validate_ValidModel_Analyse_ReturnsWarningsNotErrors()
     {
-        // Warnings from invariant analysis should be in Warnings, not Errors
+        // Warnings from invariant analysis go in Warnings, not Errors — model remains valid
         var result = TimeMachineValidator.Validate(MinimalValidYaml, ValidationTier.Analyse);
-        Assert.True(result.IsValid);   // warnings don't make it invalid
+        Assert.True(result.IsValid);
         Assert.Empty(result.Errors);
-        // Warnings may or may not be present depending on the model
+    }
+
+    [Fact]
+    public void Validate_CapacityConstrained_Analyse_ProducesCapacityWarning()
+    {
+        // served=15 > capacity=8 on every bin → served_exceeds_capacity warning.
+        // Model is still valid (warnings ≠ errors) but warnings must be non-empty.
+        var result = TimeMachineValidator.Validate(CapacityConstrainedYaml, ValidationTier.Analyse);
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Errors);
+        Assert.NotEmpty(result.Warnings);
+        Assert.Contains(result.Warnings, w => w.Code == "served_exceeds_capacity");
     }
 
     #endregion

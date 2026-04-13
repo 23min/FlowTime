@@ -82,6 +82,13 @@ public class ValidationEndpointsTests : IClassFixture<TestWebApplicationFactory>
     }
 
     [Fact]
+    public async Task NullTier_Returns400()
+    {
+        var response = await client.PostAsJsonAsync("/v1/validate", new { yaml = MinimalValidYaml, tier = (string?)null });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task ResponseShape_HasRequiredFields()
     {
         var response = await client.PostAsJsonAsync("/v1/validate", new { yaml = MinimalValidYaml, tier = "schema" });
