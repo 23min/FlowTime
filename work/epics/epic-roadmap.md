@@ -150,20 +150,30 @@ These are the lowest-risk leverage layers after the E-16 truth gate. They increa
 
 - **Folder:** `work/epics/E-18-headless-pipeline-and-optimization/`
 - **Status:** In-progress (on `epic/E-18-time-machine`)
+- **Gap analysis:** `work/epics/E-18-headless-pipeline-and-optimization/e18-gap-analysis.md`
 - **Goal:** FlowTime as a client-agnostic callable machine for pipelines, optimization loops, model fitting against real telemetry, sensitivity analysis, AI iteration, and digital twin architectures.
 - **Completed milestones:**
   - m-E18-01: Parameterized evaluation (Rust) — ParamTable, evaluate_with_params, compile-once eval-many
   - m-E18-02: Engine session + streaming protocol (Rust) — persistent process, MessagePack over stdin/stdout
-  - m-E18-07: `FlowTime.TimeMachine` created, `FlowTime.Generator` deleted (Path B, no coexistence window)
   - m-E18-06: Tiered validation — `TimeMachineValidator`, `POST /v1/validate`, Rust `validate_schema`
+  - m-E18-07: `FlowTime.TimeMachine` created, `FlowTime.Generator` deleted (Path B, no coexistence window)
   - m-E18-08: `ITelemetrySource` interface + `CanonicalBundleSource` + `FileCsvSource`
   - m-E18-09: Parameter sweep — `SweepSpec`/`SweepRunner`/`ConstNodePatcher`, `IModelEvaluator`/`RustModelEvaluator`, `POST /v1/sweep`
   - m-E18-10: Sensitivity analysis — `ConstNodeReader`, `SensitivityRunner` (central difference), `POST /v1/sensitivity`
-- **Next:** m-E18-11 Optimization
-- **Remaining:** optimization & fitting, chunked evaluation, telemetry ingestion adapters
+  - m-E18-11: Goal seeking — `GoalSeeker` (bisection), `POST /v1/goal-seek` *(added; not in original spec)*
+  - m-E18-12: Optimization — `Optimizer` (Nelder-Mead, N params), `POST /v1/optimize`
+- **Remaining — buildable now:**
+  - `SessionModelEvaluator` — compile-once bridge using m-E18-02 session protocol (current `RustModelEvaluator` spawns fresh subprocess per evaluation point)
+  - .NET Time Machine CLI commands (validate/sweep/sensitivity/goal-seek/optimize)
+  - Optimization constraints (penalty method)
+- **Remaining — blocked on Telemetry Loop & Parity:**
+  - Model fitting — `FitSpec`/`FitRunner`/`POST /v1/fit`; infrastructure (ITelemetrySource + Optimizer) exists, not assembled; requires measured drift bounds
+- **Explicitly deferred:**
+  - Chunked evaluation (needs stateful session design)
+  - Monte Carlo
+  - `FlowTime.Pipeline` embeddable SDK project
+  - `FlowTime.Telemetry.*` adapter projects (Prometheus, OTEL, BPI — E-15 territory)
 - **Depends on:** E-16, E-20 (both complete)
-- **Analysis modes:** sweep, optimize, fit, sensitivity, Monte Carlo, feedback/chunked
-- **Stateful extension note:** chunked evaluation belongs after a dedicated streaming/stateful seam exists; do not make it part of the first Time Machine cut.
 
 ## UI Paradigm Epics (draft — unnumbered until sequenced)
 

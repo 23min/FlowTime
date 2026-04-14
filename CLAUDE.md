@@ -188,8 +188,13 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
   - **m-E18-08** (complete): `ITelemetrySource` interface + `CanonicalBundleSource` + `FileCsvSource`. 23 tests.
   - **m-E18-09** (complete): Parameter sweep — `SweepSpec`/`SweepRunner`/`ConstNodePatcher`, `IModelEvaluator`/`RustModelEvaluator`, `POST /v1/sweep`. 35 tests.
   - **m-E18-10** (complete): Sensitivity analysis — `ConstNodeReader`, `SensitivitySpec`/`SensitivityRunner` (central difference), `POST /v1/sensitivity`. 39 tests.
-  - **Next:** m-E18-11 Optimization.
-  - **Architecture:** `docs/architecture/headless-engine-architecture.md` — four-layer design.
+  - **m-E18-11** (complete): Goal seeking — `GoalSeekSpec`/`GoalSeeker` (bisection), `POST /v1/goal-seek`. 33 tests.
+  - **m-E18-12** (complete): Optimization — `OptimizeSpec`/`Optimizer` (Nelder-Mead, N params), `POST /v1/optimize`. 29 unit + 10 API tests.
+  - **Gap analysis:** `work/epics/E-18-headless-pipeline-and-optimization/e18-gap-analysis.md`
+  - **Known remaining work (buildable now):** `SessionModelEvaluator` (compile-once bridge to m-E18-02 session protocol); .NET CLI commands; optimization constraints.
+  - **Blocked on Telemetry Loop & Parity:** model fitting (`FitSpec`/`FitRunner`/`POST /v1/fit`) — infrastructure exists, not assembled.
+  - **Deferred:** chunked evaluation, Monte Carlo, `FlowTime.Pipeline` SDK, `FlowTime.Telemetry.*` adapters.
+  - **Architecture:** `docs/architecture/headless-engine-architecture.md` — four-layer design; `docs/architecture/time-machine-analysis-modes.md` — sweep/sensitivity/goal-seek/optimize.
 - **E-20** Matrix Engine — **completed and merged to main (2026-04-10).** Archived to `work/epics/completed/E-20-matrix-engine/`.
   - 10 milestones. 172 Rust tests + 1,332 .NET tests. E-17/E-18 unblocked.
 - **E-10** Engine Correctness — **completed and merged to main (2026-04-09).** Archived to `work/epics/completed/E-10-engine-correctness-and-analytics/`.

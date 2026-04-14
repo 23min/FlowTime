@@ -1,6 +1,6 @@
 # Time Machine Analysis Modes
 
-**Status:** Current — reflects m-E18-09/10/11 implementation
+**Status:** Current — reflects m-E18-09/10/11/12 implementation
 **Date:** 2026-04-13
 **Context:** E-18 Time Machine. The sweep/sensitivity/goal-seek layer built on top of `RustEngineRunner`.
 
@@ -13,11 +13,11 @@ The Time Machine's analysis modes answer SPICE-style programmatic questions abou
 | **Sweep** | How do outputs change as I vary one parameter? | m-E18-09 |
 | **Sensitivity** | Which parameter has the most impact on this metric? | m-E18-10 |
 | **Goal Seek** | What parameter value achieves this target metric? | m-E18-11 |
-| **Optimize** | What parameter values minimize/maximize this objective? | future |
+| **Optimize** | What parameter values minimize/maximize this objective? | m-E18-12 |
 | **Fit** | What parameter values best match observed telemetry? | future (needs Telemetry Loop & Parity) |
 | **Monte Carlo** | Given uncertainty in inputs, what is the output distribution? | future |
 
-Each mode is a composition of the one below it. Goal seek uses sweep. Sensitivity uses sweep. Optimization uses sweep. They all share one evaluation contract.
+Each mode is a composition of the one below it. Goal seek uses sweep. Sensitivity uses sweep. Optimizer uses the evaluator directly for multi-parameter patching. They all share one evaluation contract.
 
 ## Architecture
 
@@ -25,11 +25,11 @@ Each mode is a composition of the one below it. Goal seek uses sweep. Sensitivit
 ┌───────────────────────────────────────────────────────┐
 │  Analysis Layer  (FlowTime.TimeMachine.Sweep)         │
 │                                                       │
-│  GoalSeeker          SensitivityRunner                │
-│       └──────────────────┘                            │
-│              SweepRunner                              │
-│                  │                                    │
-│           IModelEvaluator                             │
+│  Optimizer   GoalSeeker    SensitivityRunner          │
+│      │            └──────────────┘                    │
+│      │                SweepRunner                     │
+│      └──────────────────┘                             │
+│              IModelEvaluator                          │
 │                  │                                    │
 │         RustModelEvaluator                            │
 └───────────────────────────────────────────────────────┘
@@ -53,7 +53,7 @@ Each mode is a composition of the one below it. Goal seek uses sweep. Sensitivit
 
 **`IModelEvaluator` as the seam.** All analysis modes depend on `IModelEvaluator`, not on `RustEngineRunner` directly. This makes every analysis class testable with a `FakeEvaluator` (inline private class that returns canned series). The concrete `RustModelEvaluator` is registered only when `RustEngine:Enabled=true`.
 
-**Composition, not inheritance.** `SensitivityRunner` and `GoalSeeker` take a `SweepRunner` in their constructor. `SweepRunner` owns the `IModelEvaluator`. No duplication of evaluation logic.
+**Composition, not inheritance.** `SensitivityRunner` and `GoalSeeker` take a `SweepRunner` in their constructor. `Optimizer` takes `IModelEvaluator` directly — it patches multiple parameters simultaneously per evaluation, which `SweepRunner`'s 1D interface cannot express. `SweepRunner` owns the `IModelEvaluator`. No duplication of evaluation logic.
 
 **`ConstNodePatcher` / `ConstNodeReader` for YAML mutation.** Each evaluation point is a fresh subprocess call with a YAML copy where the target const node's values array is replaced. YamlDotNet representation model gives reliable DOM manipulation without regex fragility. Both classes operate on named const nodes only — expression nodes are not patchable.
 
@@ -61,7 +61,7 @@ Each mode is a composition of the one below it. Goal seek uses sweep. Sensitivit
 
 ## API Surface
 
-All three modes are exposed as minimal API endpoints registered on the `/v1` group.
+All four modes are exposed as minimal API endpoints registered on the `/v1` group.
 
 ### `POST /v1/sweep`
 
@@ -158,6 +158,44 @@ Find the const-node parameter value that drives a metric to a target, via bisect
 
 ---
 
+### `POST /v1/optimize`
+
+Find the parameter values that minimize or maximize a metric mean using Nelder-Mead simplex.
+
+**Request:**
+```json
+{
+  "yaml": "...",
+  "paramIds": ["arrivals", "capacity"],
+  "metricSeriesId": "queue.utilization",
+  "objective": "minimize",
+  "searchRanges": {
+    "arrivals":  { "lo": 10.0, "hi": 200.0 },
+    "capacity":  { "lo": 1.0,  "hi": 32.0  }
+  },
+  "tolerance": 1e-4,
+  "maxIterations": 200
+}
+```
+
+`objective` is `"minimize"` or `"maximize"` (case-insensitive). `tolerance` and `maxIterations` are optional (defaults: 1e-4 and 200).
+
+**Response (200):**
+```json
+{
+  "paramValues": { "arrivals": 147.2, "capacity": 8.0 },
+  "achievedMetricMean": 0.751,
+  "converged": true,
+  "iterations": 42
+}
+```
+
+`converged: false` when `maxIterations` is exhausted before the simplex f-value spread falls below `tolerance`. `paramValues` is always the best point found.
+
+**Algorithm:** Nelder-Mead simplex (α=1, γ=2, ρ=0.5, σ=0.5). Initial simplex: midpoint of all ranges as v[0]; each subsequent vertex perturbs one dimension by +5% of its range. Convergence criterion: `|f(worst) − f(best)| < tolerance` where f is the signed metric mean (negated for maximize). All vertices are clamped to their search ranges throughout.
+
+---
+
 ## Error responses (all modes)
 
 | Status | Condition |
@@ -180,9 +218,7 @@ Returns the original YAML unchanged if the node is not found or is not a const n
 
 ## Future modes
 
-**Optimization** — Nelder-Mead simplex over `SweepRunner`. Minimizes or maximizes a scalar objective (mean of a metric series) subject to parameter bounds. No telemetry dependency for pure-model optimization.
-
-**Model fitting** — Minimizes residual between model output and observed telemetry. Hard dependency on Telemetry Loop & Parity epic (needed for measured drift bounds and replay consistency). Consumes `ITelemetrySource` to load observed data.
+**Model fitting** — Minimizes residual between model output and observed telemetry. Hard dependency on Telemetry Loop & Parity epic (needed for measured drift bounds and replay consistency). Consumes `ITelemetrySource` to load observed data. *(Optimization as the inner loop is already available via `Optimizer`.)*
 
 **Monte Carlo** — Samples parameters from distributions, evaluates N times, characterizes output distribution (mean, variance, percentiles). Pure composition of `SweepRunner` with a sampling layer.
 
@@ -193,3 +229,4 @@ Returns the original YAML unchanged if the node is not found or is not a const n
 - `work/epics/E-18-headless-pipeline-and-optimization/m-E18-09-parameter-sweep.md`
 - `work/epics/E-18-headless-pipeline-and-optimization/m-E18-10-sensitivity-analysis.md`
 - `work/epics/E-18-headless-pipeline-and-optimization/m-E18-11-goal-seeking.md`
+- `work/epics/E-18-headless-pipeline-and-optimization/m-E18-12-optimization.md`

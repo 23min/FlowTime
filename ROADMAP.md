@@ -124,21 +124,38 @@ Live interactive recalculation: change a parameter, see every metric update inst
 ## E-18 — Time Machine (in-progress)
 
 **Epic:** `work/epics/E-18-headless-pipeline-and-optimization/spec.md` | **Status:** in-progress (branch `epic/E-18-time-machine`)
+**Gap analysis:** `work/epics/E-18-headless-pipeline-and-optimization/e18-gap-analysis.md`
 
-FlowTime as a callable pure function in pipelines, optimization loops, model fitting, digital twin architectures. With the matrix engine (E-20), parameter sweeps are 1 compile + N partial replays. Sensitivity analysis, goal seeking, and batch what-if become column operations.
+FlowTime as a callable pure function in pipelines, optimization loops, model fitting, digital twin architectures.
 
 **Depends on:** E-20 (complete)
 
 **Completed milestones:**
 - m-E18-01: Parameterized evaluation (Rust) — ParamTable, evaluate_with_params, compile-once eval-many
 - m-E18-02: Engine session + streaming protocol (Rust) — persistent process, MessagePack over stdin/stdout
-- m-E18-07: `FlowTime.TimeMachine` project created; `FlowTime.Generator` deleted (Path B)
 - m-E18-06: Tiered validation — `TimeMachineValidator` (schema/compile/analyse), `POST /v1/validate`, Rust `validate_schema`
+- m-E18-07: `FlowTime.TimeMachine` project created; `FlowTime.Generator` deleted (Path B)
 - m-E18-08: `ITelemetrySource` interface + `CanonicalBundleSource` + `FileCsvSource`
 - m-E18-09: Parameter sweep — `SweepSpec`/`SweepRunner`/`ConstNodePatcher`, `IModelEvaluator`, `POST /v1/sweep`
 - m-E18-10: Sensitivity analysis — `ConstNodeReader`, `SensitivityRunner` (central difference), `POST /v1/sensitivity`
+- m-E18-11: Goal seeking — `GoalSeeker` (bisection), `POST /v1/goal-seek` *(added; not in original spec)*
+- m-E18-12: Optimization — `Optimizer` (Nelder-Mead, N params), `POST /v1/optimize`
 
-**Next:** m-E18-11 Optimization
+**Known gaps (see gap analysis for full detail):**
+
+*Buildable now:*
+- `SessionModelEvaluator` — session-based evaluator using m-E18-02 protocol for compile-once performance; current `RustModelEvaluator` spawns a fresh subprocess per evaluation point
+- .NET Time Machine CLI commands (validate/sweep/sensitivity/goal-seek/optimize)
+- Optimization constraints (penalty method on `OptimizeSpec`)
+
+*Blocked on Telemetry Loop & Parity (not started):*
+- Model fitting — `FitSpec`/`FitRunner`/`POST /v1/fit`; infrastructure (ITelemetrySource + Optimizer) exists but not assembled; requires measured drift bounds before results are trustworthy
+
+*Explicitly deferred:*
+- Chunked evaluation (needs stateful session design)
+- Monte Carlo (sampling layer on top of IModelEvaluator)
+- `FlowTime.Pipeline` embeddable SDK project
+- `FlowTime.Telemetry.*` adapter projects (Prometheus, OTEL, BPI — E-15 territory)
 
 ## UI Paradigm Epics (draft — unnumbered until sequenced)
 
