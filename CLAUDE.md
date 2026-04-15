@@ -190,10 +190,11 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
   - **m-E18-10** (complete): Sensitivity analysis — `ConstNodeReader`, `SensitivitySpec`/`SensitivityRunner` (central difference), `POST /v1/sensitivity`. 39 tests.
   - **m-E18-11** (complete): Goal seeking — `GoalSeekSpec`/`GoalSeeker` (bisection), `POST /v1/goal-seek`. 33 tests.
   - **m-E18-12** (complete): Optimization — `OptimizeSpec`/`Optimizer` (Nelder-Mead, N params), `POST /v1/optimize`. 29 unit + 10 API tests.
+  - **m-E18-13** (complete, merged to epic 2026-04-15): `SessionModelEvaluator` — persistent `flowtime-engine session` subprocess, MessagePack over stdin/stdout, compile-once/eval-many. `RustEngine:UseSession` config switch (default true); `RustModelEvaluator` retained as fallback. DI lifetime moved Singleton → Scoped. 44 new tests (32 unit + 8 integration + 4 API DI) — every reachable branch covered.
   - **Gap analysis:** `work/epics/E-18-headless-pipeline-and-optimization/e18-gap-analysis.md`
   - **Active delivery sequence (decided 2026-04-15, Option A):**
-    1. **m-E18-13 SessionModelEvaluator** (in-progress on `milestone/m-E18-13-session-model-evaluator`) — compile-once bridge to m-E18-02 session protocol; `RustEngine:UseSession` config switch; `RustModelEvaluator` retained as fallback.
-    2. **m-E18-14 .NET Time Machine CLI** — `flowtime validate/sweep/...` pipeable UNIX surface; designed for Azure Functions / ACI pipeline use.
+    1. ~~**m-E18-13 SessionModelEvaluator**~~ — complete and merged to epic branch.
+    2. **m-E18-14 .NET Time Machine CLI** (NEXT) — `flowtime validate/sweep/...` pipeable UNIX surface; designed for Azure Functions / ACI pipeline use.
     3. **UI parity fork** — Svelte becomes platform for new telemetry/fit/discovery surfaces; Blazor → maintenance mode.
     4. **E-15 Telemetry Ingestion** — Gold Builder → Graph Builder → first dataset path.
     5. **Telemetry Loop & Parity** — parity harness (prerequisite for trustworthy fit).

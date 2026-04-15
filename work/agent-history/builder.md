@@ -264,6 +264,24 @@ Accumulated learnings from implementation sessions.
 ### Pitfalls encountered
 - Milestone specs that say "delete the bridge now, move the math later" can force an impossible coexistence window. If the code proves that tension, record the sequencing change explicitly in decisions and tracking rather than pretending the old scope split still holds.
 
+## 2026-04-15: E-18 m-E18-13 SessionModelEvaluator
+
+### Patterns that worked
+- **Config switch over delete when replacing an implementation behind a DI seam.** The original spec said "delete `RustModelEvaluator` forward-only." Reconsidered in review: keeping it as a `RustEngine:UseSession=false` fallback costs 30 lines and preserves diagnostic/process-isolation use cases (also matches Azure Functions deployment shape better than sessions). The two impls make `IModelEvaluator` a genuine seam rather than a test-only interface. Generalizable rule: when replacing a small, working implementation behind a seam, prefer config switch to delete unless the older impl actively obstructs new work.
+- **`InternalsVisibleTo` for branch-coverage of parsing helpers that operate on hand-crafted malformed inputs.** The Rust session protocol helpers (`ExtractResult`, `ExtractParamIds`, `ExtractSeries`, `ReadFrameAsync`) have defensive branches for protocol corruption that the real engine never produces. Marking them `internal static` and adding `InternalsVisibleTo` to the test project let me write a 26-test branch-coverage suite against MemoryStream and hand-crafted Dictionary<object,object> payloads. Each test covers exactly one branch — defense-in-depth code must be unit-tested the same as happy-path code.
+- **Explicit "coverage notes" section in milestone spec for non-reachable branches.** Six branches in SessionModelEvaluator (dispose-timeout-kill, defensive null guards, unreachable errors) can't be deterministically tested. Documenting them by name with the reason up-front is more defensible than silently having <100% coverage. This establishes a convention for similar infrastructure code.
+- **Scoped DI lifetime matches session lifetime.** When a Singleton evaluator became unsafe because of stateful session state, moving `IModelEvaluator` + 4 runners from `AddSingleton` to `AddScoped` cleanly gives one session per HTTP request with automatic `IAsyncDisposable` on request end. The runners are stateless wrappers — the Scoped change was risk-free for them.
+
+### Pitfalls encountered
+- **`IModelEvaluator` implementations disagree on key shape.** Discovered during m-E18-13 parity test: `RustModelEvaluator` via `RustEngineRunner` reads artifacts and returns keys like `arrivals@ARRIVALS@DEFAULT`. `SessionModelEvaluator` returns bare `arrivals` from the column map. Both are "correct" for their context. `SweepRunner.FilterSeries` does exact-match lookup — sweeps with `captureSeriesIds` work against session but silently return empty against per-eval. No existing test caught this because unit tests use `FakeEvaluator` with bare keys, and no integration test exercised `RustModelEvaluator` with `captureSeriesIds`. Lesson: when an abstraction has multiple production impls, include at least one integration test that verifies observable-key shape parity, not just numeric parity.
+- **`using var` doesn't work with `IAsyncDisposable`-only types.** The DI container refuses to auto-dispose a Scoped service that only implements `IAsyncDisposable` when you use a sync `using` block — throws "type only implements IAsyncDisposable. Use DisposeAsync to dispose the container." Fix: `await using var scope = ...CreateAsyncScope()`. Affects test code that resolves scoped services manually.
+- **Don't use sync `using` on `CreateScope()` when resolved service is `IAsyncDisposable`.** Same root cause as above, different surface. Pair `CreateAsyncScope()` with `await using`.
+
+### Conventions established
+- **Defense-in-depth parsing helpers are unit-testable via `internal static` + `InternalsVisibleTo`.** Preferred over making them public (surface creep) or skipping the tests (coverage gap).
+- **Milestone specs include a "Coverage notes" section** listing unreachable branches with rationale when the implementation has defensive paths that can't be deterministically exercised.
+- **Scope change for DI is acceptable when state-bearing services replace stateless ones.** Don't leave a stale Singleton registration just because the previous impl was stateless — update the lifetime to match the new impl's needs and verify the runners can live with the change.
+
 ## 2026-04-13: E-18 m-E18-09 Parameter Sweep
 
 ### Patterns that worked
