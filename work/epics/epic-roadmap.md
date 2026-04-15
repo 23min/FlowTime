@@ -236,6 +236,18 @@ Svelte UI becomes the platform for these new interaction models.
 - **Goal:** Explore how FlowTime's DAG semantics extend into streaming and modular subsystems.
 - **Notes:** Long-term exploratory. Requires stable engine semantics and node types.
 
+#### Cloud Deployment & Data Pipeline Integration
+
+- **Folder:** not yet created (aspirational)
+- **Goal:** Azure-native deployment shapes so client telemetry in ADX / Blob can drive FlowTime batch or event-driven analysis. Three anticipated shapes:
+  1. **Scheduled batch** — timer-triggered Azure Function or Container Apps job: queries ADX, runs FlowTime.TimeMachine fit/sweep/sensitivity, writes results back.
+  2. **Event-driven** — Event Grid / Service Bus triggers evaluation on a new telemetry window; results push to dashboards / downstream systems.
+  3. **Long-running interactive service** — Container App hosting the ASP.NET API for Svelte UI what-if exploration.
+- **Depends on:** m-E18-14 (CLI as pipeline entry point); E-15 (telemetry ingestion + canonical source adapters); Telemetry Loop & Parity (for validated fit); cloud `ITelemetrySource` implementations (`AdxTelemetrySource`, `BlobTelemetrySource`, `EventHubsTelemetrySource`); Blob artifact sink; OTEL / App Insights integration.
+- **Existing architecture that already fits:** Rust engine as standalone binary; `IModelEvaluator` seam (subprocess / HTTP / FFI interchangeable); `ITelemetrySource` seam (cloud adapters additive); analysis modes as a .NET library callable from any host (Functions / ACI / Container Apps); three-layer engine architecture (D-2026-04-10-031) supporting pluggable sinks.
+- **Note on evaluator choice:** `SessionModelEvaluator` (persistent subprocess, compile-once) fits long-running jobs. `RustModelEvaluator` (stateless subprocess per eval) fits Azure Functions where each invocation is short-lived and process isolation is a feature. Both implementations are retained (m-E18-13).
+- **Status:** Aspirational — not scheduled. Marker so near-term work (CLI, ITelemetrySource, artifact sink, observability) stays shaped for these scenarios. Concrete Azure work begins only when a specific client deployment target is chosen.
+
 ## Epic Numbering Convention
 
 - Epics are numbered sequentially: E-10, E-11, E-12, ...

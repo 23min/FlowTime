@@ -173,6 +173,48 @@ See `work/epics/ui-workbench/reference/ui-paradigm.md` for the architectural pro
 | **UI Layout Motors** | dag-map spike | Pluggable layout engines behind stable contract |
 | **Ptolemy-Inspired Semantics** | — | Conceptual guardrails for engine evolution |
 | **Streaming & Subsystems** | Stable engine semantics | Long-term exploratory |
+| **Cloud Deployment & Data Pipeline Integration** | E-15 + m-E18-14 CLI | Azure-native shape: Functions / Container Apps / ACI jobs. See below. |
+
+### Cloud Deployment & Data Pipeline Integration (aspirational)
+
+A natural deployment target for FlowTime is an Azure-hosted data pipeline where client
+telemetry lands in ADX or Blob, and FlowTime runs batch or event-driven analysis against it.
+This section captures the aspirational shape so that current architectural decisions stay
+compatible with it — without yet committing to implementation.
+
+**Three deployment shapes anticipated:**
+
+1. **Scheduled batch.** Timer-triggered Azure Function (or Container Apps job) queries ADX,
+   loads canonical series via `ITelemetrySource`, runs FlowTime.TimeMachine fit / sweep /
+   sensitivity, writes results back to ADX or Blob.
+2. **Event-driven.** Event Grid / Service Bus triggers a Function on a new telemetry window;
+   FlowTime evaluates; results push to a dashboard or downstream system.
+3. **Long-running interactive service.** Container App hosting the existing ASP.NET API for
+   Svelte UI what-if exploration. Separate process from the batch pipeline.
+
+**What the current architecture already gets right:**
+- Rust engine as a standalone binary — language-neutral, callable any way
+- `IModelEvaluator` seam — swap subprocess for HTTP client, FFI, or WASM without changing analysis code
+- `ITelemetrySource` seam — cloud adapters (ADX, Blob, Event Hubs) are additive
+- Analysis modes as a library (`FlowTime.TimeMachine`) — callable from any .NET host, not tied to the API server
+- Three-layer engine architecture (D-2026-04-10-031) — engine / sink / consumer separation supports Blob sinks
+
+**What we expect to add when Azure becomes concrete:**
+- **Pipeline-grade .NET CLI (m-E18-14 will start this).** Stdin JSON in / stdout JSON out. Azure Functions custom-handler-compatible. Self-contained binary deployable to ACI.
+- **Cloud `ITelemetrySource` adapters.** `AdxTelemetrySource`, `BlobTelemetrySource`, `EventHubsTelemetrySource`. Additive to the existing interface.
+- **Blob-backed artifact sink.** Parallel implementation of the filesystem sink under the same directory contract.
+- **OTEL / App Insights integration.** Structured spans around evaluator calls, sweeps, fits — long-running operations need observability.
+- **Key Vault secrets integration.** ADX connection strings, SAS tokens via standard Azure identity patterns.
+
+**Note on per-eval vs. session evaluator:** Both paths have a legitimate deployment shape.
+`SessionModelEvaluator` (persistent subprocess, compile-once) fits Container Apps jobs and
+long-running services where startup cost is amortized over many evaluations.
+`RustModelEvaluator` (stateless subprocess per eval) fits Azure Functions where each invocation
+is short-lived and process isolation is a feature. Both implementations are retained.
+
+**Status:** Not scheduled. Marker section so that the .NET CLI, ITelemetrySource, artifact sink,
+and observability work stay shaped for these scenarios as they land. Concrete Azure work begins
+only when a specific client deployment target is chosen.
 
 ## Dependency Graph
 

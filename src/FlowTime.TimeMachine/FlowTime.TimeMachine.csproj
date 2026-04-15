@@ -7,6 +7,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="MessagePack" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="FlowTime.TimeMachine.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../FlowTime.Contracts/FlowTime.Contracts.csproj" />
     <ProjectReference Include="../FlowTime.Core/FlowTime.Core.csproj" />
     <ProjectReference Include="../FlowTime.Adapters.Synthetic/FlowTime.Adapters.Synthetic.csproj" />

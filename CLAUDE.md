@@ -192,13 +192,14 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
   - **m-E18-12** (complete): Optimization — `OptimizeSpec`/`Optimizer` (Nelder-Mead, N params), `POST /v1/optimize`. 29 unit + 10 API tests.
   - **Gap analysis:** `work/epics/E-18-headless-pipeline-and-optimization/e18-gap-analysis.md`
   - **Active delivery sequence (decided 2026-04-15, Option A):**
-    1. **m-E18-13 SessionModelEvaluator** (NEXT) — compile-once bridge to m-E18-02 session protocol.
-    2. **m-E18-14 .NET Time Machine CLI** — `flowtime validate/sweep/...` pipeable UNIX surface.
+    1. **m-E18-13 SessionModelEvaluator** (in-progress on `milestone/m-E18-13-session-model-evaluator`) — compile-once bridge to m-E18-02 session protocol; `RustEngine:UseSession` config switch; `RustModelEvaluator` retained as fallback.
+    2. **m-E18-14 .NET Time Machine CLI** — `flowtime validate/sweep/...` pipeable UNIX surface; designed for Azure Functions / ACI pipeline use.
     3. **UI parity fork** — Svelte becomes platform for new telemetry/fit/discovery surfaces; Blazor → maintenance mode.
     4. **E-15 Telemetry Ingestion** — Gold Builder → Graph Builder → first dataset path.
     5. **Telemetry Loop & Parity** — parity harness (prerequisite for trustworthy fit).
     6. **m-E18-XX Model Fit** — `FitSpec`/`FitRunner`/`POST /v1/fit`.
     7. **Chunked evaluation** (Mode 6) — after discovery pipeline works end-to-end.
+  - **Aspirational (see ROADMAP.md Cloud Deployment section):** Azure-native deployment — batch Functions, event-driven, long-running Container Apps service — with cloud `ITelemetrySource` adapters (ADX, Blob, Event Hubs), Blob artifact sink, OTEL/App Insights. Not scheduled; marker so near-term work stays compatible.
   - **Deferred (tracked in `work/gaps.md`):** optimization constraints, Monte Carlo, `FlowTime.Pipeline` SDK, `FlowTime.Telemetry.*` adapters.
   - **Architecture:** `docs/architecture/headless-engine-architecture.md` — four-layer design; `docs/architecture/time-machine-analysis-modes.md` — sweep/sensitivity/goal-seek/optimize.
 - **E-20** Matrix Engine — **completed and merged to main (2026-04-10).** Archived to `work/epics/completed/E-20-matrix-engine/`.

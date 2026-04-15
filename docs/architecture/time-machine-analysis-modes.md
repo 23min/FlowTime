@@ -31,7 +31,7 @@ Each mode is a composition of the one below it. Goal seek uses sweep. Sensitivit
 │      └──────────────────┘                             │
 │              IModelEvaluator                          │
 │                  │                                    │
-│         RustModelEvaluator                            │
+│    SessionModelEvaluator  or  RustModelEvaluator      │
 └───────────────────────────────────────────────────────┘
                    │
 ┌───────────────────────────────────────────────────────┐
@@ -42,22 +42,33 @@ Each mode is a composition of the one below it. Goal seek uses sweep. Sensitivit
 └───────────────────────────────────────────────────────┘
                    │
 ┌───────────────────────────────────────────────────────┐
-│  Execution Layer  (FlowTime.Core.Execution)           │
+│  Execution Layer                                      │
 │                                                       │
-│  RustEngineRunner                                     │
-│  flowtime-engine eval <model.yaml> --output <dir>     │
+│  SessionModelEvaluator → flowtime-engine session      │
+│    (persistent subprocess, MessagePack over stdio,    │
+│     compile once, eval many)                          │
+│                                                       │
+│  RustModelEvaluator → RustEngineRunner                │
+│    (flowtime-engine eval <model> --output <dir>,      │
+│     fresh subprocess per eval, reads artifacts)       │
 └───────────────────────────────────────────────────────┘
 ```
 
 ### Key design decisions
 
-**`IModelEvaluator` as the seam.** All analysis modes depend on `IModelEvaluator`, not on `RustEngineRunner` directly. This makes every analysis class testable with a `FakeEvaluator` (inline private class that returns canned series). The concrete `RustModelEvaluator` is registered only when `RustEngine:Enabled=true`.
+**`IModelEvaluator` as the seam.** All analysis modes depend on `IModelEvaluator`, not on a concrete runner. This makes every analysis class testable with a `FakeEvaluator` (inline private class that returns canned series). The two production implementations (session / per-eval) are registered behind the same seam when `RustEngine:Enabled=true`.
+
+**Two production evaluators, one config switch.** `RustEngine:UseSession` (default `true`) selects the implementation:
+- **`SessionModelEvaluator` (default).** Uses the `flowtime-engine session` protocol (MessagePack over stdin/stdout, see `engine/cli/src/session.rs`). Spawns one subprocess per HTTP request (Scoped lifetime), compiles the model once on the first call, then sends parameter overrides for every subsequent call. Designed for sweeps/optimization/fitting with many evaluations per request.
+- **`RustModelEvaluator` (fallback).** Set `RustEngine:UseSession=false`. Spawns `flowtime-engine eval` as a fresh subprocess per evaluation point — each point pays full compile overhead but gets complete process isolation. Fits Azure Functions scenarios where each invocation is short-lived (see ROADMAP.md "Cloud Deployment").
+
+Both paths return the same numeric values (they drive the same engine). Key shapes differ — the session path returns bare column-map IDs (`served`), the per-eval path returns artifact IDs (`served@SERVED@DEFAULT`). See `work/gaps.md` for the divergence note.
 
 **Composition, not inheritance.** `SensitivityRunner` and `GoalSeeker` take a `SweepRunner` in their constructor. `Optimizer` takes `IModelEvaluator` directly — it patches multiple parameters simultaneously per evaluation, which `SweepRunner`'s 1D interface cannot express. `SweepRunner` owns the `IModelEvaluator`. No duplication of evaluation logic.
 
-**`ConstNodePatcher` / `ConstNodeReader` for YAML mutation.** Each evaluation point is a fresh subprocess call with a YAML copy where the target const node's values array is replaced. YamlDotNet representation model gives reliable DOM manipulation without regex fragility. Both classes operate on named const nodes only — expression nodes are not patchable.
+**`ConstNodePatcher` / `ConstNodeReader` for YAML mutation.** `ConstNodePatcher` replaces the target const node's values array; `ConstNodeReader` reads the current value. YamlDotNet representation model gives reliable DOM manipulation without regex fragility. Both operate on named const nodes only — expression nodes are not patchable. `SessionModelEvaluator` additionally uses `ConstNodeReader` to extract override values from patched YAMLs on every call after the initial compile.
 
-**One subprocess per evaluation point.** The current implementation spawns `flowtime-engine eval` once per point (compile + eval each time). This trades compile-once efficiency for implementation simplicity. A future session-based evaluator (compile once, eval N times via the `flowtime-engine session` protocol) can be substituted by implementing `IModelEvaluator` without changing any analysis class.
+**Scoped DI lifetime.** `IModelEvaluator`, `SweepRunner`, `SensitivityRunner`, `GoalSeeker`, and `Optimizer` are all registered as `Scoped`. This ties the session subprocess lifetime to the HTTP request: each analysis run gets its own session, disposed automatically when the request ends.
 
 ## API Surface
 
