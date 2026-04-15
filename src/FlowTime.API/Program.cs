@@ -49,11 +49,34 @@ if (builder.Configuration.GetValue<bool>("RustEngine:Enabled"))
         new FlowTime.Core.Execution.RustEngineRunner(
             rustBinaryPath,
             sp.GetRequiredService<ILogger<FlowTime.Core.Execution.RustEngineRunner>>()));
-    builder.Services.AddSingleton<FlowTime.TimeMachine.Sweep.IModelEvaluator, FlowTime.TimeMachine.Sweep.RustModelEvaluator>();
-    builder.Services.AddSingleton<FlowTime.TimeMachine.Sweep.SweepRunner>();
-    builder.Services.AddSingleton<FlowTime.TimeMachine.Sweep.SensitivityRunner>();
-    builder.Services.AddSingleton<FlowTime.TimeMachine.Sweep.GoalSeeker>();
-    builder.Services.AddSingleton<FlowTime.TimeMachine.Sweep.Optimizer>();
+
+    // IModelEvaluator choice: default SessionModelEvaluator (compile-once, stateful
+    // subprocess per request). Flip RustEngine:UseSession=false to fall back to the
+    // stateless RustModelEvaluator (fresh subprocess per eval). See m-E18-13 spec
+    // and ROADMAP.md "Cloud Deployment" section for when each path is appropriate.
+    var useSession = builder.Configuration.GetValue("RustEngine:UseSession", defaultValue: true);
+    if (useSession)
+    {
+        var evaluatorBinaryPath = rustBinaryPath;
+        builder.Services.AddScoped<FlowTime.TimeMachine.Sweep.IModelEvaluator>(sp =>
+            new FlowTime.TimeMachine.Sweep.SessionModelEvaluator(
+                evaluatorBinaryPath,
+                sp.GetService<ILogger<FlowTime.TimeMachine.Sweep.SessionModelEvaluator>>()));
+    }
+    else
+    {
+        builder.Services.AddScoped<
+            FlowTime.TimeMachine.Sweep.IModelEvaluator,
+            FlowTime.TimeMachine.Sweep.RustModelEvaluator>();
+    }
+
+    // Runners are stateless wrappers over IModelEvaluator. Scoped so they share the
+    // per-request evaluator lifetime — important when SessionModelEvaluator is active
+    // since the session subprocess belongs to the request.
+    builder.Services.AddScoped<FlowTime.TimeMachine.Sweep.SweepRunner>();
+    builder.Services.AddScoped<FlowTime.TimeMachine.Sweep.SensitivityRunner>();
+    builder.Services.AddScoped<FlowTime.TimeMachine.Sweep.GoalSeeker>();
+    builder.Services.AddScoped<FlowTime.TimeMachine.Sweep.Optimizer>();
 }
 // Engine session bridge (WebSocket → engine subprocess proxy)
 // Always registered so /v1/engine/session/health can report availability.
