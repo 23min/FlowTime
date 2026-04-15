@@ -23,6 +23,23 @@ if (args[0] == "artifacts")
 	return await HandleArtifactsCommand(args);
 }
 
+// Time Machine CLI commands: JSON-over-stdio, byte-compatible with /v1/ endpoints.
+// See work/epics/E-18-headless-pipeline-and-optimization/m-E18-14-timemachine-cli.md
+var tmArgs = args.Skip(1).ToArray();
+switch (args[0])
+{
+	case "validate":
+		return await ValidateCommand.ExecuteAsync(tmArgs, Console.In, Console.Out, Console.Error);
+	case "sweep":
+		return await SweepCommand.ExecuteAsync(tmArgs, Console.In, Console.Out, Console.Error);
+	case "sensitivity":
+		return await SensitivityCommand.ExecuteAsync(tmArgs, Console.In, Console.Out, Console.Error);
+	case "goal-seek":
+		return await GoalSeekCommand.ExecuteAsync(tmArgs, Console.In, Console.Out, Console.Error);
+	case "optimize":
+		return await OptimizeCommand.ExecuteAsync(tmArgs, Console.In, Console.Out, Console.Error);
+}
+
 if (!string.Equals(args[0], "run", StringComparison.OrdinalIgnoreCase))
 {
 	PrintUsage();
@@ -281,11 +298,23 @@ static bool IsHelp(string? s)
 
 static void PrintUsage()
 {
-	Console.WriteLine("FlowTime CLI (M0)\n");
+	Console.WriteLine("FlowTime CLI\n");
 	Console.WriteLine("Usage:");
 	Console.WriteLine("  flowtime run <model.yaml> [--out <dir>] [--verbose] [--deterministic-run-id] [--seed <n>]");
 	Console.WriteLine("  flowtime run --template-id <id> --mode simulation [--param-file <path>] [--out <dir>] [--deterministic-run-id] [--run-id <value>] [--overwrite] [--dry-run]");
-	Console.WriteLine("  flowtime run --template-id <id> --mode telemetry --capture-dir <path> [--bind key=file] [--param-file <path>] [--out <dir>] [--deterministic-run-id]\n");
+	Console.WriteLine("  flowtime run --template-id <id> --mode telemetry --capture-dir <path> [--bind key=file] [--param-file <path>] [--out <dir>] [--deterministic-run-id]");
+	Console.WriteLine();
+	Console.WriteLine("  flowtime validate [<model.yaml>] [--tier schema|compile|analyse] [-o <path>]");
+	Console.WriteLine("  flowtime sweep        [--spec <path>] [-o <path>] [--no-session] [--engine <path>]");
+	Console.WriteLine("  flowtime sensitivity  [--spec <path>] [-o <path>] [--no-session] [--engine <path>]");
+	Console.WriteLine("  flowtime goal-seek    [--spec <path>] [-o <path>] [--no-session] [--engine <path>]");
+	Console.WriteLine("  flowtime optimize     [--spec <path>] [-o <path>] [--no-session] [--engine <path>]");
+	Console.WriteLine("    Each Time Machine command accepts JSON on stdin (or --spec) and writes JSON");
+	Console.WriteLine("    to stdout (or --output). Request/response shapes match the /v1/ API endpoints.");
+	Console.WriteLine("    Pass --help after the command name for details.");
+	Console.WriteLine();
+	Console.WriteLine("  flowtime artifacts ...  (run-directory inspection — see 'flowtime artifacts --help')");
+	Console.WriteLine();
 	Console.WriteLine("Options:");
 	Console.WriteLine("  --out <dir>             Output directory (default: ./data, or $FLOWTIME_DATA_DIR)");
 	Console.WriteLine("  --verbose               Print grid/topology/output summary (legacy model path runs)");
