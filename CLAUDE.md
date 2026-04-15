@@ -194,7 +194,7 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
   - **Gap analysis:** `work/epics/E-18-headless-pipeline-and-optimization/e18-gap-analysis.md`
   - **Active delivery sequence (decided 2026-04-15, Option A):**
     1. ~~**m-E18-13 SessionModelEvaluator**~~ — complete and merged to epic branch.
-    2. **m-E18-14 .NET Time Machine CLI** (NEXT) — `flowtime validate/sweep/...` pipeable UNIX surface; designed for Azure Functions / ACI pipeline use.
+    2. **m-E18-14 .NET Time Machine CLI** (in-progress on `milestone/m-E18-14-timemachine-cli`) — five JSON-over-stdio commands (validate/sweep/sensitivity/goal-seek/optimize) byte-compatible with `/v1/` endpoints; `--no-session` fallback; designed for Azure Functions / ACI pipeline use.
     3. **UI parity fork** — Svelte becomes platform for new telemetry/fit/discovery surfaces; Blazor → maintenance mode.
     4. **E-15 Telemetry Ingestion** — Gold Builder → Graph Builder → first dataset path.
     5. **Telemetry Loop & Parity** — parity harness (prerequisite for trustworthy fit).
