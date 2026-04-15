@@ -2,6 +2,26 @@
 
 Accumulated learnings from implementation sessions.
 
+## 2026-04-15: E-18 m-E18-14 .NET Time Machine CLI
+
+### Patterns that worked
+- **Generic `AnalysisCliRunner.ExecuteAsync<TSpec, TResult>` for shape-identical commands.** Sweep/sensitivity/goal-seek/optimize all have the same pipeline: parse flags → read JSON → resolve engine → create evaluator handle → run runner delegate → write JSON. Extracting the shell kept each command file at ~40 lines and made failure modes (input error, engine error) live in one place with one exit-code contract.
+- **`CliEvaluatorHandle` wrapping two `IModelEvaluator` impls for uniform `IAsyncDisposable`.** `SessionModelEvaluator` and `RustModelEvaluator` have different lifetimes (stateful vs stateless), but the CLI needs `await using` regardless. A small wrapper struct unifies them without forcing the interface itself to be `IAsyncDisposable`.
+- **`JsonStringEnumConverter(allowIntegerValues: false)` in the shared JSON options.** `OptimizeSpec.Objective` is an enum; API receives the string `"minimize"` and binds it via System.Text.Json's built-in enum converter. Without the converter, the CLI would accept numeric enum values from disk but fail on the canonical string form — silently diverging from the API. Match the API's converter set exactly; the "byte-compatible with /v1/" claim is only true if every converter matches.
+- **Positional `-` as stdin sentinel requires special-casing the `!a.StartsWith('-')` check.** Bare `-` is standard UNIX for "read from stdin as a positional" but fails `!StartsWith('-')`. Fix: `(a == "-" || !a.StartsWith('-'))`. Cheap to add; saves users from `--spec -` noise.
+
+### Pitfalls encountered
+- **`Win32Exception` from subprocess spawn failure isn't caught by `InvalidOperationException`.** When the engine binary is a bare name ("flowtime-engine") not on `$PATH`, `Process.Start` throws `Win32Exception`, not `InvalidOperationException`. The bare-path test was failing with an uncaught exception rather than exit 3. Fix: add `catch (Win32Exception)` → exit 3 in the shared runner. Lesson: stateless-subprocess and session-subprocess throw different exception types on binary-not-found; the CLI layer must catch both.
+- **`ResolveEnginePath` fallback to bare `"flowtime-engine"` when `DirectoryProvider.FindSolutionRoot()` returns null is hard to exercise in tests.** That branch only fires outside a `.git`-rooted tree. Documented as a single coverage gap in the milestone spec under "Coverage notes" rather than inventing an environment-manipulation test. Platform-edge branches deserve explicit documentation, not silent skip.
+- **Engine doesn't have an `abs()` function.** Integration test for optimize bowl needed `|x-7|`. Available functions are MIN/MAX/CLAMP/SHIFT/CONV only — used `MAX(x-7, 7-x)` instead. Check engine capabilities when writing test fixtures; don't assume a math function exists because it's trivial elsewhere.
+- **`using var` fails against IAsyncDisposable-only types.** DI scope tests originally wrote `using var scope = services.CreateScope()` — compiler error "type only implements IAsyncDisposable". Fix: `await using var scope = services.CreateAsyncScope()`. When a service implements only `IAsyncDisposable`, every scope holding it must be async too.
+
+### Conventions established
+- **CLI commands for analysis modes are JSON-over-stdio, byte-compatible with `POST /v1/<mode>`.** Same spec types, same result types, same JSON options. `cat spec.json | flowtime <mode>` produces the same payload as `curl -d @spec.json /v1/<mode>`. Do not introduce CLI-shaped flags for spec fields that already live in the JSON spec; that's what `cat foo.json | jq` is for.
+- **Exit codes: 0 success / 1 analysis-failed-cleanly / 2 input-error / 3 engine-error.** Analysis-failed-cleanly (e.g., `validate` returns invalid) still writes its full JSON response to stdout — exit 1 is for "the analysis converged but its answer is negative", not "the analysis crashed".
+- **Engine binary resolution precedence:** `--engine` flag > `FLOWTIME_RUST_BINARY` env var > `<solution>/engine/target/release/flowtime-engine` > `flowtime-engine` on `$PATH`. Explicit > env > solution-default > PATH. Same precedence as the API's bridge; extract to `CliEngineSetup` for both to share.
+- **Branch-coverage audit produced 89 CLI unit tests + 10 integration tests.** Not all ACs map to single branches; a "help prints and exits 0" AC covers one `if parsed.ShowHelp` branch but leaves 5 other flag-error branches untested. Walk the code, not the AC list.
+
 ## 2026-04-09: E-20 m-E20-06 Artifacts, CLI, and Integration
 
 ### Patterns that worked

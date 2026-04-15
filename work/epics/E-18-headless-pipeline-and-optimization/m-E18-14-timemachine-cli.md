@@ -2,7 +2,7 @@
 
 **Epic:** E-18 Time Machine
 **Branch:** `milestone/m-E18-14-timemachine-cli` (from `epic/E-18-time-machine`)
-**Status:** complete — ready for review
+**Status:** complete — merged to epic branch 2026-04-15
 
 ## Goal
 

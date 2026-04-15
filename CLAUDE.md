@@ -201,11 +201,12 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
   - **m-E18-11** (complete): Goal seeking — `GoalSeekSpec`/`GoalSeeker` (bisection), `POST /v1/goal-seek`. 33 tests.
   - **m-E18-12** (complete): Optimization — `OptimizeSpec`/`Optimizer` (Nelder-Mead, N params), `POST /v1/optimize`. 29 unit + 10 API tests.
   - **m-E18-13** (complete, merged to epic 2026-04-15): `SessionModelEvaluator` — persistent `flowtime-engine session` subprocess, MessagePack over stdin/stdout, compile-once/eval-many. `RustEngine:UseSession` config switch (default true); `RustModelEvaluator` retained as fallback. DI lifetime moved Singleton → Scoped. 44 new tests (32 unit + 8 integration + 4 API DI) — every reachable branch covered.
+  - **m-E18-14** (complete, merged to epic 2026-04-15): .NET Time Machine CLI — `flowtime validate/sweep/sensitivity/goal-seek/optimize` as pipeable JSON-over-stdio commands byte-compatible with `/v1/` endpoints. `--no-session` selects `RustModelEvaluator`; `--engine`/`FLOWTIME_RUST_BINARY`/default path resolution; exit code contract (0/1/2/3); `CliJsonIO` + `CliCommonArgs` + `CliEngineSetup` + `AnalysisCliRunner` shared helpers. 72 CLI unit + 10 integration tests — every reachable branch covered with one documented platform-edge gap. Full suite 1,702 passed / 9 skipped.
   - **Gap analysis:** `work/epics/E-18-headless-pipeline-and-optimization/e18-gap-analysis.md`
   - **Active delivery sequence (decided 2026-04-15, Option A):**
     1. ~~**m-E18-13 SessionModelEvaluator**~~ — complete and merged to epic branch.
-    2. **m-E18-14 .NET Time Machine CLI** (in-progress on `milestone/m-E18-14-timemachine-cli`) — five JSON-over-stdio commands (validate/sweep/sensitivity/goal-seek/optimize) byte-compatible with `/v1/` endpoints; `--no-session` fallback; designed for Azure Functions / ACI pipeline use.
-    3. **UI parity fork** — Svelte becomes platform for new telemetry/fit/discovery surfaces; Blazor → maintenance mode.
+    2. ~~**m-E18-14 .NET Time Machine CLI**~~ — complete and merged to epic branch.
+    3. **UI parity fork** (next) — Svelte becomes platform for new telemetry/fit/discovery surfaces; Blazor → maintenance mode (bug fixes + contract alignment only).
     4. **E-15 Telemetry Ingestion** — Gold Builder → Graph Builder → first dataset path.
     5. **Telemetry Loop & Parity** — parity harness (prerequisite for trustworthy fit).
     6. **m-E18-XX Model Fit** — `FitSpec`/`FitRunner`/`POST /v1/fit`.
@@ -221,5 +222,5 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
   - Deferred (tracked in `work/gaps.md`): `POST /v1/run` and `POST /v1/graph` Engine route deletion per D-2026-04-08-029 (test-infrastructure migration needed first).
 - **E-11** Svelte UI — paused after M6; E-17 completed on Svelte
   - M1-M4 + M6 done, M5/M7/M8 remain
-  - **Fork decision (2026-04-15):** After m-E18-14, Svelte becomes platform for new surfaces. Blazor → maintenance mode (bug fixes + contract alignment only).
+  - **Fork decision (2026-04-15, active as of m-E18-14 wrap):** Svelte is the platform for new surfaces. Blazor is in maintenance mode (bug fixes + contract alignment only).
 - **E-12–E-15:** planned, not started. E-15 is on critical path for client-telemetry vision.
