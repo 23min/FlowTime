@@ -191,9 +191,15 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
   - **m-E18-11** (complete): Goal seeking — `GoalSeekSpec`/`GoalSeeker` (bisection), `POST /v1/goal-seek`. 33 tests.
   - **m-E18-12** (complete): Optimization — `OptimizeSpec`/`Optimizer` (Nelder-Mead, N params), `POST /v1/optimize`. 29 unit + 10 API tests.
   - **Gap analysis:** `work/epics/E-18-headless-pipeline-and-optimization/e18-gap-analysis.md`
-  - **Known remaining work (buildable now):** `SessionModelEvaluator` (compile-once bridge to m-E18-02 session protocol); .NET CLI commands; optimization constraints.
-  - **Blocked on Telemetry Loop & Parity:** model fitting (`FitSpec`/`FitRunner`/`POST /v1/fit`) — infrastructure exists, not assembled.
-  - **Deferred:** chunked evaluation, Monte Carlo, `FlowTime.Pipeline` SDK, `FlowTime.Telemetry.*` adapters.
+  - **Active delivery sequence (decided 2026-04-15, Option A):**
+    1. **m-E18-13 SessionModelEvaluator** (NEXT) — compile-once bridge to m-E18-02 session protocol.
+    2. **m-E18-14 .NET Time Machine CLI** — `flowtime validate/sweep/...` pipeable UNIX surface.
+    3. **UI parity fork** — Svelte becomes platform for new telemetry/fit/discovery surfaces; Blazor → maintenance mode.
+    4. **E-15 Telemetry Ingestion** — Gold Builder → Graph Builder → first dataset path.
+    5. **Telemetry Loop & Parity** — parity harness (prerequisite for trustworthy fit).
+    6. **m-E18-XX Model Fit** — `FitSpec`/`FitRunner`/`POST /v1/fit`.
+    7. **Chunked evaluation** (Mode 6) — after discovery pipeline works end-to-end.
+  - **Deferred (tracked in `work/gaps.md`):** optimization constraints, Monte Carlo, `FlowTime.Pipeline` SDK, `FlowTime.Telemetry.*` adapters.
   - **Architecture:** `docs/architecture/headless-engine-architecture.md` — four-layer design; `docs/architecture/time-machine-analysis-modes.md` — sweep/sensitivity/goal-seek/optimize.
 - **E-20** Matrix Engine — **completed and merged to main (2026-04-10).** Archived to `work/epics/completed/E-20-matrix-engine/`.
   - 10 milestones. 172 Rust tests + 1,332 .NET tests. E-17/E-18 unblocked.
@@ -201,6 +207,7 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 - **E-16** Formula-First Core Purification — **completed.** Archived to `work/epics/completed/E-16-formula-first-core-purification/`.
 - **E-19** Surface Alignment & Compatibility Cleanup — **completed and merged to main (2026-04-08).** Archived to `work/epics/completed/E-19-surface-alignment-and-compatibility-cleanup/`.
   - Deferred (tracked in `work/gaps.md`): `POST /v1/run` and `POST /v1/graph` Engine route deletion per D-2026-04-08-029 (test-infrastructure migration needed first).
-- **E-11** Svelte UI — paused after M6
+- **E-11** Svelte UI — paused after M6; E-17 completed on Svelte
   - M1-M4 + M6 done, M5/M7/M8 remain
-- **E-12–E-15:** planned, not started
+  - **Fork decision (2026-04-15):** After m-E18-14, Svelte becomes platform for new surfaces. Blazor → maintenance mode (bug fixes + contract alignment only).
+- **E-12–E-15:** planned, not started. E-15 is on critical path for client-telemetry vision.

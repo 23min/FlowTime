@@ -90,7 +90,11 @@ The spec architecture shows a new `FlowTime.Pipeline` project as a thin wrapper 
 
 ### 8. FlowTime.Telemetry.* adapter projects
 
-Prometheus, OpenTelemetry, BPI event log `ITelemetrySource` implementations. Not built. These are primarily E-15 territory and depend on E-15's dataset paths.
+Prometheus, OpenTelemetry, BPI event log `ITelemetrySource` implementations. Not built.
+
+These are **direct-source bypasses** of the E-15 Gold Builder pipeline: they implement `ITelemetrySource` directly against a live source (e.g., PromQL queries, OTEL collector, BPI event log) without writing a canonical bundle to disk. They are alternative entry points, not part of E-15 scope. E-15 provides the general batch path (raw → Gold → `CanonicalBundleSource` → `ITelemetrySource`); adapters are narrower shortcuts for clients already on specific telemetry stacks. Either path feeds the same `ITelemetrySource` interface, so Fit/optimization code is source-agnostic.
+
+**Remaining work:** Deferred. Build when a concrete client need surfaces (e.g., a Prometheus-native customer). Until then, E-15 Gold Builder covers the general case.
 
 ### 9. .NET Time Machine CLI
 
@@ -124,7 +128,7 @@ The remaining work splits into three buckets:
 - Chunked evaluation
 - Monte Carlo
 - FlowTime.Pipeline SDK project
-- FlowTime.Telemetry.* adapters (E-15 territory)
+- FlowTime.Telemetry.* adapters (direct-source bypasses of E-15's Gold Builder path)
 
 ---
 

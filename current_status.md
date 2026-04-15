@@ -143,7 +143,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
 - Chunked evaluation — needs stateful chunk-step session command in Rust engine
 - Monte Carlo — sampling layer on top of IModelEvaluator; not started
 - FlowTime.Pipeline SDK project — after fitting stabilizes
-- FlowTime.Telemetry.* adapters (Prometheus, OTEL, BPI) — E-15 territory
+- FlowTime.Telemetry.* adapters (Prometheus, OTEL, BPI) — direct-source `ITelemetrySource` implementations that bypass E-15's Gold Builder pipeline for specific live sources; not part of E-15 scope
 
 ---
 

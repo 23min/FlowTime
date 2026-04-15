@@ -80,8 +80,9 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 #### E-11 — Svelte UI (Parallel Frontend Track)
 
 - **Folder:** `work/epics/E-11-svelte-ui/`
-- **Status:** paused after M6 (M1-M4 + M6 done, M5/M7/M8 remain)
-- **Goal:** Build SvelteKit + shadcn-svelte as a parallel UI surface for demos and future evaluation while Blazor remains supported. Independent of engine work.
+- **Status:** paused after M6 (M1-M4 + M6 done, M5/M7/M8 remain); E-17 completed on Svelte (WebSocket bridge + parameter panel + topology heatmap + warnings + edge heatmap + time scrubber)
+- **Goal:** Build SvelteKit + shadcn-svelte as a parallel UI surface for demos and future evaluation.
+- **Fork decision (2026-04-15):** After m-E18-14, Svelte UI becomes the platform for all new telemetry/fit/discovery surfaces. Blazor UI enters maintenance mode at current functionality — bug fixes and contract alignment only, no new features. UI paradigm epics below formalize the new Svelte-hosted surfaces.
 - **dag-map:** M3 (topology rendering), M4 (heatmap mode) delivered. M5 (inspector) will need dag-map edge coloring and click events.
 
 ## Near-Term Epics
@@ -162,17 +163,19 @@ These are the lowest-risk leverage layers after the E-16 truth gate. They increa
   - m-E18-10: Sensitivity analysis — `ConstNodeReader`, `SensitivityRunner` (central difference), `POST /v1/sensitivity`
   - m-E18-11: Goal seeking — `GoalSeeker` (bisection), `POST /v1/goal-seek` *(added; not in original spec)*
   - m-E18-12: Optimization — `Optimizer` (Nelder-Mead, N params), `POST /v1/optimize`
-- **Remaining — buildable now:**
-  - `SessionModelEvaluator` — compile-once bridge using m-E18-02 session protocol (current `RustModelEvaluator` spawns fresh subprocess per evaluation point)
-  - .NET Time Machine CLI commands (validate/sweep/sensitivity/goal-seek/optimize)
-  - Optimization constraints (penalty method)
-- **Remaining — blocked on Telemetry Loop & Parity:**
-  - Model fitting — `FitSpec`/`FitRunner`/`POST /v1/fit`; infrastructure (ITelemetrySource + Optimizer) exists, not assembled; requires measured drift bounds
-- **Explicitly deferred:**
-  - Chunked evaluation (needs stateful session design)
-  - Monte Carlo
+- **Active delivery sequence (decided 2026-04-15):**
+  1. **m-E18-13 SessionModelEvaluator** — compile-once bridge using m-E18-02 session protocol; removes per-point compile overhead (`RustModelEvaluator` spawns a fresh subprocess per point today). Prerequisite for practical model fitting.
+  2. **m-E18-14 .NET Time Machine CLI** — `flowtime validate/sweep/sensitivity/goal-seek/optimize` as pipeable UNIX surface. Canonical pipeline entry; useful for demos, AI iteration, scripted regression.
+  3. **UI parity fork** — Svelte platform for new telemetry/fit/discovery surfaces; Blazor enters maintenance mode. Parallel track with E-15 below.
+  4. **E-15 Telemetry Ingestion** — Gold Builder → Graph Builder → first dataset path. Critical path for the client-telemetry vision.
+  5. **Telemetry Loop & Parity** — parity harness validates synthetic-vs-replay drift bounds.
+  6. **m-E18-XX Model Fit** — `FitSpec`/`FitRunner`/`POST /v1/fit` composing `ITelemetrySource` + `Optimizer`. Infrastructure exists; assembly requires steps 4–5 first.
+  7. **Chunked evaluation** (Mode 6) — stateful chunk-step session command; unlocks feedback simulation + real-time prediction ("crystal ball"). After discovery pipeline is end-to-end working.
+- **Deferred with no owner milestone (tracked in `work/gaps.md`):**
+  - Optimization constraints (penalty method on `OptimizeSpec`)
+  - Monte Carlo (sampling layer on `IModelEvaluator`)
   - `FlowTime.Pipeline` embeddable SDK project
-  - `FlowTime.Telemetry.*` adapter projects (Prometheus, OTEL, BPI — E-15 territory)
+  - `FlowTime.Telemetry.*` adapter projects (Prometheus, OTEL, BPI) — direct-source `ITelemetrySource` implementations that bypass the E-15 Gold Builder pipeline for specific live sources; narrow bypasses, not part of E-15 scope. E-15 is the general path (raw → Gold → `CanonicalBundleSource`); adapters are shortcuts for clients already on specific telemetry stacks.
 - **Depends on:** E-16, E-20 (both complete)
 
 ## UI Paradigm Epics (draft — unnumbered until sequenced)
