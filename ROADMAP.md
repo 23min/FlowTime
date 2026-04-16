@@ -140,16 +140,16 @@ FlowTime as a callable pure function in pipelines, optimization loops, model fit
 - m-E18-10: Sensitivity analysis — `ConstNodeReader`, `SensitivityRunner` (central difference), `POST /v1/sensitivity`
 - m-E18-11: Goal seeking — `GoalSeeker` (bisection), `POST /v1/goal-seek` *(added; not in original spec)*
 - m-E18-12: Optimization — `Optimizer` (Nelder-Mead, N params), `POST /v1/optimize`
+- m-E18-13: SessionModelEvaluator — compile-once persistent-subprocess bridge using m-E18-02 session protocol; `RustEngine:UseSession` config switch (default true); `RustModelEvaluator` retained as fallback
+- m-E18-14: .NET Time Machine CLI — `flowtime validate/sweep/sensitivity/goal-seek/optimize` as pipeable JSON-over-stdio commands, byte-compatible with `/v1/` endpoints; `--no-session` fallback
 
 **Active delivery sequence (decided 2026-04-15):**
 
-1. **m-E18-13 SessionModelEvaluator** — compile-once bridge using the m-E18-02 session protocol. Removes per-point compile overhead from sweep/sensitivity/goal-seek/optimize, and makes later model fitting practical (100–1000 evaluations per fit).
-2. **m-E18-14 .NET Time Machine CLI** — `flowtime validate/sweep/sensitivity/goal-seek/optimize` as a pipeable UNIX surface. Canonical pipeline entry point; useful for demos, AI iteration, fixtures, and scripted regression.
-3. **UI parity fork** — Svelte UI becomes the platform for new telemetry/fit/discovery surfaces. Blazor enters maintenance mode at current functionality. Parallel track with E-15 below.
-4. **E-15 Telemetry Ingestion** — Gold Builder (raw → canonical bundle) → Graph Builder (telemetry → inferred topology) → first dataset path. Critical path for the client-telemetry vision.
-5. **Telemetry Loop & Parity** — parity harness validates synthetic-vs-replay drift bounds. Required before fit results are trustworthy.
-6. **m-E18-XX Model Fit** — `FitSpec`/`FitRunner`/`POST /v1/fit` composing `ITelemetrySource` + `Optimizer` to minimize residual. Completes the discovery pipeline.
-7. **Chunked evaluation** (Mode 6) — stateful chunk-step session command; unlocks feedback simulation and real-time prediction ("crystal ball"). Deferred until after discovery pipeline is end-to-end working.
+1. **UI parity fork** — Svelte UI becomes the platform for new telemetry/fit/discovery surfaces. Blazor enters maintenance mode at current functionality. Parallel track with E-15 below.
+2. **E-15 Telemetry Ingestion** — Gold Builder (raw → canonical bundle) → Graph Builder (telemetry → inferred topology) → first dataset path. Critical path for the client-telemetry vision.
+3. **Telemetry Loop & Parity** — parity harness validates synthetic-vs-replay drift bounds. Required before fit results are trustworthy.
+4. **m-E18-XX Model Fit** — `FitSpec`/`FitRunner`/`POST /v1/fit` composing `ITelemetrySource` + `Optimizer` to minimize residual. Completes the discovery pipeline.
+5. **Chunked evaluation** (Mode 6) — stateful chunk-step session command; unlocks feedback simulation and real-time prediction ("crystal ball"). Deferred until after discovery pipeline is end-to-end working.
 
 **Deferred with no owner milestone (tracked in `work/gaps.md`):**
 - Optimization constraints (penalty method on `OptimizeSpec`)
@@ -222,12 +222,12 @@ only when a specific client deployment target is chosen.
 E-10 (done) + E-16 (done) + E-19 (done) + E-20 (done) + E-17 (done)
   |
   +--→ E-18 Time Machine (in-progress)
-  |      m-E18-13 SessionModelEvaluator   ← NEXT
-  |      m-E18-14 .NET Time Machine CLI
+  |      m-E18-13 SessionModelEvaluator   ← done
+  |      m-E18-14 .NET Time Machine CLI   ← done
   |      (later) m-E18-XX Model Fit       ← blocked on E-15 + Telemetry Loop & Parity
   |      (later) Chunked evaluation       ← after discovery pipeline works end-to-end
   |
-  +--→ UI parity fork (after m-E18-14)
+  +--→ UI parity fork                     ← NEXT
   |      Svelte UI: platform for new surfaces (telemetry, fit, discovery)
   |      Blazor UI: maintenance mode, frozen at current functionality
   |

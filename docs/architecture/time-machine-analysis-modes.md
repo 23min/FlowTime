@@ -214,6 +214,43 @@ Find the parameter values that minimize or maximize a metric mean using Nelder-M
 | 400 | Missing or empty required fields |
 | 503 | `RustEngine:Enabled=false` — engine not available |
 
+## CLI Surface
+
+All four analysis modes are also exposed through `FlowTime.Cli` as pipeable JSON-over-stdio commands. The request/response JSON is byte-compatible with the `/v1/` API bodies, so a spec file can be used interchangeably between the two surfaces.
+
+```
+flowtime validate     [<model.yaml>] [--tier schema|compile|analyse] [-o <path>]
+flowtime sweep        [--spec <path>] [-o <path>] [--no-session] [--engine <path>]
+flowtime sensitivity  [--spec <path>] [-o <path>] [--no-session] [--engine <path>]
+flowtime goal-seek    [--spec <path>] [-o <path>] [--no-session] [--engine <path>]
+flowtime optimize     [--spec <path>] [-o <path>] [--no-session] [--engine <path>]
+```
+
+All commands read from stdin by default (or `--spec <path>`/`-` for explicit stdin) and write to stdout (or `--output <path>`/`-o`). Pass `--help` after the command name for command-specific details.
+
+**Exit codes:**
+
+| Code | Meaning |
+|------|---------|
+| 0    | Success (`validate` treats valid models as 0) |
+| 1    | Analysis produced an explicit failure (`validate` treats invalid models as 1 with JSON still on stdout) |
+| 2    | Input error — missing required args, invalid JSON, engine binary not found |
+| 3    | Engine / runtime error — session crash, protocol error, Rust-side compile error |
+
+**Evaluator selection (analysis commands).** The CLI uses `SessionModelEvaluator` by default, same as the API. Pass `--no-session` to fall back to `RustModelEvaluator` (fresh subprocess per eval). Both paths compute identical numeric results; see note in D-2026-04-15 on key-shape differences.
+
+**Engine binary resolution.** Precedence: `--engine <path>` flag → `FLOWTIME_RUST_BINARY` env var → `<solution-root>/engine/target/release/flowtime-engine` → `flowtime-engine` on `$PATH`.
+
+**Pipeline example:**
+
+```bash
+cat sweep-spec.json | flowtime sweep | jq '.points[].series.served[0]'
+cat opt.json | flowtime optimize | jq '.paramValues'
+flowtime validate examples/hello/model.yaml --tier schema
+```
+
+The CLI is the canonical pipeline entry point for Azure Functions custom handlers, Container Apps jobs, scripted regression suites, and AI-assistant iteration — no HTTP server required. See ROADMAP.md "Cloud Deployment & Data Pipeline Integration" for the aspirational deployment shapes.
+
 ## YAML Mutation: how it works
 
 `ConstNodePatcher.Patch(yaml, nodeId, value)` uses YamlDotNet's representation model:

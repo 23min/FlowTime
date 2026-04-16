@@ -17,6 +17,7 @@ Source of truth: `.ai/` and `.ai-repo/`. Regenerate with `bash .ai/sync.sh`.
 
 - **NEVER commit or push without explicit human approval**
 - **TDD by default** for logic, API, and data code
+- **Branch coverage** — every reachable conditional branch needs a test before declaring done; perform a line-by-line audit before the commit-approval prompt
 - **Identify the agent first** — read the agent file before writing code
 - **Branch discipline** — do NOT commit milestone work directly to `main`
 - Follow Conventional Commits format
@@ -150,6 +151,15 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 - API tests: use `WebApplicationFactory<Program>`; prefer real dependencies over mocks.
 - Sim tests: `tests/FlowTime.Sim.Tests` — covers CLI, template parsing, provenance, service behaviours.
 - Integration tests: `tests/FlowTime.Integration.Tests` for cross-surface scenarios.
+
+### UI testing (hard rule)
+
+- **UI work must be eval'd end-to-end in a real browser.** Every milestone that ships new or changed UI (Blazor or Svelte) must include Playwright tests that drive the feature in a real browser and verify the rendered outcome. Type checks and unit tests on pure helpers are necessary but not sufficient — they do not catch broken event handlers, state leaks, reactive glitches, or CSS-driven breakage. The user experience is the contract; a passing test must prove the user experience works.
+- **Playwright infrastructure lives at `tests/ui/`** with config at `tests/ui/playwright.config.ts`, specs under `tests/ui/specs/`, and helpers under `tests/ui/helpers/`. Add new specs alongside existing ones.
+- **Graceful skip when infrastructure is down.** If the API or dev server isn't running, the spec should skip with a clear message rather than fail. Follow the existing pattern used by the Rust engine integration tests (health probe → skip on unavailable).
+- **Svelte UI runs on port 5173** (vite dev). **Blazor UI runs on port 5219**. Override `baseURL` per-spec if needed.
+- **Vitest covers pure logic.** Svelte/TS pure functions (helpers, store derivations, protocol encoding) should have vitest unit tests in `ui/src/**/*.test.ts`. These run fast and guard the foundation; Playwright guards the integration.
+- **Cover the critical paths.** For each user-facing surface: (1) page loads and renders expected initial state, (2) at least one user interaction drives a visible change, (3) reset/undo/error-recovery paths behave correctly, (4) key latency or correctness metrics that the UI exposes actually display correct values.
 
 ## Truth Discipline
 
