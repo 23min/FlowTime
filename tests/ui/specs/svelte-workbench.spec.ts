@@ -89,4 +89,41 @@ test.describe('Workbench', () => {
 		// Should see a workbench card (not the empty state)
 		await expect(page.locator('button[aria-label^="Unpin"]').first()).toBeVisible({ timeout: 10000 });
 	});
+
+	test('metric selector changes topology coloring', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/time-travel/topology`);
+		await expect(page.locator('[data-node-id]').first()).toBeVisible({ timeout: 15000 });
+
+		// Utilization should be the default active chip
+		const utilChip = page.getByRole('button', { name: 'Utilization' });
+		await expect(utilChip).toBeVisible();
+
+		// Click "Queue" — chip becomes active
+		const queueChip = page.getByRole('button', { name: 'Queue', exact: true });
+		await queueChip.click();
+
+		// The DAG should re-render. Verify via checking that a data-metric-value
+		// attribute exists on some node (the renderer emits this for nodes with metrics).
+		await expect(page.locator('[data-metric-value]').first()).toBeVisible({ timeout: 5000 });
+	});
+
+	test('clicking an edge pins an edge card', async ({ page }) => {
+		await page.goto(`${SVELTE_URL}/time-travel/topology`);
+		await expect(page.locator('[data-node-id]').first()).toBeVisible({ timeout: 15000 });
+
+		// Edge hit areas are rendered with data-edge-hit="true"
+		const firstEdge = page.locator('[data-edge-hit="true"]').first();
+		// Only present if the model has edges — skip if none
+		if ((await firstEdge.count()) === 0) {
+			test.skip(true, 'Model has no edges');
+			return;
+		}
+
+		await firstEdge.click();
+
+		// Edge card uses aria-label starting with "Unpin " and containing " to "
+		await expect(
+			page.locator('button[aria-label*=" to "]').first()
+		).toBeVisible({ timeout: 5000 });
+	});
 });

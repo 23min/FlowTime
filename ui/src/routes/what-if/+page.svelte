@@ -30,6 +30,7 @@
 	} from '$lib/api/warnings.js';
 	import Chart from '$lib/components/chart.svelte';
 	import DagMapView from '$lib/components/dag-map-view.svelte';
+	import TimelineScrubber from '$lib/components/timeline-scrubber.svelte';
 	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
 	import AlertTriangleIcon from '@lucide/svelte/icons/alert-triangle';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
@@ -584,25 +585,23 @@
 
 					<!-- Time scrubber (m-E17-06) — only when model has > 1 bin -->
 					{#if bins > 1}
-						<div class="rounded-lg border px-4 py-3" data-testid="time-scrubber-panel">
-							<div class="flex items-center gap-3">
-								<div class="text-sm font-semibold">Time</div>
-								<input
-									type="range"
-									min="0"
-									max={bins - 1}
-									step="1"
-									value={selectedBin ?? 0}
-									oninput={(e) =>
-										(selectedBin = parseInt((e.target as HTMLInputElement).value))}
-									class="flex-1"
-									data-testid="bin-scrubber"
-								/>
-								<div class="text-muted-foreground w-14 text-right font-mono text-[11px]">
+						<div class="rounded-lg border px-3 py-2" data-testid="time-scrubber-panel">
+							<div class="flex items-center gap-2">
+								<div class="text-xs font-semibold shrink-0">Time</div>
+								<div class="flex-1 min-w-0">
+									<TimelineScrubber
+										binCount={bins}
+										currentBin={selectedBin ?? 0}
+										onBinChange={(b) => (selectedBin = b)}
+										pointerHidden={selectedBin === null}
+										trackTestId="bin-scrubber"
+									/>
+								</div>
+								<div class="text-muted-foreground w-14 text-right font-mono text-[11px] shrink-0">
 									{selectedBin !== null ? `Bin ${selectedBin}` : 'Mean'}
 								</div>
 								<button
-									class="rounded border px-2 py-1 text-xs {selectedBin === null
+									class="rounded border px-2 py-1 text-xs shrink-0 {selectedBin === null
 										? 'border-primary bg-accent'
 										: 'hover:bg-accent/50'}"
 									onclick={() => (selectedBin = null)}

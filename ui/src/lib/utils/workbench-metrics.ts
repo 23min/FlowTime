@@ -38,26 +38,26 @@ export function extractNodeMetrics(node: Record<string, unknown>): CardMetric[] 
 		result.push({ label: 'Utilization', value: pct(derived.utilization) });
 	}
 
-	if (metrics?.queueDepth !== undefined && metrics.queueDepth !== null) {
-		result.push({ label: 'Queue', value: fmt(metrics.queueDepth) });
+	if (metrics?.queue !== undefined && metrics.queue !== null && isFinite(Number(metrics.queue))) {
+		result.push({ label: 'Queue', value: fmt(metrics.queue) });
 	}
 
-	if (metrics?.arrivals !== undefined && metrics.arrivals !== null) {
+	if (metrics?.arrivals !== undefined && metrics.arrivals !== null && isFinite(Number(metrics.arrivals))) {
 		result.push({ label: 'Arrivals', value: fmt(metrics.arrivals) });
 	}
 
-	if (metrics?.served !== undefined && metrics.served !== null) {
+	if (metrics?.served !== undefined && metrics.served !== null && isFinite(Number(metrics.served))) {
 		result.push({ label: 'Served', value: fmt(metrics.served) });
 	}
 
-	if (metrics?.errors !== undefined && metrics.errors !== null) {
+	if (metrics?.errors !== undefined && metrics.errors !== null && isFinite(Number(metrics.errors))) {
 		const errVal = Number(metrics.errors);
 		if (errVal > 0) {
 			result.push({ label: 'Errors', value: fmt(metrics.errors) });
 		}
 	}
 
-	if (derived?.capacity !== undefined && derived.capacity !== null) {
+	if (derived?.capacity !== undefined && derived.capacity !== null && isFinite(Number(derived.capacity))) {
 		result.push({ label: 'Capacity', value: fmt(derived.capacity) });
 	}
 
@@ -65,24 +65,30 @@ export function extractNodeMetrics(node: Record<string, unknown>): CardMetric[] 
 }
 
 /**
- * Extract a single metric series from state window data for sparkline display.
- * Returns an array of values (one per bin) for the given node and metric.
+ * Extract displayable metrics from a state API edge object.
  */
-export function extractSparklineValues(
-	stateNodes: Record<string, unknown>[],
-	nodeId: string,
-	metricPath: 'derived.utilization' | 'metrics.queueDepth' | 'metrics.arrivals' | 'metrics.served'
-): number[] {
-	const node = stateNodes.find((n) => (n.id as string) === nodeId);
-	if (!node) return [];
+export function extractEdgeMetrics(edge: Record<string, unknown>): CardMetric[] {
+	const result: CardMetric[] = [];
 
-	const [group, field] = metricPath.split('.');
-	const groupObj = node[group] as Record<string, unknown> | undefined;
-	if (!groupObj) return [];
+	const flowVolume = edge.flowVolume;
+	if (flowVolume !== undefined && flowVolume !== null && isFinite(Number(flowVolume))) {
+		result.push({ label: 'Flow', value: fmt(flowVolume) });
+	}
 
-	const val = groupObj[field];
-	if (typeof val === 'number') return [val];
-	return [];
+	const attemptVolume = edge.attemptVolume;
+	if (attemptVolume !== undefined && attemptVolume !== null && isFinite(Number(attemptVolume))) {
+		result.push({ label: 'Attempts', value: fmt(attemptVolume) });
+	}
+
+	const failureVolume = edge.failureVolume;
+	if (failureVolume !== undefined && failureVolume !== null && isFinite(Number(failureVolume))) {
+		const fv = Number(failureVolume);
+		if (fv > 0) {
+			result.push({ label: 'Failures', value: fmt(failureVolume) });
+		}
+	}
+
+	return result;
 }
 
 /**

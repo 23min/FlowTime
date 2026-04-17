@@ -73,7 +73,7 @@
 				{#if currentBin !== undefined && currentBin >= 0 && currentBin < sparklineValues.length}
 					{@const x = sparklineValues.length > 1 ? (currentBin / (sparklineValues.length - 1)) * 160 : 0}
 					<svg class="absolute inset-0" width="160" height="24" viewBox="0 0 160 24">
-						<line x1={x} y1="0" x2={x} y2="24" stroke="var(--foreground)" stroke-width="0.5" opacity="0.5" />
+						<line x1={x} y1="0" x2={x} y2="24" stroke="var(--ft-viz-amber)" stroke-width="1" opacity="0.85" />
 					</svg>
 				{/if}
 			</div>

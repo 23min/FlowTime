@@ -9,6 +9,7 @@
 //   - Single value → horizontal line at vertical center
 //   - All-same values (min == max) → horizontal line at vertical center
 //   - Multi-value varying → polyline normalized to [min, max]
+//   - NaN/non-finite values → break the path (start a new M segment)
 
 export interface SparklinePathOptions {
 	width: number;
@@ -25,37 +26,42 @@ export function computeSparklinePath(
 	const centerY = height / 2;
 
 	if (values.length === 1) {
-		return `M 0 ${centerY} L ${width} ${centerY}`;
+		return isFinite(values[0]) ? `M 0 ${centerY} L ${width} ${centerY}` : '';
 	}
 
+	// Compute min/max over finite values only
 	let min = Infinity;
 	let max = -Infinity;
+	let finiteCount = 0;
 	for (const v of values) {
-		if (v < min) min = v;
-		if (v > max) max = v;
+		if (isFinite(v)) {
+			if (v < min) min = v;
+			if (v > max) max = v;
+			finiteCount++;
+		}
 	}
+
+	if (finiteCount === 0) return '';
 
 	const range = max - min;
 	const stepX = width / (values.length - 1);
 	const padY = strokeWidth;
 	const usableH = height - 2 * padY;
 
-	// If all values are identical, draw a horizontal line at vertical center
-	if (range === 0) {
-		return values
-			.map((_, i) => {
-				const x = i * stepX;
-				return `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${centerY.toFixed(2)}`;
-			})
-			.join(' ');
+	const parts: string[] = [];
+	let needMove = true;
+
+	for (let i = 0; i < values.length; i++) {
+		const v = values[i];
+		if (!isFinite(v)) {
+			needMove = true;
+			continue;
+		}
+		const x = i * stepX;
+		const y = range === 0 ? centerY : padY + usableH - ((v - min) / range) * usableH;
+		parts.push(`${needMove ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`);
+		needMove = false;
 	}
 
-	return values
-		.map((v, i) => {
-			const x = i * stepX;
-			// Higher values → lower Y (SVG y grows downward)
-			const y = padY + usableH - ((v - min) / range) * usableH;
-			return `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
-		})
-		.join(' ');
+	return parts.join(' ');
 }

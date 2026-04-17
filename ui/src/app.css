@@ -308,3 +308,13 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
 input[type="range"]:focus-visible::-moz-range-thumb {
 	box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
 }
+
+/* ── dag-map interactive cursors ──────────────────────────────── */
+
+[data-node-id] {
+	cursor: pointer;
+}
+
+[data-edge-hit] {
+	cursor: pointer;
+}
