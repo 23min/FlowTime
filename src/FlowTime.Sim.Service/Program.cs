@@ -18,8 +18,8 @@ using FlowTime.Contracts.TimeTravel;
 using FlowTime.Contracts.Storage;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
-using FlowTime.Generator;
-using FlowTime.Generator.Orchestration;
+using FlowTime.TimeMachine;
+using FlowTime.TimeMachine.Orchestration;
 
 // Explicit Program class for integration tests & clear structure
 public partial class Program

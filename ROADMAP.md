@@ -121,13 +121,41 @@ Live interactive recalculation: change a parameter, see every metric update inst
 
 **Depends on:** E-20
 
-## E-18 — Time Machine (future)
+## E-18 — Time Machine (in-progress)
 
-**Epic:** `work/epics/E-18-headless-pipeline-and-optimization/spec.md` | **Status:** future
+**Epic:** `work/epics/E-18-headless-pipeline-and-optimization/spec.md` | **Status:** in-progress (branch `epic/E-18-time-machine`)
+**Gap analysis:** `work/epics/E-18-headless-pipeline-and-optimization/e18-gap-analysis.md`
 
-FlowTime as a callable pure function in pipelines, optimization loops, model fitting, digital twin architectures. With the matrix engine (E-20), parameter sweeps are 1 compile + N partial replays. Sensitivity analysis, goal seeking, and batch what-if become column operations.
+FlowTime as a callable pure function in pipelines, optimization loops, model fitting, digital twin architectures.
 
-**Depends on:** E-20
+**Depends on:** E-20 (complete)
+
+**Completed milestones:**
+- m-E18-01: Parameterized evaluation (Rust) — ParamTable, evaluate_with_params, compile-once eval-many
+- m-E18-02: Engine session + streaming protocol (Rust) — persistent process, MessagePack over stdin/stdout
+- m-E18-06: Tiered validation — `TimeMachineValidator` (schema/compile/analyse), `POST /v1/validate`, Rust `validate_schema`
+- m-E18-07: `FlowTime.TimeMachine` project created; `FlowTime.Generator` deleted (Path B)
+- m-E18-08: `ITelemetrySource` interface + `CanonicalBundleSource` + `FileCsvSource`
+- m-E18-09: Parameter sweep — `SweepSpec`/`SweepRunner`/`ConstNodePatcher`, `IModelEvaluator`, `POST /v1/sweep`
+- m-E18-10: Sensitivity analysis — `ConstNodeReader`, `SensitivityRunner` (central difference), `POST /v1/sensitivity`
+- m-E18-11: Goal seeking — `GoalSeeker` (bisection), `POST /v1/goal-seek` *(added; not in original spec)*
+- m-E18-12: Optimization — `Optimizer` (Nelder-Mead, N params), `POST /v1/optimize`
+- m-E18-13: SessionModelEvaluator — compile-once persistent-subprocess bridge using m-E18-02 session protocol; `RustEngine:UseSession` config switch (default true); `RustModelEvaluator` retained as fallback
+- m-E18-14: .NET Time Machine CLI — `flowtime validate/sweep/sensitivity/goal-seek/optimize` as pipeable JSON-over-stdio commands, byte-compatible with `/v1/` endpoints; `--no-session` fallback
+
+**Active delivery sequence (decided 2026-04-15):**
+
+1. **UI parity fork** — Svelte UI becomes the platform for new telemetry/fit/discovery surfaces. Blazor enters maintenance mode at current functionality. Parallel track with E-15 below.
+2. **E-15 Telemetry Ingestion** — Gold Builder (raw → canonical bundle) → Graph Builder (telemetry → inferred topology) → first dataset path. Critical path for the client-telemetry vision.
+3. **Telemetry Loop & Parity** — parity harness validates synthetic-vs-replay drift bounds. Required before fit results are trustworthy.
+4. **m-E18-XX Model Fit** — `FitSpec`/`FitRunner`/`POST /v1/fit` composing `ITelemetrySource` + `Optimizer` to minimize residual. Completes the discovery pipeline.
+5. **Chunked evaluation** (Mode 6) — stateful chunk-step session command; unlocks feedback simulation and real-time prediction ("crystal ball"). Deferred until after discovery pipeline is end-to-end working.
+
+**Deferred with no owner milestone (tracked in `work/gaps.md`):**
+- Optimization constraints (penalty method on `OptimizeSpec`)
+- Monte Carlo (sampling layer on `IModelEvaluator`)
+- `FlowTime.Pipeline` embeddable SDK project
+- `FlowTime.Telemetry.*` adapter projects (Prometheus, OTEL, BPI) — direct-source `ITelemetrySource` implementations that bypass the E-15 Gold Builder pipeline for specific live sources; narrow bypasses, not part of E-15 scope
 
 ## UI Paradigm Epics (draft — unnumbered until sequenced)
 
@@ -145,28 +173,73 @@ See `work/epics/ui-workbench/reference/ui-paradigm.md` for the architectural pro
 | **UI Layout Motors** | dag-map spike | Pluggable layout engines behind stable contract |
 | **Ptolemy-Inspired Semantics** | — | Conceptual guardrails for engine evolution |
 | **Streaming & Subsystems** | Stable engine semantics | Long-term exploratory |
+| **Cloud Deployment & Data Pipeline Integration** | E-15 + m-E18-14 CLI | Azure-native shape: Functions / Container Apps / ACI jobs. See below. |
+
+### Cloud Deployment & Data Pipeline Integration (aspirational)
+
+A natural deployment target for FlowTime is an Azure-hosted data pipeline where client
+telemetry lands in ADX or Blob, and FlowTime runs batch or event-driven analysis against it.
+This section captures the aspirational shape so that current architectural decisions stay
+compatible with it — without yet committing to implementation.
+
+**Three deployment shapes anticipated:**
+
+1. **Scheduled batch.** Timer-triggered Azure Function (or Container Apps job) queries ADX,
+   loads canonical series via `ITelemetrySource`, runs FlowTime.TimeMachine fit / sweep /
+   sensitivity, writes results back to ADX or Blob.
+2. **Event-driven.** Event Grid / Service Bus triggers a Function on a new telemetry window;
+   FlowTime evaluates; results push to a dashboard or downstream system.
+3. **Long-running interactive service.** Container App hosting the existing ASP.NET API for
+   Svelte UI what-if exploration. Separate process from the batch pipeline.
+
+**What the current architecture already gets right:**
+- Rust engine as a standalone binary — language-neutral, callable any way
+- `IModelEvaluator` seam — swap subprocess for HTTP client, FFI, or WASM without changing analysis code
+- `ITelemetrySource` seam — cloud adapters (ADX, Blob, Event Hubs) are additive
+- Analysis modes as a library (`FlowTime.TimeMachine`) — callable from any .NET host, not tied to the API server
+- Three-layer engine architecture (D-2026-04-10-031) — engine / sink / consumer separation supports Blob sinks
+
+**What we expect to add when Azure becomes concrete:**
+- **Pipeline-grade .NET CLI (m-E18-14 will start this).** Stdin JSON in / stdout JSON out. Azure Functions custom-handler-compatible. Self-contained binary deployable to ACI.
+- **Cloud `ITelemetrySource` adapters.** `AdxTelemetrySource`, `BlobTelemetrySource`, `EventHubsTelemetrySource`. Additive to the existing interface.
+- **Blob-backed artifact sink.** Parallel implementation of the filesystem sink under the same directory contract.
+- **OTEL / App Insights integration.** Structured spans around evaluator calls, sweeps, fits — long-running operations need observability.
+- **Key Vault secrets integration.** ADX connection strings, SAS tokens via standard Azure identity patterns.
+
+**Note on per-eval vs. session evaluator:** Both paths have a legitimate deployment shape.
+`SessionModelEvaluator` (persistent subprocess, compile-once) fits Container Apps jobs and
+long-running services where startup cost is amortized over many evaluations.
+`RustModelEvaluator` (stateless subprocess per eval) fits Azure Functions where each invocation
+is short-lived and process isolation is a feature. Both implementations are retained.
+
+**Status:** Not scheduled. Marker section so that the .NET CLI, ITelemetrySource, artifact sink,
+and observability work stay shaped for these scenarios as they land. Concrete Azure work begins
+only when a specific client deployment target is chosen.
 
 ## Dependency Graph
 
 ```
-E-10 (done) + E-16 (done) + E-19 (done)
+E-10 (done) + E-16 (done) + E-19 (done) + E-20 (done) + E-17 (done)
   |
-  +--→ E-20 Matrix Engine (Rust rewrite — NOW)
-  |      |
-  |      +--→ E-18 Time Machine (sweep / optimize / fit — trivial with plan)
-  |      +--→ E-17 Interactive What-If (incremental re-eval via plan replay)
+  +--→ E-18 Time Machine (in-progress)
+  |      m-E18-13 SessionModelEvaluator   ← done
+  |      m-E18-14 .NET Time Machine CLI   ← done
+  |      (later) m-E18-XX Model Fit       ← blocked on E-15 + Telemetry Loop & Parity
+  |      (later) Chunked evaluation       ← after discovery pipeline works end-to-end
   |
-  +--→ E-12 Dependency Constraints (engine feature — defer until after E-20)
-  +--→ E-13 Path Analysis (engine feature — defer until after E-20)
-  +--→ E-15 Telemetry Ingestion (independent — can run in parallel)
+  +--→ UI parity fork                     ← NEXT
+  |      Svelte UI: platform for new surfaces (telemetry, fit, discovery)
+  |      Blazor UI: maintenance mode, frozen at current functionality
+  |
+  +--→ E-15 Telemetry Ingestion (critical path for client-telemetry vision)
+  |      Gold Builder → Graph Builder → first dataset path
   |      +--→ Telemetry Loop & Parity
-  |             +--→ E-18 fit / optimization against real telemetry
+  |             +--→ E-18 Model Fit (completes discovery pipeline)
   |
-  +--→ Scenario Overlays (after E-20 — parameter override is a plan operation)
+  +--→ E-12 Dependency Constraints (engine feature — after discovery pipeline)
+  +--→ E-13 Path Analysis (engine feature — after discovery pipeline)
+  +--→ Scenario Overlays (parameter override as plan operation)
   +--→ Anomaly Detection (after path/parity basics)
-
-E-11 Svelte UI (independent — paused after M6)
-UI Paradigm epics (after E-11 M3-M4 foundation + relevant Phase 3 work)
 ```
 
 ## References

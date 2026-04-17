@@ -25,8 +25,8 @@ public class TelemetryRunCommandTests
         var captureDir = Path.Combine(temp.Path, "capture");
         Directory.CreateDirectory(captureDir);
 
-        var capture = new FlowTime.Generator.TelemetryCapture();
-        await capture.ExecuteAsync(new FlowTime.Generator.Models.TelemetryCaptureOptions
+        var capture = new FlowTime.TimeMachine.TelemetryCapture();
+        await capture.ExecuteAsync(new FlowTime.TimeMachine.Models.TelemetryCaptureOptions
         {
             RunDirectory = sourceRun,
             OutputDirectory = captureDir
@@ -129,8 +129,8 @@ public class TelemetryRunCommandTests
         var captureDir = Path.Combine(temp.Path, "capture");
         Directory.CreateDirectory(captureDir);
 
-        var capture = new FlowTime.Generator.TelemetryCapture();
-        await capture.ExecuteAsync(new FlowTime.Generator.Models.TelemetryCaptureOptions
+        var capture = new FlowTime.TimeMachine.TelemetryCapture();
+        await capture.ExecuteAsync(new FlowTime.TimeMachine.Models.TelemetryCaptureOptions
         {
             RunDirectory = sourceRun,
             OutputDirectory = captureDir

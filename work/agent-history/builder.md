@@ -2,6 +2,26 @@
 
 Accumulated learnings from implementation sessions.
 
+## 2026-04-15: E-18 m-E18-14 .NET Time Machine CLI
+
+### Patterns that worked
+- **Generic `AnalysisCliRunner.ExecuteAsync<TSpec, TResult>` for shape-identical commands.** Sweep/sensitivity/goal-seek/optimize all have the same pipeline: parse flags → read JSON → resolve engine → create evaluator handle → run runner delegate → write JSON. Extracting the shell kept each command file at ~40 lines and made failure modes (input error, engine error) live in one place with one exit-code contract.
+- **`CliEvaluatorHandle` wrapping two `IModelEvaluator` impls for uniform `IAsyncDisposable`.** `SessionModelEvaluator` and `RustModelEvaluator` have different lifetimes (stateful vs stateless), but the CLI needs `await using` regardless. A small wrapper struct unifies them without forcing the interface itself to be `IAsyncDisposable`.
+- **`JsonStringEnumConverter(allowIntegerValues: false)` in the shared JSON options.** `OptimizeSpec.Objective` is an enum; API receives the string `"minimize"` and binds it via System.Text.Json's built-in enum converter. Without the converter, the CLI would accept numeric enum values from disk but fail on the canonical string form — silently diverging from the API. Match the API's converter set exactly; the "byte-compatible with /v1/" claim is only true if every converter matches.
+- **Positional `-` as stdin sentinel requires special-casing the `!a.StartsWith('-')` check.** Bare `-` is standard UNIX for "read from stdin as a positional" but fails `!StartsWith('-')`. Fix: `(a == "-" || !a.StartsWith('-'))`. Cheap to add; saves users from `--spec -` noise.
+
+### Pitfalls encountered
+- **`Win32Exception` from subprocess spawn failure isn't caught by `InvalidOperationException`.** When the engine binary is a bare name ("flowtime-engine") not on `$PATH`, `Process.Start` throws `Win32Exception`, not `InvalidOperationException`. The bare-path test was failing with an uncaught exception rather than exit 3. Fix: add `catch (Win32Exception)` → exit 3 in the shared runner. Lesson: stateless-subprocess and session-subprocess throw different exception types on binary-not-found; the CLI layer must catch both.
+- **`ResolveEnginePath` fallback to bare `"flowtime-engine"` when `DirectoryProvider.FindSolutionRoot()` returns null is hard to exercise in tests.** That branch only fires outside a `.git`-rooted tree. Documented as a single coverage gap in the milestone spec under "Coverage notes" rather than inventing an environment-manipulation test. Platform-edge branches deserve explicit documentation, not silent skip.
+- **Engine doesn't have an `abs()` function.** Integration test for optimize bowl needed `|x-7|`. Available functions are MIN/MAX/CLAMP/SHIFT/CONV only — used `MAX(x-7, 7-x)` instead. Check engine capabilities when writing test fixtures; don't assume a math function exists because it's trivial elsewhere.
+- **`using var` fails against IAsyncDisposable-only types.** DI scope tests originally wrote `using var scope = services.CreateScope()` — compiler error "type only implements IAsyncDisposable". Fix: `await using var scope = services.CreateAsyncScope()`. When a service implements only `IAsyncDisposable`, every scope holding it must be async too.
+
+### Conventions established
+- **CLI commands for analysis modes are JSON-over-stdio, byte-compatible with `POST /v1/<mode>`.** Same spec types, same result types, same JSON options. `cat spec.json | flowtime <mode>` produces the same payload as `curl -d @spec.json /v1/<mode>`. Do not introduce CLI-shaped flags for spec fields that already live in the JSON spec; that's what `cat foo.json | jq` is for.
+- **Exit codes: 0 success / 1 analysis-failed-cleanly / 2 input-error / 3 engine-error.** Analysis-failed-cleanly (e.g., `validate` returns invalid) still writes its full JSON response to stdout — exit 1 is for "the analysis converged but its answer is negative", not "the analysis crashed".
+- **Engine binary resolution precedence:** `--engine` flag > `FLOWTIME_RUST_BINARY` env var > `<solution>/engine/target/release/flowtime-engine` > `flowtime-engine` on `$PATH`. Explicit > env > solution-default > PATH. Same precedence as the API's bridge; extract to `CliEngineSetup` for both to share.
+- **Branch-coverage audit produced 89 CLI unit tests + 10 integration tests.** Not all ACs map to single branches; a "help prints and exits 0" AC covers one `if parsed.ShowHelp` branch but leaves 5 other flag-error branches untested. Walk the code, not the AC list.
+
 ## 2026-04-09: E-20 m-E20-06 Artifacts, CLI, and Integration
 
 ### Patterns that worked
@@ -263,6 +283,39 @@ Accumulated learnings from implementation sessions.
 
 ### Pitfalls encountered
 - Milestone specs that say "delete the bridge now, move the math later" can force an impossible coexistence window. If the code proves that tension, record the sequencing change explicitly in decisions and tracking rather than pretending the old scope split still holds.
+
+## 2026-04-15: E-18 m-E18-13 SessionModelEvaluator
+
+### Patterns that worked
+- **Config switch over delete when replacing an implementation behind a DI seam.** The original spec said "delete `RustModelEvaluator` forward-only." Reconsidered in review: keeping it as a `RustEngine:UseSession=false` fallback costs 30 lines and preserves diagnostic/process-isolation use cases (also matches Azure Functions deployment shape better than sessions). The two impls make `IModelEvaluator` a genuine seam rather than a test-only interface. Generalizable rule: when replacing a small, working implementation behind a seam, prefer config switch to delete unless the older impl actively obstructs new work.
+- **`InternalsVisibleTo` for branch-coverage of parsing helpers that operate on hand-crafted malformed inputs.** The Rust session protocol helpers (`ExtractResult`, `ExtractParamIds`, `ExtractSeries`, `ReadFrameAsync`) have defensive branches for protocol corruption that the real engine never produces. Marking them `internal static` and adding `InternalsVisibleTo` to the test project let me write a 26-test branch-coverage suite against MemoryStream and hand-crafted Dictionary<object,object> payloads. Each test covers exactly one branch — defense-in-depth code must be unit-tested the same as happy-path code.
+- **Explicit "coverage notes" section in milestone spec for non-reachable branches.** Six branches in SessionModelEvaluator (dispose-timeout-kill, defensive null guards, unreachable errors) can't be deterministically tested. Documenting them by name with the reason up-front is more defensible than silently having <100% coverage. This establishes a convention for similar infrastructure code.
+- **Scoped DI lifetime matches session lifetime.** When a Singleton evaluator became unsafe because of stateful session state, moving `IModelEvaluator` + 4 runners from `AddSingleton` to `AddScoped` cleanly gives one session per HTTP request with automatic `IAsyncDisposable` on request end. The runners are stateless wrappers — the Scoped change was risk-free for them.
+
+### Pitfalls encountered
+- **`IModelEvaluator` implementations disagree on key shape.** Discovered during m-E18-13 parity test: `RustModelEvaluator` via `RustEngineRunner` reads artifacts and returns keys like `arrivals@ARRIVALS@DEFAULT`. `SessionModelEvaluator` returns bare `arrivals` from the column map. Both are "correct" for their context. `SweepRunner.FilterSeries` does exact-match lookup — sweeps with `captureSeriesIds` work against session but silently return empty against per-eval. No existing test caught this because unit tests use `FakeEvaluator` with bare keys, and no integration test exercised `RustModelEvaluator` with `captureSeriesIds`. Lesson: when an abstraction has multiple production impls, include at least one integration test that verifies observable-key shape parity, not just numeric parity.
+- **`using var` doesn't work with `IAsyncDisposable`-only types.** The DI container refuses to auto-dispose a Scoped service that only implements `IAsyncDisposable` when you use a sync `using` block — throws "type only implements IAsyncDisposable. Use DisposeAsync to dispose the container." Fix: `await using var scope = ...CreateAsyncScope()`. Affects test code that resolves scoped services manually.
+- **Don't use sync `using` on `CreateScope()` when resolved service is `IAsyncDisposable`.** Same root cause as above, different surface. Pair `CreateAsyncScope()` with `await using`.
+
+### Conventions established
+- **Defense-in-depth parsing helpers are unit-testable via `internal static` + `InternalsVisibleTo`.** Preferred over making them public (surface creep) or skipping the tests (coverage gap).
+- **Milestone specs include a "Coverage notes" section** listing unreachable branches with rationale when the implementation has defensive paths that can't be deterministically exercised.
+- **Scope change for DI is acceptable when state-bearing services replace stateless ones.** Don't leave a stale Singleton registration just because the previous impl was stateless — update the lifetime to match the new impl's needs and verify the runners can live with the change.
+
+## 2026-04-13: E-18 m-E18-09 Parameter Sweep
+
+### Patterns that worked
+- **`IModelEvaluator` as the DI seam.** `SweepRunner` depends on an `IModelEvaluator` interface, not `RustEngineRunner` directly. Tests inject a `FakeEvaluator` (inline private class); production wires `RustModelEvaluator`. Same pattern as `ISeriesReader` in m-E18-08 `CanonicalBundleSource`. Use this pattern for any Time Machine operation that calls the Rust engine.
+- **YamlDotNet representation model for YAML DOM mutation.** `ConstNodePatcher` uses `YamlStream` + `YamlMappingNode`/`YamlSequenceNode` to find and replace the `values` array of a named const node. Iterate `Children` manually (key equality via `YamlScalarNode.Value`) rather than using `TryGetValue` with a new node key — safer across YamlDotNet versions.
+- **`IServiceProvider` injection for optional DI in minimal API handlers.** `SweepRunner` is only registered when `RustEngine:Enabled=true`. Using `SweepRunner? runner` as a handler parameter doesn't work when the type isn't registered — the framework tries to bind it from the body (already consumed). Use `IServiceProvider services` + `services.GetService<SweepRunner>()` instead for optional engine-dependent services.
+
+### Pitfalls encountered
+- **`SweepRunner?` as a minimal API handler parameter fails when not registered in DI.** The framework attempts body binding instead of DI resolution for unregistered nullable types, causing 500 on every request. Fix: inject `IServiceProvider` and resolve with `GetService<T>()`.
+- **`internal` classes aren't accessible from test projects.** `ConstNodePatcher` was marked `internal` and the test project immediately errored. Either make it `public` (preferred if the class has external utility) or add `[assembly: InternalsVisibleTo(...)]` to the source project.
+
+### Conventions established
+- **Sweep domain lives in `FlowTime.TimeMachine.Sweep` namespace**, with the concrete Rust evaluator (`RustModelEvaluator`) also in that namespace. The `IModelEvaluator` / `SweepRunner` registrations live inside the existing `RustEngine:Enabled` DI guard in `Program.cs`.
+- **`ConstNodePatcher.Patch` is graceful:** returns the original YAML unchanged for unknown nodes, non-const nodes, or nodes with no `values` key. Callers don't need to guard.
 
 ## 2026-04-06: E-16-05 Warning Facts Projection
 

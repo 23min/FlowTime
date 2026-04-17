@@ -410,6 +410,109 @@ Per D-2026-04-10-031, work splits into:
 
 ---
 
+## `IModelEvaluator` Series-Key Shape Divergence
+
+### Why this is a gap
+
+Discovered during m-E18-13 implementation (2026-04-15). The two production
+`IModelEvaluator` implementations return different key shapes for the same underlying
+series:
+
+| Implementation | Example keys |
+|----------------|--------------|
+| `RustModelEvaluator` (via `RustEngineRunner`, reads run artifacts) | `arrivals@ARRIVALS@DEFAULT`, `served@SERVED@DEFAULT` |
+| `SessionModelEvaluator` (via Rust session protocol) | `arrivals`, `served` |
+
+The numeric values are identical (both invoke the same engine), but the dictionary keys
+are not interchangeable. `RustEngineRunner` reads artifacts laid out per E-20 conventions
+(`{nodeId}@{COMPONENT}@{CLASS}`). The session protocol returns bare column-map IDs from
+`session.rs::extract_all_series`.
+
+### Immediate implications
+
+- `SweepRunner.FilterSeries` does case-insensitive exact-match lookup on keys. Sweeps
+  that specify `captureSeriesIds: ["served"]` work correctly against `SessionModelEvaluator`
+  but return empty dictionaries against `RustModelEvaluator` — keys won't match because
+  the evaluator's keys are `served@SERVED@DEFAULT`.
+- Sweeps with `captureSeriesIds: null` (API default) work with both — all series pass through.
+- No existing test catches this because sweep unit tests use `FakeEvaluator` with bare
+  keys, and no integration test drove `RustModelEvaluator` with `captureSeriesIds`.
+
+### Resolution options
+
+1. Normalize `RustModelEvaluator` to strip `@COMPONENT@CLASS` suffix when the default
+   component/class is the only one present — matches session protocol. Preserves per-class
+   series when classes are used.
+2. Teach `SweepRunner.FilterSeries` to do prefix-match on `captureSeriesIds` (match
+   `"served"` to any key starting with `served@`). More tolerant but may over-match when
+   classes are involved.
+3. Document the divergence as acceptable and require callers to know which evaluator is
+   wired. Worst option — leaves a footgun.
+
+### Status
+
+Not scheduled. Tracked pending a decision on normalization. `SessionModelEvaluator` is
+the default evaluator in production, so the divergence does not currently break sweeps.
+If `RustEngine:UseSession=false` is flipped, sweeps with `captureSeriesIds` will break.
+
+### Reference
+
+- `src/FlowTime.TimeMachine/Sweep/RustModelEvaluator.cs`
+- `src/FlowTime.TimeMachine/Sweep/SessionModelEvaluator.cs`
+- `src/FlowTime.TimeMachine/Sweep/SweepRunner.cs` — `FilterSeries`
+- `engine/cli/src/session.rs` — `extract_all_series`
+- `tests/FlowTime.Integration.Tests/SessionModelEvaluatorIntegrationTests.cs` —
+  `SessionVsPerEval_NumericValuesAgree`
+
+---
+
+## E-18 Optimization Constraints (no owner milestone)
+
+### Why this is a gap
+
+`OptimizeSpec` has no constraint field. The E-18 spec describes constraints as:
+
+```
+--constraint "max(node.queue.utilization) < 0.8"
+```
+
+This was explicitly deferred out of m-E18-12 because the Nelder-Mead implementation
+did not need it to meet the milestone acceptance criteria, and it adds non-trivial
+complexity to the simplex inner loop.
+
+### Design notes
+
+Implementation approach: **penalty method** inside the Nelder-Mead loop. When a
+candidate point violates a constraint, add a large penalty to its objective value
+so the simplex naturally avoids the infeasible region. This does not require
+fundamental changes to the optimizer — add `ConstraintSpec` to `OptimizeSpec`,
+evaluate constraints after each `IModelEvaluator.EvaluateAsync` call, sum
+penalties into the returned metric value.
+
+Alternative: **projection** — clamp candidate points back into the feasible region
+before evaluation. Simpler to implement but loses some search flexibility near
+constraint boundaries.
+
+### Resolution path
+
+A future E-18 milestone (no ID assigned yet) should:
+1. Add `ConstraintSpec` — expression (metric series ID), comparator (`<`, `>`), threshold
+2. Evaluate constraints after each evaluator call; add penalty if violated
+3. Surface constraint satisfaction in `OptimizeResult` (were all constraints satisfied at optimum?)
+
+### Status
+
+Not scheduled. No owner milestone. Tracked here pending planning.
+
+### Reference
+
+- `src/FlowTime.TimeMachine/Sweep/OptimizeSpec.cs`
+- `src/FlowTime.TimeMachine/Sweep/Optimizer.cs`
+- `work/epics/E-18-headless-pipeline-and-optimization/m-E18-12-optimization.md` (deferred note)
+- `work/epics/E-18-headless-pipeline-and-optimization/e18-gap-analysis.md` (gap #4)
+
+---
+
 ## Open Questions
 
 - Should path filters be part of the time-travel API or a separate analysis endpoint?

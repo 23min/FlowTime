@@ -32,7 +32,7 @@
     <ProjectReference Include="../FlowTime.Sim.Core/FlowTime.Sim.Core.csproj" />
     <ProjectReference Include="../FlowTime.Sim.Cli/FlowTime.Sim.Cli.csproj" />
     <ProjectReference Include="../FlowTime.Contracts/FlowTime.Contracts.csproj" />
-    <ProjectReference Include="../FlowTime.Generator/FlowTime.Generator.csproj" />
+    <ProjectReference Include="../FlowTime.TimeMachine/FlowTime.TimeMachine.csproj" />
   </ItemGroup>
 
   <!-- Exclude legacy files from compilation (pending physical deletion) -->

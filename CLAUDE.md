@@ -12,6 +12,7 @@ Keep their source of truth in `.ai/` and `.ai-repo/`, and regenerate them locall
 
 - **NEVER commit or push without explicit human approval** — "continue" / "ok" do not count
 - **TDD by default** for logic, API, and data code — red → green → refactor
+- **Branch coverage (hard rule)** — every reachable conditional branch needs a test before declaring done; perform a line-by-line audit before the commit-approval prompt, not after the human asks
 - **Identify the agent first** — read the agent file, adopt its role, follow its skill
 - **Branch discipline** — do NOT commit milestone work directly to `main`
 - **Update CLAUDE.md Current Work** after starting or wrapping a milestone
@@ -137,6 +138,15 @@ Project-specific conventions for the FlowTime mono-repo (Engine + Sim + UI).
 - Sim tests: `tests/FlowTime.Sim.Tests` — covers CLI, template parsing, provenance, service behaviours.
 - Integration tests: `tests/FlowTime.Integration.Tests` for cross-surface scenarios.
 
+### UI testing (hard rule)
+
+- **UI work must be eval'd end-to-end in a real browser.** Every milestone that ships new or changed UI (Blazor or Svelte) must include Playwright tests that drive the feature in a real browser and verify the rendered outcome. Type checks and unit tests on pure helpers are necessary but not sufficient — they do not catch broken event handlers, state leaks, reactive glitches, or CSS-driven breakage. The user experience is the contract; a passing test must prove the user experience works.
+- **Playwright infrastructure lives at `tests/ui/`** with config at `tests/ui/playwright.config.ts`, specs under `tests/ui/specs/`, and helpers under `tests/ui/helpers/`. Add new specs alongside existing ones.
+- **Graceful skip when infrastructure is down.** If the API or dev server isn't running, the spec should skip with a clear message rather than fail. Follow the existing pattern used by the Rust engine integration tests (health probe → skip on unavailable).
+- **Svelte UI runs on port 5173** (vite dev). **Blazor UI runs on port 5219**. Override `baseURL` per-spec if needed.
+- **Vitest covers pure logic.** Svelte/TS pure functions (helpers, store derivations, protocol encoding) should have vitest unit tests in `ui/src/**/*.test.ts`. These run fast and guard the foundation; Playwright guards the integration.
+- **Cover the critical paths.** For each user-facing surface: (1) page loads and renders expected initial state, (2) at least one user interaction drives a visible change, (3) reset/undo/error-recovery paths behave correctly, (4) key latency or correctness metrics that the UI exposes actually display correct values.
+
 ## Truth Discipline
 
 ### Precedence (highest to lowest)
@@ -183,13 +193,34 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
   - Headless engine: parameterized evaluation → streaming protocol → pipeline component.
   - **m-E18-01** (complete): Parameterized evaluation — ParamTable, evaluate_with_params, compile-once eval-many.
   - **m-E18-02** (complete): Engine session + streaming protocol — persistent process, MessagePack over stdin/stdout.
-  - **Architecture:** `docs/architecture/headless-engine-architecture.md` — four-layer design.
+  - **m-E18-07** (complete): `FlowTime.TimeMachine` project created; `FlowTime.Generator` deleted (Path B, no coexistence window).
+  - **m-E18-06** (complete): Tiered validation — `TimeMachineValidator` (schema/compile/analyse), `POST /v1/validate`, Rust `validate_schema` session command.
+  - **m-E18-08** (complete): `ITelemetrySource` interface + `CanonicalBundleSource` + `FileCsvSource`. 23 tests.
+  - **m-E18-09** (complete): Parameter sweep — `SweepSpec`/`SweepRunner`/`ConstNodePatcher`, `IModelEvaluator`/`RustModelEvaluator`, `POST /v1/sweep`. 35 tests.
+  - **m-E18-10** (complete): Sensitivity analysis — `ConstNodeReader`, `SensitivitySpec`/`SensitivityRunner` (central difference), `POST /v1/sensitivity`. 39 tests.
+  - **m-E18-11** (complete): Goal seeking — `GoalSeekSpec`/`GoalSeeker` (bisection), `POST /v1/goal-seek`. 33 tests.
+  - **m-E18-12** (complete): Optimization — `OptimizeSpec`/`Optimizer` (Nelder-Mead, N params), `POST /v1/optimize`. 29 unit + 10 API tests.
+  - **m-E18-13** (complete, merged to epic 2026-04-15): `SessionModelEvaluator` — persistent `flowtime-engine session` subprocess, MessagePack over stdin/stdout, compile-once/eval-many. `RustEngine:UseSession` config switch (default true); `RustModelEvaluator` retained as fallback. DI lifetime moved Singleton → Scoped. 44 new tests (32 unit + 8 integration + 4 API DI) — every reachable branch covered.
+  - **m-E18-14** (complete, merged to epic 2026-04-15): .NET Time Machine CLI — `flowtime validate/sweep/sensitivity/goal-seek/optimize` as pipeable JSON-over-stdio commands byte-compatible with `/v1/` endpoints. `--no-session` selects `RustModelEvaluator`; `--engine`/`FLOWTIME_RUST_BINARY`/default path resolution; exit code contract (0/1/2/3); `CliJsonIO` + `CliCommonArgs` + `CliEngineSetup` + `AnalysisCliRunner` shared helpers. 72 CLI unit + 10 integration tests — every reachable branch covered with one documented platform-edge gap. Full suite 1,702 passed / 9 skipped.
+  - **Gap analysis:** `work/epics/E-18-headless-pipeline-and-optimization/e18-gap-analysis.md`
+  - **Active delivery sequence (decided 2026-04-15, Option A):**
+    1. ~~**m-E18-13 SessionModelEvaluator**~~ — complete and merged to epic branch.
+    2. ~~**m-E18-14 .NET Time Machine CLI**~~ — complete and merged to epic branch.
+    3. **UI parity fork** (next) — Svelte becomes platform for new telemetry/fit/discovery surfaces; Blazor → maintenance mode (bug fixes + contract alignment only).
+    4. **E-15 Telemetry Ingestion** — Gold Builder → Graph Builder → first dataset path.
+    5. **Telemetry Loop & Parity** — parity harness (prerequisite for trustworthy fit).
+    6. **m-E18-XX Model Fit** — `FitSpec`/`FitRunner`/`POST /v1/fit`.
+    7. **Chunked evaluation** (Mode 6) — after discovery pipeline works end-to-end.
+  - **Aspirational (see ROADMAP.md Cloud Deployment section):** Azure-native deployment — batch Functions, event-driven, long-running Container Apps service — with cloud `ITelemetrySource` adapters (ADX, Blob, Event Hubs), Blob artifact sink, OTEL/App Insights. Not scheduled; marker so near-term work stays compatible.
+  - **Deferred (tracked in `work/gaps.md`):** optimization constraints, Monte Carlo, `FlowTime.Pipeline` SDK, `FlowTime.Telemetry.*` adapters.
+  - **Architecture:** `docs/architecture/headless-engine-architecture.md` — four-layer design; `docs/architecture/time-machine-analysis-modes.md` — sweep/sensitivity/goal-seek/optimize.
 - **E-20** Matrix Engine — **completed and merged to main (2026-04-10).** Archived to `work/epics/completed/E-20-matrix-engine/`.
   - 10 milestones. 172 Rust tests + 1,332 .NET tests. E-17/E-18 unblocked.
 - **E-10** Engine Correctness — **completed and merged to main (2026-04-09).** Archived to `work/epics/completed/E-10-engine-correctness-and-analytics/`.
 - **E-16** Formula-First Core Purification — **completed.** Archived to `work/epics/completed/E-16-formula-first-core-purification/`.
 - **E-19** Surface Alignment & Compatibility Cleanup — **completed and merged to main (2026-04-08).** Archived to `work/epics/completed/E-19-surface-alignment-and-compatibility-cleanup/`.
   - Deferred (tracked in `work/gaps.md`): `POST /v1/run` and `POST /v1/graph` Engine route deletion per D-2026-04-08-029 (test-infrastructure migration needed first).
-- **E-11** Svelte UI — paused after M6
+- **E-11** Svelte UI — paused after M6; E-17 completed on Svelte
   - M1-M4 + M6 done, M5/M7/M8 remain
-- **E-12–E-15:** planned, not started
+  - **Fork decision (2026-04-15, active as of m-E18-14 wrap):** Svelte is the platform for new surfaces. Blazor is in maintenance mode (bug fixes + contract alignment only).
+- **E-12–E-15:** planned, not started. E-15 is on critical path for client-telemetry vision.

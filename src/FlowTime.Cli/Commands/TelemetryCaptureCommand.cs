@@ -1,8 +1,8 @@
 using FlowTime.Cli.Configuration;
-using FlowTime.Generator;
-using FlowTime.Generator.Capture;
-using FlowTime.Generator.Models;
-using FlowTime.Generator.Processing;
+using FlowTime.TimeMachine;
+using FlowTime.TimeMachine.Capture;
+using FlowTime.TimeMachine.Models;
+using FlowTime.TimeMachine.Processing;
 
 namespace FlowTime.Cli.Commands;
 
