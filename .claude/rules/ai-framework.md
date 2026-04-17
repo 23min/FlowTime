@@ -68,6 +68,8 @@ These values are resolved from framework defaults in .ai/paths.md and repo overr
 | `completedEpicPathTemplate` | `work/epics/completed/<epic>/` | Completed epic archive template |
 | `epicIdPattern` | `E-{NN}` | Epic ID naming pattern |
 | `milestoneIdPattern` | `m-E{NN}-<MM>-<slug>` | Milestone ID naming pattern |
+| `frameworkSkillPrefix` | `wf` | Prefix for framework skill slash-commands (e.g. `wf:patch`) |
+| `repoSkillPrefix` | `` | Prefix for repo-specific skill slash-commands (e.g. `wf-li:app-legibility`) |
 
 ## Project-Specific Rules
 
