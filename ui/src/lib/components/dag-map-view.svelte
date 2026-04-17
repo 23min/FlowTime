@@ -13,9 +13,10 @@
 		metrics?: Map<string, NodeMetric>;
 		edgeMetrics?: Map<string, NodeMetric>;
 		colorScale?: (t: number) => string;
+		selected?: Set<string>;
 	}
 
-	let { graph, metrics, edgeMetrics, colorScale }: Props = $props();
+	let { graph, metrics, edgeMetrics, colorScale, selected }: Props = $props();
 
 	// FlowTime edges use port-qualified IDs like "NodeA:out" → "NodeB:in"
 	function stripPort(id: string): string {
@@ -25,9 +26,9 @@
 
 	const darkTheme = {
 		paper: 'transparent',
-		ink: 'hsl(0 0% 98%)',
-		muted: 'hsl(240 5% 64.9%)',
-		border: 'hsl(240 3.7% 15.9%)',
+		ink: 'hsl(220 10% 82%)',
+		muted: 'hsl(220 8% 55%)',
+		border: 'hsl(220 8% 15%)',
 		classes: {
 			core: '#94E2D5',
 			data: '#89B4FA',
@@ -39,9 +40,9 @@
 
 	const lightTheme = {
 		paper: 'transparent',
-		ink: 'hsl(240 10% 3.9%)',
-		muted: 'hsl(240 3.8% 46.1%)',
-		border: 'hsl(240 5.9% 90%)',
+		ink: 'hsl(220 14% 10%)',
+		muted: 'hsl(220 8% 42%)',
+		border: 'hsl(220 10% 88%)',
 		classes: {
 			core: '#2B8A8E',
 			data: '#3D5BA9',
@@ -97,12 +98,14 @@
 			subtitle: null,
 			metrics,
 			edgeMetrics,
-			colorScale
+			colorScale,
+			selected,
+			interactive: true,
 		});
 	});
 </script>
 
-<div class="dag-map-container overflow-auto p-4">
+<div class="dag-map-container overflow-auto p-1">
 	{@html svg}
 </div>
 

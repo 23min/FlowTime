@@ -3,71 +3,107 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * FlowTime Design Tokens
+ *
+ * Two-layer architecture:
+ *   Chrome tokens — calm backgrounds, borders, text. The frame recedes.
+ *   Data-viz tokens — vivid hue families for heatmaps, charts, sparklines.
+ *
+ * Reference palette: work/epics/E-21-svelte-workbench-and-analysis/reference-palette.png
+ */
+
 :root {
-	--background: hsl(0 0% 100%);
-	--foreground: hsl(240 10% 3.9%);
-	--muted: hsl(240 4.8% 95.9%);
-	--muted-foreground: hsl(240 3.8% 46.1%);
+	/* Chrome — light mode: warm light grays */
+	--background: hsl(220 14% 96%);
+	--foreground: hsl(220 14% 10%);
+	--muted: hsl(220 10% 92%);
+	--muted-foreground: hsl(220 8% 42%);
 	--popover: hsl(0 0% 100%);
-	--popover-foreground: hsl(240 10% 3.9%);
+	--popover-foreground: hsl(220 14% 10%);
 	--card: hsl(0 0% 100%);
-	--card-foreground: hsl(240 10% 3.9%);
-	--border: hsl(240 5.9% 90%);
-	--input: hsl(240 5.9% 90%);
-	--primary: hsl(240 5.9% 10%);
-	--primary-foreground: hsl(0 0% 98%);
-	--secondary: hsl(240 4.8% 95.9%);
-	--secondary-foreground: hsl(240 5.9% 10%);
-	--accent: hsl(240 4.8% 95.9%);
-	--accent-foreground: hsl(240 5.9% 10%);
-	--destructive: hsl(0 72.2% 50.6%);
+	--card-foreground: hsl(220 14% 10%);
+	--border: hsl(220 10% 88%);
+	--input: hsl(220 10% 88%);
+	--primary: hsl(220 14% 10%);
+	--primary-foreground: hsl(220 14% 96%);
+	--secondary: hsl(220 10% 92%);
+	--secondary-foreground: hsl(220 14% 10%);
+	--accent: hsl(220 10% 92%);
+	--accent-foreground: hsl(220 14% 10%);
+	--destructive: hsl(0 72% 50%);
 	--destructive-foreground: hsl(0 0% 98%);
-	--ring: hsl(240 10% 3.9%);
-	--sidebar: hsl(0 0% 98%);
-	--sidebar-foreground: hsl(240 5.3% 26.1%);
-	--sidebar-primary: hsl(240 5.9% 10%);
-	--sidebar-primary-foreground: hsl(0 0% 98%);
-	--sidebar-accent: hsl(240 4.8% 95.9%);
-	--sidebar-accent-foreground: hsl(240 5.9% 10%);
-	--sidebar-border: hsl(220 13% 91%);
-	--sidebar-ring: hsl(217.2 91.2% 59.8%);
-	--radius: 0.5rem;
+	--ring: hsl(220 14% 10%);
+
+	/* Sidebar — light */
+	--sidebar: hsl(220 14% 96%);
+	--sidebar-foreground: hsl(220 10% 30%);
+	--sidebar-primary: hsl(220 14% 10%);
+	--sidebar-primary-foreground: hsl(220 14% 96%);
+	--sidebar-accent: hsl(220 10% 92%);
+	--sidebar-accent-foreground: hsl(220 14% 10%);
+	--sidebar-border: hsl(220 10% 88%);
+	--sidebar-ring: hsl(215 80% 55%);
+
+	/* Radius — tight, technical */
+	--radius: 0.25rem;
+
+	/* Data-viz — light mode (darker for contrast on light bg, moderate saturation) */
+	--ft-viz-teal: hsl(174 45% 35%);
+	--ft-viz-pink: hsl(345 45% 45%);
+	--ft-viz-coral: hsl(15 50% 45%);
+	--ft-viz-blue: hsl(220 50% 45%);
+	--ft-viz-green: hsl(140 40% 35%);
+	--ft-viz-amber: hsl(35 55% 42%);
+	--ft-viz-purple: hsl(270 40% 45%);
 }
 
 .dark {
-	--background: hsl(240 10% 3.9%);
-	--foreground: hsl(0 0% 98%);
-	--muted: hsl(240 3.7% 15.9%);
-	--muted-foreground: hsl(240 5% 64.9%);
-	--popover: hsl(240 10% 3.9%);
-	--popover-foreground: hsl(0 0% 98%);
-	--card: hsl(240 10% 3.9%);
-	--card-foreground: hsl(0 0% 98%);
-	--border: hsl(240 3.7% 15.9%);
-	--input: hsl(240 3.7% 15.9%);
-	--primary: hsl(0 0% 98%);
-	--primary-foreground: hsl(240 5.9% 10%);
-	--secondary: hsl(240 3.7% 15.9%);
-	--secondary-foreground: hsl(0 0% 98%);
-	--accent: hsl(240 3.7% 15.9%);
-	--accent-foreground: hsl(0 0% 98%);
-	--destructive: hsl(0 62.8% 30.6%);
-	--destructive-foreground: hsl(0 0% 98%);
-	--ring: hsl(240 4.9% 83.9%);
-	--sidebar: hsl(240 5.9% 10%);
-	--sidebar-foreground: hsl(240 4.8% 95.9%);
-	--sidebar-primary: hsl(224.3 76.3% 48%);
+	/* Chrome — dark mode: near-black, subtle borders, muted text */
+	--background: hsl(220 12% 5%);
+	--foreground: hsl(220 10% 82%);
+	--muted: hsl(220 10% 12%);
+	--muted-foreground: hsl(220 8% 55%);
+	--popover: hsl(220 12% 8%);
+	--popover-foreground: hsl(220 10% 82%);
+	--card: hsl(220 12% 8%);
+	--card-foreground: hsl(220 10% 82%);
+	--border: hsl(220 8% 15%);
+	--input: hsl(220 8% 15%);
+	--primary: hsl(220 10% 82%);
+	--primary-foreground: hsl(220 12% 5%);
+	--secondary: hsl(220 10% 12%);
+	--secondary-foreground: hsl(220 10% 82%);
+	--accent: hsl(220 10% 12%);
+	--accent-foreground: hsl(220 10% 82%);
+	--destructive: hsl(0 55% 40%);
+	--destructive-foreground: hsl(0 0% 95%);
+	--ring: hsl(220 10% 60%);
+
+	/* Sidebar — dark */
+	--sidebar: hsl(220 12% 7%);
+	--sidebar-foreground: hsl(220 8% 70%);
+	--sidebar-primary: hsl(215 80% 55%);
 	--sidebar-primary-foreground: hsl(0 0% 100%);
-	--sidebar-accent: hsl(240 3.7% 15.9%);
-	--sidebar-accent-foreground: hsl(240 4.8% 95.9%);
-	--sidebar-border: hsl(240 3.7% 15.9%);
-	--sidebar-ring: hsl(217.2 91.2% 59.8%);
+	--sidebar-accent: hsl(220 10% 12%);
+	--sidebar-accent-foreground: hsl(220 8% 70%);
+	--sidebar-border: hsl(220 8% 15%);
+	--sidebar-ring: hsl(215 80% 55%);
+
+	/* Data-viz — dark mode (readable but not neon; ~55-62% lightness) */
+	--ft-viz-teal: hsl(174 45% 55%);
+	--ft-viz-pink: hsl(345 50% 60%);
+	--ft-viz-coral: hsl(15 60% 58%);
+	--ft-viz-blue: hsl(220 55% 62%);
+	--ft-viz-green: hsl(140 40% 55%);
+	--ft-viz-amber: hsl(35 65% 58%);
+	--ft-viz-purple: hsl(270 40% 60%);
 }
 
 @theme inline {
-	--radius-sm: calc(var(--radius) - 4px);
-	--radius-md: calc(var(--radius) - 2px);
-	--radius-lg: var(--radius);
+	--radius-sm: calc(var(--radius) - 2px);
+	--radius-md: var(--radius);
+	--radius-lg: calc(var(--radius) + 2px);
 	--radius-xl: calc(var(--radius) + 4px);
 
 	--color-background: var(--background);
@@ -98,19 +134,31 @@
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-ring: var(--sidebar-ring);
 
+	/* Data-viz colors as Tailwind-accessible tokens */
+	--color-ft-viz-teal: var(--ft-viz-teal);
+	--color-ft-viz-pink: var(--ft-viz-pink);
+	--color-ft-viz-coral: var(--ft-viz-coral);
+	--color-ft-viz-blue: var(--ft-viz-blue);
+	--color-ft-viz-green: var(--ft-viz-green);
+	--color-ft-viz-amber: var(--ft-viz-amber);
+	--color-ft-viz-purple: var(--ft-viz-purple);
+
+	/* Tighter spacing scale for compact density */
+	--spacing-0_5: 2px;
 	--spacing-1: 4px;
+	--spacing-1_5: 6px;
 	--spacing-2: 8px;
 	--spacing-3: 12px;
 	--spacing-4: 16px;
 	--spacing-6: 24px;
 	--spacing-8: 32px;
-	--spacing-12: 48px;
 
-	--duration-micro: 150ms;
-	--duration-panel: 300ms;
+	--duration-micro: 100ms;
+	--duration-panel: 200ms;
 
-	--sidebar-width: 280px;
-	--sidebar-width-collapsed: 48px;
+	/* Compact sidebar */
+	--sidebar-width: 200px;
+	--sidebar-width-collapsed: 40px;
 }
 
 @layer base {
@@ -120,6 +168,8 @@
 
 	body {
 		@apply bg-background text-foreground;
+		font-size: 12px;
+		line-height: 1.5;
 	}
 }
 
@@ -183,4 +233,78 @@
 	&::-webkit-scrollbar {
 		display: none;
 	}
+}
+
+/* ── Range slider ─────────────────────────────────────────────── */
+
+input[type="range"] {
+	-webkit-appearance: none;
+	appearance: none;
+	background: transparent;
+	cursor: pointer;
+	height: 16px;
+}
+
+/* Track — Webkit (Chrome, Edge, Safari) */
+input[type="range"]::-webkit-slider-runnable-track {
+	height: 3px;
+	border-radius: 1.5px;
+	background: var(--border);
+}
+
+/* Track — Firefox */
+input[type="range"]::-moz-range-track {
+	height: 3px;
+	border-radius: 1.5px;
+	background: var(--border);
+	border: none;
+}
+
+/* Thumb — Webkit */
+input[type="range"]::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: var(--foreground);
+	border: none;
+	margin-top: -3.5px;
+	transition: transform 100ms ease, box-shadow 100ms ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+	transform: scale(1.3);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--foreground) 15%, transparent);
+}
+
+input[type="range"]:active::-webkit-slider-thumb {
+	transform: scale(1.1);
+}
+
+/* Thumb — Firefox */
+input[type="range"]::-moz-range-thumb {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: var(--foreground);
+	border: none;
+	transition: transform 100ms ease, box-shadow 100ms ease;
+}
+
+input[type="range"]::-moz-range-thumb:hover {
+	transform: scale(1.3);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--foreground) 15%, transparent);
+}
+
+/* Focus ring */
+input[type="range"]:focus-visible {
+	outline: none;
+}
+
+input[type="range"]:focus-visible::-webkit-slider-thumb {
+	box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
+}
+
+input[type="range"]:focus-visible::-moz-range-thumb {
+	box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
 }

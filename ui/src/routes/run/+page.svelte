@@ -149,9 +149,9 @@
 	<title>Run Model - FlowTime</title>
 </svelte:head>
 
-<div class="space-y-6">
+<div class="space-y-3 p-4">
 	<div class="flex items-center justify-between">
-		<h1 class="text-2xl font-semibold">Run Model</h1>
+		<h1 class="text-sm font-semibold">Run Model</h1>
 		{#if !loading && templates.length > 0}
 			<Button variant="ghost" size="icon" onclick={loadTemplates}>
 				<RefreshCwIcon class="size-4" />

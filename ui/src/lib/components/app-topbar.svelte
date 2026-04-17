@@ -5,7 +5,7 @@
 	import ThemeToggle from './theme-toggle.svelte';
 </script>
 
-<header class="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+<header class="flex h-8 shrink-0 items-center gap-1.5 border-b px-2">
 	<SidebarTrigger class="-ml-1" />
 	<Separator orientation="vertical" class="mr-2 !h-4" />
 	<AppBreadcrumb />
