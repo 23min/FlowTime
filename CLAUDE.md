@@ -208,7 +208,7 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
   - **Active delivery sequence (decided 2026-04-15, Option A):**
     1. ~~**m-E18-13 SessionModelEvaluator**~~ — complete and merged to epic branch.
     2. ~~**m-E18-14 .NET Time Machine CLI**~~ — complete and merged to epic branch.
-    3. **UI parity fork** (next) — Svelte becomes platform for new telemetry/fit/discovery surfaces; Blazor → maintenance mode (bug fixes + contract alignment only).
+    3. ~~**UI parity fork**~~ — now **E-21 Svelte Workbench & Analysis Surfaces** (in-progress). Svelte becomes platform for new telemetry/fit/discovery surfaces; Blazor → maintenance mode.
     4. **E-15 Telemetry Ingestion** — Gold Builder → Graph Builder → first dataset path.
     5. **Telemetry Loop & Parity** — parity harness (prerequisite for trustworthy fit).
     6. **m-E18-XX Model Fit** — `FitSpec`/`FitRunner`/`POST /v1/fit`.
@@ -222,7 +222,11 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 - **E-16** Formula-First Core Purification — **completed.** Archived to `work/epics/completed/E-16-formula-first-core-purification/`.
 - **E-19** Surface Alignment & Compatibility Cleanup — **completed and merged to main (2026-04-08).** Archived to `work/epics/completed/E-19-surface-alignment-and-compatibility-cleanup/`.
   - Deferred (tracked in `work/gaps.md`): `POST /v1/run` and `POST /v1/graph` Engine route deletion per D-2026-04-08-029 (test-infrastructure migration needed first).
-- **E-11** Svelte UI — paused after M6; E-17 completed on Svelte
-  - M1-M4 + M6 done, M5/M7/M8 remain
-  - **Fork decision (2026-04-15, active as of m-E18-14 wrap):** Svelte is the platform for new surfaces. Blazor is in maintenance mode (bug fixes + contract alignment only).
+- **E-21** Svelte Workbench & Analysis Surfaces (`work/epics/E-21-svelte-workbench-and-analysis/spec.md`) — **in-progress**
+  - **m-E21-01** (in-progress): Workbench Foundation — density system, dag-map events (library), workbench panel with click-to-pin node cards.
+  - Branch: `milestone/m-E21-01-workbench-foundation` → `epic/E-21-svelte-workbench-and-analysis`
+  - 7 milestones: workbench foundation → metric selector + edge cards → sweep/sensitivity → goal-seek/optimize → heatmap view → validation surface → polish.
+  - Absorbs E-11 M5/M7/M8 under workbench paradigm. Svelte is the platform for new surfaces; Blazor is maintenance-only.
+- **E-11** Svelte UI — paused after M6; absorbed into E-21
+  - M1-M4 + M6 done. M5 (Inspector) → E-21 workbench. M7 (Dashboard) → deferred. M8 (Polish) → E-21 m-E21-07.
 - **E-12–E-15:** planned, not started. E-15 is on critical path for client-telemetry vision.

@@ -67,9 +67,9 @@
 	<title>Health - FlowTime</title>
 </svelte:head>
 
-<div class="space-y-6">
+<div class="space-y-3 p-4">
 	<div class="flex items-center justify-between">
-		<h1 class="text-2xl font-semibold">Health Status</h1>
+		<h1 class="text-sm font-semibold">Health Status</h1>
 		<Button variant="outline" size="sm" onclick={checkHealth} disabled={refreshing}>
 			<RefreshCwIcon class="mr-2 size-4 {refreshing ? 'animate-spin' : ''}" />
 			Refresh

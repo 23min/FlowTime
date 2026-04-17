@@ -151,7 +151,7 @@ The token architecture must make major theme changes easy:
 
 | ID | Title | Summary | Status |
 |----|-------|---------|--------|
-| m-E21-01-workbench-foundation | Workbench Foundation | Density system, dag-map events (library), topology as navigation (one color dimension), workbench panel with click-to-pin node cards | not started |
+| m-E21-01-workbench-foundation | Workbench Foundation | Density system, dag-map events (library), topology as navigation (one color dimension), workbench panel with click-to-pin node cards | **in-progress** |
 | m-E21-02-metric-selector-edge-cards | Metric Selector & Edge Cards | Metric chip bar, edge click-to-pin, edge cards, class filter | not started |
 | m-E21-03-sweep-sensitivity | Sweep & Sensitivity Surfaces | `/analysis` route with tabs, sweep config + results, sensitivity bar chart | not started |
 | m-E21-04-goal-seek-optimize | Goal Seek & Optimization Surfaces | Goal-seek panel, optimization panel, convergence chart, result summary | not started |

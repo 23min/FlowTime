@@ -60,13 +60,13 @@
 	<title>Home - FlowTime</title>
 </svelte:head>
 
-<div class="space-y-6">
+<div class="space-y-4 p-4">
 	<div class="flex items-start justify-between">
 		<div>
-			<h1 class="text-3xl font-bold tracking-tight">FlowTime</h1>
-			<p class="text-muted-foreground mt-1">Discrete-event process simulation and analysis.</p>
+			<h1 class="text-base font-semibold tracking-tight">FlowTime</h1>
+			<p class="text-muted-foreground text-xs">Discrete-event process simulation and analysis.</p>
 		</div>
-		<div class="flex items-center gap-4 text-sm">
+		<div class="flex items-center gap-3 text-xs">
 			<span class="flex items-center gap-2">
 				<span class="size-2 rounded-full {statusDot(apiOk)}"></span>
 				API
@@ -77,7 +77,7 @@
 			</span>
 		</div>
 	</div>
-	<div class="grid gap-4 sm:grid-cols-2">
+	<div class="grid gap-3 sm:grid-cols-2">
 		{#each sections as section}
 			<a href={section.href} class="block">
 				<Card.Root

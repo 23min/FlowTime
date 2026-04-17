@@ -1,9 +1,12 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { flowtime, type RunSummary, type GraphResponse } from '$lib/api/index.js';
 	import DagMapView from '$lib/components/dag-map-view.svelte';
-	import * as Card from '$lib/components/ui/card/index.js';
+	import WorkbenchCard from '$lib/components/workbench-card.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import { workbench } from '$lib/stores/workbench.svelte.js';
+	import { extractNodeMetrics, findHighestUtilizationNode } from '$lib/utils/workbench-metrics.js';
+	import { bindEvents } from 'dag-map';
 	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
 	import PlayIcon from '@lucide/svelte/icons/play';
 	import PauseIcon from '@lucide/svelte/icons/pause';
@@ -28,7 +31,51 @@
 	let playing = $state(false);
 	let playInterval: ReturnType<typeof setInterval> | undefined;
 
+	// State data for workbench cards
+	let stateNodes = $state<Record<string, unknown>[]>([]);
+
+	// Graph node kinds (for card display)
+	let nodeKinds = $state<Map<string, string>>(new Map());
+
+	// Splitter state
+	let splitRatio = $state(65);
+	let dragging = $state(false);
+	let containerEl: HTMLDivElement | undefined = $state();
+
+	// dag-map event cleanup
+	let dagContainer: HTMLDivElement | undefined = $state();
+	let cleanupEvents: (() => void) | undefined;
+
+	// Bind dag-map click events whenever the SVG re-renders
+	$effect(() => {
+		if (dagContainer) {
+			if (cleanupEvents) cleanupEvents();
+			cleanupEvents = bindEvents(dagContainer, {
+				onNodeClick: (nodeId: string) => {
+					const kind = nodeKinds.get(nodeId);
+					workbench.toggle(nodeId, kind);
+				},
+			});
+		}
+		return () => {
+			if (cleanupEvents) {
+				cleanupEvents();
+				cleanupEvents = undefined;
+			}
+		};
+	});
+
+	// Derive selected set for dag-map rendering
+	const selectedIds = $derived(workbench.selectedIds);
+
 	onMount(async () => {
+		// Restore split ratio from localStorage
+		const stored = localStorage.getItem('ft.topology.split');
+		if (stored) {
+			const v = parseFloat(stored);
+			if (isFinite(v) && v >= 20 && v <= 80) splitRatio = v;
+		}
+
 		const result = await flowtime.listRuns(1, 50);
 		if (result.success && result.value) {
 			runs = result.value.items;
@@ -45,24 +92,31 @@
 		error = undefined;
 		graph = undefined;
 		metrics = undefined;
+		stateNodes = [];
 		currentBin = 0;
 		binCount = 0;
 		stopPlayback();
+		workbench.clear();
 
-		const [graphResult, runResult] = await Promise.all([
+		const [graphResult] = await Promise.all([
 			flowtime.getGraph(runId),
 			flowtime.getRun(runId)
 		]);
 
 		if (graphResult.success && graphResult.value) {
 			graph = graphResult.value;
+			// Build node kind map from graph
+			const kinds = new Map<string, string>();
+			for (const node of graphResult.value.nodes) {
+				if (node.kind) kinds.set(node.id, node.kind);
+			}
+			nodeKinds = kinds;
 		} else {
 			error = graphResult.error ?? 'Failed to load graph';
 			loading = false;
 			return;
 		}
 
-		// Get bin count from run index
 		const indexResult = await flowtime.getRunIndex(runId);
 		if (indexResult.success && indexResult.value) {
 			binCount = indexResult.value.grid?.bins ?? 0;
@@ -71,7 +125,12 @@
 		loading = false;
 
 		if (binCount > 0) {
-			loadBin(0);
+			await loadBin(0);
+			// Auto-pin highest utilization node
+			const best = findHighestUtilizationNode(stateNodes);
+			if (best) {
+				workbench.pin(best.id, best.kind);
+			}
 		}
 	}
 
@@ -81,9 +140,8 @@
 
 		const stateResult = await flowtime.getState(selectedRunId, bin);
 		if (stateResult.success && stateResult.value) {
-			const newMetrics = buildMetrics(stateResult.value.nodes);
-			console.log(`[topology] bin ${bin}: ${newMetrics.size} metrics`,
-				[...newMetrics.entries()].slice(0, 3).map(([k, v]) => `${k}=${v.label}`).join(', '));
+			stateNodes = stateResult.value.nodes as Record<string, unknown>[];
+			const newMetrics = buildMetrics(stateNodes);
 			metrics = newMetrics;
 		}
 	}
@@ -110,6 +168,10 @@
 		return m;
 	}
 
+	function getNodeState(nodeId: string): Record<string, unknown> | undefined {
+		return stateNodes.find((n) => (n.id as string) === nodeId);
+	}
+
 	function prevBin() { if (currentBin > 0) loadBin(currentBin - 1); }
 	function nextBin() { if (currentBin < binCount - 1) loadBin(currentBin + 1); }
 
@@ -131,18 +193,44 @@
 		playing = false;
 		if (playInterval) { clearInterval(playInterval); playInterval = undefined; }
 	}
+
+	// Splitter drag handlers
+	function startDrag(e: MouseEvent) {
+		dragging = true;
+		e.preventDefault();
+	}
+
+	function onDrag(e: MouseEvent) {
+		if (!dragging || !containerEl) return;
+		const rect = containerEl.getBoundingClientRect();
+		const pct = ((e.clientY - rect.top) / rect.height) * 100;
+		splitRatio = Math.max(20, Math.min(80, pct));
+	}
+
+	function stopDrag() {
+		if (dragging) {
+			dragging = false;
+			localStorage.setItem('ft.topology.split', String(splitRatio));
+		}
+	}
 </script>
+
+<svelte:window onmousemove={onDrag} onmouseup={stopDrag} />
 
 <svelte:head>
 	<title>Topology - FlowTime</title>
 </svelte:head>
 
-<div class="space-y-4">
-	<div class="flex items-center gap-4">
-		<h1 class="text-2xl font-semibold">Topology</h1>
+<div
+	class="flex h-full flex-col"
+	bind:this={containerEl}
+>
+	<!-- Toolbar -->
+	<div class="flex items-center gap-2 border-b px-2 py-1">
+		<span class="text-xs font-semibold text-muted-foreground">Topology</span>
 		{#if runs.length > 0}
 			<select
-				class="bg-background border-input rounded-md border px-3 py-1.5 text-sm"
+				class="bg-background border-input rounded border px-1.5 py-0.5 text-xs"
 				value={selectedRunId}
 				onchange={(e) => selectRun((e.target as HTMLSelectElement).value)}
 			>
@@ -154,34 +242,67 @@
 	</div>
 
 	{#if error}
-		<Card.Root class="border-destructive">
-			<Card.Content class="flex items-center gap-3 pt-6">
-				<AlertCircleIcon class="text-destructive size-5" />
-				<p class="text-sm">{error}</p>
-			</Card.Content>
-		</Card.Root>
+		<div class="flex items-center gap-2 p-3 text-xs text-destructive">
+			<AlertCircleIcon class="size-3.5" />
+			<span>{error}</span>
+		</div>
 	{:else if loading}
-		<div class="bg-muted h-96 animate-pulse rounded-lg"></div>
+		<div class="flex-1 bg-muted animate-pulse"></div>
 	{:else if graph}
-		<div class="bg-card rounded-lg border">
-			<DagMapView {graph} {metrics} />
+		<!-- Split: DAG + Workbench -->
+		<div class="flex-1 flex flex-col min-h-0">
+			<!-- DAG area -->
+			<div style="height: {splitRatio}%" class="overflow-auto" bind:this={dagContainer}>
+				<DagMapView {graph} {metrics} selected={selectedIds} />
+			</div>
+
+			<!-- Splitter handle -->
+			<div
+				class="h-1 cursor-row-resize border-y border-border hover:bg-accent flex-shrink-0 {dragging ? 'bg-accent' : ''}"
+				role="separator"
+				aria-orientation="horizontal"
+				onmousedown={startDrag}
+			></div>
+
+			<!-- Workbench panel -->
+			<div style="height: {100 - splitRatio}%" class="overflow-auto bg-background">
+				{#if workbench.pinned.length === 0}
+					<div class="flex h-full items-center justify-center text-muted-foreground text-xs">
+						Click a node to inspect
+					</div>
+				{:else}
+					<div class="flex gap-2 p-2 flex-wrap items-start">
+						{#each workbench.pinned as pin (pin.id)}
+							{@const nodeState = getNodeState(pin.id)}
+							<WorkbenchCard
+								nodeId={pin.id}
+								kind={pin.kind}
+								metrics={nodeState ? extractNodeMetrics(nodeState) : []}
+								{currentBin}
+								onClose={() => workbench.unpin(pin.id)}
+							/>
+						{/each}
+					</div>
+				{/if}
+			</div>
 		</div>
 
+		<!-- Timeline bar -->
 		{#if binCount > 0}
-			<div class="bg-card flex items-center gap-3 rounded-lg border px-4 py-3">
-				<div class="flex items-center gap-1">
-					<Button variant="ghost" size="icon" onclick={prevBin} disabled={currentBin === 0}>
-						<SkipBackIcon class="size-4" />
+			<div class="flex items-center gap-2 px-2 py-1 border-t">
+				<div class="flex items-center gap-0.5">
+					<Button variant="ghost" size="icon" class="size-6" onclick={prevBin} disabled={currentBin === 0}>
+						<SkipBackIcon class="size-3" />
 					</Button>
-					<Button variant="ghost" size="icon" onclick={togglePlayback}>
+					<Button variant="ghost" size="icon" class="size-6" onclick={togglePlayback}>
 						{#if playing}
-							<PauseIcon class="size-4" />
+							<PauseIcon class="size-3" />
 						{:else}
-							<PlayIcon class="size-4" />
+							<PlayIcon class="size-3" />
 						{/if}
 					</Button>
-					<Button variant="ghost" size="icon" onclick={nextBin} disabled={currentBin >= binCount - 1}>
-						<SkipForwardIcon class="size-4" />
+					<Button variant="ghost" size="icon" class="size-6" onclick={nextBin} disabled={currentBin >= binCount - 1}>
+						<SkipForwardIcon class="size-3" />
 					</Button>
 				</div>
 				<input
@@ -192,16 +313,14 @@
 					oninput={(e) => { stopPlayback(); loadBin(parseInt((e.target as HTMLInputElement).value)); }}
 					class="flex-1"
 				/>
-				<span class="text-muted-foreground w-20 text-right text-sm font-mono">
-					{currentBin + 1} / {binCount}
+				<span class="text-muted-foreground w-16 text-right text-[10px] font-mono tabular-nums">
+					{currentBin + 1}/{binCount}
 				</span>
 			</div>
 		{/if}
 	{:else if runs.length === 0}
-		<Card.Root>
-			<Card.Content class="flex flex-col items-center gap-2 py-12">
-				<p class="text-muted-foreground">No runs available. Run a model first.</p>
-			</Card.Content>
-		</Card.Root>
+		<div class="flex flex-1 items-center justify-center">
+			<p class="text-muted-foreground text-xs">No runs available. Run a model first.</p>
+		</div>
 	{/if}
 </div>

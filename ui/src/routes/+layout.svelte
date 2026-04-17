@@ -18,7 +18,7 @@
 	<AppSidebar />
 	<SidebarInset>
 		<AppTopbar />
-		<main class="flex-1 p-6">
+		<main class="flex-1 overflow-auto">
 			{@render children()}
 		</main>
 	</SidebarInset>

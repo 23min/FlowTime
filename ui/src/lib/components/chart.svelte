@@ -3,7 +3,7 @@
 	// Pure geometry lives in chart-geometry.ts (unit-tested).
 	//
 	// Usage:
-	//   <Chart series={[{ name: 'served', values: [1,2,3], color: '#2563eb' }]} />
+	//   <Chart series={[{ name: 'served', values: [1,2,3], color: 'var(--ft-viz-teal)' }]} />
 
 	import {
 		computeChartGeometry,
@@ -37,7 +37,15 @@
 
 	const geometry = $derived(computeChartGeometry(series, layout));
 
-	const DEFAULT_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#ea580c', '#9333ea'];
+	const DEFAULT_COLORS = [
+		'var(--ft-viz-teal)',
+		'var(--ft-viz-coral)',
+		'var(--ft-viz-blue)',
+		'var(--ft-viz-amber)',
+		'var(--ft-viz-green)',
+		'var(--ft-viz-pink)',
+		'var(--ft-viz-purple)',
+	];
 
 	function colorFor(index: number, color?: string): string {
 		return color ?? DEFAULT_COLORS[index % DEFAULT_COLORS.length];
@@ -46,7 +54,6 @@
 	function onMouseMove(e: MouseEvent) {
 		if (!svgEl) return;
 		const rect = svgEl.getBoundingClientRect();
-		// Convert client coords to SVG viewBox coords
 		const x = ((e.clientX - rect.left) / rect.width) * width;
 		const y = ((e.clientY - rect.top) / rect.height) * height;
 		mouseY = y;
@@ -63,7 +70,6 @@
 			: null,
 	);
 
-	// Tooltip content: one line per series showing name + value at hoverBin
 	const tooltipLines = $derived.by(() => {
 		if (hoverBin === null) return [];
 		return series
@@ -103,16 +109,16 @@
 				x2={geometry.plotRight}
 				y1={tick.y}
 				y2={tick.y}
-				stroke="#e5e7eb"
-				stroke-width="1"
+				stroke="var(--border)"
+				stroke-width="0.5"
 				stroke-dasharray="2,2"
 			/>
 			<text
 				x={geometry.plotLeft - 4}
 				y={tick.y + 3}
 				text-anchor="end"
-				font-size="10"
-				fill="#6b7280"
+				font-size="9"
+				fill="var(--muted-foreground)"
 				font-family="ui-monospace, monospace"
 			>
 				{tick.label}
@@ -125,8 +131,8 @@
 				x={tick.x}
 				y={geometry.plotBottom + 14}
 				text-anchor="middle"
-				font-size="10"
-				fill="#6b7280"
+				font-size="9"
+				fill="var(--muted-foreground)"
 				font-family="ui-monospace, monospace"
 			>
 				{tick.label}
@@ -139,8 +145,8 @@
 			x2={geometry.plotRight}
 			y1={geometry.plotBottom}
 			y2={geometry.plotBottom}
-			stroke="#9ca3af"
-			stroke-width="1"
+			stroke="var(--border)"
+			stroke-width="0.5"
 		/>
 
 		<!-- Series paths -->
@@ -149,7 +155,7 @@
 				d={path.d}
 				fill="none"
 				stroke={colorFor(i, path.color)}
-				stroke-width="1.8"
+				stroke-width="1"
 				stroke-linecap="round"
 				stroke-linejoin="round"
 				data-testid="chart-path-{path.name}"
@@ -163,7 +169,7 @@
 				x2={crosshairX(crosshairBin, geometry)!}
 				y1={geometry.plotTop}
 				y2={geometry.plotBottom}
-				stroke="hsl(240 5% 64.9%)"
+				stroke="var(--muted-foreground)"
 				stroke-width="1"
 				stroke-dasharray="4 2"
 				pointer-events="none"
@@ -178,8 +184,8 @@
 				x2={hoverX}
 				y1={geometry.plotTop}
 				y2={geometry.plotBottom}
-				stroke="#9ca3af"
-				stroke-width="1"
+				stroke="var(--muted-foreground)"
+				stroke-width="0.5"
 				stroke-dasharray="3,3"
 				pointer-events="none"
 			/>
@@ -192,11 +198,11 @@
 			style="left: {hoverX ?? 0}px; top: {Math.max(0, mouseY - 40)}px;"
 			data-testid="chart-tooltip"
 		>
-			<div class="text-[10px] text-gray-500 font-mono">bin {hoverBin}</div>
+			<div class="tooltip-bin">bin {hoverBin}</div>
 			{#each tooltipLines as line (line.name)}
 				<div class="flex items-center gap-1.5">
-					<span class="inline-block h-2 w-2 rounded-full" style="background: {line.color};"></span>
-					<span class="text-xs font-mono">{line.name}: {formatTooltipValue(line.value)}</span>
+					<span class="inline-block h-1.5 w-1.5 rounded-full" style="background: {line.color};"></span>
+					<span class="text-[10px] font-mono">{line.name}: {formatTooltipValue(line.value)}</span>
 				</div>
 			{/each}
 		</div>
@@ -209,22 +215,28 @@
 		display: inline-block;
 	}
 	.chart-title {
-		font-size: 11px;
+		font-size: 10px;
 		font-weight: 600;
-		color: #374151;
-		margin-bottom: 4px;
+		color: var(--foreground);
+		margin-bottom: 2px;
 		font-family: ui-monospace, monospace;
 	}
 	.chart-tooltip {
 		position: absolute;
-		background: white;
-		border: 1px solid #e5e7eb;
-		border-radius: 6px;
-		padding: 6px 8px;
+		background: var(--popover);
+		border: 1px solid var(--border);
+		border-radius: 4px;
+		padding: 4px 6px;
 		pointer-events: none;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 		transform: translateX(8px);
 		z-index: 10;
 		white-space: nowrap;
+		color: var(--popover-foreground);
+	}
+	.tooltip-bin {
+		font-size: 9px;
+		color: var(--muted-foreground);
+		font-family: ui-monospace, monospace;
 	}
 </style>
