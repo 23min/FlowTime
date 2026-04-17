@@ -153,7 +153,7 @@ The token architecture must make major theme changes easy:
 |----|-------|---------|--------|
 | m-E21-01-workbench-foundation | Workbench Foundation | Density system, dag-map events (library), topology as navigation (one color dimension), workbench panel with click-to-pin node cards | **in-progress** |
 | m-E21-02-metric-selector-edge-cards | Metric Selector & Edge Cards | Metric chip bar, edge click-to-pin, edge cards, class filter | **in-progress** |
-| m-E21-03-sweep-sensitivity | Sweep & Sensitivity Surfaces | `/analysis` route with tabs, sweep config + results, sensitivity bar chart | not started |
+| m-E21-03-sweep-sensitivity | Sweep & Sensitivity Surfaces | `/analysis` route with tabs, sweep config + results, sensitivity bar chart | **in-progress** |
 | m-E21-04-goal-seek-optimize | Goal Seek & Optimization Surfaces | Goal-seek panel, optimization panel, convergence chart, result summary | not started |
 | m-E21-05-heatmap-view | Heatmap View | Nodes-x-bins grid, row sorting, click-to-jump, view switcher (topology/heatmap) | not started |
 | m-E21-06-validation-surface | Validation Surface & Model Health | Tiered validation display, warning badges on topology, warning list in workbench | not started |
