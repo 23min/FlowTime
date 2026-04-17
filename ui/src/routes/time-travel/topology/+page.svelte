@@ -1,17 +1,25 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { onMount } from 'svelte';
 	import { flowtime, type RunSummary, type GraphResponse } from '$lib/api/index.js';
 	import DagMapView from '$lib/components/dag-map-view.svelte';
 	import WorkbenchCard from '$lib/components/workbench-card.svelte';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import WorkbenchEdgeCard from '$lib/components/workbench-edge-card.svelte';
+	import MetricSelector from '$lib/components/metric-selector.svelte';
+	import TimelineScrubber from '$lib/components/timeline-scrubber.svelte';
 	import { workbench } from '$lib/stores/workbench.svelte.js';
-	import { extractNodeMetrics, findHighestUtilizationNode } from '$lib/utils/workbench-metrics.js';
+	import {
+		extractNodeMetrics,
+		extractEdgeMetrics,
+		findHighestUtilizationNode,
+	} from '$lib/utils/workbench-metrics.js';
+	import {
+		buildMetricMapForDefFiltered,
+		buildSparklineSeries,
+		discoverClasses,
+		type MetricDef,
+	} from '$lib/utils/metric-defs.js';
 	import { bindEvents } from 'dag-map';
 	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
-	import PlayIcon from '@lucide/svelte/icons/play';
-	import PauseIcon from '@lucide/svelte/icons/pause';
-	import SkipBackIcon from '@lucide/svelte/icons/skip-back';
-	import SkipForwardIcon from '@lucide/svelte/icons/skip-forward';
 
 	interface NodeMetric {
 		value: number;
@@ -27,15 +35,22 @@
 	// Timeline state
 	let binCount = $state(0);
 	let currentBin = $state(0);
-	let metrics = $state<Map<string, NodeMetric> | undefined>();
 	let playing = $state(false);
 	let playInterval: ReturnType<typeof setInterval> | undefined;
 
-	// State data for workbench cards
+	// Snapshot state (for heatmap + node/edge cards at current bin)
 	let stateNodes = $state<Record<string, unknown>[]>([]);
+	let stateEdges = $state<Record<string, unknown>[]>([]);
+
+	// Window state (for sparklines — loaded once per run)
+	let windowNodes = $state<Record<string, unknown>[]>([]);
 
 	// Graph node kinds (for card display)
 	let nodeKinds = $state<Map<string, string>>(new Map());
+
+	// Class filter
+	let availableClasses = $state<string[]>([]);
+	let activeClasses = $state<Set<string>>(new Set());
 
 	// Splitter state
 	let splitRatio = $state(65);
@@ -46,6 +61,18 @@
 	let dagContainer: HTMLDivElement | undefined = $state();
 	let cleanupEvents: (() => void) | undefined;
 
+	// Heatmap metrics, rebuilt when selected metric, snapshot, or class filter changes
+	const currentMetrics = $derived.by<Map<string, NodeMetric> | undefined>(() => {
+		if (stateNodes.length === 0) return undefined;
+		return buildMetricMapForDefFiltered(stateNodes, workbench.selectedMetric, activeClasses);
+	});
+
+	// Sparkline values per node, for selected metric + class filter
+	const sparklineMap = $derived.by<Map<string, number[]>>(() => {
+		if (windowNodes.length === 0) return new Map();
+		return buildSparklineSeries(windowNodes, workbench.selectedMetric, activeClasses);
+	});
+
 	// Bind dag-map click events whenever the SVG re-renders
 	$effect(() => {
 		if (dagContainer) {
@@ -54,6 +81,9 @@
 				onNodeClick: (nodeId: string) => {
 					const kind = nodeKinds.get(nodeId);
 					workbench.toggle(nodeId, kind);
+				},
+				onEdgeClick: (from: string, to: string) => {
+					workbench.toggleEdge(from, to);
 				},
 			});
 		}
@@ -65,11 +95,25 @@
 		};
 	});
 
-	// Derive selected set for dag-map rendering
+	// Apply edge selection highlighting via CSS after each render
+	$effect(() => {
+		void workbench.selectedEdgeKeys; // track dependency
+		if (!dagContainer) return;
+		dagContainer.querySelectorAll('.edge-selected').forEach((el) => {
+			el.classList.remove('edge-selected');
+		});
+		for (const edge of workbench.pinnedEdges) {
+			const selector = `[data-edge-from="${edge.from}"][data-edge-to="${edge.to}"]:not([data-edge-hit])`;
+			dagContainer.querySelectorAll(selector).forEach((el) => {
+				el.classList.add('edge-selected');
+			});
+		}
+	});
+
 	const selectedIds = $derived(workbench.selectedIds);
+	const hasPinnedItems = $derived(workbench.pinned.length > 0 || workbench.pinnedEdges.length > 0);
 
 	onMount(async () => {
-		// Restore split ratio from localStorage
 		const stored = localStorage.getItem('ft.topology.split');
 		if (stored) {
 			const v = parseFloat(stored);
@@ -91,10 +135,13 @@
 		loading = true;
 		error = undefined;
 		graph = undefined;
-		metrics = undefined;
 		stateNodes = [];
+		stateEdges = [];
+		windowNodes = [];
 		currentBin = 0;
 		binCount = 0;
+		availableClasses = [];
+		activeClasses = new Set();
 		stopPlayback();
 		workbench.clear();
 
@@ -105,7 +152,6 @@
 
 		if (graphResult.success && graphResult.value) {
 			graph = graphResult.value;
-			// Build node kind map from graph
 			const kinds = new Map<string, string>();
 			for (const node of graphResult.value.nodes) {
 				if (node.kind) kinds.set(node.id, node.kind);
@@ -125,7 +171,19 @@
 		loading = false;
 
 		if (binCount > 0) {
+			// Fetch window for sparklines (one call for full range)
+			const windowResult = await flowtime.getStateWindow(runId, 0, binCount - 1);
+			if (windowResult.success && windowResult.value) {
+				windowNodes = windowResult.value.nodes as Record<string, unknown>[];
+			}
+
+			// Snapshot for heatmap + cards
 			await loadBin(0);
+
+			// Discover classes (from snapshot data)
+			const classes = discoverClasses(stateNodes);
+			availableClasses = classes;
+
 			// Auto-pin highest utilization node
 			const best = findHighestUtilizationNode(stateNodes);
 			if (best) {
@@ -141,35 +199,34 @@
 		const stateResult = await flowtime.getState(selectedRunId, bin);
 		if (stateResult.success && stateResult.value) {
 			stateNodes = stateResult.value.nodes as Record<string, unknown>[];
-			const newMetrics = buildMetrics(stateNodes);
-			metrics = newMetrics;
+			stateEdges = stateResult.value.edges as Record<string, unknown>[];
 		}
-	}
-
-	function buildMetrics(nodes: Record<string, unknown>[]): Map<string, NodeMetric> {
-		const m = new Map<string, NodeMetric>();
-		for (const node of nodes) {
-			const id = node.id as string;
-			if (!id) continue;
-
-			const derived = node.derived as Record<string, unknown> | undefined;
-			if (!derived) continue;
-
-			const util = derived.utilization as number | undefined | null;
-			const throughput = derived.throughputRatio as number | undefined | null;
-
-			if (util !== undefined && util !== null && isFinite(util)) {
-				const pct = Math.round(util * 100);
-				m.set(id, { value: util, label: `${pct}%` });
-			} else if (throughput !== undefined && throughput !== null && isFinite(throughput)) {
-				m.set(id, { value: 1 - throughput, label: `${Math.round(throughput * 100)}%` });
-			}
-		}
-		return m;
 	}
 
 	function getNodeState(nodeId: string): Record<string, unknown> | undefined {
 		return stateNodes.find((n) => (n.id as string) === nodeId);
+	}
+
+	function getEdgeState(from: string, to: string): Record<string, unknown> | undefined {
+		return stateEdges.find((e) => {
+			const eFrom = (e.from as string) ?? (e.sourceId as string);
+			const eTo = (e.to as string) ?? (e.targetId as string);
+			return eFrom === from && eTo === to;
+		});
+	}
+
+	function onMetricSelect(def: MetricDef) {
+		workbench.selectedMetric = def;
+	}
+
+	function toggleClass(cls: string) {
+		const next = new Set(activeClasses);
+		if (next.has(cls)) {
+			next.delete(cls);
+		} else {
+			next.add(cls);
+		}
+		activeClasses = next;
 	}
 
 	function prevBin() { if (currentBin > 0) loadBin(currentBin - 1); }
@@ -194,7 +251,6 @@
 		if (playInterval) { clearInterval(playInterval); playInterval = undefined; }
 	}
 
-	// Splitter drag handlers
 	function startDrag(e: MouseEvent) {
 		dragging = true;
 		e.preventDefault();
@@ -239,6 +295,38 @@
 				{/each}
 			</select>
 		{/if}
+
+		<div class="mx-1 h-3 w-px bg-border"></div>
+
+		<!-- Metric selector -->
+		<MetricSelector selected={workbench.selectedMetric} onSelect={onMetricSelect} />
+
+		<!-- Class filter -->
+		{#if availableClasses.length > 0}
+			<div class="mx-1 h-3 w-px bg-border"></div>
+			<span class="text-[10px] text-muted-foreground">Class:</span>
+			<div class="flex items-center gap-1">
+				{#each availableClasses as cls (cls)}
+					<button
+						class="rounded px-1.5 py-0.5 text-[10px] transition-colors {activeClasses.has(cls)
+							? 'bg-foreground text-background font-medium'
+							: 'bg-muted text-muted-foreground hover:bg-accent'}"
+						onclick={() => toggleClass(cls)}
+					>
+						{cls}
+					</button>
+				{/each}
+				{#if activeClasses.size > 0}
+					<button
+						class="text-[10px] text-muted-foreground hover:text-foreground px-1"
+						onclick={() => (activeClasses = new Set())}
+						aria-label="Clear class filter"
+					>
+						clear
+					</button>
+				{/if}
+			</div>
+		{/if}
 	</div>
 
 	{#if error}
@@ -249,11 +337,26 @@
 	{:else if loading}
 		<div class="flex-1 bg-muted animate-pulse"></div>
 	{:else if graph}
+		<!-- Timeline scrubber — above the graph like Blazor -->
+		{#if binCount > 0}
+			<div class="px-2 py-1 border-b">
+				<TimelineScrubber
+					{binCount}
+					{currentBin}
+					{playing}
+					onBinChange={(bin) => { stopPlayback(); loadBin(bin); }}
+					onTogglePlay={togglePlayback}
+					onPrev={prevBin}
+					onNext={nextBin}
+				/>
+			</div>
+		{/if}
+
 		<!-- Split: DAG + Workbench -->
 		<div class="flex-1 flex flex-col min-h-0">
 			<!-- DAG area -->
 			<div style="height: {splitRatio}%" class="overflow-auto" bind:this={dagContainer}>
-				<DagMapView {graph} {metrics} selected={selectedIds} />
+				<DagMapView {graph} metrics={currentMetrics} selected={selectedIds} />
 			</div>
 
 			<!-- Splitter handle -->
@@ -266,9 +369,9 @@
 
 			<!-- Workbench panel -->
 			<div style="height: {100 - splitRatio}%" class="overflow-auto bg-background">
-				{#if workbench.pinned.length === 0}
+				{#if !hasPinnedItems}
 					<div class="flex h-full items-center justify-center text-muted-foreground text-xs">
-						Click a node to inspect
+						Click a node or edge to inspect
 					</div>
 				{:else}
 					<div class="flex gap-2 p-2 flex-wrap items-start">
@@ -278,49 +381,36 @@
 								nodeId={pin.id}
 								kind={pin.kind}
 								metrics={nodeState ? extractNodeMetrics(nodeState) : []}
+								sparklineValues={sparklineMap.get(pin.id) ?? []}
+								sparklineLabel={workbench.selectedMetric.label.toLowerCase()}
 								{currentBin}
 								onClose={() => workbench.unpin(pin.id)}
+							/>
+						{/each}
+						{#each workbench.pinnedEdges as edge (`${edge.from}\u2192${edge.to}`)}
+							{@const edgeState = getEdgeState(edge.from, edge.to)}
+							<WorkbenchEdgeCard
+								from={edge.from}
+								to={edge.to}
+								metrics={edgeState ? extractEdgeMetrics(edgeState) : []}
+								onClose={() => workbench.unpinEdge(edge.from, edge.to)}
 							/>
 						{/each}
 					</div>
 				{/if}
 			</div>
 		</div>
-
-		<!-- Timeline bar -->
-		{#if binCount > 0}
-			<div class="flex items-center gap-2 px-2 py-1 border-t">
-				<div class="flex items-center gap-0.5">
-					<Button variant="ghost" size="icon" class="size-6" onclick={prevBin} disabled={currentBin === 0}>
-						<SkipBackIcon class="size-3" />
-					</Button>
-					<Button variant="ghost" size="icon" class="size-6" onclick={togglePlayback}>
-						{#if playing}
-							<PauseIcon class="size-3" />
-						{:else}
-							<PlayIcon class="size-3" />
-						{/if}
-					</Button>
-					<Button variant="ghost" size="icon" class="size-6" onclick={nextBin} disabled={currentBin >= binCount - 1}>
-						<SkipForwardIcon class="size-3" />
-					</Button>
-				</div>
-				<input
-					type="range"
-					min="0"
-					max={binCount - 1}
-					value={currentBin}
-					oninput={(e) => { stopPlayback(); loadBin(parseInt((e.target as HTMLInputElement).value)); }}
-					class="flex-1"
-				/>
-				<span class="text-muted-foreground w-16 text-right text-[10px] font-mono tabular-nums">
-					{currentBin + 1}/{binCount}
-				</span>
-			</div>
-		{/if}
 	{:else if runs.length === 0}
 		<div class="flex flex-1 items-center justify-center">
 			<p class="text-muted-foreground text-xs">No runs available. Run a model first.</p>
 		</div>
 	{/if}
 </div>
+
+<style>
+	:global(.edge-selected) {
+		stroke: var(--ft-viz-amber) !important;
+		stroke-width: 3 !important;
+		opacity: 1 !important;
+	}
+</style>
