@@ -3,41 +3,73 @@
 [![Build](https://github.com/23min/FlowTime/actions/workflows/build.yml/badge.svg)](https://github.com/23min/FlowTime/actions/workflows/build.yml)
 ![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
 
-FlowTime is a unified platform for modelling, simulating, and exploring service flows. It combines:
+**A deterministic flow algebra engine. A spreadsheet for flow dynamics. Queueing theory made executable.**
 
-- **FlowTime Engine** – a deterministic, discrete-time execution engine and API for “what-is/what-was” time-travel observability.
-- **FlowTime Sim** – a template-driven simulation toolkit for “what-if” scenario generation and model authoring.
-
-Together they let you design flows, generate synthetic demand, execute models, and inspect artifacts from a single mono-repository.
+Traditional monitoring tools measure symptoms — high latency, growing backlogs, missed SLAs. FlowTime models the mechanics: how work arrives, moves through services, accumulates in queues, and propagates delays forward in time. It produces stable, explainable, time-series outputs that teams can replay, compare, and reason about together.
 
 ---
 
 ## FlowTime as Flow Literacy
 
-FlowTime is not just a simulator or engine; it is a common language for talking about flows and resilience across many kinds of systems.
+FlowTime is more than an engine. It is a common language for talking about flows and resilience — one that is computable rather than conversational.
 
-It brings together telemetry, architecture, scenarios, incidents, and business impact into a single, consistent representation of how work moves through a system over time.
+When a team can load the same deterministic model, run it against historical telemetry, and read the same time series, the conversation about bottlenecks, recovery times, and capacity risk becomes concrete. SREs, operations, engineering, and business stakeholders can reason from the same artifacts rather than from different dashboards with different definitions of utilization and latency.
 
-Realizing this vision means investing in:
+This shared understanding rests on clear core concepts — flows, services, queues, classes, paths — and a set of reusable analytics built from them: throughput, queue depth, cycle time, utilization, backlog risk, retry amplification. These are not proprietary metrics. They are the vocabulary of queueing theory and flow analysis, made directly executable.
 
-- Clear core concepts (flows, classes, paths, subsystems, incidents, modes).
-- Reusable visual idioms for understanding how work moves and where it gets stuck.
-- Shared definitions of recovery, impact, severity, and risk that can be applied across domains.
+---
+
+## What FlowTime does
+
+FlowTime represents a system as a **network of services, queues, and dependencies** and evaluates it over a **discrete time grid** — one bin at a time, in topological order, like a spreadsheet recalculating its cells.
+
+For each time bin the engine computes: arrivals, served, queue depth, errors, retry rates, utilization, latency, and more. The result is a complete time-series picture of how the system behaved — or would behave under a proposed change.
+
+Key properties:
+
+- **Deterministic.** Same model, same data → same outputs, always. Reproducible replays, comparable scenarios.
+- **Fast.** Analytical computation in milliseconds, not the hours of discrete-event simulation. The performance-critical evaluation core is written in Rust — chosen for its predictable performance and memory safety guarantees.
+- **Grounded.** Feed it telemetry from your existing systems or author a model from scratch. The engine treats both the same way.
+- **Explainable.** Every metric is a traceable formula. There is no black box.
+
+See [engine capabilities](docs/reference/engine-capabilities.md) and [flow theory foundations](docs/reference/flow-theory-foundations.md) for depth.
+
+---
+
+## Who it's for
+
+- **SRE / Reliability** — diagnose bottlenecks, backlog growth, retry storms, and capacity shortfalls.
+- **Engineering / Platform** — validate system changes and understand their downstream flow impact.
+- **Operations / Support** — explain why queues grew or SLAs dipped during specific windows.
+- **Process Optimization** — compare as-is vs to-be flows; identify constraints and model interventions.
+- **Business / Exec** — throughput, delay, and risk at a high level, without dashboard stitching.
+
+---
+
+## On the horizon
+
+- **Interactive what-if** — manipulate model parameters and see the system's state update in real time. Arriving now.
+- **Model discovery** — fit model parameters to observed telemetry to produce a calibrated, grounded model automatically.
+- **Process mining** — derive flow topology from event logs rather than authoring it by hand.
 
 ---
 
 ## At a Glance
 
-| Surface | Purpose | Key Projects |
-|---------|---------|--------------|
-| **Engine** | Deterministic execution, artifact registry, REST API, Blazor UI | `src/FlowTime.Core`, `src/FlowTime.API`, `src/FlowTime.Cli`, `src/FlowTime.Expressions`, `src/FlowTime.Generator`, `src/FlowTime.UI`, `tests/FlowTime.UI.Tests`, `tests/FlowTime.*` |
-| **Sim** | Template-based model authoring, provenance, synthetic data APIs | `src/FlowTime.Sim.Core`, `src/FlowTime.Sim.Service`, `src/FlowTime.Sim.Cli`, `templates/`, `examples/`, `catalogs/`, `fixtures/`, `tests/FlowTime.Sim.Tests` |
+| Surface | Purpose |
+|---------|---------|
+| **Engine** | Deterministic evaluation, artifact registry, REST API, CLI |
+| **Time Machine** | Headless analysis pipeline — parameter studies, sensitivity, goal-seeking |
+| **Sim** | Template-driven model authoring and synthetic demand generation |
+| **UI** | Interactive flow visualization and what-if exploration |
 
 Why FlowTime:
-- Explainable flow modelling with spreadsheet-like graphs and expressions.
-- Side-by-side “what-if” (Sim) and “what-is” (Engine) validation.
-- Shared schemas/contracts to keep downstream consumers aligned.
-- Lightweight .NET 9 stack with CLI, API, and UI entry points.
+
+- Every metric is a labeled formula — explainable and auditable, not opaque ML output.
+- Deterministic replay — run a scenario today, get the same answer next month.
+- Fast analytical evaluation — not discrete-event simulation; models run in milliseconds.
+- Grounded in real telemetry — bring existing data or generate synthetic demand.
+- One model, one vocabulary, many stakeholders.
 
 ---
 
@@ -46,33 +78,27 @@ Why FlowTime:
 ```
 flowtime-vnext/
 ├─ src/
-│  ├─ FlowTime.Core/             # Engine execution core
-│  ├─ FlowTime.API/              # Engine HTTP API (:8080)
-│  ├─ FlowTime.Cli/              # Engine CLI
-│  ├─ FlowTime.Contracts/        # Shared models/schemas
-│  ├─ FlowTime.Adapters.Synthetic/ # Engine synthetic adapters
-│  ├─ FlowTime.Expressions/       # Expression language support
-│  ├─ FlowTime.Generator/         # Model/generator utilities
-│  ├─ FlowTime.Sim.Core/         # Simulation templates + provenance
-│  ├─ FlowTime.Sim.Service/      # Simulation HTTP API (:8090)
-│  ├─ FlowTime.Sim.Cli/          # Simulation CLI utilities
-│  └─ FlowTime.UI/               # Blazor WebAssembly UI (:5219)
-├─ tests/                        # Engine + Sim test projects
-├─ docs/                        # Architecture reference docs, guides, schemas
-├─ work/                        # AI framework: epics, milestones, tracking, gaps, decisions
-│  ├─ epics/                    # Active + completed epic specs
-│  ├─ milestones/               # Active + completed milestone specs + tracking
-│  └─ gaps.md, decisions.md     # Deferred work and decision log
-├─ templates/                    # Simulation templates
-├─ examples/                     # Example models
-├─ catalogs/                     # Scenario catalogs and sample systems
-├─ fixtures/                     # HTTP/microservices/time-travel fixtures
-├─ .ai/                         # AI-assisted development framework (submodule)
-├─ .ai-repo/                    # Project-specific AI rules and skills
-├─ .devcontainer/                # Unified dev container setup
-├─ .github/                      # CI workflows and Copilot agents/skills
-├─ ROADMAP.md                    # High-level roadmap
-└─ FlowTime.sln                  # Unified solution file
+│  ├─ FlowTime.Core/               # Engine execution core
+│  ├─ FlowTime.API/                # Engine HTTP API (:8081)
+│  ├─ FlowTime.Cli/                # Engine CLI
+│  ├─ FlowTime.Contracts/          # Shared models and schemas
+│  ├─ FlowTime.Adapters.Synthetic/ # Synthetic data adapters
+│  ├─ FlowTime.Expressions/        # Expression language
+│  ├─ FlowTime.TimeMachine/        # Headless analysis pipeline
+│  ├─ FlowTime.Sim.Core/           # Simulation templates and provenance
+│  ├─ FlowTime.Sim.Service/        # Simulation HTTP API (:8090)
+│  ├─ FlowTime.Sim.Cli/            # Simulation CLI utilities
+│  └─ FlowTime.UI/                 # Blazor WebAssembly UI (:5219)
+├─ tests/                          # Engine and Sim test projects
+├─ docs/                           # Architecture reference, guides, schemas
+├─ work/                           # Epics, milestones, decisions, gaps
+├─ templates/                      # Simulation templates
+├─ examples/                       # Example models
+├─ catalogs/                       # Scenario catalogs and sample systems
+├─ .devcontainer/                  # Dev container setup
+├─ .github/                        # CI workflows
+├─ ROADMAP.md                      # High-level roadmap
+└─ FlowTime.sln                    # Solution file
 ```
 
 ---
@@ -81,11 +107,11 @@ flowtime-vnext/
 
 ### Prerequisites
 
-- .NET 9 SDK
-- Git
-- Optional: VS Code with Dev Containers for a ready-to-run environment (`.devcontainer/`).
+The recommended way to work with FlowTime is via the included **Dev Container** — it provides .NET 9, the Rust toolchain, and all required extensions pre-configured. See [`docs/development/devcontainer.md`](docs/development/devcontainer.md).
 
-### Build & Test Everything
+Without the Dev Container you will need .NET 9 SDK, a Rust toolchain, and Git set up manually.
+
+### Build and test
 
 ```bash
 dotnet restore
@@ -93,22 +119,20 @@ dotnet build FlowTime.sln
 dotnet test FlowTime.sln
 ```
 
-Or use VS Code tasks: `build`, `build-sim`, `test`, `test-sim`.
-
-### Run the Engine Surface
+### Run the Engine
 
 ```bash
-# Start the Engine API on http://localhost:8080
-dotnet run --project src/FlowTime.API --urls http://0.0.0.0:8080
+# Start the Engine API on http://localhost:8081
+dotnet run --project src/FlowTime.API
 
-# Launch the Blazor UI (default http://localhost:5219)
-dotnet run --project src/FlowTime.UI
-
-# Execute a model via CLI (writes CSV artifacts under out/)
+# Run a model via CLI
 dotnet run --project src/FlowTime.Cli -- run examples/m0.const.yaml --out out/m0
+
+# Launch the UI (http://localhost:5219)
+dotnet run --project src/FlowTime.UI
 ```
 
-### Run the Simulation Surface
+### Run the Simulation surface
 
 ```bash
 # Start the Sim API on http://localhost:8090
@@ -116,30 +140,32 @@ ASPNETCORE_URLS=http://0.0.0.0:8090 dotnet run --project src/FlowTime.Sim.Servic
 
 # Generate a model from a template
 dotnet run --project src/FlowTime.Sim.Cli -- generate --id transportation-basic --out out/model.yaml
-
-# Execute Sim unit tests only
-dotnet test tests/FlowTime.Sim.Tests/FlowTime.Sim.Tests.csproj
 ```
 
 ---
 
 ## Documentation
 
-- **Roadmap:** `ROADMAP.md` (priorities, dependency graph, current and future work).
-- **Epics & milestones:** `work/epics/` and `work/milestones/` (specs, tracking docs, completed archive).
-- **Architecture reference:** `docs/architecture/` (whitepaper, expression language, dependency ideas, engine reviews).
-- **Guides:** `docs/guides/` (CLI, MCP/AI tooling).
-- **Schemas:** `docs/schemas/` (template, manifest, run artifact JSON schemas).
+| Topic | Location |
+|-------|----------|
+| What FlowTime is and how to think about models | [`docs/flowtime.md`](docs/flowtime.md) |
+| Engine capabilities (shipped behavior) | [`docs/reference/engine-capabilities.md`](docs/reference/engine-capabilities.md) |
+| Flow theory foundations | [`docs/reference/flow-theory-foundations.md`](docs/reference/flow-theory-foundations.md) |
+| Architecture and engine design | [`docs/architecture/whitepaper.md`](docs/architecture/whitepaper.md) |
+| Modeling guide | [`docs/modeling.md`](docs/modeling.md) |
+| CLI reference | [`docs/guides/CLI.md`](docs/guides/CLI.md) |
+| Dev container setup | [`docs/development/devcontainer.md`](docs/development/devcontainer.md) |
+| Roadmap | [`ROADMAP.md`](ROADMAP.md) |
 
 ---
 
-## Contributing
+## Collaboration
 
-FlowTime is AI-first. Code changes and milestone specs are authored by AI workflows using the framework in `.ai/` (agents, skills, rules) and must follow `docs/development/`.
+FlowTime is not currently accepting unsolicited code contributions.
 
-- Humans may contribute by writing or improving documentation.
-- For code changes, open a discussion or issue describing the desired behavior; AI will author the milestone spec and implementation.
-- Do not submit human-written code PRs; they will be declined.
+What we are looking for are **collaborators with real systems to model** — SREs, operations teams, and process engineers who want to test FlowTime against actual telemetry or explore what-if scenarios for a live system. If that describes you, open a [discussion](https://github.com/23min/FlowTime/discussions) or reach out directly.
+
+For documentation improvements, open an issue describing what is unclear or missing.
 
 ---
 
