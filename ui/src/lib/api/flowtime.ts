@@ -1,4 +1,4 @@
-import { get, getText } from './client.js';
+import { get, getText, post } from './client.js';
 import type {
 	Artifact,
 	ArtifactListResponse,
@@ -92,10 +92,41 @@ export const flowtime = {
 		return get<RunIndex>(`${API}/runs/${encodeURIComponent(runId)}/index`);
 	},
 
+	/** Get the compiled model YAML for a run */
+	async getRunModel(runId: string) {
+		return getText(`${API}/runs/${encodeURIComponent(runId)}/model`);
+	},
+
 	/** Get state window (range of bins) */
 	async getStateWindow(runId: string, startBin: number, endBin: number) {
 		return get<StateWindowResponse>(
 			`${API}/runs/${encodeURIComponent(runId)}/state_window?startBin=${startBin}&endBin=${endBin}`
 		);
+	},
+
+	/** Parameter sweep — POST /v1/sweep */
+	async sweep(body: {
+		yaml: string;
+		paramId: string;
+		values: number[];
+		captureSeriesIds?: string[];
+	}) {
+		return post<{
+			paramId: string;
+			points: { paramValue: number; series: Record<string, number[]> }[];
+		}>(`${API}/sweep`, body);
+	},
+
+	/** Sensitivity analysis — POST /v1/sensitivity */
+	async sensitivity(body: {
+		yaml: string;
+		paramIds: string[];
+		metricSeriesId: string;
+		perturbation?: number;
+	}) {
+		return post<{
+			metricSeriesId: string;
+			points: { paramId: string; baseValue: number; gradient: number }[];
+		}>(`${API}/sensitivity`, body);
 	}
 };

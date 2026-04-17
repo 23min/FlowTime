@@ -5,6 +5,7 @@
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import PlayIcon from '@lucide/svelte/icons/play';
 	import SlidersHorizontalIcon from '@lucide/svelte/icons/sliders-horizontal';
+	import FlaskConicalIcon from '@lucide/svelte/icons/flask-conical';
 	import HeartPulseIcon from '@lucide/svelte/icons/heart-pulse';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 
@@ -22,6 +23,7 @@
 			items: [
 				{ label: 'Run Model', href: '/run', icon: PlayIcon },
 				{ label: 'What-If', href: '/what-if', icon: SlidersHorizontalIcon },
+				{ label: 'Analysis', href: '/analysis', icon: FlaskConicalIcon },
 				{ label: 'Health', href: '/health', icon: HeartPulseIcon }
 			]
 		}

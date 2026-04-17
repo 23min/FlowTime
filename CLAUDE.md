@@ -224,8 +224,9 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
   - Deferred (tracked in `work/gaps.md`): `POST /v1/run` and `POST /v1/graph` Engine route deletion per D-2026-04-08-029 (test-infrastructure migration needed first).
 - **E-21** Svelte Workbench & Analysis Surfaces (`work/epics/E-21-svelte-workbench-and-analysis/spec.md`) — **in-progress**
   - **m-E21-01** (complete, merged to epic): Workbench Foundation — density system, dag-map events (library), workbench panel with click-to-pin node cards. 217 vitest + 293 dag-map tests.
-  - **m-E21-02** (in-progress): Metric Selector & Edge Cards — metric chip bar, edge click-to-pin, edge cards, class filter.
-  - Branch: `milestone/m-E21-02-metric-selector-edge-cards` → `epic/E-21-svelte-workbench-and-analysis`
+  - **m-E21-02** (complete, merged to epic): Metric Selector & Edge Cards — metric chip bar, edge click-to-pin, edge cards, class filter, custom TimelineScrubber, dark-mode/viz-palette fixes. 323 vitest + 293 dag-map = 616 tests.
+  - **m-E21-03** (in-progress): Sweep & Sensitivity Surfaces — `/analysis` route with tabbed surfaces, sweep config + results, sensitivity bar chart.
+  - Branch: `milestone/m-E21-03-sweep-sensitivity` → `epic/E-21-svelte-workbench-and-analysis`
   - 7 milestones: workbench foundation → metric selector + edge cards → sweep/sensitivity → goal-seek/optimize → heatmap view → validation surface → polish.
   - Absorbs E-11 M5/M7/M8 under workbench paradigm. Svelte is the platform for new surfaces; Blazor is maintenance-only.
 - **E-11** Svelte UI — paused after M6; absorbed into E-21

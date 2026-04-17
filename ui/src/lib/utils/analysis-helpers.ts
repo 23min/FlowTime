@@ -1,0 +1,181 @@
+/**
+ * Pure helpers for the analysis surfaces (sweep, sensitivity, etc.).
+ *
+ * Separated from Svelte components so every branch can be unit-tested
+ * without a DOM or reactive runtime.
+ */
+
+import yaml from 'js-yaml';
+
+export interface ConstParam {
+	id: string;
+	baseline: number;
+	/** Full values array from the YAML (per-bin). */
+	values: number[];
+}
+
+/**
+ * Parse a model YAML string and extract all const-kind nodes as sweepable parameters.
+ * Returns [] on parse error or when no const nodes exist.
+ *
+ * A parameter's baseline is the first value in its `values` array;
+ * parameters with empty values or non-numeric first entries are skipped.
+ */
+export function discoverConstParams(modelYaml: string): ConstParam[] {
+	if (!modelYaml || typeof modelYaml !== 'string') return [];
+	let doc: unknown;
+	try {
+		doc = yaml.load(modelYaml);
+	} catch {
+		return [];
+	}
+	if (!doc || typeof doc !== 'object') return [];
+	const nodes = (doc as Record<string, unknown>).nodes;
+	if (!Array.isArray(nodes)) return [];
+
+	const params: ConstParam[] = [];
+	for (const raw of nodes) {
+		if (!raw || typeof raw !== 'object') continue;
+		const node = raw as Record<string, unknown>;
+		if (node.kind !== 'const') continue;
+		const id = typeof node.id === 'string' ? node.id : undefined;
+		if (!id) continue;
+		const values = node.values;
+		if (!Array.isArray(values) || values.length === 0) continue;
+		const numericValues = values.map((v) => Number(v));
+		const baseline = numericValues[0];
+		if (!isFinite(baseline)) continue;
+		params.push({ id, baseline, values: numericValues });
+	}
+	return params;
+}
+
+/**
+ * Generate a linear sweep value range.
+ * Returns [] when from/to/step produce no valid range or when step is non-positive.
+ * Always caps the output at `maxPoints` (default 200) to protect the API.
+ */
+export function generateRange(
+	from: number,
+	to: number,
+	step: number,
+	maxPoints = 200
+): number[] {
+	if (!isFinite(from) || !isFinite(to) || !isFinite(step)) return [];
+	if (step <= 0) return [];
+	if (to < from) return [];
+
+	const out: number[] = [];
+	// Use epsilon-tolerant loop to avoid floating-point overshoot
+	const eps = step * 1e-9;
+	for (let v = from; v <= to + eps && out.length < maxPoints; v += step) {
+		// Round to the nearest grid point to avoid float drift
+		const rounded = Math.round(v / step) * step;
+		// If step is sub-1, preserve up to ~12 decimal places
+		const fixed = Number(rounded.toPrecision(12));
+		out.push(fixed);
+	}
+	return out;
+}
+
+/**
+ * Parse a comma-separated custom values string into a numeric array.
+ * Whitespace is tolerated; non-numeric entries are dropped.
+ * Returns [] when nothing parses.
+ */
+export function parseCustomValues(input: string): number[] {
+	if (!input || typeof input !== 'string') return [];
+	return input
+		.split(',')
+		.map((s) => s.trim())
+		.filter((s) => s.length > 0)
+		.map((s) => Number(s))
+		.filter((n) => isFinite(n));
+}
+
+/**
+ * Compute the mean of a numeric array, ignoring non-finite values.
+ * Returns NaN for an all-non-finite or empty input.
+ */
+export function seriesMean(values: number[]): number {
+	if (!Array.isArray(values) || values.length === 0) return NaN;
+	let sum = 0;
+	let count = 0;
+	for (const v of values) {
+		if (isFinite(v)) {
+			sum += v;
+			count++;
+		}
+	}
+	return count === 0 ? NaN : sum / count;
+}
+
+export interface SweepPoint {
+	paramValue: number;
+	series: Record<string, number[]>;
+}
+
+export interface SweepResponse {
+	paramId: string;
+	points: SweepPoint[];
+}
+
+/**
+ * Project a sweep response into a per-series, per-point mean table.
+ * Result shape: Map<seriesId, Array<{ paramValue, mean }>>.
+ * Series ids come from the first point's series keys (preserves insertion order).
+ */
+export function projectSweepMeans(
+	response: SweepResponse
+): Map<string, { paramValue: number; mean: number }[]> {
+	const out = new Map<string, { paramValue: number; mean: number }[]>();
+	if (!response || !Array.isArray(response.points) || response.points.length === 0) return out;
+
+	const firstKeys = Object.keys(response.points[0].series ?? {});
+	for (const key of firstKeys) {
+		const rows = response.points.map((pt) => ({
+			paramValue: pt.paramValue,
+			mean: seriesMean(pt.series[key] ?? []),
+		}));
+		out.set(key, rows);
+	}
+	return out;
+}
+
+export interface SensitivityPoint {
+	paramId: string;
+	baseValue: number;
+	gradient: number;
+}
+
+export interface SensitivityResponse {
+	metricSeriesId: string;
+	points: SensitivityPoint[];
+}
+
+/**
+ * Sort sensitivity points by |gradient| descending; non-finite gradients go last.
+ * Returns a new array, does not mutate.
+ */
+export function sortByAbsGradient(points: SensitivityPoint[]): SensitivityPoint[] {
+	return [...points].sort((a, b) => {
+		const aFinite = isFinite(a.gradient);
+		const bFinite = isFinite(b.gradient);
+		if (aFinite && !bFinite) return -1;
+		if (!aFinite && bFinite) return 1;
+		if (!aFinite && !bFinite) return 0;
+		return Math.abs(b.gradient) - Math.abs(a.gradient);
+	});
+}
+
+/**
+ * Given the list of sensitivity points, return the maximum absolute gradient
+ * (used to scale the bar chart). Returns 0 when no finite gradients.
+ */
+export function maxAbsGradient(points: SensitivityPoint[]): number {
+	let max = 0;
+	for (const p of points) {
+		if (isFinite(p.gradient) && Math.abs(p.gradient) > max) max = Math.abs(p.gradient);
+	}
+	return max;
+}
