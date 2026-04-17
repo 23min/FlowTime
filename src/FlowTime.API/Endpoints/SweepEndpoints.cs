@@ -54,16 +54,23 @@ internal static class SweepEndpoints
             request.Values,
             request.CaptureSeriesIds);
 
-        var result = await sweepRunner.RunAsync(spec, cancellationToken);
+        try
+        {
+            var result = await sweepRunner.RunAsync(spec, cancellationToken);
 
-        return Results.Ok(new SweepResponse(
-            ParamId: result.ParamId,
-            Points: result.Points
-                .Select(p => new SweepPointDto(
-                    p.ParamValue,
-                    p.Series.ToDictionary(kvp => kvp.Key, kvp => kvp.Value)))
-                .ToArray()
-        ));
+            return Results.Ok(new SweepResponse(
+                ParamId: result.ParamId,
+                Points: result.Points
+                    .Select(p => new SweepPointDto(
+                        p.ParamValue,
+                        p.Series.ToDictionary(kvp => kvp.Key, kvp => kvp.Value)))
+                    .ToArray()
+            ));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.BadRequest(new { error = ex.Message });
+        }
     }
 }
 

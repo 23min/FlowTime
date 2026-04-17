@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
 	discoverConstParams,
+	discoverTopologyNodeIds,
+	toSnakeCase,
+	queueSeriesIds,
 	generateRange,
 	parseCustomValues,
 	seriesMean,
@@ -384,5 +387,136 @@ describe('maxAbsGradient', () => {
 				{ paramId: 'b', baseValue: 1, gradient: Infinity },
 			])
 		).toBe(0);
+	});
+});
+
+describe('discoverTopologyNodeIds', () => {
+	it('returns [] for empty input', () => {
+		expect(discoverTopologyNodeIds('')).toEqual([]);
+	});
+
+	it('returns [] for non-string input', () => {
+		// @ts-expect-error
+		expect(discoverTopologyNodeIds(null)).toEqual([]);
+	});
+
+	it('returns [] on parse error', () => {
+		expect(discoverTopologyNodeIds('bad: [unclosed')).toEqual([]);
+	});
+
+	it('returns [] when top-level is not an object', () => {
+		expect(discoverTopologyNodeIds('scalar')).toEqual([]);
+	});
+
+	it('returns [] when topology is missing', () => {
+		expect(discoverTopologyNodeIds('nodes: []')).toEqual([]);
+	});
+
+	it('returns [] when topology is not an object', () => {
+		expect(discoverTopologyNodeIds('topology: scalar')).toEqual([]);
+	});
+
+	it('returns [] when topology.nodes is missing', () => {
+		expect(discoverTopologyNodeIds('topology: {edges: []}')).toEqual([]);
+	});
+
+	it('returns [] when topology.nodes is not an array', () => {
+		expect(discoverTopologyNodeIds('topology:\n  nodes: scalar')).toEqual([]);
+	});
+
+	it('extracts node ids', () => {
+		const yaml = `
+topology:
+  nodes:
+    - id: Alpha
+      kind: serviceWithBuffer
+    - id: Beta
+      kind: queue
+  edges: []
+`;
+		expect(discoverTopologyNodeIds(yaml)).toEqual(['Alpha', 'Beta']);
+	});
+
+	it('skips entries without string id', () => {
+		const yaml = `
+topology:
+  nodes:
+    - id: 123
+      kind: queue
+    - id: Good
+      kind: queue
+    - kind: queue
+`;
+		expect(discoverTopologyNodeIds(yaml)).toEqual(['Good']);
+	});
+
+	it('skips null/non-object entries', () => {
+		const yaml = `
+topology:
+  nodes:
+    - null
+    - id: X
+      kind: queue
+`;
+		expect(discoverTopologyNodeIds(yaml)).toEqual(['X']);
+	});
+
+	it('skips entries with empty string id', () => {
+		const yaml = `
+topology:
+  nodes:
+    - id: ""
+      kind: queue
+    - id: Y
+      kind: queue
+`;
+		expect(discoverTopologyNodeIds(yaml)).toEqual(['Y']);
+	});
+});
+
+describe('toSnakeCase', () => {
+	it('returns empty string for empty input', () => {
+		expect(toSnakeCase('')).toBe('');
+	});
+
+	it('lowercases a single-word id', () => {
+		expect(toSnakeCase('Queue')).toBe('queue');
+	});
+
+	it('inserts underscore before uppercase in camelCase', () => {
+		expect(toSnakeCase('FooBar')).toBe('foo_bar');
+	});
+
+	it('handles consecutive uppercase as acronym', () => {
+		// "DLQ" → "dlq"; "HTTPService" → "http_service"
+		expect(toSnakeCase('DLQ')).toBe('dlq');
+		expect(toSnakeCase('HTTPService')).toBe('http_service');
+	});
+
+	it('preserves non-letter characters unchanged', () => {
+		expect(toSnakeCase('Queue_1')).toBe('queue_1');
+		expect(toSnakeCase('Alpha-Beta')).toBe('alpha-_beta');
+	});
+
+	it('leaves lowercase-only ids unchanged', () => {
+		expect(toSnakeCase('already_snake')).toBe('already_snake');
+	});
+
+	it('lowercase at start has no underscore prefix', () => {
+		expect(toSnakeCase('fooBar')).toBe('foo_bar');
+	});
+});
+
+describe('queueSeriesIds', () => {
+	it('maps node ids to snake_case_queue series', () => {
+		expect(queueSeriesIds(['Queue', 'Alpha', 'BetaNode'])).toEqual([
+			'queue_queue',
+			'alpha_queue',
+			'beta_node_queue',
+		]);
+	});
+
+	it('returns [] for empty input', () => {
+		expect(queueSeriesIds([])).toEqual([]);
 	});
 });

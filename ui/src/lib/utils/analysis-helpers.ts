@@ -94,6 +94,65 @@ export function parseCustomValues(input: string): number[] {
 }
 
 /**
+ * Extract topology node ids from a model YAML.
+ * Returns [] on parse error or when no topology.nodes array is present.
+ */
+export function discoverTopologyNodeIds(modelYaml: string): string[] {
+	if (!modelYaml || typeof modelYaml !== 'string') return [];
+	let doc: unknown;
+	try {
+		doc = yaml.load(modelYaml);
+	} catch {
+		return [];
+	}
+	if (!doc || typeof doc !== 'object') return [];
+	const topology = (doc as Record<string, unknown>).topology;
+	if (!topology || typeof topology !== 'object') return [];
+	const nodes = (topology as Record<string, unknown>).nodes;
+	if (!Array.isArray(nodes)) return [];
+
+	const ids: string[] = [];
+	for (const raw of nodes) {
+		if (!raw || typeof raw !== 'object') continue;
+		const id = (raw as Record<string, unknown>).id;
+		if (typeof id === 'string' && id.length > 0) ids.push(id);
+	}
+	return ids;
+}
+
+/**
+ * Convert a node id to the snake_case form the Rust engine uses for derived
+ * series (e.g. "Queue" → "queue", "HTTPService" → "http_service").
+ * Mirrors engine/core/src/compiler.rs `to_snake_case`.
+ */
+export function toSnakeCase(id: string): string {
+	if (!id) return '';
+	let out = '';
+	for (let i = 0; i < id.length; i++) {
+		const c = id[i];
+		if (c >= 'A' && c <= 'Z') {
+			const prev = i > 0 ? id[i - 1] : '';
+			const next = i < id.length - 1 ? id[i + 1] : '';
+			const prevLower = prev >= 'a' && prev <= 'z';
+			const nextLower = next >= 'a' && next <= 'z';
+			if (i > 0 && (prevLower || nextLower)) out += '_';
+			out += c.toLowerCase();
+		} else {
+			out += c;
+		}
+	}
+	return out;
+}
+
+/**
+ * Given topology node ids, return the queue-depth series ids the Rust engine
+ * emits: `{snake_case_id}_queue`.
+ */
+export function queueSeriesIds(topologyNodeIds: string[]): string[] {
+	return topologyNodeIds.map((id) => `${toSnakeCase(id)}_queue`);
+}
+
+/**
  * Compute the mean of a numeric array, ignoring non-finite values.
  * Returns NaN for an all-non-finite or empty input.
  */
