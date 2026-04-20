@@ -177,14 +177,24 @@ These are the lowest-risk leverage layers after the E-16 truth gate. They increa
   1. **UI parity fork** — Svelte platform for new telemetry/fit/discovery surfaces; Blazor enters maintenance mode. Parallel track with E-15 below.
   2. **E-15 Telemetry Ingestion** — Gold Builder → Graph Builder → first dataset path. Critical path for the client-telemetry vision.
   3. **Telemetry Loop & Parity** — parity harness validates synthetic-vs-replay drift bounds.
-  4. **m-E18-XX Model Fit** — `FitSpec`/`FitRunner`/`POST /v1/fit` composing `ITelemetrySource` + `Optimizer`. Infrastructure exists; assembly requires steps 2–3 first.
-  5. **Chunked evaluation** (Mode 6) — stateful chunk-step session command; unlocks feedback simulation + real-time prediction ("crystal ball"). After discovery pipeline is end-to-end working.
+  4. **E-22 Model Fit + Chunked Evaluation** — carries forward the remaining E-18 scope as a dedicated epic; Fit (`FitSpec`/`FitRunner`/`POST /v1/fit`), chunked stateful session protocol, and the `FlowTime.Pipeline` embeddable SDK wrapper.
 - **Deferred with no owner milestone (tracked in `work/gaps.md`):**
   - Optimization constraints (penalty method on `OptimizeSpec`)
   - Monte Carlo (sampling layer on `IModelEvaluator`)
-  - `FlowTime.Pipeline` embeddable SDK project
   - `FlowTime.Telemetry.*` adapter projects (Prometheus, OTEL, BPI) — direct-source `ITelemetrySource` implementations that bypass the E-15 Gold Builder pipeline for specific live sources; narrow bypasses, not part of E-15 scope. E-15 is the general path (raw → Gold → `CanonicalBundleSource`); adapters are shortcuts for clients already on specific telemetry stacks.
 - **Depends on:** E-16, E-20 (both complete)
+
+#### E-22 — Time Machine: Model Fit & Chunked Evaluation
+
+- **Folder:** `work/epics/E-22-model-fit-chunked-evaluation/`
+- **Status:** planning
+- **Goal:** Close out the remaining Time Machine analysis modes (model fit against real telemetry, chunked evaluation for feedback simulation) and crystallize the surface as a `FlowTime.Pipeline` embeddable SDK.
+- **Depends on:** E-15 Telemetry Ingestion, Telemetry Loop & Parity (both prerequisites for Fit per Option A).
+- **Planned milestones:**
+  - m-E22-01 Model Fit — `FitSpec`/`FitRunner`/`POST /v1/fit`; `flowtime fit` CLI
+  - m-E22-02 Chunked Evaluation — Rust `chunk_step` session command; `POST /v1/chunked-eval`; external-controller integration
+  - m-E22-03 `FlowTime.Pipeline` SDK — embeddable library wrapping all analysis modes; existing API/CLI callers dogfood the SDK
+- **Out of scope (gaps):** optimization constraints, Monte Carlo, `FlowTime.Telemetry.*` direct-source adapters, tiered validation parity across UIs/MCP.
 
 ## UI Paradigm Epics (draft — unnumbered until sequenced)
 

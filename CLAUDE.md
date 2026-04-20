@@ -191,7 +191,7 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 
 - **E-17** Interactive What-If Mode — **completed and merged to main (2026-04-12).** Archived to `work/epics/completed/E-17-interactive-what-if-mode/`.
   - 6 milestones. WebSocket bridge → parameter panel → topology heatmap → warnings → edge heatmap → time scrubber. 200 vitest + 26 Playwright E2E.
-- **E-18** Time Machine (`work/epics/E-18-headless-pipeline-and-optimization/spec.md`) — **in-progress**
+- **E-18** Time Machine (`work/epics/E-18-headless-pipeline-and-optimization/spec.md`) — **in-progress** — foundation + analysis layer delivered; Fit + Chunked + SDK carried forward as **E-22**.
   - Headless engine: parameterized evaluation → streaming protocol → pipeline component.
   - **m-E18-01** (complete): Parameterized evaluation — ParamTable, evaluate_with_params, compile-once eval-many.
   - **m-E18-02** (complete): Engine session + streaming protocol — persistent process, MessagePack over stdin/stdout.
@@ -211,10 +211,9 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
     3. ~~**UI parity fork**~~ — now **E-21 Svelte Workbench & Analysis Surfaces** (in-progress). Svelte becomes platform for new telemetry/fit/discovery surfaces; Blazor → maintenance mode.
     4. **E-15 Telemetry Ingestion** — Gold Builder → Graph Builder → first dataset path.
     5. **Telemetry Loop & Parity** — parity harness (prerequisite for trustworthy fit).
-    6. **m-E18-XX Model Fit** — `FitSpec`/`FitRunner`/`POST /v1/fit`.
-    7. **Chunked evaluation** (Mode 6) — after discovery pipeline works end-to-end.
+    6. **E-22 Model Fit + Chunked Evaluation + Pipeline SDK** — carries the remaining E-18 scope forward as a dedicated epic. Fit, chunked evaluation, and the `FlowTime.Pipeline` embeddable SDK.
   - **Aspirational (see ROADMAP.md Cloud Deployment section):** Azure-native deployment — batch Functions, event-driven, long-running Container Apps service — with cloud `ITelemetrySource` adapters (ADX, Blob, Event Hubs), Blob artifact sink, OTEL/App Insights. Not scheduled; marker so near-term work stays compatible.
-  - **Deferred (tracked in `work/gaps.md`):** optimization constraints, Monte Carlo, `FlowTime.Pipeline` SDK, `FlowTime.Telemetry.*` adapters.
+  - **Deferred (tracked in `work/gaps.md`):** optimization constraints, Monte Carlo, `FlowTime.Telemetry.*` adapters.
   - **Architecture:** `docs/architecture/headless-engine-architecture.md` — four-layer design; `docs/architecture/time-machine-analysis-modes.md` — sweep/sensitivity/goal-seek/optimize.
 - **E-20** Matrix Engine — **completed and merged to main (2026-04-10).** Archived to `work/epics/completed/E-20-matrix-engine/`.
   - 10 milestones. 172 Rust tests + 1,332 .NET tests. E-17/E-18 unblocked.
@@ -232,3 +231,8 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 - **E-11** Svelte UI — paused after M6; absorbed into E-21
   - M1-M4 + M6 done. M5 (Inspector) → E-21 workbench. M7 (Dashboard) → deferred. M8 (Polish) → E-21 m-E21-07.
 - **E-12–E-15:** planned, not started. E-15 is on critical path for client-telemetry vision.
+- **E-22** Time Machine: Model Fit & Chunked Evaluation (`work/epics/E-22-model-fit-chunked-evaluation/spec.md`) — **planning**
+  - Carries the remaining E-18 scope forward: model fit against real telemetry (`POST /v1/fit`), chunked evaluation (Rust `chunk_step` protocol + `POST /v1/chunked-eval`), and the `FlowTime.Pipeline` embeddable SDK wrapper.
+  - **Planned milestones (3):** m-E22-01 Model Fit, m-E22-02 Chunked Evaluation, m-E22-03 FlowTime.Pipeline SDK.
+  - **Depends on:** E-15 Telemetry Ingestion, Telemetry Loop & Parity. Sequenced after both per D-2026-04-15-032 Option A.
+  - **Out of scope (tracked in `work/gaps.md`):** optimization constraints, Monte Carlo, `FlowTime.Telemetry.*` direct-source adapters.
