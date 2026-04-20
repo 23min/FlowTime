@@ -50,32 +50,49 @@ export function discoverConstParams(modelYaml: string): ConstParam[] {
 	return params;
 }
 
+export interface GeneratedRange {
+	values: number[];
+	truncated: boolean;
+	requestedCount: number;
+}
+
 /**
- * Generate a linear sweep value range.
- * Returns [] when from/to/step produce no valid range or when step is non-positive.
- * Always caps the output at `maxPoints` (default 200) to protect the API.
+ * Generate a linear sweep value range with truncation metadata.
+ *
+ * `values` is [] when from/to/step produce no valid range or when step is
+ * non-positive. The output is capped at `maxPoints` (default 200) to protect
+ * the API; when that cap fires, `truncated` is true and `requestedCount`
+ * reports the full range the user asked for so the UI can surface a distinct
+ * "clipped to N of M" signal instead of a generic "too many points" warning.
  */
 export function generateRange(
 	from: number,
 	to: number,
 	step: number,
 	maxPoints = 200
-): number[] {
-	if (!isFinite(from) || !isFinite(to) || !isFinite(step)) return [];
-	if (step <= 0) return [];
-	if (to < from) return [];
+): GeneratedRange {
+	if (!isFinite(from) || !isFinite(to) || !isFinite(step) || step <= 0 || to < from) {
+		return { values: [], truncated: false, requestedCount: 0 };
+	}
 
-	const out: number[] = [];
+	const requestedCount = Math.floor((to - from) / step + 1e-9) + 1;
+
+	const values: number[] = [];
 	// Use epsilon-tolerant loop to avoid floating-point overshoot
 	const eps = step * 1e-9;
-	for (let v = from; v <= to + eps && out.length < maxPoints; v += step) {
+	for (let v = from; v <= to + eps && values.length < maxPoints; v += step) {
 		// Round to the nearest grid point to avoid float drift
 		const rounded = Math.round(v / step) * step;
 		// If step is sub-1, preserve up to ~12 decimal places
 		const fixed = Number(rounded.toPrecision(12));
-		out.push(fixed);
+		values.push(fixed);
 	}
-	return out;
+
+	return {
+		values,
+		truncated: values.length === maxPoints && requestedCount > maxPoints,
+		requestedCount,
+	};
 }
 
 /**

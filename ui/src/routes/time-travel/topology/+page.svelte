@@ -18,6 +18,7 @@
 		discoverClasses,
 		type MetricDef,
 	} from '$lib/utils/metric-defs.js';
+	import { buildEdgeSelector } from '$lib/utils/topology-selectors.js';
 	import { bindEvents } from 'dag-map';
 	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
 
@@ -103,10 +104,20 @@
 			el.classList.remove('edge-selected');
 		});
 		for (const edge of workbench.pinnedEdges) {
-			const selector = `[data-edge-from="${edge.from}"][data-edge-to="${edge.to}"]:not([data-edge-hit])`;
-			dagContainer.querySelectorAll(selector).forEach((el) => {
-				el.classList.add('edge-selected');
-			});
+			// buildEdgeSelector escapes both endpoints via CSS.escape so ids
+			// containing `"`, `\`, `]`, or a leading digit do not produce a
+			// SyntaxError. The try/catch is belt-and-braces: this effect
+			// clears .edge-selected before the loop, so one unhandled throw
+			// would otherwise block all subsequent highlight updates for the
+			// session.
+			const selector = buildEdgeSelector(edge);
+			try {
+				dagContainer.querySelectorAll(selector).forEach((el) => {
+					el.classList.add('edge-selected');
+				});
+			} catch (err) {
+				console.warn('topology: edge selector failed', { edge, err });
+			}
 		}
 	});
 

@@ -145,57 +145,94 @@ nodes:
 
 describe('generateRange', () => {
 	it('generates an ascending range', () => {
-		expect(generateRange(0, 10, 2)).toEqual([0, 2, 4, 6, 8, 10]);
+		const out = generateRange(0, 10, 2);
+		expect(out.values).toEqual([0, 2, 4, 6, 8, 10]);
+		expect(out.truncated).toBe(false);
+		expect(out.requestedCount).toBe(6);
 	});
 
 	it('handles from == to', () => {
-		expect(generateRange(5, 5, 1)).toEqual([5]);
+		const out = generateRange(5, 5, 1);
+		expect(out.values).toEqual([5]);
+		expect(out.truncated).toBe(false);
+		expect(out.requestedCount).toBe(1);
 	});
 
-	it('returns [] when step is zero', () => {
-		expect(generateRange(0, 10, 0)).toEqual([]);
+	it('returns empty range when step is zero', () => {
+		const out = generateRange(0, 10, 0);
+		expect(out.values).toEqual([]);
+		expect(out.truncated).toBe(false);
+		expect(out.requestedCount).toBe(0);
 	});
 
-	it('returns [] when step is negative', () => {
-		expect(generateRange(0, 10, -1)).toEqual([]);
+	it('returns empty range when step is negative', () => {
+		const out = generateRange(0, 10, -1);
+		expect(out.values).toEqual([]);
+		expect(out.truncated).toBe(false);
 	});
 
-	it('returns [] when from > to', () => {
-		expect(generateRange(10, 5, 1)).toEqual([]);
+	it('returns empty range when from > to', () => {
+		const out = generateRange(10, 5, 1);
+		expect(out.values).toEqual([]);
+		expect(out.truncated).toBe(false);
 	});
 
-	it('returns [] when from is non-finite', () => {
-		expect(generateRange(NaN, 10, 1)).toEqual([]);
+	it('returns empty range when from is non-finite', () => {
+		const out = generateRange(NaN, 10, 1);
+		expect(out.values).toEqual([]);
 	});
 
-	it('returns [] when to is non-finite', () => {
-		expect(generateRange(0, Infinity, 1)).toEqual([]);
+	it('returns empty range when to is non-finite', () => {
+		const out = generateRange(0, Infinity, 1);
+		expect(out.values).toEqual([]);
 	});
 
-	it('returns [] when step is non-finite', () => {
-		expect(generateRange(0, 10, NaN)).toEqual([]);
+	it('returns empty range when step is non-finite', () => {
+		const out = generateRange(0, 10, NaN);
+		expect(out.values).toEqual([]);
 	});
 
-	it('caps output at maxPoints', () => {
+	it('caps output at maxPoints and marks truncated', () => {
 		const out = generateRange(0, 1000, 1, 5);
-		expect(out).toHaveLength(5);
-		expect(out).toEqual([0, 1, 2, 3, 4]);
+		expect(out.values).toHaveLength(5);
+		expect(out.values).toEqual([0, 1, 2, 3, 4]);
+		expect(out.truncated).toBe(true);
+		expect(out.requestedCount).toBe(1001);
 	});
 
 	it('uses default maxPoints of 200', () => {
 		const out = generateRange(0, 10000, 1);
-		expect(out).toHaveLength(200);
+		expect(out.values).toHaveLength(200);
+		expect(out.truncated).toBe(true);
+		expect(out.requestedCount).toBe(10001);
+	});
+
+	it('exactly-at-cap is not marked truncated', () => {
+		// Requested count equals maxPoints — emits every requested value.
+		const out = generateRange(0, 4, 1, 5);
+		expect(out.values).toHaveLength(5);
+		expect(out.truncated).toBe(false);
+		expect(out.requestedCount).toBe(5);
+	});
+
+	it('just-over-cap is marked truncated', () => {
+		const out = generateRange(0, 5, 1, 5);
+		expect(out.values).toHaveLength(5);
+		expect(out.truncated).toBe(true);
+		expect(out.requestedCount).toBe(6);
 	});
 
 	it('handles sub-1 step precisely', () => {
 		const out = generateRange(0, 1, 0.25);
-		expect(out).toEqual([0, 0.25, 0.5, 0.75, 1]);
+		expect(out.values).toEqual([0, 0.25, 0.5, 0.75, 1]);
+		expect(out.truncated).toBe(false);
 	});
 
 	it('does not overshoot "to" due to floating-point drift', () => {
 		const out = generateRange(0, 0.3, 0.1);
-		expect(out[out.length - 1]).toBeCloseTo(0.3, 10);
-		expect(out).toHaveLength(4);
+		expect(out.values[out.values.length - 1]).toBeCloseTo(0.3, 10);
+		expect(out.values).toHaveLength(4);
+		expect(out.truncated).toBe(false);
 	});
 });
 

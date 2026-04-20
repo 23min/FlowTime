@@ -124,12 +124,20 @@
 		{ metricSeriesId: string; points: SensitivityPoint[] } | undefined
 	>();
 
-	// Derived sweep values
-	const sweepValues = $derived.by<number[]>(() => {
+	// Derived sweep values. Custom CSV input produces a plain array; the
+	// range generator reports truncation metadata so the UI can distinguish
+	// a legitimate "large sweep" warning from a silent clip at 200 points.
+	const sweepRange = $derived.by(() => {
 		const trimmed = sweepCustom.trim();
-		if (trimmed.length > 0) return parseCustomValues(trimmed);
+		if (trimmed.length > 0) {
+			const values = parseCustomValues(trimmed);
+			return { values, truncated: false, requestedCount: values.length };
+		}
 		return generateRange(sweepFrom, sweepTo, sweepStep, 200);
 	});
+	const sweepValues = $derived(sweepRange.values);
+	const sweepTruncated = $derived(sweepRange.truncated);
+	const sweepRequestedCount = $derived(sweepRange.requestedCount);
 
 	const sweepOverLimit = $derived(sweepValues.length > 50);
 	const hasModel = $derived(modelYaml.length > 0);
@@ -177,6 +185,11 @@
 		}
 		const storedMode = localStorage.getItem('ft.analysis.source');
 		if (storedMode === 'sample' || storedMode === 'run') sourceMode = storedMode;
+
+		const storedSample = localStorage.getItem('ft.analysis.sample');
+		if (storedSample && SAMPLE_MODELS.some((s) => s.id === storedSample)) {
+			selectedSampleId = storedSample;
+		}
 
 		try {
 			const storedInfo = localStorage.getItem('ft.analysis.infoHidden');
@@ -260,6 +273,9 @@
 		const sample = SAMPLE_MODELS.find((s) => s.id === id);
 		if (!sample) return;
 		loadError = undefined;
+		try {
+			localStorage.setItem('ft.analysis.sample', id);
+		} catch { /* ignore quota errors */ }
 		applyModelYaml(sample.yaml);
 	}
 
@@ -597,11 +613,15 @@
 						</div>
 
 						<!-- Values preview -->
-						<div class="text-[10px] text-muted-foreground font-mono">
+						<div class="text-[10px] text-muted-foreground font-mono" data-testid="sweep-values-preview">
 							{sweepValues.length} point{sweepValues.length === 1 ? '' : 's'}:
 							{sweepValues.slice(0, 20).map(fmtNum).join(', ')}
 							{#if sweepValues.length > 20}…{/if}
-							{#if sweepOverLimit}
+							{#if sweepTruncated}
+								<span class="text-red-500 ml-2" data-testid="sweep-truncation-warning">
+									⚠ truncated — first {sweepValues.length} of {sweepRequestedCount} requested
+								</span>
+							{:else if sweepOverLimit}
 								<span class="text-amber-500 ml-2">⚠ large sweep (&gt; 50 points)</span>
 							{/if}
 						</div>
