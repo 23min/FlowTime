@@ -43,6 +43,7 @@ apis/
 *.userprefs
 .claude/settings.local.json
 .claude/*.lock
+.claude/worktrees/
 
 # Generated assistant adapter surfaces (rebuild locally with `bash .ai/sync.sh`)
 # CLAUDE.md is intentionally tracked as shared workspace context.
