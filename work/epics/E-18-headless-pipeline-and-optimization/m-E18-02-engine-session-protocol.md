@@ -2,7 +2,7 @@
 
 **ID:** m-E18-02
 **Epic:** E-18 Time Machine
-**Status:** in-progress
+**Status:** complete — merged to main 2026-04-10
 **Branch:** `milestone/m-E18-02-engine-session-protocol` (off `main`)
 **Depends on:** m-E18-01 (parameterized evaluation)
 

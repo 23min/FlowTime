@@ -61,7 +61,7 @@ E-11 remains paused at M6 as a completed historical track.
 - Blazor changes beyond maintenance-mode contract alignment
 - Model fitting UI (`POST /v1/fit` — blocked on Telemetry Loop & Parity)
 - Chunked evaluation / streaming UI
-- Backend API changes — Svelte UI is a pure consumer
+- Backend API changes other than read-only run-adjacent endpoints (see Constraints). Authoring, orchestration, compute, write paths, telemetry sinks — all out of scope.
 - Mobile/responsive layout
 - E-15 telemetry ingestion UI (parallel track, not E-21 scope)
 - dag-map layout engine changes (separate `ui-layout` epic)
@@ -117,7 +117,7 @@ The token architecture must make major theme changes easy:
 
 ## Constraints
 
-- .NET 9 backend APIs are the source of truth — Svelte UI is a pure consumer
+- .NET 9 backend APIs are the source of truth. Svelte UI is primarily a consumer. Per D-2026-04-17-033, E-21 may add **read-only run-adjacent endpoints** that strictly serve already-persisted run artifacts (e.g. `GET /v1/runs/{runId}/model`). Authoring, orchestration, compute, and write-path endpoints remain out of scope and need their own decision record if ever proposed.
 - dag-map enhancements must remain general-purpose (not FlowTime-specific API)
 - Existing what-if page (E-17) must continue working after workbench changes
 - Existing run orchestration (E-11 M6) must continue working

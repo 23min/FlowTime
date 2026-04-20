@@ -2,9 +2,10 @@
 
 **Milestone:** m-E18-01
 **Epic:** E-18 Time Machine
-**Status:** in-progress
+**Status:** complete — merged to main 2026-04-10
 **Branch:** `milestone/m-E18-01-parameterized-evaluation`
 **Started:** 2026-04-10
+**Completed:** 2026-04-10
 
 ## Progress
 

@@ -1,7 +1,7 @@
 # Epic: E-18 Time Machine
 
 **ID:** E-18
-**Status:** future
+**Status:** in-progress — 11 of 13 planned milestones delivered (m-E18-01/02/06/07/08/09/10/11/12/13/14); Model Fit (m-E18-XX) blocked on E-15 + Telemetry Loop & Parity; Chunked Evaluation (m-E18-05) deferred per D-2026-04-15-032.
 
 > **Naming note.** This epic was originally filed as "Headless Pipeline and Optimization." The component is now named `FlowTime.TimeMachine` (the Time Machine). The directory path `work/epics/E-18-headless-pipeline-and-optimization/` is preserved for historical stability; cross-doc references use that path. The decision is recorded in `work/decisions.md` and in `work/epics/E-19-surface-alignment-and-compatibility-cleanup/m-E19-01-supported-surface-inventory.md` (A6 + shared framing).
 
@@ -353,18 +353,35 @@ Core and Time Machine are strictly layered. The dependency direction is **Time M
 - [ ] `FlowTime.TimeMachine` contains no external-telemetry-format-specific code (no Prometheus, OTEL, BPI-format parsing or emission). All external format knowledge lives in adapter projects under `FlowTime.Telemetry.*`. `rg -i "prometheus|opentelemetry|otel" src/FlowTime.TimeMachine/` returns zero matches.
 - [ ] The existing `POST /telemetry/captures` API endpoint and `flowtime telemetry capture` CLI command continue to work after Generator deletion, backed by the extracted canonical bundle writer. Their public request/response contracts are unchanged.
 
-## Milestones (sketch)
+## Milestones
 
-| ID | Title | Summary |
-|----|-------|---------|
-| m-E18-01a | Time Machine Creation & Generator Extraction (Path B core cut) | **Refactor-only milestone — same behavior as today, new home.** Create `FlowTime.TimeMachine` project. Extract execution-pipeline code from `FlowTime.Generator`: `RunOrchestrationService` → Time Machine compile/evaluate/artifact-write; `RunArtifactWriter` → Time Machine canonical run directory writer (preserved unchanged in shape and clear-text-debuggable layout); `RunDirectoryUtilities`, `RunOrchestrationContractMapper` → Time Machine supporting infrastructure; deterministic run IDs, RNG seeding, dry-run/plan mode → Time Machine concrete capabilities. Extract telemetry-generation code: `TelemetryBundleBuilder`, `TelemetryBundleOptions`, `TelemetryCapture`, `TelemetryGenerationService`, `CaptureManifestWriter` → Time Machine concrete canonical bundle writer; `RunArtifactReader` (Generator's `Capture/`) → concrete `CanonicalBundleSource` reader. `GapInjector` placement is an 01a detail decision (internal transform inside the writer, or deferred to the Telemetry Loop & Parity epic). No `ITelemetrySource` interface yet — the reader is a concrete class. No tiered validation yet. No new parameter model yet. Update `FlowTime.Sim.Service` and `FlowTime.API` to reference `FlowTime.TimeMachine` instead of `FlowTime.Generator`. Re-wire the existing `POST /telemetry/captures` API endpoint and `flowtime telemetry capture` CLI to the new home without changing their public contracts. **Delete `FlowTime.Generator` in the same milestone cut. No coexistence window.** Per D-2026-04-07-019 (Path B) and D-2026-04-07-021 (split rationale). |
-| m-E18-01b | Tiered Validation & Telemetry Source Contract | **Additive features on top of 01a.** Define `ITelemetrySource` interface rich enough to round-trip the canonical bundle format losslessly. Refactor `CanonicalBundleSource` to implement it. Introduce `FileCsvSource` (extracted from Core's existing `file:` reading) as a second implementation. Implement Time Machine tiered validation as first-class client-agnostic operations callable identically from SDK, CLI, and sidecar: **Tier 1 (schema)** wrapping `ModelSchemaValidator`; **Tier 2 (compile)** wrapping `ModelCompiler` + `ModelParser` (this is also where 01a's dry-run/plan capability folds in); **Tier 3 (analyse)** composing the `TemplateInvariantAnalyzer` logic into a Time Machine operation. Satisfies E-19 m-E19-01 A6 (D-2026-04-07-017). `ITelemetrySink` is explicitly **not** introduced — see D-2026-04-07-020. |
-| m-E18-01c | Runtime Parameter Foundation & Reevaluation | **Substantial new design.** The shared parameter model used by both E-18 and E-17 (must be built once, not duplicated): compiled parameter identities (stable handles into compiled graphs), parameter override surface, reevaluation API (compile once, evaluate many times with different parameter sets without recompiling), optional enrichment contract for template-authored parameter metadata reused by E-17. Independent of 01b — could run in parallel after 01a — but listed sequentially here for simplicity. |
-| m-E18-02 | Time Machine CLI / Sidecar | Pipeline-friendly CLI with JSON I/O, iteration protocol, parameter override, sidecar-first integration path, validation exposed on all three surfaces. **Depends on 01a + 01b + 01c.** |
-| m-E18-03 | Parameter Sweep & Sensitivity | Sweep mode, sensitivity analysis, comparative output. **Depends on 01c (parameter foundation + reevaluation).** |
-| m-E18-04 | Optimization & Fitting | Objective-based optimization plus model fitting against parity-validated observed data. **Depends on 01c. Hard prerequisite: Telemetry Loop & Parity epic complete** — optimization against real telemetry requires measured drift bounds, which only the parity harness can provide. |
-| m-E18-05 | Chunked Evaluation | Bin-chunk evaluation for feedback simulation with external controllers, only after the stateful execution seam exists. |
-| m-E18-06 | Telemetry Ingestion Source Adapters | Source-only adapters for real-world telemetry formats: Prometheus, OpenTelemetry, BPI-format event logs, and any other formats identified by E-15's dataset path. Each adapter implements `ITelemetrySource` and translates external-format data into the canonical series shape the Time Machine consumes. No Time Machine changes. No sinks. No format-specific code inside `FlowTime.TimeMachine`. Specific formats chosen at scheduling time based on E-15's dataset priorities. **Depends on 01b (`ITelemetrySource` contract).** |
+Plan v2 (2026-04-10): once the Rust engine (E-20) became the evaluation path, the original C#-Core-centric milestone plan was reshaped. The current milestone structure lives here. `milestone-plan-v2.md` documents the remapping from v1 → v2.
+
+| ID | Title | Status | Summary |
+|----|-------|--------|---------|
+| m-E18-01 | Parameterized Evaluation (Rust) | **complete** (merged to main 2026-04-10) | `ParamTable` in Plan. Compiler extracts tweakable parameters from const nodes, traffic arrivals, WIP limits. `evaluate_with_params(plan, overrides)` pure function. Parameter metadata (id, kind, default, bounds). Foundation for everything that follows. |
+| m-E18-02 | Engine Session + Streaming Protocol (Rust) | **complete** (merged to main 2026-04-10) | `flowtime-engine session` persistent CLI mode. Length-prefixed MessagePack over stdin/stdout. Commands: `compile`, `eval`, `patch`, `get_params`, `get_series`, `validate_schema`. Session holds compiled Plan + current state. |
+| m-E18-06 | Tiered Validation | **complete** (merged to main) | `TimeMachineValidator` (schema / compile / analyse tiers); `POST /v1/validate`; Rust `validate_schema` session command. Satisfies E-19 m-E19-01 A6 (D-2026-04-07-017). |
+| m-E18-07 | FlowTime.TimeMachine Extraction (Path B) | **complete** (merged to main) | `FlowTime.TimeMachine` project created; `FlowTime.Generator` deleted outright. Path B, no coexistence window. Per D-2026-04-07-019. |
+| m-E18-08 | Telemetry Source Contract | **complete** (merged to main) | `ITelemetrySource` interface + `CanonicalBundleSource` + `FileCsvSource`. 23 tests. `ITelemetrySink` explicitly **not** introduced — see D-2026-04-07-020. |
+| m-E18-09 | Parameter Sweep | **complete** (merged to main) | `SweepSpec`/`SweepRunner`/`ConstNodePatcher`; `IModelEvaluator` / `RustModelEvaluator`; `POST /v1/sweep`. 35 tests. |
+| m-E18-10 | Sensitivity Analysis | **complete** (merged to main) | `ConstNodeReader`; `SensitivitySpec`/`SensitivityRunner` (central difference); `POST /v1/sensitivity`. 39 tests. |
+| m-E18-11 | Goal Seeking | **complete** (merged to main) | `GoalSeekSpec`/`GoalSeeker` (bisection); `POST /v1/goal-seek`. 33 tests. (Added 2026-04; not in original plan.) |
+| m-E18-12 | Multi-parameter Optimization | **complete** (merged to main) | `OptimizeSpec`/`Optimizer` (Nelder-Mead, N parameters); `POST /v1/optimize`. 29 unit + 10 API tests. |
+| m-E18-13 | SessionModelEvaluator | **complete** (merged to epic 2026-04-15) | Persistent `flowtime-engine session` subprocess; MessagePack over stdin/stdout; compile-once/eval-many. `RustEngine:UseSession` config switch (default true); `RustModelEvaluator` retained as fallback. 44 new tests. |
+| m-E18-14 | .NET Time Machine CLI | **complete** (merged to epic 2026-04-15) | `flowtime validate/sweep/sensitivity/goal-seek/optimize` as pipeable JSON-over-stdio commands byte-compatible with `/v1/` endpoints. `--no-session` fallback. 72 CLI unit + 10 integration tests. |
+| m-E18-XX | Model Fit | **planned** — blocked on E-15 + Telemetry Loop & Parity | `FitSpec`/`FitRunner`/`POST /v1/fit` composing `ITelemetrySource` + `Optimizer`. Infrastructure exists; assembly requires telemetry ingestion (E-15) and parity harness first. |
+| m-E18-05 | Chunked Evaluation (Mode 6) | **deferred** — after discovery pipeline works end-to-end | Bin-chunk evaluation for feedback simulation with external controllers. Requires a real stateful execution seam. Sequenced after Model Fit per Option A (D-2026-04-15-032). |
+
+### Deferred from v1 (not on current critical path)
+
+These v1 milestones were superseded or deferred when the Rust engine became the evaluation path. Some have since been re-admitted under different IDs (m-E18-06, m-E18-07, m-E18-08 above).
+
+- **m-E18-01a** Generator extraction — superseded by **m-E18-07** (same outcome, different entry point).
+- **m-E18-01b** Tiered validation & telemetry source contract — split across **m-E18-06** (validation) and **m-E18-08** (telemetry source contract).
+- **m-E18-01c** Runtime parameter foundation — replaced by **m-E18-01** (Rust-native, not C#).
+- **m-E18-04** Optimization & Fitting as a single milestone — split into **m-E18-11** (goal seek), **m-E18-12** (N-parameter optimize), and **m-E18-XX** (model fit).
+- **Telemetry Ingestion Source Adapters** (v1 m-E18-06 idea) — moved to **E-15** scope; not an E-18 milestone.
 
 ## Risks & Open Questions
 
