@@ -44,9 +44,14 @@ apis/
 .claude/settings.local.json
 .claude/*.lock
 
-# AI framework sync-generated (rebuilt by .ai/sync.sh)
+# Generated assistant adapter surfaces (rebuild locally with `bash .ai/sync.sh`)
+# CLAUDE.md is intentionally tracked as shared workspace context.
+.github/copilot-instructions.md
+.github/skills/
 .claude/agents/
 .claude/skills/
+.claude/rules/ai-framework.md
+.codex/
 
 # Rider/JetBrains
 .idea/
