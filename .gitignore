@@ -89,3 +89,8 @@ coverage/
 # Azure Functions local
 local.settings.json
 .scratch/
+
+# Generated assistant adapter surfaces (rebuild locally with `bash .ai/sync.sh`)
+.github/copilot-instructions.md
+.github/skills/
+.claude/rules/ai-framework.md
