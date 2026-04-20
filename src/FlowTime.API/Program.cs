@@ -1068,11 +1068,10 @@ v1.MapGet("/runs/{runId}/index", async (string runId, ILogger<Program> logger) =
     {
         var artifactsDirectory = Program.GetArtifactsDirectory(builder.Configuration);
         var reader = new Synthetic.FileSeriesReader();
-        var runPath = Path.Combine(artifactsDirectory, runId);
-        
-        if (!Directory.Exists(runPath))
+        var notFound = Program.TryResolveRunDirectory(artifactsDirectory, runId, out var runPath);
+        if (notFound is not null)
         {
-            return Results.NotFound(new { error = $"Run {runId} not found" });
+            return notFound;
         }
 
         var adapter = new Synthetic.RunArtifactAdapter(reader, runPath);
@@ -1093,11 +1092,10 @@ v1.MapGet("/runs/{runId}/series/{seriesId}", async (string runId, string seriesI
     {
         var artifactsDirectory = Program.GetArtifactsDirectory(builder.Configuration);
         var reader = new Synthetic.FileSeriesReader();
-        var runPath = Path.Combine(artifactsDirectory, runId);
-        
-        if (!Directory.Exists(runPath))
+        var notFound = Program.TryResolveRunDirectory(artifactsDirectory, runId, out var runPath);
+        if (notFound is not null)
         {
-            return Results.NotFound(new { error = $"Run {runId} not found" });
+            return notFound;
         }
 
         // First try exact match
@@ -1155,11 +1153,10 @@ v1.MapPost("/runs/{runId}/export", async (string runId, ILogger<Program> logger)
     try
     {
         var artifactsDirectory = Program.GetArtifactsDirectory(builder.Configuration);
-        var runPath = Path.Combine(artifactsDirectory, runId);
-        
-        if (!Directory.Exists(runPath))
+        var notFound = Program.TryResolveRunDirectory(artifactsDirectory, runId, out var runPath);
+        if (notFound is not null)
         {
-            return Results.NotFound(new { error = $"Run {runId} not found" });
+            return notFound;
         }
 
         // Save all available export formats to disk
@@ -1191,11 +1188,10 @@ v1.MapGet("/runs/{runId}/export/{format}", async (string runId, string format, I
     try
     {
         var artifactsDirectory = Program.GetArtifactsDirectory(builder.Configuration);
-        var runPath = Path.Combine(artifactsDirectory, runId);
-        
-        if (!Directory.Exists(runPath))
+        var notFound = Program.TryResolveRunDirectory(artifactsDirectory, runId, out var runPath);
+        if (notFound is not null)
         {
-            return Results.NotFound(new { error = $"Run {runId} not found" });
+            return notFound;
         }
 
         // Return the requested format (no side effects)
@@ -1292,8 +1288,34 @@ static async Task SaveAllExportFormatsAsync(string runPath, ILogger logger)
 app.Run();
 
 // Allow WebApplicationFactory to reference the entry point for integration tests
-public partial class Program 
-{ 
+public partial class Program
+{
+    /// <summary>
+    /// Resolves a safe run directory under the given root, returning a 404 IResult
+    /// when the runId is invalid or the directory does not exist. On success the
+    /// resolved absolute path is written to <paramref name="runPath"/> and the
+    /// method returns null.
+    /// </summary>
+    internal static IResult? TryResolveRunDirectory(string artifactsDirectory, string runId, out string runPath)
+    {
+        try
+        {
+            runPath = FlowTime.Contracts.Storage.RunPathResolver.GetSafeRunDirectory(artifactsDirectory, runId);
+        }
+        catch (ArgumentException)
+        {
+            runPath = string.Empty;
+            return Results.NotFound(new { error = $"Run {runId} not found" });
+        }
+
+        if (!Directory.Exists(runPath))
+        {
+            return Results.NotFound(new { error = $"Run {runId} not found" });
+        }
+
+        return null;
+    }
+
     /// <summary>
     /// Get the artifacts directory with proper precedence: Environment Variable > Configuration > Solution Root Default
     /// </summary>

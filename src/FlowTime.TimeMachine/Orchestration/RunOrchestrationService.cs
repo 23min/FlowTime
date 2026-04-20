@@ -324,7 +324,16 @@ public sealed class RunOrchestrationService
 
     private async Task<RunOrchestrationOutcome?> TryReuseExistingRunAsync(string runId, string outputRoot, bool overwriteExisting, CancellationToken cancellationToken)
     {
-        var runDirectory = Path.Combine(outputRoot, runId);
+        string runDirectory;
+        try
+        {
+            runDirectory = FlowTime.Contracts.Storage.RunPathResolver.GetSafeRunDirectory(outputRoot, runId);
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+
         if (!Directory.Exists(runDirectory))
         {
             return null;
@@ -745,7 +754,16 @@ public sealed class RunOrchestrationService
 
             if (!string.IsNullOrWhiteSpace(request.RunId))
             {
-                var explicitDirectory = Path.Combine(outputRoot, request.RunId);
+                string explicitDirectory;
+                try
+                {
+                    explicitDirectory = FlowTime.Contracts.Storage.RunPathResolver.GetSafeRunDirectory(outputRoot, request.RunId);
+                }
+                catch (ArgumentException ex)
+                {
+                    throw new InvalidOperationException($"Requested runId '{request.RunId}' is not a valid run identifier.", ex);
+                }
+
                 if (Directory.Exists(explicitDirectory))
                 {
                     if (!request.OverwriteExisting)
