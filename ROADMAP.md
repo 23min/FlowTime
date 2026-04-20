@@ -63,9 +63,28 @@ Migration is forward-only. Existing runs, fixtures, and approved snapshots are r
 
 ## E-11 — Svelte UI (Parallel Frontend Track)
 
-**Epic:** `work/epics/E-11-svelte-ui/spec.md` | **Status:** paused after M6 (M1-M4 + M6 done, M5/M7/M8 remain)
+**Epic:** `work/epics/E-11-svelte-ui/spec.md` | **Status:** paused after M6; absorbed into E-21 (M1-M4 + M6 done; M5 → E-21 workbench, M7 deferred, M8 → E-21 m-E21-07)
 
 Build a parallel SvelteKit + shadcn-svelte UI surface for demos and future evaluation while keeping the Blazor UI supported and in sync. Independent of engine work — both UIs consume existing APIs with zero backend changes.
+
+Superseded on 2026-04-15 (fork decision): Svelte becomes the platform for all new surfaces and Blazor enters maintenance mode. Remaining work moved to **E-21 — Svelte Workbench & Analysis Surfaces** below.
+
+## E-21 — Svelte Workbench & Analysis Surfaces (in-progress)
+
+**Epic:** `work/epics/E-21-svelte-workbench-and-analysis/spec.md` | **Status:** in-progress (branch `epic/E-21-svelte-workbench-and-analysis`)
+
+Transform the Svelte UI from a Blazor-parallel clone into the primary platform for expert flow analysis and Time Machine surfaces. Workbench paradigm: topology as navigation + click-to-pin inspection panel; `/analysis` route with tabbed Time Machine surfaces (sweep, sensitivity, goal-seek, optimize); heatmap view; validation surface; compact density with calm chrome + vivid data-viz palette.
+
+**Depends on:** E-11 (M1-M4 + M6), E-17, E-18 analysis endpoints.
+
+**Completed milestones:**
+- m-E21-01: Workbench Foundation — density tokens, dag-map `bindEvents`/`selected` (library), click-to-pin node cards (merged 2026-04-17)
+- m-E21-02: Metric Selector & Edge Cards — metric chip bar, edge cards, class filter, custom TimelineScrubber (merged 2026-04-17)
+
+**In-progress:**
+- m-E21-03: Sweep & Sensitivity Surfaces — `/analysis` route with tabs, sweep config + results, sensitivity bar chart
+
+**Remaining:** m-E21-04 Goal Seek & Optimize, m-E21-05 Heatmap View, m-E21-06 Validation Surface, m-E21-07 Polish.
 
 ## E-19 — Surface Alignment & Compatibility Cleanup (completed)
 

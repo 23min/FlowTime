@@ -2,7 +2,7 @@
 
 **ID:** m-E21-02-metric-selector-edge-cards
 **Epic:** E-21 — Svelte Workbench & Analysis Surfaces
-**Status:** in-progress
+**Status:** complete (merged to epic 2026-04-17)
 
 ## Goal
 

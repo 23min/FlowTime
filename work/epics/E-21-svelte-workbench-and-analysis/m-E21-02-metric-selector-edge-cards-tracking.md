@@ -3,7 +3,7 @@
 **Milestone:** m-E21-02-metric-selector-edge-cards
 **Branch:** milestone/m-E21-02-metric-selector-edge-cards
 **Started:** 2026-04-17
-**Status:** in-progress
+**Status:** complete (merged to epic 2026-04-17)
 
 ## Acceptance Criteria
 

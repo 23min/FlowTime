@@ -3,7 +3,7 @@
 **Milestone:** m-E21-01-workbench-foundation
 **Branch:** milestone/m-E21-01-workbench-foundation
 **Started:** 2026-04-17
-**Status:** in-progress
+**Status:** complete (merged to epic 2026-04-17)
 
 ## Acceptance Criteria
 
@@ -86,6 +86,6 @@
 
 ## Completion
 
-- **Completed:** pending (awaiting self-review and human approval)
+- **Completed:** 2026-04-17 (merged to epic branch)
 - **Final test count:** 217 vitest + 292 dag-map + 4 Playwright = 513 total across surfaces
 - **Deferred items:** (none — all 16 ACs delivered)
