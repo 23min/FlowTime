@@ -80,9 +80,7 @@ Transform the Svelte UI from a Blazor-parallel clone into the primary platform f
 **Completed milestones:**
 - m-E21-01: Workbench Foundation — density tokens, dag-map `bindEvents`/`selected` (library), click-to-pin node cards (merged 2026-04-17)
 - m-E21-02: Metric Selector & Edge Cards — metric chip bar, edge cards, class filter, custom TimelineScrubber (merged 2026-04-17)
-
-**In-progress:**
-- m-E21-03: Sweep & Sensitivity Surfaces — `/analysis` route with tabs, sweep config + results, sensitivity bar chart
+- m-E21-03: Sweep & Sensitivity Surfaces — `/analysis` route with tabs, sweep config + results, sensitivity bar chart (merged 2026-04-17; ultrareview follow-ups 2026-04-20)
 
 **Remaining:** m-E21-04 Goal Seek & Optimize, m-E21-05 Heatmap View, m-E21-06 Validation Surface, m-E21-07 Polish.
 

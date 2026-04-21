@@ -2,7 +2,7 @@
 
 **ID:** m-E21-03-sweep-sensitivity
 **Epic:** E-21 — Svelte Workbench & Analysis Surfaces
-**Status:** in-progress
+**Status:** complete (merged to epic 2026-04-17; ultrareview follow-ups merged 2026-04-20)
 
 ## Goal
 

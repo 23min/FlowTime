@@ -3,7 +3,8 @@
 **Milestone:** m-E21-03-sweep-sensitivity
 **Branch:** milestone/m-E21-03-sweep-sensitivity
 **Started:** 2026-04-17
-**Status:** in-progress
+**Status:** complete (merged to epic 2026-04-17; ultrareview follow-ups merged 2026-04-20)
+**Completed:** 2026-04-20
 
 ## Acceptance Criteria
 
@@ -40,8 +41,9 @@
 
 ## Test Summary
 
-- **Vitest:** 397 passed (16 files) — +74 new tests
+- **Vitest:** 433 passed (17 files) — +74 new tests in initial cut, +13 in ultrareview follow-ups (truncation boundary + topology selector helper)
 - **dag-map:** 293 passed (unchanged)
+- **Playwright:** `svelte-analysis.spec.ts` (6 specs) + `svelte-analysis-followup.spec.ts` (2 specs, sample-id persistence and truncation warning)
 - **Build:** green (Svelte + .NET)
 
 ## Files Changed
@@ -88,6 +90,39 @@ Branches verified via line-by-line audit.
 
 ## Completion
 
-- **Completed:** pending approval
-- **Final test count:** 397 vitest + 293 dag-map = 690 tests across UI surfaces
-- **Deferred items:** (none — all 12 ACs delivered)
+- **Completed:** 2026-04-20
+- **Merged to epic:** 2026-04-17 (initial cut `ea62041`, sample-model/error-UX follow-up `1c2a8a0`); ultrareview follow-ups `dece926` merged 2026-04-20
+- **Final test count:** 433 vitest + 293 dag-map = 726 UI surface tests, plus 8 Playwright specs (6 original + 2 follow-up)
+- **Decisions recorded:** D-2026-04-17-033 ratifies the `GET /v1/runs/{runId}/model` backend carve-out; E-21 Scope/Constraints updated accordingly
+- **Ultrareview follow-ups (2026-04-20):**
+  - Finding 2 (sample-id persistence on `/analysis`) — fixed
+  - Finding 3 (sweep truncation signal) — fixed; `generateRange` returns `{ values, truncated, requestedCount }` and UI shows distinct warnings
+  - Finding 4 (topology CSS selector escape) — fixed via new `escapeAttributeValue` + `buildEdgeSelector` helpers
+  - Finding 1 (API path-traversal class) — out of E-21 scope; tracked separately on `chore/engine-run-path-traversal` (PR #5)
+- **Deferred items:** (none — all 12 ACs delivered; Finding 1 is a cross-cutting security patch landing through main, not an E-21 deferral)
+
+### Regression record — RustEngine default flip (2026-04-21 wrap check)
+
+During wrap, running the full `FlowTime.Api.Tests` suite surfaced four failures:
+
+- `SweepEndpointsTests.EngineNotEnabled_Returns503`
+- `SensitivityEndpointsTests.EngineNotEnabled_Returns503`
+- `GoalSeekEndpointsTests.EngineNotEnabled_Returns503`
+- `OptimizeEndpointsTests.EngineNotEnabled_Returns503`
+
+**Root cause.** The m-E21-03 follow-up commit `1c2a8a0` flipped `src/FlowTime.API/appsettings.json` → `RustEngine:Enabled=true` for the dev Svelte-UI flow. `TestWebApplicationFactory` had no explicit setting for `RustEngine:Enabled`, so the base factory loaded the production `appsettings.json` default. The four "engine not enabled" endpoint tests asserted `503 ServiceUnavailable` when the Rust engine is disabled; with the flip they now resolved the runner and returned `400 BadRequest` instead.
+
+**Fix.** `tests/FlowTime.Api.Tests/TestWebApplicationFactory.cs` now pins `RustEngine:Enabled=false` inside `ConfigureWebHost`, but only when the subclass has not already set it:
+
+```csharp
+if (string.IsNullOrEmpty(builder.GetSetting("RustEngine:Enabled")))
+{
+    builder.UseSetting("RustEngine:Enabled", "false");
+}
+```
+
+The two explicit subclasses that opt in — `ModelEvaluatorRegistrationTests.EngineEnabledFactory` and `DefaultFactory` — call `UseSetting("RustEngine:Enabled", "true")` before `base.ConfigureWebHost(builder)`, so the guard preserves their choice.
+
+**Result.** `FlowTime.Api.Tests`: 264 passed, 0 failed (was 260/4).
+
+**Pattern guidance (future follow-ups).** Any time we flip an `appsettings.json` default to accommodate a dev or UI workflow, also pin the opposite default in `TestWebApplicationFactory` (with the `IsNullOrEmpty` guard so opt-in subclasses still win). Tests must not inherit production config drift.
