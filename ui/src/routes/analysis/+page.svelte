@@ -3,6 +3,9 @@
 	import { flowtime, type RunSummary } from '$lib/api/index.js';
 	import Chart from '$lib/components/chart.svelte';
 	import SensitivityBarChart from '$lib/components/sensitivity-bar-chart.svelte';
+	import ConvergenceChart from '$lib/components/convergence-chart.svelte';
+	import AnalysisResultCard from '$lib/components/analysis-result-card.svelte';
+	import { intervalMarkerGeometry } from '$lib/components/interval-bar-geometry.js';
 	import {
 		discoverConstParams,
 		discoverTopologyNodeIds,
@@ -14,6 +17,11 @@
 		type SweepResponse,
 		type SensitivityPoint,
 	} from '$lib/utils/analysis-helpers.js';
+	import {
+		defaultSearchBounds,
+		validateSearchInterval,
+		formatResidual,
+	} from '$lib/utils/goal-seek-helpers.js';
 	import { SAMPLE_MODELS, type SampleModel } from '$lib/utils/sample-models.js';
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import type { ChartSeries } from '$lib/components/chart-geometry.js';
@@ -124,6 +132,37 @@
 		{ metricSeriesId: string; points: SensitivityPoint[] } | undefined
 	>();
 
+	// Goal Seek state — retained in-memory across tab switches; reset on scenario change.
+	interface GoalSeekResponse {
+		paramValue: number;
+		achievedMetricMean: number;
+		converged: boolean;
+		iterations: number;
+		trace: {
+			iteration: number;
+			paramValue: number;
+			metricMean: number;
+			searchLo: number;
+			searchHi: number;
+		}[];
+	}
+
+	let goalSeekParamId = $state<string>('');
+	let goalSeekSearchLo = $state<number>(0);
+	let goalSeekSearchHi = $state<number>(1);
+	let goalSeekTargetMetric = $state<string>('served');
+	let goalSeekTarget = $state<number>(0);
+	let goalSeekTolerance = $state<number>(1e-6);
+	let goalSeekMaxIterations = $state<number>(50);
+	let goalSeekAdvancedOpen = $state<boolean>(false);
+	let goalSeekRunning = $state<boolean>(false);
+	let goalSeekError = $state<string | undefined>();
+	let goalSeekResponse = $state<GoalSeekResponse | undefined>();
+	// Bounds recorded at submission time — used to render the search-interval bar
+	// against the original search range, not the final trace bracket.
+	let goalSeekSubmittedLo = $state<number>(0);
+	let goalSeekSubmittedHi = $state<number>(1);
+
 	// Derived sweep values. Custom CSV input produces a plain array; the
 	// range generator reports truncation metadata so the UI can distinguish
 	// a legitimate "large sweep" warning from a silent clip at 200 points.
@@ -154,6 +193,53 @@
 		sensSelectedParams.size > 0 &&
 		sensTargetMetric.length > 0 &&
 		!sensRunning
+	);
+
+	const goalSeekIntervalValidation = $derived(
+		validateSearchInterval({ lo: goalSeekSearchLo, hi: goalSeekSearchHi }),
+	);
+
+	const canRunGoalSeek = $derived(
+		hasModel &&
+		goalSeekParamId.length > 0 &&
+		goalSeekTargetMetric.length > 0 &&
+		isFinite(goalSeekTarget) &&
+		goalSeekIntervalValidation.ok &&
+		!goalSeekRunning
+	);
+
+	const goalSeekNormalizedTrace = $derived(
+		goalSeekResponse
+			? goalSeekResponse.trace.map((p) => ({
+					iteration: p.iteration,
+					metricMean: p.metricMean,
+				}))
+			: [],
+	);
+
+	const goalSeekResidual = $derived(
+		goalSeekResponse
+			? Math.abs(goalSeekResponse.achievedMetricMean - goalSeekTarget)
+			: NaN,
+	);
+
+	const goalSeekNotBracketed = $derived(
+		goalSeekResponse !== undefined &&
+			!goalSeekResponse.converged &&
+			goalSeekResponse.iterations === 0,
+	);
+
+	const GOAL_SEEK_INTERVAL_BAR_WIDTH = 420;
+
+	const goalSeekIntervalGeom = $derived(
+		goalSeekResponse
+			? intervalMarkerGeometry({
+					lo: goalSeekSubmittedLo,
+					hi: goalSeekSubmittedHi,
+					value: goalSeekResponse.paramValue,
+					width: GOAL_SEEK_INTERVAL_BAR_WIDTH,
+				})
+			: { ok: false as const },
 	);
 
 	// Sweep chart series transformation
@@ -217,27 +303,57 @@
 		topologyNodeIds = discoverTopologyNodeIds(yaml);
 		sweepResponse = undefined;
 		sensResponse = undefined;
+		goalSeekResponse = undefined;
 		sweepError = undefined;
 		sensError = undefined;
+		goalSeekError = undefined;
 		if (params.length > 0) {
 			sweepParamId = params[0].id;
 			sweepFrom = params[0].baseline * 0.5;
 			sweepTo = params[0].baseline * 2;
 			sweepStep = Math.max(0.001, (sweepTo - sweepFrom) / 10);
 			sensSelectedParams = new Set(params.map((p) => p.id));
+			goalSeekParamId = params[0].id;
+			const bounds = defaultSearchBounds(params[0].baseline);
+			goalSeekSearchLo = bounds.lo;
+			goalSeekSearchHi = bounds.hi;
 		} else {
 			sweepParamId = '';
 			sensSelectedParams = new Set();
+			goalSeekParamId = '';
+			goalSeekSearchLo = 0;
+			goalSeekSearchHi = 1;
 		}
 		// Pick a sensible default target metric: first topology node's queue depth,
 		// or the first const param, or fall back to 'queue'.
 		const suggested = queueSeriesIds(topologyNodeIds);
 		if (suggested.length > 0) {
 			sensTargetMetric = suggested[0];
+			goalSeekTargetMetric = suggested[0];
 		} else if (params.length > 0) {
 			sensTargetMetric = params[0].id;
+			goalSeekTargetMetric = params[0].id;
 		} else {
 			sensTargetMetric = 'queue';
+			goalSeekTargetMetric = 'queue';
+		}
+		goalSeekTarget = 0;
+		goalSeekTolerance = 1e-6;
+		goalSeekMaxIterations = 50;
+	}
+
+	/**
+	 * When the user picks a different param in the Goal Seek selector, reset
+	 * the search bounds to the new parameter's `0.5× / 2×` defaults so the
+	 * interval is sensibly framed without manual re-entry.
+	 */
+	function onGoalSeekParamChange(newId: string) {
+		goalSeekParamId = newId;
+		const p = params.find((pp) => pp.id === newId);
+		if (p) {
+			const bounds = defaultSearchBounds(p.baseline);
+			goalSeekSearchLo = bounds.lo;
+			goalSeekSearchHi = bounds.hi;
 		}
 	}
 
@@ -334,6 +450,36 @@
 			sweepError = result.error ?? 'Sweep failed';
 		}
 		sweepRunning = false;
+	}
+
+	async function runGoalSeek() {
+		if (!canRunGoalSeek) return;
+		goalSeekRunning = true;
+		goalSeekError = undefined;
+		goalSeekResponse = undefined;
+
+		const body = {
+			yaml: modelYaml,
+			paramId: goalSeekParamId,
+			metricSeriesId: goalSeekTargetMetric,
+			target: goalSeekTarget,
+			searchLo: goalSeekSearchLo,
+			searchHi: goalSeekSearchHi,
+			tolerance: goalSeekTolerance,
+			maxIterations: goalSeekMaxIterations,
+		};
+		// Snapshot the submitted bounds so the interval bar renders against
+		// the original range even if the user edits the inputs post-run.
+		goalSeekSubmittedLo = goalSeekSearchLo;
+		goalSeekSubmittedHi = goalSeekSearchHi;
+
+		const result = await flowtime.goalSeek(body);
+		if (result.success && result.value) {
+			goalSeekResponse = result.value;
+		} else {
+			goalSeekError = result.error ?? 'Goal seek failed';
+		}
+		goalSeekRunning = false;
 	}
 
 	async function runSensitivity() {
@@ -851,10 +997,287 @@
 					</div>
 				{/if}
 
-			{:else if activeTab === 'goal-seek' || activeTab === 'optimize'}
+			{:else if activeTab === 'goal-seek'}
+				<!-- GOAL SEEK TAB -->
+				{#if params.length === 0}
+					<p class="text-xs text-muted-foreground italic" data-testid="goal-seek-empty">
+						No const-kind parameters in this model to seek over.
+					</p>
+				{:else}
+					<div class="flex flex-col gap-3">
+						<!-- Configuration -->
+						<div class="flex flex-col gap-2 border rounded p-2 bg-card" data-testid="goal-seek-config">
+							<div class="flex flex-wrap items-end gap-3">
+								<label class="flex flex-col gap-0.5 text-xs">
+									<span class="text-[10px] text-muted-foreground">Parameter</span>
+									<select
+										class="bg-background border-input rounded border px-1.5 py-0.5 text-xs"
+										data-testid="goal-seek-param-select"
+										value={goalSeekParamId}
+										onchange={(e) => onGoalSeekParamChange((e.target as HTMLSelectElement).value)}
+									>
+										{#each params as p (p.id)}
+											<option value={p.id}>{p.id} (base {fmtNum(p.baseline)})</option>
+										{/each}
+									</select>
+								</label>
+								<label class="flex flex-col gap-0.5 text-xs">
+									<span class="text-[10px] text-muted-foreground">searchLo</span>
+									<input
+										type="number"
+										class="bg-background border-input rounded border px-1.5 py-0.5 text-xs w-24"
+										data-testid="goal-seek-lo"
+										bind:value={goalSeekSearchLo}
+									/>
+								</label>
+								<label class="flex flex-col gap-0.5 text-xs">
+									<span class="text-[10px] text-muted-foreground">searchHi</span>
+									<input
+										type="number"
+										class="bg-background border-input rounded border px-1.5 py-0.5 text-xs w-24"
+										data-testid="goal-seek-hi"
+										bind:value={goalSeekSearchHi}
+									/>
+								</label>
+								<label class="flex flex-col gap-0.5 text-xs">
+									<span class="text-[10px] text-muted-foreground">target</span>
+									<input
+										type="number"
+										step="any"
+										class="bg-background border-input rounded border px-1.5 py-0.5 text-xs w-28"
+										data-testid="goal-seek-target"
+										bind:value={goalSeekTarget}
+									/>
+								</label>
+								<button
+									class="rounded bg-foreground text-background px-2 py-1 text-xs font-medium hover:opacity-90 disabled:opacity-40"
+									onclick={runGoalSeek}
+									disabled={!canRunGoalSeek}
+									data-testid="goal-seek-run"
+								>
+									{#if goalSeekRunning}
+										<Loader2Icon class="inline size-3 animate-spin" />
+									{:else}
+										<PlayIcon class="inline size-3" />
+									{/if}
+									Run goal seek
+								</button>
+							</div>
+
+							<!-- Metric + chip shortcuts (parallels sensitivity tab) -->
+							<div class="flex items-center gap-2 text-xs flex-wrap">
+								<label class="flex flex-col gap-0.5">
+									<span class="text-[10px] text-muted-foreground">metricSeriesId</span>
+									<input
+										type="text"
+										class="bg-background border-input rounded border px-1.5 py-0.5 text-xs w-48"
+										data-testid="goal-seek-metric"
+										bind:value={goalSeekTargetMetric}
+									/>
+								</label>
+								<div class="flex flex-wrap items-center gap-1 mt-3">
+									{#if targetSuggestions.length === 0}
+										<span class="text-[10px] text-muted-foreground italic">
+											(type a series id)
+										</span>
+									{:else}
+										<span class="text-[10px] text-muted-foreground">suggested:</span>
+									{/if}
+									{#each ['served', 'queue', 'flowLatencyMs', 'utilization', ...targetSuggestions] as t (t)}
+										<button
+											class="rounded px-1.5 py-0.5 text-[10px] font-mono {goalSeekTargetMetric === t
+												? 'bg-foreground text-background font-medium'
+												: 'bg-muted text-muted-foreground hover:bg-accent'}"
+											onclick={() => (goalSeekTargetMetric = t)}
+										>{t}</button>
+									{/each}
+								</div>
+							</div>
+
+							<!-- Validation hint -->
+							{#if !goalSeekIntervalValidation.ok}
+								<div
+									class="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400"
+									data-testid="goal-seek-interval-warning"
+								>
+									<AlertCircleIcon class="size-3" />
+									<span>{goalSeekIntervalValidation.reason}</span>
+								</div>
+							{/if}
+
+							<!-- Advanced disclosure -->
+							<div class="flex flex-col gap-1 text-xs">
+								<button
+									class="self-start text-[11px] text-muted-foreground hover:text-foreground"
+									onclick={() => (goalSeekAdvancedOpen = !goalSeekAdvancedOpen)}
+									aria-expanded={goalSeekAdvancedOpen}
+									data-testid="goal-seek-advanced-toggle"
+								>
+									{goalSeekAdvancedOpen ? '▼' : '▶'} Advanced
+								</button>
+								{#if goalSeekAdvancedOpen}
+									<div
+										class="flex flex-wrap items-end gap-3 pl-2"
+										data-testid="goal-seek-advanced"
+									>
+										<label class="flex flex-col gap-0.5">
+											<span class="text-[10px] text-muted-foreground">tolerance</span>
+											<input
+												type="number"
+												step="any"
+												class="bg-background border-input rounded border px-1.5 py-0.5 text-xs w-24"
+												data-testid="goal-seek-tolerance"
+												bind:value={goalSeekTolerance}
+											/>
+										</label>
+										<label class="flex flex-col gap-0.5">
+											<span class="text-[10px] text-muted-foreground">maxIterations</span>
+											<input
+												type="number"
+												min="1"
+												class="bg-background border-input rounded border px-1.5 py-0.5 text-xs w-24"
+												data-testid="goal-seek-max-iterations"
+												bind:value={goalSeekMaxIterations}
+											/>
+										</label>
+									</div>
+								{/if}
+							</div>
+						</div>
+
+						{#if goalSeekError}
+							<div class="flex items-center gap-1 text-xs text-destructive" data-testid="goal-seek-error">
+								<AlertCircleIcon class="size-3" />
+								<span>{goalSeekError}</span>
+							</div>
+						{/if}
+
+						{#if goalSeekResponse}
+							{@const resp = goalSeekResponse}
+							{@const gbadge = goalSeekNotBracketed
+								? 'target not reachable'
+								: resp.converged
+									? 'converged'
+									: 'did not converge'}
+							{@const gtone = resp.converged ? 'teal' : 'amber'}
+							<AnalysisResultCard
+								title="Goal Seek result"
+								badge={gbadge}
+								badgeTone={gtone}
+								meta={[
+									{ label: 'achieved', value: fmtNum(resp.achievedMetricMean) },
+									{ label: 'target', value: fmtNum(goalSeekTarget) },
+									{ label: 'residual', value: formatResidual(goalSeekResidual) },
+									{ label: 'iterations', value: String(resp.iterations) },
+									{ label: 'tolerance', value: formatResidual(goalSeekTolerance) },
+								]}
+							>
+								{#snippet primaryValue()}
+									<span data-testid="goal-seek-param-value">{fmtNum(resp.paramValue)}</span>
+									<span class="text-muted-foreground text-xs ml-2 font-sans">
+										← {goalSeekParamId}
+									</span>
+								{/snippet}
+								{#snippet footer()}
+									{#if goalSeekNotBracketed}
+										<div
+											class="flex items-start gap-1 text-[11px] text-amber-600 dark:text-amber-400 border-t pt-1"
+											data-testid="goal-seek-not-bracketed-warning"
+										>
+											<AlertCircleIcon class="size-3 mt-0.5 shrink-0" />
+											<span>
+												Target {fmtNum(goalSeekTarget)} is not reachable inside
+												[{fmtNum(goalSeekSubmittedLo)}, {fmtNum(goalSeekSubmittedHi)}].
+												Try widening the search bounds so the boundary evaluations
+												bracket the target.
+											</span>
+										</div>
+									{:else if !resp.converged}
+										<div
+											class="flex items-start gap-1 text-[11px] text-amber-600 dark:text-amber-400 border-t pt-1"
+											data-testid="goal-seek-max-iterations-warning"
+										>
+											<AlertCircleIcon class="size-3 mt-0.5 shrink-0" />
+											<span>
+												Bisection exhausted {resp.iterations} iteration{resp.iterations === 1 ? '' : 's'} without meeting tolerance {formatResidual(goalSeekTolerance)}.
+												Increase maxIterations or relax tolerance.
+											</span>
+										</div>
+									{/if}
+								{/snippet}
+							</AnalysisResultCard>
+
+							<!-- Convergence chart -->
+							<div class="flex flex-col gap-1 border rounded p-2 bg-card">
+								<span class="text-xs font-semibold">Convergence</span>
+								<ConvergenceChart
+									trace={goalSeekNormalizedTrace}
+									target={goalSeekTarget}
+									converged={resp.converged}
+									yLabel={goalSeekTargetMetric}
+									width={520}
+									height={180}
+								/>
+							</div>
+
+							<!-- Search-interval bar -->
+							{#if goalSeekIntervalGeom.ok}
+								{@const gi = goalSeekIntervalGeom}
+								<div class="flex flex-col gap-1 border rounded p-2 bg-card" data-testid="goal-seek-interval-bar">
+									<span class="text-xs font-semibold">Search interval</span>
+									<svg
+										width={GOAL_SEEK_INTERVAL_BAR_WIDTH}
+										height="28"
+										viewBox="0 0 {GOAL_SEEK_INTERVAL_BAR_WIDTH} 28"
+										role="img"
+										aria-label="search interval bar"
+									>
+										<line
+											x1={gi.barStart}
+											x2={gi.barEnd}
+											y1="14"
+											y2="14"
+											stroke="var(--muted-foreground)"
+											stroke-width="2"
+											opacity="0.6"
+										/>
+										<circle
+											cx={gi.barStart}
+											cy="14"
+											r="3"
+											fill="var(--muted-foreground)"
+										/>
+										<circle
+											cx={gi.barEnd}
+											cy="14"
+											r="3"
+											fill="var(--muted-foreground)"
+										/>
+										<line
+											x1={gi.markerX}
+											x2={gi.markerX}
+											y1="4"
+											y2="24"
+											stroke={resp.converged ? 'var(--ft-viz-teal)' : 'var(--ft-viz-amber)'}
+											stroke-width="2"
+											data-testid="goal-seek-interval-marker"
+										/>
+									</svg>
+									<div class="flex justify-between text-[10px] text-muted-foreground font-mono">
+										<span>{fmtNum(goalSeekSubmittedLo)}</span>
+										<span>paramValue = {fmtNum(resp.paramValue)}{gi.clamped ? ' (clamped)' : ''}</span>
+										<span>{fmtNum(goalSeekSubmittedHi)}</span>
+									</div>
+								</div>
+							{/if}
+						{/if}
+					</div>
+				{/if}
+
+			{:else if activeTab === 'optimize'}
 				<div class="flex items-center justify-center h-full">
 					<p class="text-xs text-muted-foreground italic">
-						{activeTab === 'goal-seek' ? 'Goal Seek' : 'Optimize'} surface — coming in m-E21-04.
+						Optimize surface — coming in m-E21-05.
 					</p>
 				</div>
 			{/if}

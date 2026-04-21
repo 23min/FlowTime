@@ -128,5 +128,31 @@ export const flowtime = {
 			metricSeriesId: string;
 			points: { paramId: string; baseValue: number; gradient: number }[];
 		}>(`${API}/sensitivity`, body);
+	},
+
+	/** Goal seek — POST /v1/goal-seek */
+	async goalSeek(body: {
+		yaml: string;
+		paramId: string;
+		metricSeriesId: string;
+		target: number;
+		searchLo: number;
+		searchHi: number;
+		tolerance?: number;
+		maxIterations?: number;
+	}) {
+		return post<{
+			paramValue: number;
+			achievedMetricMean: number;
+			converged: boolean;
+			iterations: number;
+			trace: {
+				iteration: number;
+				paramValue: number;
+				metricMean: number;
+				searchLo: number;
+				searchHi: number;
+			}[];
+		}>(`${API}/goal-seek`, body);
 	}
 };
