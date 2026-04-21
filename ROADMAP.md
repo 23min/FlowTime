@@ -82,7 +82,9 @@ Transform the Svelte UI from a Blazor-parallel clone into the primary platform f
 - m-E21-02: Metric Selector & Edge Cards — metric chip bar, edge cards, class filter, custom TimelineScrubber (merged 2026-04-17)
 - m-E21-03: Sweep & Sensitivity Surfaces — `/analysis` route with tabs, sweep config + results, sensitivity bar chart (merged 2026-04-17; ultrareview follow-ups 2026-04-20)
 
-**Remaining:** m-E21-04 Goal Seek & Optimize, m-E21-05 Heatmap View, m-E21-06 Validation Surface, m-E21-07 Polish.
+**In-progress:** m-E21-04 Goal Seek & Optimize (branch `milestone/m-E21-04-goal-seek-optimize`, started 2026-04-21).
+
+**Remaining:** m-E21-05 Heatmap View, m-E21-06 Validation Surface, m-E21-07 Polish.
 
 ## E-19 — Surface Alignment & Compatibility Cleanup (completed)
 

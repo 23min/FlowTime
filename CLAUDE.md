@@ -225,7 +225,7 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
   - **m-E21-01** (complete, merged to epic): Workbench Foundation — density system, dag-map events (library), workbench panel with click-to-pin node cards. 217 vitest + 293 dag-map tests.
   - **m-E21-02** (complete, merged to epic): Metric Selector & Edge Cards — metric chip bar, edge click-to-pin, edge cards, class filter, custom TimelineScrubber, dark-mode/viz-palette fixes. 323 vitest + 293 dag-map = 616 tests.
   - **m-E21-03** (complete, merged to epic 2026-04-17; ultrareview follow-ups 2026-04-20): Sweep & Sensitivity Surfaces — `/analysis` route with tabbed surfaces, sweep config + results, sensitivity bar chart. 433 vitest + 293 dag-map = 726 tests; 8 Playwright specs. D-2026-04-17-033 ratifies the `GET /v1/runs/{runId}/model` backend carve-out.
-  - **m-E21-04** (next): Goal Seek & Optimize — goal-seek panel, optimization panel, convergence chart, result summary.
+  - **m-E21-04** (in-progress, branch `milestone/m-E21-04-goal-seek-optimize`, started 2026-04-21): Goal Seek & Optimize — goal-seek panel, optimization panel, convergence chart, result summary. Extends `/v1/goal-seek` and `/v1/optimize` response shapes with an additive `trace` field per **D-2026-04-21-034**.
   - 7 milestones: workbench foundation → metric selector + edge cards → sweep/sensitivity → goal-seek/optimize → heatmap view → validation surface → polish.
   - Absorbs E-11 M5/M7/M8 under workbench paradigm. Svelte is the platform for new surfaces; Blazor is maintenance-only.
 - **E-11** Svelte UI — paused after M6; absorbed into E-21
