@@ -1,60 +1,60 @@
-# Tracking: Goal Seek & Optimization Surfaces
+# Tracking: Goal Seek Surface
 
-**Milestone:** m-E21-04-goal-seek-optimize
-**Branch:** milestone/m-E21-04-goal-seek-optimize
+**Milestone:** m-E21-04-goal-seek
+**Branch:** milestone/m-E21-04-goal-seek-optimize (pre-existing; intentionally unchanged after the split — see spec Notes)
 **Started:** 2026-04-21
 **Status:** in progress
 
 ## Scope Recap
 
-Wire the remaining two `/analysis` tabs (Goal Seek + Optimize) to the live Time Machine endpoints, extend `/v1/goal-seek` and `/v1/optimize` response shapes with an additive `trace` field (per D-2026-04-21-034), and ship a shared convergence chart + result card so the two new surfaces reuse one visualization spine. Goal Seek drives one parameter to a target (bisection). Optimize searches N parameters under bounds to minimize or maximize an objective (Nelder-Mead). See spec `work/epics/E-21-svelte-workbench-and-analysis/m-E21-04-goal-seek-optimize.md`.
+Wire the `/analysis` Goal Seek tab to the live `/v1/goal-seek` Time Machine endpoint and ship the shared `AnalysisResultCard` + `ConvergenceChart` components used by both Goal Seek here and the Optimize surface in m-E21-05. Extend `/v1/goal-seek` and `/v1/optimize` response shapes with an additive `trace` field (per D-2026-04-21-034); the optimize trace is implemented here because it ships under the same decision record but is consumed in m-E21-05. See spec `work/epics/E-21-svelte-workbench-and-analysis/m-E21-04-goal-seek.md`.
+
+### Split note (2026-04-21)
+
+This milestone was originally scoped as `m-E21-04-goal-seek-optimize` (16 ACs, backend + shared components + two surfaces). On 2026-04-21, after Phase 1 backend had landed, the milestone was split: Goal Seek stays on m-E21-04; Optimize moves to **m-E21-05 Optimize Surface** (new). Heatmap / Validation / Polish renumbered to 06 / 07 / 08. The Phase 1 backend commit (`29ac3e9`) is kept — AC1/AC2/AC3 below are already complete and covered its implementation of both goal-seek **and** optimize traces. AC4–AC13 below are the rescoped frontend + audit work that remains on this milestone.
 
 ## Acceptance Criteria
 
 ### Backend — trace extension (AC1-AC3)
 - [x] AC1: Goal-seek trace plumbed end-to-end (`GoalSeeker`, `GoalSeekResult`, endpoint); all five return paths covered by `GoalSeekEndpointsTraceTests` + `GoalSeekerTests`
-- [x] AC2: Optimize trace plumbed end-to-end (`Optimizer`, `OptimizeResult`, endpoint); pre-loop + per-iteration entries; unsigned-metric invariant for both objectives; `OptimizeEndpointsTraceTests` + `OptimizerTests`
-- [x] AC3: `D-2026-04-21-034` appended to `work/decisions.md`; E-21 epic spec Scope / Constraints updated to reference the new decision alongside D-2026-04-17-033 (landed in the start-milestone commit 5988f5c)
+- [x] AC2: Optimize trace plumbed end-to-end (`Optimizer`, `OptimizeResult`, endpoint); pre-loop + per-iteration entries; unsigned-metric invariant for both objectives; `OptimizeEndpointsTraceTests` + `OptimizerTests`. _The Optimize surface that consumes this trace ships in m-E21-05._
+- [x] AC3: `D-2026-04-21-034` appended to `work/decisions.md`; E-21 epic spec Scope / Constraints updated to reference the new decision alongside D-2026-04-17-033 (landed in the start-milestone commit `5988f5c`)
 
 ### UI — Tab activation + shared components (AC4-AC5)
-- [ ] AC4: `goal-seek` and `optimize` tab panels render live content (no `coming in m-E21-04` stubs)
-- [ ] AC5: Shared `analysis-result-card.svelte` and `convergence-chart.svelte` components land first; chart consumes normalized `Array<{ iteration, metricMean }>`; pure-ts siblings with vitest geometry coverage
+- [ ] AC4: Goal-seek tab panel renders live content (no `coming in m-E21-04` stub); optimize tab placeholder copy updated to reference m-E21-05
+- [ ] AC5: Shared `analysis-result-card.svelte` and `convergence-chart.svelte` components land first; chart consumes normalized `Array<{ iteration, metricMean }>`; pure-ts siblings with vitest geometry coverage (components reused by m-E21-05)
 
 ### UI — Goal Seek surface (AC6-AC9)
 - [ ] AC6: Param single-select (reuses `discoverConstParams`); `{id} (base {baseline})` format; empty state when no const params
 - [ ] AC7: `searchLo` / `searchHi` defaults to `0.5 × baseline` / `2 × baseline`; metric picker with Sensitivity chip shortcuts; `target` numeric input; Advanced disclosure for `tolerance` (1e-6) and `maxIterations` (50); inline validation
-- [ ] AC8: Run goal-seek renders shared result card (paramValue, achievedMetricMean, target, residual, converged badge, iterations) + shared convergence chart (line + target reference line + two iteration-0 boundary points); 400/503 inline errors
+- [ ] AC8: Run goal-seek renders shared result card (paramValue, achievedMetricMean, target, residual, converged badge, iterations) + shared convergence chart (line + target reference line + two iteration-0 boundary points) + search-interval bar (SVG via `intervalMarkerGeometry`, marker at final paramValue); 400/503 inline errors
 - [ ] AC9: Not-bracketed state (amber warning, chart shows only two boundary points); not-converged state (amber "did not converge" badge, full trace)
 
-### UI — Optimize surface (AC10-AC12)
-- [ ] AC10: Chip-bar multi-select of const params at top; compact table with per-param `baseline` / `lo` / `hi` inputs below (only rendered when at least one chip active); defaults `0.5 × baseline` / `2 × baseline`; inline validation
-- [ ] AC11: Metric picker with Sensitivity chip shortcuts; minimize/maximize toggle; Advanced disclosure for `tolerance` (1e-4) and `maxIterations` (200)
-- [ ] AC12: Run optimize renders result card + per-param range table (with mini SVG range bars) + convergence chart (no target line; y-label reflects direction); 400/503 inline errors
+### Cross-cutting (AC10-AC12)
+- [ ] AC10: Session form state — Goal Seek form retains input across tab switches; resets when scenario changes (mirrors Sweep). Optimize session state is m-E21-05 scope.
+- [ ] AC11: Vitest branch coverage for `defaultSearchBounds`, `validateSearchInterval`, `intervalMarkerGeometry`, `convergence-chart-geometry`, plus any `analysis-result-card-geometry` helpers if extracted. `validateOptimizeForm` is out of scope here (m-E21-05).
+- [ ] AC12: Playwright coverage in `tests/ui/specs/svelte-analysis.spec.ts` (or sibling spec): goal-seek happy path + not-bracketed deterministic repro (tuple recorded in Notes below); graceful skip when API/dev server is down. Optimize Playwright is m-E21-05 scope.
 
-### Cross-cutting (AC13-AC15)
-- [ ] AC13: Session form state — Goal Seek + Optimize forms retain input across tab switches; reset when scenario changes (mirrors Sweep)
-- [ ] AC14: Vitest branch coverage for `defaultSearchBounds`, `validateSearchInterval`, `validateOptimizeForm`, `intervalMarkerGeometry`, `convergence-chart-geometry`, plus any `analysis-result-card-geometry` helpers if extracted
-- [ ] AC15: Playwright coverage in `tests/ui/specs/svelte-analysis.spec.ts` (or sibling spec): goal-seek happy path + not-bracketed deterministic repro (first `SAMPLE_MODELS` entry, first discovered const param, `target: 1e12`); optimize happy path; graceful skip when API/dev server is down
-
-### Branch-coverage audit (AC16)
-- [ ] AC16: Line-by-line branch audit before commit-approval prompt — five goal-seek return paths + pre-loop/main-loop/shrink branches on Nelder-Mead + new UI components/helpers; unreachable/defensive branches documented below in Coverage Notes
+### Branch-coverage audit (AC13)
+- [x] AC13a (backend pass — complete below): Line-by-line branch audit — five goal-seek return paths + pre-loop/main-loop/shrink branches on Nelder-Mead; unreachable/defensive branches documented in Coverage Notes
+- [ ] AC13b (UI pass — pending): new UI components/helpers audited before commit-approval prompt
 
 ## Implementation Log
 
 | Phase | What | Tests | Status |
 |-------|------|-------|--------|
 | 1 | Decision + status sync (D-2026-04-21-034, epic spec, CLAUDE.md, roadmap) | — | done (start-milestone) |
-| 2 | Backend: `GoalSeekTracePoint`, `OptimizeTracePoint`, runner trace plumbing, endpoint response records | 12 unit (GoalSeeker+Optimizer) + 12 API (endpoint trace shape) + 2 CLI integration = 26 new | **done (phase 1 backend)** |
+| 2 | Backend: `GoalSeekTracePoint`, `OptimizeTracePoint`, runner trace plumbing, endpoint response records | 12 unit (GoalSeeker+Optimizer) + 12 API (endpoint trace shape) + 2 CLI integration = 26 new | **done (commit `29ac3e9`)** |
+| — | **Scope split (2026-04-21)**: `m-E21-04-goal-seek-optimize` split into `m-E21-04-goal-seek` + new `m-E21-05-optimize`; downstream milestones renumbered to 06/07/08 | — | done |
 | 3 | Shared components: `analysis-result-card.svelte`, `convergence-chart.svelte` + `convergence-chart-geometry.ts` + `interval-bar-geometry.ts` | vitest | pending |
-| 4 | API client: `flowtime.goalSeek`, `flowtime.optimize` methods | — | pending |
+| 4 | API client: `flowtime.goalSeek` method (optimize method lives on m-E21-05) | — | pending |
 | 5 | Goal Seek tab surface (param select, bounds, target, Advanced, run, result + chart) | vitest + Playwright | pending |
-| 6 | Optimize tab surface (chip-bar, bounds table, direction toggle, Advanced, run, per-param table + chart) | vitest + Playwright | pending |
-| 7 | Session form state + scenario-change reset | vitest / Playwright | pending |
-| 8 | Line-by-line branch audit + Coverage Notes | — | phase-1 audit done below; UI pass pending |
+| 6 | Session form state + scenario-change reset (goal-seek only) | vitest / Playwright | pending |
+| 7 | Line-by-line branch audit + Coverage Notes for UI pass | — | phase-1 audit done below; UI pass pending |
 
 ### Phase 1 (Backend) — Implementation Log
 
-**Landed in milestone branch commit (pending approval).**
+**Landed in milestone branch commit `29ac3e9`.** Covers both goal-seek and optimize trace plumbing — they share D-2026-04-21-034. The optimize endpoint trace is ready for m-E21-05 to consume without further backend work.
 
 #### Files added
 - `src/FlowTime.TimeMachine/Sweep/GoalSeekTracePoint.cs` — record `(int Iteration, double ParamValue, double MetricMean, double SearchLo, double SearchHi)` with XML docs capturing AC1 semantics.
@@ -87,7 +87,7 @@ Wire the remaining two `/analysis` tabs (Goal Seek + Optimize) to the live Time 
 
 ### Phase 1 — Branch-coverage audit
 
-Line-by-line audit of backend changes. Every reachable branch is exercised by at least one named test. Unreachable branches documented with rationale.
+Line-by-line audit of backend changes. Every reachable branch is exercised by at least one named test. Unreachable branches documented with rationale. _This audit stays useful for m-E21-05 as reference for the optimize-side paths it consumes._
 
 #### `GoalSeeker.SeekAsync` — five return paths + decision branches
 
@@ -149,6 +149,10 @@ Response construction adds `Trace` to each respective response record unconditio
 
 These four branches are the only reachable-looking code paths not covered by explicit tests. Every other reachable branch in the backend changes is named in the audit table above.
 
+### UI pass — to be filled at wrap
+
+Follow m-E21-03's structure: pure-logic tests, component rendering covered by Playwright, defensive / unreachable branches named with rationale, normalized-shape adaptation branches on the chart geometry.
+
 ## Test Summary
 
 ### Phase 1 — Backend
@@ -161,11 +165,13 @@ These four branches are the only reachable-looking code paths not covered by exp
 
 ## Files Changed
 
-### New files
+### Phase 1 — Backend (commit `29ac3e9`)
+
+#### New files
 - `src/FlowTime.TimeMachine/Sweep/GoalSeekTracePoint.cs`
 - `src/FlowTime.TimeMachine/Sweep/OptimizeTracePoint.cs`
 
-### Modified files
+#### Modified files
 - `src/FlowTime.TimeMachine/Sweep/GoalSeekResult.cs` — added `Trace` property.
 - `src/FlowTime.TimeMachine/Sweep/OptimizeResult.cs` — added `Trace` property.
 - `src/FlowTime.TimeMachine/Sweep/GoalSeeker.cs` — trace plumbing through all five return paths.
@@ -177,23 +183,32 @@ These four branches are the only reachable-looking code paths not covered by exp
 - `tests/FlowTime.Api.Tests/GoalSeekEndpointsTests.cs` — new `GoalSeekEndpointsTraceTests` (6 tests) + factory.
 - `tests/FlowTime.Api.Tests/OptimizeEndpointsTests.cs` — new `OptimizeEndpointsTraceTests` (5 tests) + factory.
 - `tests/FlowTime.Integration.Tests/TimeMachineCliIntegrationTests.cs` — 2 CLI-passthrough tests.
-- `work/epics/E-21-svelte-workbench-and-analysis/m-E21-04-goal-seek-optimize-tracking.md` — this doc.
+
+### Split (docs-only, 2026-04-21)
+- Rename `work/epics/E-21-svelte-workbench-and-analysis/m-E21-04-goal-seek-optimize.md` → `m-E21-04-goal-seek.md` (rescoped).
+- Rename `work/epics/E-21-svelte-workbench-and-analysis/m-E21-04-goal-seek-optimize-tracking.md` → `m-E21-04-goal-seek-tracking.md` (this file).
+- New `work/epics/E-21-svelte-workbench-and-analysis/m-E21-05-optimize.md` — Optimize Surface milestone spec.
+- Epic spec, `ROADMAP.md`, `work/epics/epic-roadmap.md`, `CLAUDE.md` Current Work updated to reflect the split and renumber downstream milestones (heatmap → 06, validation → 07, polish → 08).
 
 ## Notes
 
-- **Deterministic Playwright repro for AC15 not-bracketed path:** resolve `SAMPLE_MODELS[0]` (module id, first discovered const param id, baseline) against live `ui/src/lib/utils/sample-models.ts` at implementation time; record the resolved tuple here so later sample-model edits surface as a spec failure, not a silent flake. Path to reconfirm with a one-line grep at implementation start.
-- **Chart normalized input shape (AC5):** each caller adapts its response — Goal Seek emits `trace.map(p => ({ iteration: p.iteration, metricMean: p.metricMean }))` with both `iteration: 0` entries preserved; Optimize emits the same projection over its own trace. The chart never branches on surface type.
-- **Nelder-Mead sign convention check:** `src/FlowTime.TimeMachine/Sweep/Optimizer.cs` verified at lines 68/72/141/144 — pre-loop sort + per-iteration sort both occur before the trace capture point, and the minimize-internally / maximize-externally sign flip lives around the metric evaluation so exposing the unsigned mean on the trace is a sign-reverse at record time (for maximize only). AC2 assertions must lock this.
-- **CLI passthrough (m-E18-14):** `trace` appears automatically in CLI JSON output via pipe-through; add one integration test (no new CLI code required).
-
-## Coverage Notes
-
-(Filled at wrap — follow m-E21-03's structure: pure-logic tests, component rendering via Playwright, defensive / unreachable branches enumerated with rationale, the five goal-seek return paths + two Nelder-Mead exit paths each matched to a named xUnit test, normalized-shape adaptation branches on the chart geometry.)
+- **Deterministic Playwright repro for AC12 not-bracketed path (resolved 2026-04-21):**
+  - Model id: `coffee-shop` (first entry in `SAMPLE_MODELS`, `ui/src/lib/utils/sample-models.ts:47`)
+  - First discovered const param id: `customers_per_hour`
+  - Baseline: `22` (first value of the const node's `values` array, per `discoverConstParams`)
+  - `searchLo: 11` (0.5 × baseline), `searchHi: 44` (2 × baseline)
+  - `metricSeriesId: "served"` (Sensitivity chip shortcut — verify the exact engine-emitted id at authoring time; if the actual series is namespaced (e.g. `Register.served`), update this tuple + the spec's AC12 together)
+  - `target: 1e12` — unreachable by construction (baseline served rate is 20/hr; max reachable served mean across any `customers_per_hour ∈ [11, 44]` is far below 1e12)
+  - Expected result: `converged: false`, `iterations: 0`, trace has exactly two `iteration: 0` entries at paramValue 11 and 44. Amber warning in UI. Chart renders only the two boundary points.
+  - If sample-models.ts changes and breaks this tuple, the Playwright test fails loudly (not a silent flake) — update the tuple here + the spec's AC12 in the same commit.
+- **Chart normalized input shape (AC5):** the caller adapts its response — Goal Seek emits `trace.map(p => ({ iteration: p.iteration, metricMean: p.metricMean }))` with both `iteration: 0` entries preserved. Optimize (m-E21-05) will emit the same projection over its own trace. The chart never branches on surface type.
+- **Nelder-Mead sign convention check:** `src/FlowTime.TimeMachine/Sweep/Optimizer.cs` verified at lines 68/72/141/144 — pre-loop sort + per-iteration sort both occur before the trace capture point, and the minimize-internally / maximize-externally sign flip lives around the metric evaluation so exposing the unsigned mean on the trace is a sign-reverse at record time (for maximize only). AC2 assertions lock this. _Still accurate after the split — the optimize trace landed on this milestone's commit `29ac3e9`._
+- **CLI passthrough (m-E18-14):** `trace` appears automatically in CLI JSON output via pipe-through; covered by the 2 integration tests added in commit `29ac3e9` (no new CLI code required).
 
 ## Decisions & Gaps
 
-- **D-2026-04-21-034** (appended to `work/decisions.md` at start-milestone commit) — Additive `trace` field on `/v1/goal-seek` and `/v1/optimize` response shapes. Requests unchanged. Number claimed 2026-04-21; draft body in spec `m-E21-04-goal-seek-optimize.md` § "Decision Record (draft)".
-- **Prior carve-out still in force:** D-2026-04-17-033 (read-only run-adjacent endpoints) — the `GET /v1/runs/{runId}/model` and any similar reads used by Goal Seek / Optimize inherit this admission; no new admission is needed for them.
+- **D-2026-04-21-034** (appended to `work/decisions.md` at start-milestone commit `5988f5c`) — Additive `trace` field on `/v1/goal-seek` and `/v1/optimize` response shapes. Requests unchanged. Scope covers both endpoints; the split does not require a new decision. Implementation landed in commit `29ac3e9`.
+- **Prior carve-out still in force:** D-2026-04-17-033 (read-only run-adjacent endpoints) — the `GET /v1/runs/{runId}/model` and any similar reads used by Goal Seek inherit this admission; no new admission is needed for them.
 
 ## Completion
 

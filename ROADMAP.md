@@ -63,7 +63,7 @@ Migration is forward-only. Existing runs, fixtures, and approved snapshots are r
 
 ## E-11 — Svelte UI (Parallel Frontend Track)
 
-**Epic:** `work/epics/E-11-svelte-ui/spec.md` | **Status:** paused after M6; absorbed into E-21 (M1-M4 + M6 done; M5 → E-21 workbench, M7 deferred, M8 → E-21 m-E21-07)
+**Epic:** `work/epics/E-11-svelte-ui/spec.md` | **Status:** paused after M6; absorbed into E-21 (M1-M4 + M6 done; M5 → E-21 workbench, M7 deferred, M8 → E-21 m-E21-08)
 
 Build a parallel SvelteKit + shadcn-svelte UI surface for demos and future evaluation while keeping the Blazor UI supported and in sync. Independent of engine work — both UIs consume existing APIs with zero backend changes.
 
@@ -82,9 +82,9 @@ Transform the Svelte UI from a Blazor-parallel clone into the primary platform f
 - m-E21-02: Metric Selector & Edge Cards — metric chip bar, edge cards, class filter, custom TimelineScrubber (merged 2026-04-17)
 - m-E21-03: Sweep & Sensitivity Surfaces — `/analysis` route with tabs, sweep config + results, sensitivity bar chart (merged 2026-04-17; ultrareview follow-ups 2026-04-20)
 
-**In-progress:** m-E21-04 Goal Seek & Optimize (branch `milestone/m-E21-04-goal-seek-optimize`, started 2026-04-21).
+**In-progress:** m-E21-04 Goal Seek Surface (branch `milestone/m-E21-04-goal-seek-optimize`, started 2026-04-21; scope split 2026-04-21 — Optimize moved to new m-E21-05).
 
-**Remaining:** m-E21-05 Heatmap View, m-E21-06 Validation Surface, m-E21-07 Polish.
+**Remaining:** m-E21-05 Optimize Surface, m-E21-06 Heatmap View, m-E21-07 Validation Surface, m-E21-08 Polish.
 
 ## E-19 — Surface Alignment & Compatibility Cleanup (completed)
 

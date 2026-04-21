@@ -80,7 +80,7 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 #### E-11 — Svelte UI (Parallel Frontend Track)
 
 - **Folder:** `work/epics/E-11-svelte-ui/`
-- **Status:** paused after M6; absorbed into **E-21**. M1-M4 + M6 delivered; M5 (Inspector) → E-21 workbench (m-E21-01/02), M7 (Dashboard) deferred, M8 (Polish) → E-21 m-E21-07. E-17 completed on Svelte (WebSocket bridge + parameter panel + topology heatmap + warnings + edge heatmap + time scrubber).
+- **Status:** paused after M6; absorbed into **E-21**. M1-M4 + M6 delivered; M5 (Inspector) → E-21 workbench (m-E21-01/02), M7 (Dashboard) deferred, M8 (Polish) → E-21 m-E21-08. E-17 completed on Svelte (WebSocket bridge + parameter panel + topology heatmap + warnings + edge heatmap + time scrubber).
 - **Goal:** Build SvelteKit + shadcn-svelte as a parallel UI surface for demos and future evaluation.
 - **Fork decision (2026-04-15, active as of m-E18-14 wrap):** Svelte UI is the platform for all new telemetry/fit/discovery surfaces. Blazor UI is in maintenance mode at current functionality — bug fixes and contract alignment only, no new features. New Svelte work is tracked under E-21 below.
 - **dag-map:** M3 (topology rendering), M4 (heatmap mode) delivered. Click/hover events + `selected` render option added in E-21 m-E21-01.
@@ -88,10 +88,10 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 #### E-21 — Svelte Workbench & Analysis Surfaces
 
 - **Folder:** `work/epics/E-21-svelte-workbench-and-analysis/`
-- **Status:** In-progress (branch `epic/E-21-svelte-workbench-and-analysis`). m-E21-01/02/03 merged to epic (m-E21-01 Workbench Foundation and m-E21-02 Metric Selector & Edge Cards merged 2026-04-17; m-E21-03 Sweep & Sensitivity Surfaces merged 2026-04-17 with ultrareview follow-ups 2026-04-20). **m-E21-04 Goal Seek & Optimize in-progress** on `milestone/m-E21-04-goal-seek-optimize` (started 2026-04-21).
+- **Status:** In-progress (branch `epic/E-21-svelte-workbench-and-analysis`). m-E21-01/02/03 merged to epic (m-E21-01 Workbench Foundation and m-E21-02 Metric Selector & Edge Cards merged 2026-04-17; m-E21-03 Sweep & Sensitivity Surfaces merged 2026-04-17 with ultrareview follow-ups 2026-04-20). **m-E21-04 Goal Seek Surface in-progress** on `milestone/m-E21-04-goal-seek-optimize` (started 2026-04-21; scope split 2026-04-21 — Optimize moved to new m-E21-05). Downstream milestones renumbered: heatmap → m-E21-06, validation → m-E21-07, polish → m-E21-08 (epic now has 8 milestones, was 7).
 - **Goal:** Turn the Svelte UI into the primary platform for expert flow analysis and Time Machine surfaces. Workbench paradigm: topology as navigation + click-to-pin inspection; `/analysis` route with tabbed Time Machine surfaces; heatmap view; validation surface; compact density with calm chrome + vivid data-viz palette.
 - **Depends on:** E-11 (M1-M4 + M6), E-17, E-18 analysis endpoints (`/v1/sweep`, `/v1/sensitivity`, `/v1/goal-seek`, `/v1/optimize`, `/v1/validate`).
-- **Supersedes:** E-11 M5 (evolved into m-E21-01/02 workbench paradigm), M7 (deferred), M8 (absorbed into m-E21-07).
+- **Supersedes:** E-11 M5 (evolved into m-E21-01/02 workbench paradigm), M7 (deferred), M8 (absorbed into m-E21-08).
 
 ## Near-Term Epics
 

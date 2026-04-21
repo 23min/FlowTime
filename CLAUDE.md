@@ -225,11 +225,12 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
   - **m-E21-01** (complete, merged to epic): Workbench Foundation — density system, dag-map events (library), workbench panel with click-to-pin node cards. 217 vitest + 293 dag-map tests.
   - **m-E21-02** (complete, merged to epic): Metric Selector & Edge Cards — metric chip bar, edge click-to-pin, edge cards, class filter, custom TimelineScrubber, dark-mode/viz-palette fixes. 323 vitest + 293 dag-map = 616 tests.
   - **m-E21-03** (complete, merged to epic 2026-04-17; ultrareview follow-ups 2026-04-20): Sweep & Sensitivity Surfaces — `/analysis` route with tabbed surfaces, sweep config + results, sensitivity bar chart. 433 vitest + 293 dag-map = 726 tests; 8 Playwright specs. D-2026-04-17-033 ratifies the `GET /v1/runs/{runId}/model` backend carve-out.
-  - **m-E21-04** (in-progress, branch `milestone/m-E21-04-goal-seek-optimize`, started 2026-04-21): Goal Seek & Optimize — goal-seek panel, optimization panel, convergence chart, result summary. Extends `/v1/goal-seek` and `/v1/optimize` response shapes with an additive `trace` field per **D-2026-04-21-034**.
-  - 7 milestones: workbench foundation → metric selector + edge cards → sweep/sensitivity → goal-seek/optimize → heatmap view → validation surface → polish.
+  - **m-E21-04** (in-progress, branch `milestone/m-E21-04-goal-seek-optimize`, started 2026-04-21; **scope split 2026-04-21** — Optimize moved to new m-E21-05): Goal Seek Surface — goal-seek panel, shared convergence chart + result card, backend `trace` on both `/v1/goal-seek` and `/v1/optimize` per **D-2026-04-21-034** (backend landed in commit `29ac3e9`; consumed by m-E21-05 for Optimize).
+  - **m-E21-05** (planned): Optimize Surface — N-param Nelder-Mead surface reusing shared components from m-E21-04; per-param range table.
+  - 8 milestones (was 7 before split): workbench foundation → metric selector + edge cards → sweep/sensitivity → goal-seek → optimize → heatmap view → validation surface → polish.
   - Absorbs E-11 M5/M7/M8 under workbench paradigm. Svelte is the platform for new surfaces; Blazor is maintenance-only.
 - **E-11** Svelte UI — paused after M6; absorbed into E-21
-  - M1-M4 + M6 done. M5 (Inspector) → E-21 workbench. M7 (Dashboard) → deferred. M8 (Polish) → E-21 m-E21-07.
+  - M1-M4 + M6 done. M5 (Inspector) → E-21 workbench. M7 (Dashboard) → deferred. M8 (Polish) → E-21 m-E21-08.
 - **E-12–E-15:** planned, not started. E-15 is on critical path for client-telemetry vision.
 - **E-22** Time Machine: Model Fit & Chunked Evaluation (`work/epics/E-22-model-fit-chunked-evaluation/spec.md`) — **planning**
   - Carries the remaining E-18 scope forward: model fit against real telemetry (`POST /v1/fit`), chunked evaluation (Rust `chunk_step` protocol + `POST /v1/chunked-eval`), and the `FlowTime.Pipeline` embeddable SDK wrapper.
