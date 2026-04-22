@@ -154,5 +154,28 @@ export const flowtime = {
 				searchHi: number;
 			}[];
 		}>(`${API}/goal-seek`, body);
+	},
+
+	/** Optimize — POST /v1/optimize (N-param Nelder-Mead under bounds) */
+	async optimize(body: {
+		yaml: string;
+		paramIds: string[];
+		metricSeriesId: string;
+		objective: 'minimize' | 'maximize';
+		searchRanges: Record<string, { lo: number; hi: number }>;
+		tolerance?: number;
+		maxIterations?: number;
+	}) {
+		return post<{
+			paramValues: Record<string, number>;
+			achievedMetricMean: number;
+			converged: boolean;
+			iterations: number;
+			trace: {
+				iteration: number;
+				paramValues: Record<string, number>;
+				metricMean: number;
+			}[];
+		}>(`${API}/optimize`, body);
 	}
 };

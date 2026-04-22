@@ -22,6 +22,10 @@
 		validateSearchInterval,
 		formatResidual,
 	} from '$lib/utils/goal-seek-helpers.js';
+	import {
+		validateOptimizeForm,
+		type OptimizeBounds,
+	} from '$lib/utils/optimize-helpers.js';
 	import { SAMPLE_MODELS, type SampleModel } from '$lib/utils/sample-models.js';
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import type { ChartSeries } from '$lib/components/chart-geometry.js';
@@ -163,6 +167,40 @@
 	let goalSeekSubmittedLo = $state<number>(0);
 	let goalSeekSubmittedHi = $state<number>(1);
 
+	// Optimize state — retained across tab switches; reset on scenario change.
+	let optimizeSelectedParams = $state<Set<string>>(new Set());
+	let optimizeBounds = $state<Record<string, OptimizeBounds>>({});
+	let optimizeMetric = $state<string>('');
+	let optimizeDirection = $state<'minimize' | 'maximize'>('minimize');
+	let optimizeTolerance = $state<number>(1e-4);
+	let optimizeMaxIterations = $state<number>(200);
+	let optimizeAdvancedOpen = $state<boolean>(false);
+	let optimizeRunning = $state<boolean>(false);
+	let optimizeError = $state<string | undefined>();
+
+	interface OptimizeResponse {
+		paramValues: Record<string, number>;
+		achievedMetricMean: number;
+		converged: boolean;
+		iterations: number;
+		trace: {
+			iteration: number;
+			paramValues: Record<string, number>;
+			metricMean: number;
+		}[];
+	}
+	let optimizeResponse = $state<OptimizeResponse | undefined>();
+	// Bounds + direction snapshotted at submit time so results render against the
+	// submitted ranges even if the user edits inputs post-run.
+	let optimizeSubmittedRanges = $state<Record<string, OptimizeBounds>>({});
+	let optimizeSubmittedDirection = $state<'minimize' | 'maximize'>('minimize');
+	let optimizeSubmittedParamIds = $state<string[]>([]);
+	let optimizeSubmittedMetric = $state<string>('');
+
+	// Sensitivity-style shortcut chips for the optimize metric field.
+	const OPTIMIZE_METRIC_CHIP_SHORTCUTS = ['served', 'queue', 'flowLatencyMs', 'utilization'] as const;
+	const OPTIMIZE_RANGE_BAR_WIDTH = 180;
+
 	// Derived sweep values. Custom CSV input produces a plain array; the
 	// range generator reports truncation metadata so the UI can distinguish
 	// a legitimate "large sweep" warning from a silent clip at 200 points.
@@ -227,6 +265,31 @@
 		goalSeekResponse !== undefined &&
 			!goalSeekResponse.converged &&
 			goalSeekResponse.iterations === 0,
+	);
+
+	const optimizeParamIdsArray = $derived(
+		params.filter((p) => optimizeSelectedParams.has(p.id)).map((p) => p.id),
+	);
+
+	const optimizeValidation = $derived(
+		validateOptimizeForm({
+			paramIds: optimizeParamIdsArray,
+			bounds: optimizeBounds,
+			metricSeriesId: optimizeMetric,
+			tolerance: optimizeTolerance,
+			maxIterations: optimizeMaxIterations,
+		}),
+	);
+
+	const canRunOptimize = $derived(hasModel && optimizeValidation.ok && !optimizeRunning);
+
+	const optimizeConvergenceTrace = $derived(
+		optimizeResponse
+			? optimizeResponse.trace.map((p) => ({
+					iteration: p.iteration,
+					metricMean: p.metricMean,
+				}))
+			: [],
 	);
 
 	const GOAL_SEEK_INTERVAL_BAR_WIDTH = 420;
@@ -304,9 +367,11 @@
 		sweepResponse = undefined;
 		sensResponse = undefined;
 		goalSeekResponse = undefined;
+		optimizeResponse = undefined;
 		sweepError = undefined;
 		sensError = undefined;
 		goalSeekError = undefined;
+		optimizeError = undefined;
 		if (params.length > 0) {
 			sweepParamId = params[0].id;
 			sweepFrom = params[0].baseline * 0.5;
@@ -317,12 +382,18 @@
 			const bounds = defaultSearchBounds(params[0].baseline);
 			goalSeekSearchLo = bounds.lo;
 			goalSeekSearchHi = bounds.hi;
+			optimizeSelectedParams = new Set(params.map((p) => p.id));
+			optimizeBounds = Object.fromEntries(
+				params.map((p) => [p.id, defaultSearchBounds(p.baseline)]),
+			);
 		} else {
 			sweepParamId = '';
 			sensSelectedParams = new Set();
 			goalSeekParamId = '';
 			goalSeekSearchLo = 0;
 			goalSeekSearchHi = 1;
+			optimizeSelectedParams = new Set();
+			optimizeBounds = {};
 		}
 		// Pick a sensible default target metric: first topology node's queue depth,
 		// or the first const param, or fall back to 'queue'.
@@ -330,16 +401,23 @@
 		if (suggested.length > 0) {
 			sensTargetMetric = suggested[0];
 			goalSeekTargetMetric = suggested[0];
+			optimizeMetric = suggested[0];
 		} else if (params.length > 0) {
 			sensTargetMetric = params[0].id;
 			goalSeekTargetMetric = params[0].id;
+			optimizeMetric = params[0].id;
 		} else {
 			sensTargetMetric = 'queue';
 			goalSeekTargetMetric = 'queue';
+			optimizeMetric = 'queue';
 		}
 		goalSeekTarget = 0;
 		goalSeekTolerance = 1e-6;
 		goalSeekMaxIterations = 50;
+		optimizeDirection = 'minimize';
+		optimizeTolerance = 1e-4;
+		optimizeMaxIterations = 200;
+		optimizeAdvancedOpen = false;
 	}
 
 	/**
@@ -429,6 +507,26 @@
 		sensSelectedParams = next;
 	}
 
+	function toggleOptimizeParam(id: string) {
+		const next = new Set(optimizeSelectedParams);
+		if (next.has(id)) {
+			next.delete(id);
+		} else {
+			next.add(id);
+			// Seed default bounds on first selection so the table row renders with sensible values.
+			if (!optimizeBounds[id]) {
+				const p = params.find((pp) => pp.id === id);
+				if (p) optimizeBounds = { ...optimizeBounds, [id]: defaultSearchBounds(p.baseline) };
+			}
+		}
+		optimizeSelectedParams = next;
+	}
+
+	function updateOptimizeBound(id: string, side: 'lo' | 'hi', value: number) {
+		const current = optimizeBounds[id] ?? { lo: 0, hi: 0 };
+		optimizeBounds = { ...optimizeBounds, [id]: { ...current, [side]: value } };
+	}
+
 	async function runSweep() {
 		if (!canRunSweep) return;
 		sweepRunning = true;
@@ -480,6 +578,41 @@
 			goalSeekError = result.error ?? 'Goal seek failed';
 		}
 		goalSeekRunning = false;
+	}
+
+	async function runOptimize() {
+		if (!canRunOptimize) return;
+		optimizeRunning = true;
+		optimizeError = undefined;
+		optimizeResponse = undefined;
+
+		// Snapshot submitted inputs so the result UI renders against the values
+		// that were actually optimized even if the user edits the form post-run.
+		const submittedParamIds = [...optimizeParamIdsArray];
+		const submittedRanges: Record<string, OptimizeBounds> = {};
+		for (const id of submittedParamIds) {
+			submittedRanges[id] = { ...optimizeBounds[id] };
+		}
+		optimizeSubmittedParamIds = submittedParamIds;
+		optimizeSubmittedRanges = submittedRanges;
+		optimizeSubmittedDirection = optimizeDirection;
+		optimizeSubmittedMetric = optimizeMetric;
+
+		const result = await flowtime.optimize({
+			yaml: modelYaml,
+			paramIds: submittedParamIds,
+			metricSeriesId: optimizeMetric,
+			objective: optimizeDirection,
+			searchRanges: submittedRanges,
+			tolerance: optimizeTolerance,
+			maxIterations: optimizeMaxIterations,
+		});
+		if (result.success && result.value) {
+			optimizeResponse = result.value;
+		} else {
+			optimizeError = result.error ?? 'Optimize failed';
+		}
+		optimizeRunning = false;
 	}
 
 	async function runSensitivity() {
@@ -1275,10 +1408,355 @@
 				{/if}
 
 			{:else if activeTab === 'optimize'}
-				<div class="flex items-center justify-center h-full">
-					<p class="text-xs text-muted-foreground italic">
-						Optimize surface — coming in m-E21-05.
-					</p>
+				<!-- OPTIMIZE TAB (AC2 chip-bar + bounds; AC3–AC5 add metric chips / advanced / results) -->
+				<div class="flex flex-col gap-3" data-testid="optimize-panel">
+					{#if params.length === 0}
+						<p class="text-xs text-muted-foreground italic" data-testid="optimize-empty">
+							No const-kind parameters in this model to optimize over.
+						</p>
+					{:else}
+						<div class="flex flex-col gap-2 border rounded p-2 bg-card" data-testid="optimize-config">
+							<!-- Param chip-bar -->
+							<div class="flex items-center gap-1 flex-wrap text-xs">
+								<span class="text-[10px] text-muted-foreground">Parameters:</span>
+								{#each params as p (p.id)}
+									<button
+										class="rounded px-1.5 py-0.5 text-[10px] {optimizeSelectedParams.has(p.id)
+											? 'bg-foreground text-background font-medium'
+											: 'bg-muted text-muted-foreground hover:bg-accent'}"
+										onclick={() => toggleOptimizeParam(p.id)}
+										data-testid={`optimize-param-chip-${p.id}`}
+									>{p.id}</button>
+								{/each}
+							</div>
+
+							{#if optimizeSelectedParams.size === 0}
+								<div
+									class="flex items-center gap-1 text-[11px] text-muted-foreground italic"
+									data-testid="optimize-no-params-hint"
+								>
+									<AlertCircleIcon class="size-3" />
+									<span>Select at least one parameter to configure bounds.</span>
+								</div>
+							{:else}
+								<div class="overflow-auto">
+									<table class="w-full text-[11px] font-mono" data-testid="optimize-bounds-table">
+										<thead>
+											<tr class="text-muted-foreground text-[10px] border-b">
+												<th class="text-left pr-3 py-0.5 whitespace-nowrap">Parameter</th>
+												<th class="text-right pr-3 py-0.5 whitespace-nowrap">Baseline</th>
+												<th class="text-right pr-3 py-0.5 whitespace-nowrap">lo</th>
+												<th class="text-right pr-3 py-0.5 whitespace-nowrap">hi</th>
+											</tr>
+										</thead>
+										<tbody>
+											{#each params.filter((p) => optimizeSelectedParams.has(p.id)) as p (p.id)}
+												{@const boundErr = optimizeValidation.ok
+													? undefined
+													: optimizeValidation.errors.bounds?.[p.id]}
+												<tr class="border-b border-border/50 last:border-0">
+													<td class="pr-3 py-0.5 tabular-nums whitespace-nowrap">{p.id}</td>
+													<td class="pr-3 py-0.5 text-right tabular-nums whitespace-nowrap">
+														{fmtNum(p.baseline)}
+													</td>
+													<td class="pr-3 py-0.5 text-right">
+														<input
+															type="number"
+															step="any"
+															class="bg-background border-input rounded border px-1.5 py-0.5 text-xs w-24 text-right"
+															data-testid={`optimize-lo-${p.id}`}
+															value={optimizeBounds[p.id]?.lo ?? 0}
+															oninput={(e) =>
+																updateOptimizeBound(
+																	p.id,
+																	'lo',
+																	Number((e.target as HTMLInputElement).value),
+																)}
+														/>
+													</td>
+													<td class="pr-3 py-0.5 text-right">
+														<input
+															type="number"
+															step="any"
+															class="bg-background border-input rounded border px-1.5 py-0.5 text-xs w-24 text-right"
+															data-testid={`optimize-hi-${p.id}`}
+															value={optimizeBounds[p.id]?.hi ?? 0}
+															oninput={(e) =>
+																updateOptimizeBound(
+																	p.id,
+																	'hi',
+																	Number((e.target as HTMLInputElement).value),
+																)}
+														/>
+													</td>
+												</tr>
+												{#if boundErr}
+													<tr>
+														<td
+															colspan="4"
+															class="text-[10px] text-amber-600 dark:text-amber-400 py-0.5 pl-2"
+															data-testid={`optimize-bounds-error-${p.id}`}
+														>
+															{boundErr}
+														</td>
+													</tr>
+												{/if}
+											{/each}
+										</tbody>
+									</table>
+								</div>
+							{/if}
+
+							<!-- Metric + chip shortcuts -->
+							<div class="flex items-center gap-2 text-xs flex-wrap">
+								<label class="flex flex-col gap-0.5">
+									<span class="text-[10px] text-muted-foreground">metricSeriesId</span>
+									<input
+										type="text"
+										class="bg-background border-input rounded border px-1.5 py-0.5 text-xs w-48"
+										data-testid="optimize-metric"
+										bind:value={optimizeMetric}
+									/>
+								</label>
+								<div class="flex flex-wrap items-center gap-1 mt-3">
+									{#if targetSuggestions.length === 0}
+										<span class="text-[10px] text-muted-foreground italic">
+											(type a series id)
+										</span>
+									{:else}
+										<span class="text-[10px] text-muted-foreground">suggested:</span>
+									{/if}
+									{#each [...OPTIMIZE_METRIC_CHIP_SHORTCUTS, ...targetSuggestions] as t (t)}
+										<button
+											class="rounded px-1.5 py-0.5 text-[10px] font-mono {optimizeMetric === t
+												? 'bg-foreground text-background font-medium'
+												: 'bg-muted text-muted-foreground hover:bg-accent'}"
+											data-testid={`optimize-metric-chip-${t}`}
+											onclick={() => (optimizeMetric = t)}
+										>{t}</button>
+									{/each}
+								</div>
+							</div>
+
+							<!-- Direction toggle (default minimize) -->
+							<div class="flex items-center gap-2 text-xs">
+								<span class="text-[10px] text-muted-foreground">Direction:</span>
+								<div class="inline-flex rounded overflow-hidden border border-input" role="group">
+									<button
+										class="px-2 py-0.5 text-[10px] font-medium {optimizeDirection === 'minimize'
+											? 'bg-foreground text-background'
+											: 'bg-muted text-muted-foreground hover:bg-accent'}"
+										aria-pressed={optimizeDirection === 'minimize'}
+										data-testid="optimize-direction-minimize"
+										onclick={() => (optimizeDirection = 'minimize')}
+									>minimize</button>
+									<button
+										class="px-2 py-0.5 text-[10px] font-medium border-l border-input {optimizeDirection === 'maximize'
+											? 'bg-foreground text-background'
+											: 'bg-muted text-muted-foreground hover:bg-accent'}"
+										aria-pressed={optimizeDirection === 'maximize'}
+										data-testid="optimize-direction-maximize"
+										onclick={() => (optimizeDirection = 'maximize')}
+									>maximize</button>
+								</div>
+							</div>
+
+							<!-- Advanced disclosure -->
+							<div class="flex flex-col gap-1 text-xs">
+								<button
+									class="self-start text-[11px] text-muted-foreground hover:text-foreground"
+									onclick={() => (optimizeAdvancedOpen = !optimizeAdvancedOpen)}
+									aria-expanded={optimizeAdvancedOpen}
+									data-testid="optimize-advanced-toggle"
+								>
+									{optimizeAdvancedOpen ? '▼' : '▶'} Advanced
+								</button>
+								{#if optimizeAdvancedOpen}
+									<div
+										class="flex flex-wrap items-end gap-3 pl-2"
+										data-testid="optimize-advanced"
+									>
+										<label class="flex flex-col gap-0.5">
+											<span class="text-[10px] text-muted-foreground">tolerance</span>
+											<input
+												type="number"
+												step="any"
+												class="bg-background border-input rounded border px-1.5 py-0.5 text-xs w-24"
+												data-testid="optimize-tolerance"
+												bind:value={optimizeTolerance}
+											/>
+										</label>
+										<label class="flex flex-col gap-0.5">
+											<span class="text-[10px] text-muted-foreground">maxIterations</span>
+											<input
+												type="number"
+												min="1"
+												class="bg-background border-input rounded border px-1.5 py-0.5 text-xs w-24"
+												data-testid="optimize-max-iterations"
+												bind:value={optimizeMaxIterations}
+											/>
+										</label>
+									</div>
+								{/if}
+							</div>
+
+							<!-- Run button -->
+							<div>
+								<button
+									class="rounded bg-foreground text-background px-2 py-1 text-xs font-medium hover:opacity-90 disabled:opacity-40"
+									onclick={runOptimize}
+									disabled={!canRunOptimize}
+									data-testid="optimize-run"
+								>
+									{#if optimizeRunning}
+										<Loader2Icon class="inline size-3 animate-spin" />
+									{:else}
+										<PlayIcon class="inline size-3" />
+									{/if}
+									Run optimize
+								</button>
+							</div>
+						</div>
+
+						{#if optimizeError}
+							<div
+								class="flex items-center gap-1 text-xs text-destructive"
+								data-testid="optimize-error"
+							>
+								<AlertCircleIcon class="size-3" />
+								<span>{optimizeError}</span>
+							</div>
+						{/if}
+
+						{#if optimizeResponse}
+							{@const resp = optimizeResponse}
+							{@const obadge = resp.converged ? 'converged' : 'did not converge'}
+							{@const otone = resp.converged ? 'teal' : 'amber'}
+							{@const verb = optimizeSubmittedDirection === 'maximize' ? 'maximizing' : 'minimizing'}
+							<AnalysisResultCard
+								title="Optimize result"
+								badge={obadge}
+								badgeTone={otone}
+								meta={[
+									{ label: 'objective', value: `${verb} ${optimizeSubmittedMetric}` },
+									{ label: 'achieved', value: fmtNum(resp.achievedMetricMean) },
+									{ label: 'iterations', value: String(resp.iterations) },
+									{ label: 'tolerance', value: formatResidual(optimizeTolerance) },
+								]}
+							>
+								{#snippet primaryValue()}
+									<span data-testid="optimize-achieved">{fmtNum(resp.achievedMetricMean)}</span>
+									<span class="text-muted-foreground text-xs ml-2 font-sans">
+										← {verb} {optimizeSubmittedMetric}
+									</span>
+								{/snippet}
+								{#snippet footer()}
+									{#if !resp.converged}
+										<div
+											class="flex items-start gap-1 text-[11px] text-amber-600 dark:text-amber-400 border-t pt-1"
+											data-testid="optimize-not-converged-warning"
+										>
+											<AlertCircleIcon class="size-3 mt-0.5 shrink-0" />
+											<span>
+												Nelder-Mead exhausted {resp.iterations} iteration{resp.iterations === 1 ? '' : 's'} without meeting tolerance {formatResidual(optimizeTolerance)}.
+												Increase maxIterations or relax tolerance.
+											</span>
+										</div>
+									{/if}
+								{/snippet}
+							</AnalysisResultCard>
+
+							<!-- Per-param result table: paramId / final value / [lo, hi] text / range bar -->
+							<div class="flex flex-col gap-1 border rounded p-2 bg-card">
+								<span class="text-xs font-semibold">Per-parameter result</span>
+								<div class="overflow-auto">
+									<table class="w-full text-[11px] font-mono" data-testid="optimize-param-table">
+										<thead>
+											<tr class="text-muted-foreground text-[10px] border-b">
+												<th class="text-left pr-3 py-0.5 whitespace-nowrap">Parameter</th>
+												<th class="text-right pr-3 py-0.5 whitespace-nowrap">Final value</th>
+												<th class="text-left pr-3 py-0.5 whitespace-nowrap">[lo, hi]</th>
+												<th class="text-left py-0.5 whitespace-nowrap">Range</th>
+											</tr>
+										</thead>
+										<tbody>
+											{#each optimizeSubmittedParamIds as pid (pid)}
+												{@const range = optimizeSubmittedRanges[pid]}
+												{@const final = resp.paramValues[pid]}
+												{@const geom = range
+													? intervalMarkerGeometry({
+															lo: range.lo,
+															hi: range.hi,
+															value: final,
+															width: OPTIMIZE_RANGE_BAR_WIDTH,
+														})
+													: { ok: false as const }}
+												<tr
+													class="border-b border-border/50 last:border-0"
+													data-testid={`optimize-param-row-${pid}`}
+												>
+													<td class="pr-3 py-0.5 tabular-nums whitespace-nowrap">{pid}</td>
+													<td
+														class="pr-3 py-0.5 text-right tabular-nums whitespace-nowrap"
+														data-testid={`optimize-param-final-${pid}`}
+													>{fmtNum(final)}</td>
+													<td
+														class="pr-3 py-0.5 tabular-nums whitespace-nowrap"
+														data-testid={`optimize-param-bounds-${pid}`}
+													>[{fmtNum(range.lo)}, {fmtNum(range.hi)}]</td>
+													<td class="py-0.5">
+														{#if geom.ok}
+															<svg
+																width={OPTIMIZE_RANGE_BAR_WIDTH}
+																height="14"
+																viewBox="0 0 {OPTIMIZE_RANGE_BAR_WIDTH} 14"
+																role="img"
+																aria-label="range bar for {pid}"
+																data-testid={`optimize-range-bar-${pid}`}
+															>
+																<line
+																	x1={geom.barStart}
+																	x2={geom.barEnd}
+																	y1="7"
+																	y2="7"
+																	stroke="var(--muted-foreground)"
+																	stroke-width="2"
+																	opacity="0.6"
+																/>
+																<circle cx={geom.barStart} cy="7" r="2" fill="var(--muted-foreground)" />
+																<circle cx={geom.barEnd} cy="7" r="2" fill="var(--muted-foreground)" />
+																<line
+																	x1={geom.markerX}
+																	x2={geom.markerX}
+																	y1="1"
+																	y2="13"
+																	stroke={resp.converged ? 'var(--ft-viz-teal)' : 'var(--ft-viz-amber)'}
+																	stroke-width="2"
+																	data-testid={`optimize-range-marker-${pid}`}
+																/>
+															</svg>
+														{/if}
+													</td>
+												</tr>
+											{/each}
+										</tbody>
+									</table>
+								</div>
+							</div>
+
+							<!-- Convergence chart (no target ref line for optimize) -->
+							<div class="flex flex-col gap-1 border rounded p-2 bg-card">
+								<span class="text-xs font-semibold">Convergence</span>
+								<ConvergenceChart
+									trace={optimizeConvergenceTrace}
+									converged={resp.converged}
+									yLabel="{verb} {optimizeSubmittedMetric}"
+									width={520}
+									height={180}
+								/>
+							</div>
+						{/if}
+					{/if}
 				</div>
 			{/if}
 		</div>
