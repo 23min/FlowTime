@@ -155,7 +155,7 @@ The token architecture must make major theme changes easy:
 | m-E21-02-metric-selector-edge-cards | Metric Selector & Edge Cards | Metric chip bar, edge click-to-pin, edge cards, class filter | **complete** (merged 2026-04-17) |
 | m-E21-03-sweep-sensitivity | Sweep & Sensitivity Surfaces | `/analysis` route with tabs, sweep config + results, sensitivity bar chart | **complete** (merged 2026-04-17; ultrareview follow-ups 2026-04-20) |
 | m-E21-04-goal-seek | Goal Seek Surface | Goal-seek panel, shared convergence chart + result card, `trace` on `/v1/goal-seek` and `/v1/optimize` (per D-2026-04-21-034) | **complete** (2026-04-22) |
-| m-E21-05-optimize | Optimize Surface | N-param Nelder-Mead surface reusing shared convergence chart + result card from m-E21-04; per-param range table | not started |
+| m-E21-05-optimize | Optimize Surface | N-param Nelder-Mead surface reusing shared convergence chart + result card from m-E21-04; per-param range table | **in-progress** (branch `milestone/m-E21-05-optimize`, started 2026-04-22) |
 | m-E21-06-heatmap-view | Heatmap View | Nodes-x-bins grid, row sorting, click-to-jump, view switcher (topology/heatmap) | not started |
 | m-E21-07-validation-surface | Validation Surface & Model Health | Tiered validation display, warning badges on topology, warning list in workbench | not started |
 | m-E21-08-polish | Visual Polish & Dark Mode QA | Transitions, elevation audit, dark mode audit, loading skeletons, accessibility | not started |
