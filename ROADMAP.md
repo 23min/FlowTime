@@ -83,7 +83,9 @@ Transform the Svelte UI from a Blazor-parallel clone into the primary platform f
 - m-E21-03: Sweep & Sensitivity Surfaces — `/analysis` route with tabs, sweep config + results, sensitivity bar chart (merged 2026-04-17; ultrareview follow-ups 2026-04-20)
 - m-E21-04: Goal Seek Surface — goal-seek panel on `/analysis`, shared `AnalysisResultCard` + `ConvergenceChart` components, additive `trace` on `/v1/goal-seek` and `/v1/optimize` per D-2026-04-21-034 (completed 2026-04-22)
 
-**Remaining:** m-E21-05 Optimize Surface, m-E21-06 Heatmap View, m-E21-07 Validation Surface, m-E21-08 Polish.
+**Active milestone:** m-E21-05 Optimize Surface — N-param Nelder-Mead surface reusing shared `AnalysisResultCard` + `ConvergenceChart` from m-E21-04; per-param bounds table + range bars; new `flowtime.optimize(...)` client; sibling `optimize-helpers.ts` module (started 2026-04-22, branch `milestone/m-E21-05-optimize`).
+
+**Remaining:** m-E21-06 Heatmap View, m-E21-07 Validation Surface, m-E21-08 Polish.
 
 ## E-19 — Surface Alignment & Compatibility Cleanup (completed)
 
