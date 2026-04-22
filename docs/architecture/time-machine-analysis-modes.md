@@ -161,11 +161,19 @@ Find the const-node parameter value that drives a metric to a target, via bisect
   "paramValue": 147.3,
   "achievedMetricMean": 0.800001,
   "converged": true,
-  "iterations": 23
+  "iterations": 23,
+  "trace": [
+    { "iteration": 0, "paramValue": 10.0,  "metricMean": 0.42, "searchLo": 10.0,  "searchHi": 200.0 },
+    { "iteration": 0, "paramValue": 200.0, "metricMean": 0.95, "searchLo": 10.0,  "searchHi": 200.0 },
+    { "iteration": 1, "paramValue": 105.0, "metricMean": 0.71, "searchLo": 105.0, "searchHi": 200.0 },
+    { "iteration": 2, "paramValue": 152.5, "metricMean": 0.81, "searchLo": 105.0, "searchHi": 152.5 }
+  ]
 }
 ```
 
 `converged: false` when the target is not bracketed by the metric values at `searchLo`/`searchHi`, or when `maxIterations` is exhausted. In both cases `paramValue` is the best approximation found.
+
+`trace` (added per D-2026-04-21-034) records the full bisection history: two `iteration: 0` entries for the initial boundary evaluations (`searchLo`, then `searchHi`), followed by one entry per bisection step with `iteration: 1..N`. Each bisection entry's `searchLo` / `searchHi` are the **post-step** bracket — the narrowed range going into the next iteration. `metricMean` is the unsigned mean at that `paramValue`. When `converged: false, iterations: 0` (target not bracketed), `trace` contains only the two boundary entries.
 
 ---
 
@@ -197,11 +205,18 @@ Find the parameter values that minimize or maximize a metric mean using Nelder-M
   "paramValues": { "arrivals": 147.2, "capacity": 8.0 },
   "achievedMetricMean": 0.751,
   "converged": true,
-  "iterations": 42
+  "iterations": 42,
+  "trace": [
+    { "iteration": 0, "paramValues": { "arrivals": 105.0, "capacity": 16.5 }, "metricMean": 0.902 },
+    { "iteration": 1, "paramValues": { "arrivals": 128.4, "capacity": 12.1 }, "metricMean": 0.834 },
+    { "iteration": 2, "paramValues": { "arrivals": 141.7, "capacity":  9.8 }, "metricMean": 0.790 }
+  ]
 }
 ```
 
 `converged: false` when `maxIterations` is exhausted before the simplex f-value spread falls below `tolerance`. `paramValues` is always the best point found.
+
+`trace` (added per D-2026-04-21-034) records the simplex's best vertex per iteration: one pre-loop entry as `iteration: 0` (post-sort, before the main loop), then one per main-loop iteration (post-sort) as `iteration: 1..N`. `paramValues` is the current best vertex (`simplex[0]`) and `metricMean` is its **unsigned** mean — the internal minimize-sign flip is reversed at record time so maximize runs still emit positive metrics. Trace length equals `iterations + 1` on every return path (pre-loop convergence → single entry; main-loop convergence or max-iterations exhausted → `iterations + 1`). The per-evaluation probe log (reflection / expansion / contraction / shrink intermediate vertices) is intentionally not exposed.
 
 **Algorithm:** Nelder-Mead simplex (α=1, γ=2, ρ=0.5, σ=0.5). Initial simplex: midpoint of all ranges as v[0]; each subsequent vertex perturbs one dimension by +5% of its range. Convergence criterion: `|f(worst) − f(best)| < tolerance` where f is the signed metric mean (negated for maximize). All vertices are clamped to their search ranges throughout.
 

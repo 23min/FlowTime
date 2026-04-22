@@ -2,6 +2,8 @@
 
 [![Build](https://github.com/23min/FlowTime/actions/workflows/build.yml/badge.svg)](https://github.com/23min/FlowTime/actions/workflows/build.yml)
 ![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
+![doc-health](docs/badges/doc-health.svg)
+![doc-correctness](docs/badges/doc-correctness.svg)
 
 FlowTime is a modeling engine for service flows. You describe a system — services, queues, arrival patterns, dependencies, capacity — and FlowTime computes what happens over time: where work accumulates, when queues grow, how delays propagate, and why.
 

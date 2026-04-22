@@ -30,14 +30,14 @@ The UI paradigm proposal (`work/epics/unplanned/ui-workbench/reference/ui-paradi
 
 - **E-11 M5** (Inspector & Feature Bar) — evolves into m-E21-01/02 workbench paradigm
 - **E-11 M7** (Dashboard) — deferred; workbench + heatmap cover the same ground better
-- **E-11 M8** (Polish) — absorbed into m-E21-07
+- **E-11 M8** (Polish) — absorbed into m-E21-08
 
 E-11 remains paused at M6 as a completed historical track.
 
 ### Relationship to other unplanned epics
 
 - **UI Workbench & Topology Refinement** (`work/epics/unplanned/ui-workbench/spec.md`) — m-E21-01 and m-E21-02 implement its goals (G1-G5)
-- **UI Analytical Views** (`work/epics/unplanned/ui-analytical-views/spec.md`) — m-E21-05 delivers the heatmap view; decomposition and comparison views are future extensions
+- **UI Analytical Views** (`work/epics/unplanned/ui-analytical-views/spec.md`) — m-E21-06 delivers the heatmap view; decomposition and comparison views are future extensions
 - **Expert Authoring Surface** (`work/epics/unplanned/expert-authoring-surface/spec.md`) — not in E-21 scope; depends on E-21's workbench and validation surface being in place
 
 ## Scope
@@ -117,7 +117,7 @@ The token architecture must make major theme changes easy:
 
 ## Constraints
 
-- .NET 9 backend APIs are the source of truth. Svelte UI is primarily a consumer. Per D-2026-04-17-033, E-21 may add **read-only run-adjacent endpoints** that strictly serve already-persisted run artifacts (e.g. `GET /v1/runs/{runId}/model`). Authoring, orchestration, compute, and write-path endpoints remain out of scope and need their own decision record if ever proposed.
+- .NET 9 backend APIs are the source of truth. Svelte UI is primarily a consumer. Two explicit carve-outs are admitted: (1) per **D-2026-04-17-033**, E-21 may add **read-only run-adjacent endpoints** that strictly serve already-persisted run artifacts (e.g. `GET /v1/runs/{runId}/model`); (2) per **D-2026-04-21-034**, E-21 may extend existing compute-endpoint response shapes with **additive** fields that expose state the endpoint already computes internally (specifically the `trace` field on `/v1/goal-seek` and `/v1/optimize`). Authoring, orchestration, new compute endpoints, write-path endpoints, and non-additive shape changes to existing compute endpoints remain out of scope and need their own decision record if ever proposed.
 - dag-map enhancements must remain general-purpose (not FlowTime-specific API)
 - Existing what-if page (E-17) must continue working after workbench changes
 - Existing run orchestration (E-11 M6) must continue working
@@ -154,10 +154,11 @@ The token architecture must make major theme changes easy:
 | m-E21-01-workbench-foundation | Workbench Foundation | Density system, dag-map events (library), topology as navigation (one color dimension), workbench panel with click-to-pin node cards | **complete** (merged 2026-04-17) |
 | m-E21-02-metric-selector-edge-cards | Metric Selector & Edge Cards | Metric chip bar, edge click-to-pin, edge cards, class filter | **complete** (merged 2026-04-17) |
 | m-E21-03-sweep-sensitivity | Sweep & Sensitivity Surfaces | `/analysis` route with tabs, sweep config + results, sensitivity bar chart | **complete** (merged 2026-04-17; ultrareview follow-ups 2026-04-20) |
-| m-E21-04-goal-seek-optimize | Goal Seek & Optimization Surfaces | Goal-seek panel, optimization panel, convergence chart, result summary | not started |
-| m-E21-05-heatmap-view | Heatmap View | Nodes-x-bins grid, row sorting, click-to-jump, view switcher (topology/heatmap) | not started |
-| m-E21-06-validation-surface | Validation Surface & Model Health | Tiered validation display, warning badges on topology, warning list in workbench | not started |
-| m-E21-07-polish | Visual Polish & Dark Mode QA | Transitions, elevation audit, dark mode audit, loading skeletons, accessibility | not started |
+| m-E21-04-goal-seek | Goal Seek Surface | Goal-seek panel, shared convergence chart + result card, `trace` on `/v1/goal-seek` and `/v1/optimize` (per D-2026-04-21-034) | **complete** (2026-04-22) |
+| m-E21-05-optimize | Optimize Surface | N-param Nelder-Mead surface reusing shared convergence chart + result card from m-E21-04; per-param range table | not started |
+| m-E21-06-heatmap-view | Heatmap View | Nodes-x-bins grid, row sorting, click-to-jump, view switcher (topology/heatmap) | not started |
+| m-E21-07-validation-surface | Validation Surface & Model Health | Tiered validation display, warning badges on topology, warning list in workbench | not started |
+| m-E21-08-polish | Visual Polish & Dark Mode QA | Transitions, elevation audit, dark mode audit, loading skeletons, accessibility | not started |
 
 ## ADRs
 

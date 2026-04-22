@@ -22,15 +22,23 @@ public sealed class GoalSeeker
     {
         ArgumentNullException.ThrowIfNull(spec);
 
-        // Evaluate at both boundaries
+        // Trace buffer — bounded by 2 boundary entries + MaxIterations bisection steps
+        // (per D-2026-04-21-034). Pre-size to the upper bound to avoid List growth.
+        var trace = new List<GoalSeekTracePoint>(capacity: spec.MaxIterations + 2);
+
+        // Evaluate at both boundaries — both iteration:0 entries carry the spec's
+        // original (searchLo, searchHi) bracket.
         var meanLo = await EvaluateMeanAsync(spec, spec.SearchLo, cancellationToken).ConfigureAwait(false);
+        trace.Add(new GoalSeekTracePoint(0, spec.SearchLo, meanLo, spec.SearchLo, spec.SearchHi));
+
         var meanHi = await EvaluateMeanAsync(spec, spec.SearchHi, cancellationToken).ConfigureAwait(false);
+        trace.Add(new GoalSeekTracePoint(0, spec.SearchHi, meanHi, spec.SearchLo, spec.SearchHi));
 
         // Check if target is already hit at a boundary
         if (Math.Abs(meanLo - spec.Target) < spec.Tolerance)
-            return Converged(spec.SearchLo, meanLo, 0);
+            return Converged(spec.SearchLo, meanLo, 0, trace);
         if (Math.Abs(meanHi - spec.Target) < spec.Tolerance)
-            return Converged(spec.SearchHi, meanHi, 0);
+            return Converged(spec.SearchHi, meanHi, 0, trace);
 
         // Check if target is bracketed (one side above, one side below)
         var loResidual = meanLo - spec.Target;
@@ -41,7 +49,7 @@ public sealed class GoalSeeker
             // Target not bracketed — return the closer endpoint
             var closerParam = Math.Abs(loResidual) <= Math.Abs(hiResidual) ? spec.SearchLo : spec.SearchHi;
             var closerMean = Math.Abs(loResidual) <= Math.Abs(hiResidual) ? meanLo : meanHi;
-            return NotConverged(closerParam, closerMean, 0);
+            return NotConverged(closerParam, closerMean, 0, trace);
         }
 
         // Bisection
@@ -57,7 +65,13 @@ public sealed class GoalSeeker
             var midMean = await EvaluateMeanAsync(spec, mid, cancellationToken).ConfigureAwait(false);
 
             if (Math.Abs(midMean - spec.Target) < spec.Tolerance)
-                return Converged(mid, midMean, iteration);
+            {
+                // Post-step bracket: target hit at mid — no narrowing happens past this point,
+                // but the recorded bracket is the pre-narrow bracket (still correct:
+                // mid ∈ [lo, hi]).
+                trace.Add(new GoalSeekTracePoint(iteration, mid, midMean, lo, hi));
+                return Converged(mid, midMean, iteration, trace);
+            }
 
             // Narrow the bracket
             var midResidual = midMean - spec.Target;
@@ -71,12 +85,15 @@ public sealed class GoalSeeker
                 hi = mid;
             }
 
+            // Record AFTER narrowing — per-spec semantics (post-step bracket).
+            trace.Add(new GoalSeekTracePoint(iteration, mid, midMean, lo, hi));
+
             if (iteration == spec.MaxIterations)
-                return NotConverged(mid, midMean, iteration);
+                return NotConverged(mid, midMean, iteration, trace);
         }
 
         // Unreachable — MaxIterations >= 1 is enforced by spec
-        return NotConverged((lo + hi) / 2.0, double.NaN, spec.MaxIterations);
+        return NotConverged((lo + hi) / 2.0, double.NaN, spec.MaxIterations, trace);
     }
 
     private async Task<double> EvaluateMeanAsync(
@@ -99,9 +116,25 @@ public sealed class GoalSeeker
         return values.Average();
     }
 
-    private static GoalSeekResult Converged(double param, double mean, int iterations) =>
-        new() { ParamValue = param, AchievedMetricMean = mean, Converged = true, Iterations = iterations };
+    private static GoalSeekResult Converged(
+        double param, double mean, int iterations, List<GoalSeekTracePoint> trace) =>
+        new()
+        {
+            ParamValue = param,
+            AchievedMetricMean = mean,
+            Converged = true,
+            Iterations = iterations,
+            Trace = trace,
+        };
 
-    private static GoalSeekResult NotConverged(double param, double mean, int iterations) =>
-        new() { ParamValue = param, AchievedMetricMean = mean, Converged = false, Iterations = iterations };
+    private static GoalSeekResult NotConverged(
+        double param, double mean, int iterations, List<GoalSeekTracePoint> trace) =>
+        new()
+        {
+            ParamValue = param,
+            AchievedMetricMean = mean,
+            Converged = false,
+            Iterations = iterations,
+            Trace = trace,
+        };
 }

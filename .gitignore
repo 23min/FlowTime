@@ -95,3 +95,6 @@ local.settings.json
 .github/copilot-instructions.md
 .github/skills/
 .claude/rules/ai-framework.md
+.claude/statusline.sh
+.codex/instructions.md
+.ai-repo/.framework-sync-sha

@@ -8,6 +8,17 @@ Keep it assistant-neutral.
 Generated assistant adapter files under `.github/` and `.claude/` are local build outputs by default.
 Keep their source of truth in `.ai/` and `.ai-repo/`, and regenerate them locally with `bash .ai/sync.sh`.
 
+## Session Start
+
+At the start of every session, pick up accumulated context:
+
+- `work/decisions.md` — shared decision log across all agents
+- `work/agent-history/<role>.md` — your role's accumulated learnings (read only the file matching the active agent)
+- `work/gaps.md` — deferred work items
+- `## Current Work` section below — active epic + milestone
+
+After `/compact` or a fresh session, this file is re-available via the system prompt. If rules or project config changed mid-session, say **"refresh context"** to trigger a full re-read (see generated adapter files for the full refresh checklist).
+
 ## Hard Rules (summary — full rules in `.ai/rules.md`)
 
 - **NEVER commit or push without explicit human approval** — "continue" / "ok" do not count
@@ -22,10 +33,10 @@ Keep their source of truth in `.ai/` and `.ai-repo/`, and regenerate them locall
 
 | Intent | Agent | Read first |
 |--------|-------|------------|
-| build, implement, code, start, fix, patch | **builder** | `.ai/agents/builder.md` + relevant skill |
-| plan, design, scope, epic, architecture | **planner** | `.ai/agents/planner.md` + relevant skill |
-| review, check, validate, wrap, finish | **reviewer** | `.ai/agents/reviewer.md` + relevant skill |
-| release, deploy, tag, publish | **deployer** | `.ai/agents/deployer.md` + relevant skill |
+| build, implement, code, start, fix, patch | **builder** | `.claude/agents/builder.md` + relevant skill |
+| plan, design, scope, epic, architecture | **planner** | `.claude/agents/planner.md` + relevant skill |
+| review, check, validate, wrap, finish | **reviewer** | `.claude/agents/reviewer.md` + relevant skill |
+| release, deploy, tag, publish | **deployer** | `.claude/agents/deployer.md` + relevant skill |
 
 ## Framework Sources
 
@@ -33,8 +44,8 @@ Keep their source of truth in `.ai/` and `.ai-repo/`, and regenerate them locall
 |--------|---------|
 | `.ai/rules.md` | Full rules and enforcement levels |
 | `.ai/paths.md` | Artifact layout defaults |
-| `.ai/agents/` | Agent definitions (→ `.claude/agents/`, `.github/chatmodes/`) |
-| `.ai/skills/` | Skill workflows (→ `.claude/skills/`, `.github/skills/`) |
+| `.ai/agents/` | Agent source definitions (generated into `.claude/agents/` — read those at invocation time) |
+| `.ai/skills/` | Skill source workflows (generated into `.claude/skills/` and `.github/skills/`) |
 | `.ai/templates/` | Document templates |
 | `.ai-repo/rules/` | **Project-specific rules** — read before starting work |
 | `.ai-repo/config/` | Artifact layout overrides |
@@ -54,8 +65,8 @@ These values are resolved from framework defaults in .ai/paths.md and repo overr
 | `completedEpicPathTemplate` | `work/epics/completed/<epic>/` | Completed epic archive template |
 | `epicIdPattern` | `E-{NN}` | Epic ID naming pattern |
 | `milestoneIdPattern` | `m-E{NN}-<MM>-<slug>` | Milestone ID naming pattern |
-| `frameworkSkillPrefix` | `wf` | Prefix for framework skill slash-commands (e.g. `wf:patch`) |
-| `repoSkillPrefix` | `` | Prefix for repo-specific skill slash-commands (e.g. `wf-li:app-legibility`) |
+| `frameworkSkillPrefix` | `wf` | Prefix for framework skill slash-commands (e.g. `/wf-patch`) |
+| `repoSkillPrefix` | `` | Prefix for repo-specific skill slash-commands (e.g. `/wf-li-app-legibility`) |
 
 ## Project-Specific Rules
 
@@ -225,11 +236,12 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
   - **m-E21-01** (complete, merged to epic): Workbench Foundation — density system, dag-map events (library), workbench panel with click-to-pin node cards. 217 vitest + 293 dag-map tests.
   - **m-E21-02** (complete, merged to epic): Metric Selector & Edge Cards — metric chip bar, edge click-to-pin, edge cards, class filter, custom TimelineScrubber, dark-mode/viz-palette fixes. 323 vitest + 293 dag-map = 616 tests.
   - **m-E21-03** (complete, merged to epic 2026-04-17; ultrareview follow-ups 2026-04-20): Sweep & Sensitivity Surfaces — `/analysis` route with tabbed surfaces, sweep config + results, sensitivity bar chart. 433 vitest + 293 dag-map = 726 tests; 8 Playwright specs. D-2026-04-17-033 ratifies the `GET /v1/runs/{runId}/model` backend carve-out.
-  - **m-E21-04** (next): Goal Seek & Optimize — goal-seek panel, optimization panel, convergence chart, result summary.
-  - 7 milestones: workbench foundation → metric selector + edge cards → sweep/sensitivity → goal-seek/optimize → heatmap view → validation surface → polish.
+  - **m-E21-04** (complete, ready to merge to epic 2026-04-22; branch `milestone/m-E21-04-goal-seek-optimize`, started 2026-04-21; **scope split 2026-04-21** — Optimize moved to m-E21-05): Goal Seek Surface — goal-seek panel on `/analysis`, shared `AnalysisResultCard` + `ConvergenceChart` components (pure-SVG with geometry siblings), `interval-bar-geometry` for search-interval visualization, new `flowtime.goalSeek(...)` client method. Backend `trace` on both `/v1/goal-seek` and `/v1/optimize` per **D-2026-04-21-034** (backend landed in commit `29ac3e9`; optimize trace ready for m-E21-05). 482 vitest (+49 new) + 293 dag-map = 775 tests; 8 Playwright passing / 1 pre-existing env flake. Full branch-coverage audit (backend + UI) in tracking doc.
+  - **m-E21-05** (upcoming): Optimize Surface — N-param Nelder-Mead surface reusing shared components from m-E21-04; per-param range table.
+  - 8 milestones (was 7 before split): workbench foundation → metric selector + edge cards → sweep/sensitivity → goal-seek → optimize → heatmap view → validation surface → polish.
   - Absorbs E-11 M5/M7/M8 under workbench paradigm. Svelte is the platform for new surfaces; Blazor is maintenance-only.
 - **E-11** Svelte UI — paused after M6; absorbed into E-21
-  - M1-M4 + M6 done. M5 (Inspector) → E-21 workbench. M7 (Dashboard) → deferred. M8 (Polish) → E-21 m-E21-07.
+  - M1-M4 + M6 done. M5 (Inspector) → E-21 workbench. M7 (Dashboard) → deferred. M8 (Polish) → E-21 m-E21-08.
 - **E-12–E-15:** planned, not started. E-15 is on critical path for client-telemetry vision.
 - **E-22** Time Machine: Model Fit & Chunked Evaluation (`work/epics/E-22-model-fit-chunked-evaluation/spec.md`) — **planning**
   - Carries the remaining E-18 scope forward: model fit against real telemetry (`POST /v1/fit`), chunked evaluation (Rust `chunk_step` protocol + `POST /v1/chunked-eval`), and the `FlowTime.Pipeline` embeddable SDK wrapper.

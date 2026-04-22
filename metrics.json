@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-04-22T12:00:00Z",
+  "source_sha": "831b0a3",
+  "metrics": {
+    "doc_health": {
+      "score": 81,
+      "components": {
+        "freshness": 1.00,
+        "reference_integrity": 0.95,
+        "decision_currency": 1.00,
+        "orphan_rate": 0.957,
+        "coverage": 0.146,
+        "conflict_rate": 1.00
+      },
+      "components_source": {
+        "freshness": "full@831b0a3",
+        "reference_integrity": "full@831b0a3 (estimate, not exhaustively verified)",
+        "decision_currency": "full@831b0a3",
+        "orphan_rate": "full@831b0a3",
+        "coverage": "full@831b0a3",
+        "conflict_rate": "full@831b0a3"
+      },
+      "sweep_mode": "full",
+      "findings_count": 8,
+      "index_path": "docs/index.md",
+      "total_docs": 93,
+      "notes": "First bootstrap run. Coverage score (0.146) is held down by shallow section-level indexing — 18/93 docs have populated sections, remainder have placeholder. Primary lever for next garden pass."
+    }
+  }
+}
