@@ -3,8 +3,9 @@
 **ID:** m-E21-04-goal-seek
 **Branch:** `milestone/m-E21-04-goal-seek-optimize` (pre-existing; intentionally not renamed — see Notes)
 **Epic:** E-21 — Svelte Workbench & Analysis Surfaces
-**Status:** in progress
+**Status:** complete
 **Started:** 2026-04-21
+**Completed:** 2026-04-22
 
 ## Goal
 
@@ -230,4 +231,4 @@ The `trace` extension on `/v1/optimize` is owned by this milestone's backend AC 
 
 ## Coverage Notes
 
-(Filled at wrap time — follow m-E21-03's structure: pure-logic tests, component rendering covered by Playwright, defensive / unreachable branches documented, and the five goal-seek return paths + two optimize exit paths each matched to a named xUnit test.)
+See `m-E21-04-goal-seek-tracking.md` sections "Phase 1 — Branch-coverage audit" (backend) and "Coverage Notes → UI pass" (frontend) for the full line-by-line audit. Each reachable branch is matched to a named xUnit / vitest / Playwright test; defensive / unreachable branches are enumerated with rationale.

@@ -3,7 +3,8 @@
 **Milestone:** m-E21-04-goal-seek
 **Branch:** milestone/m-E21-04-goal-seek-optimize (pre-existing; intentionally unchanged after the split — see spec Notes)
 **Started:** 2026-04-21
-**Status:** in progress
+**Completed:** 2026-04-22
+**Status:** complete
 
 ## Scope Recap
 
@@ -387,6 +388,48 @@ The following branches are documented rather than exercised by a dedicated test.
 - **D-2026-04-21-034** (appended to `work/decisions.md` at start-milestone commit `5988f5c`) — Additive `trace` field on `/v1/goal-seek` and `/v1/optimize` response shapes. Requests unchanged. Scope covers both endpoints; the split does not require a new decision. Implementation landed in commit `29ac3e9`.
 - **Prior carve-out still in force:** D-2026-04-17-033 (read-only run-adjacent endpoints) — the `GET /v1/runs/{runId}/model` and any similar reads used by Goal Seek inherit this admission; no new admission is needed for them.
 
+## Doc findings
+
+Scoped `doc-lint` sweep at wrap (2026-04-22 13:30) over the milestone change-set (`5988f5c..HEAD`, 40 files, 2 docs touched by endpoint references).
+
+- **doc_health:** 81 → 81 (Δ 0) — scoped denominators loose per bootstrap metrics; no component recomputed at scoped precision.
+- **Findings:** 1 (1 fix-now, 0 gap)
+
+### Contract drift — `/v1/goal-seek` and `/v1/optimize` response examples missing `trace`
+
+- **Finding:** `docs/architecture/time-machine-analysis-modes.md` (lines ~158-166 goal-seek, ~194-202 optimize) showed response examples without the additive `trace` field added under D-2026-04-21-034.
+- **Resolution:** **fix-now** at the human gate. Both response examples extended in-place with representative `trace` entries (boundary + bisection steps for goal-seek; pre-loop + per-iteration best-vertex entries for optimize). Each response block gained a short trace-semantics paragraph pointing readers at D-2026-04-21-034 and the milestone spec for authoritative detail. Fix landed in the same wrap commit as the status-surface updates.
+- **Rationale (fix-now over gap):** the human explicitly gated on this finding at wrap time. The drift is a correctness signal — the doc describes current API shape, the shape just expanded — and deferring it to an unscheduled `doc-garden` pass was the wrong default. The fix is one file, the content is mechanical once the trace shape is known (the milestone spec has it), and resolving it at the moment of introduction keeps `docs/` honest.
+- **Follow-up (process):** filed `23min/ai-workflow#18` to promote contract-drift and removed-feature-doc findings to an explicit per-finding human gate inside `wrap-milestone` Step 3, instead of letting the subagent default to gap/dismiss.
+
+### Other checks — clean
+
+- No superseded-decision citations by docs touched by the change-set.
+- No removed-feature documentation (no code deletions).
+- `docs/notes/ui-optimization-explorer-vision.md` mentions optimize but is an exploration note, not contract truth.
+
 ## Completion
 
-(Filled at wrap — merge commit SHA, Playwright run summary, any deferred follow-ups.)
+- **Completed:** 2026-04-22
+- **Commits (milestone branch → epic branch):**
+  - `5988f5c` docs(e21): start m-E21-04 Goal Seek & Optimize; add D-2026-04-21-034
+  - `29ac3e9` feat(api): add trace field to /v1/goal-seek and /v1/optimize responses (m-E21-04 phase 1)
+  - `8bd407a` docs(e21): split m-E21-04 into Goal Seek + new m-E21-05 Optimize
+  - `3dd7ef2` chore(framework): bump .ai to 74248e6; apply migrations
+  - `ed57a4b` feat(ui): m-E21-04 Goal Seek surface on /analysis
+  - `831b0a3` chore(framework): bump .ai to 8d11b1d; apply migrations
+  - `5b994f6` chore(framework): bump .ai to 4e595f6; split doc-gardening into doc-lint + doc-garden
+  - `f67dff4` chore(docs): bootstrap doc-lint index + log + metrics
+  - `1aa758e` chore(docs): add doc-health + doc-correctness README badges
+- **Validation:**
+  - .NET full suite: 1,729 passed / 9 skipped / 0 failed (two flakes — `SessionModelEvaluatorIntegrationTests.Dispose_TerminatesSubprocess`, `M15PerformanceTests.Test_ExpressionType_Performance` — pre-existing timing flakes under full-suite load; both pass on isolated re-run).
+  - vitest: 482 passed / 0 failed across 20 files.
+  - Playwright `svelte-analysis.spec.ts`: 8 passed / 1 pre-existing env flake (`can run sweep when parameters are available` — bundled `warehouse-picker-waves` uses `servicewithbuffer` kind that the session engine rejects; reproduces on main, documented in Coverage Notes #10).
+  - Scoped doc-lint sweep: 1 finding → gap. See `Doc findings` section above.
+- **Deferrals:** (none) — the architecture-doc contract drift surfaced by scoped doc-lint was resolved as fix-now in this wrap commit (see `Doc findings` above).
+- **Reviewer notes:**
+  - Framework / doc-infra chore commits (`3dd7ef2`, `831b0a3`, `5b994f6`, `f67dff4`, `1aa758e`) rode the milestone branch because they happened during the work window; they are additive and independent of milestone semantics. The merge commit message calls this out.
+  - Branch name keeps the pre-split `milestone/m-E21-04-goal-seek-optimize` form — documented in the spec Notes and tracking doc header.
+  - Optimize-surface consumers of the shared components (`analysis-result-card.svelte`, `convergence-chart.svelte`, `interval-bar-geometry.ts`) and of the optimize `trace` backend field are deferred to m-E21-05 by design.
+- **Decisions made during implementation:**
+  - 2026-04-21 — Split `m-E21-04-goal-seek-optimize` into `m-E21-04-goal-seek` + new `m-E21-05-optimize` after Phase 1 backend landed. Heatmap / Validation / Polish renumbered to 06 / 07 / 08. Rationale: 16 ACs across backend + shared components + two surfaces was too large; Phase 1 / Phase 2 sub-phasing was a smell. Phase 1 backend commit (`29ac3e9`) stays on this milestone because it covers both endpoints under the same decision record (D-2026-04-21-034).
