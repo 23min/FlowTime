@@ -2,10 +2,11 @@
 
 **ID:** m-E21-05-optimize
 **Epic:** E-21 — Svelte Workbench & Analysis Surfaces
-**Status:** in-progress
+**Status:** complete
 **Created:** 2026-04-21 (split from m-E21-04)
 **Started:** 2026-04-22
-**Branch:** `milestone/m-E21-05-optimize` (branched from `epic/E-21-svelte-workbench-and-analysis` at commit `8c4898f`)
+**Completed:** 2026-04-22
+**Branch:** `milestone/m-E21-05-optimize` (branched from `epic/E-21-svelte-workbench-and-analysis` at commit `8c4898f`); merged to epic 2026-04-22 in commit `a94fc66`
 
 ## Goal
 

@@ -1,10 +1,10 @@
 # Optimize Surface — Tracking
 
 **Started:** 2026-04-22
-**Completed:** pending
-**Branch:** `milestone/m-E21-05-optimize` (branched from `epic/E-21-svelte-workbench-and-analysis` at commit `8c4898f`)
+**Completed:** 2026-04-22
+**Branch:** `milestone/m-E21-05-optimize` (branched from `epic/E-21-svelte-workbench-and-analysis` at commit `8c4898f`); merged to epic 2026-04-22 in commit `a94fc66`
 **Spec:** `work/epics/E-21-svelte-workbench-and-analysis/m-E21-05-optimize.md`
-**Commits:** `f25d807` (start) · `65f4405` (AC1–AC9)
+**Commits:** `f25d807` (start) · `65f4405` (AC1–AC9) · `59db971` (tracking doc SHA fill-in)
 
 <!-- Status is not carried here. The milestone spec's frontmatter `status:` field is
      canonical. `**Completed:**` is filled iff the spec is `complete`. -->
@@ -223,21 +223,41 @@ No reachable branch lacks a test. No speculative defensive code was added — ev
 
 ## Reviewer notes (optional)
 
-- (to be filled at wrap)
+- Scope stayed pinned to the 9 ACs the spec locked after the 2026-04-21 split; no scope creep. All backend work was pre-landed in m-E21-04 commit `29ac3e9`, confirmed during the pre-build verification gate and untouched this milestone.
+- Helper-module split (spec edit #1 on 2026-04-22) proved out: `optimize-helpers.ts` kept optimize-specific form validation out of `analysis-helpers.ts` and allowed the 19-case vitest suite to exercise every reachable branch without pulling in a DOM or the Svelte runtime.
+- One spec refinement happened at pre-build verification (AC8 tuple): the Notes' `metricSeriesId: served` placeholder was superseded by the engine-emitted `register_queue` after the probe. The spec Notes were intentionally left stale (option b) — the tracking doc's "Locked Playwright tuple" table is the canonical source for the AC8 assertion.
+- Minimize-vs-maximize plateau behavior surfaced during the AC8 probe (minimize flat-lines at `metricMean: 0` for the default coffee-shop bounds because the barista_service_rate upper half drains the queue to empty). Resolved by pinning AC8 to `maximize`, with a note in the tracking doc explaining the AC3-default vs. AC8-tuple direction mismatch. Worth re-visiting when a second sample with bidirectional-useful ranges lands.
+- `fmtNum(11)` rendering as `"11.0"` caught the first AC4 happy-path regex — fixed in the same commit by loosening the regex to `\[\s*11(\.0)?\s*,\s*44(\.0)?\s*\]`. Worth considering whether the per-param `[lo, hi]` cell should use a simpler integer-first formatter, but not this milestone.
 
 ## Validation
 
-- (to be filled at wrap — full `dotnet test` + `npm run test` + targeted Playwright run against API + dev server)
+Full validation ran on the epic branch after the m-E21-05 merge (commit `a94fc66`):
+
+- **Vitest (ui):** 501 passed / 21 files. `optimize-helpers.test.ts` contributes 19 new cases on `validateOptimizeForm`; `interval-bar-geometry.test.ts` (13 cases from m-E21-04) covers the per-param range-bar geometry reuse.
+- **dag-map (lib):** 304 passed / 0 failed (up from 293 noted in earlier CLAUDE.md snapshots — additions since m-E21-04 are orthogonal to this milestone).
+- **.NET (FlowTime.sln):** 1,354 passed / 9 skipped / 0 failed across 7 test assemblies (TimeMachine 238 · Integration 80 · Cli 91 · UI 265 · Sim 177 (+3 skip) · Core 228 (+6 skip) · Api 275). No backend code changed this milestone; skipped counts match main.
+- **Playwright (tests/ui/specs/svelte-analysis.spec.ts):** 11/11 optimize specs pass against the live Rust engine (Engine API on 8081, Svelte dev on 5173). The broader analysis suite has 1 pre-existing environmental flake in `can run sweep when parameters are available` (warehouse-picker-waves / `servicewithbuffer` kind, documented in m-E21-04 Coverage Notes #10, reproduces on `main`).
+- **Infrastructure gate:** AC8 Playwright tests (and the whole `Analysis` describe) skip gracefully when `http://localhost:8081/v1/healthz` or `http://localhost:5173/` is unreachable, via the existing `infraUp()` helper at `tests/ui/specs/svelte-analysis.spec.ts:13-27`.
 
 ## Coverage Notes
 
-<!-- Filled at wrap — follow m-E21-03's structure: pure-logic tests, component rendering via Playwright, defensive / unreachable branches enumerated with rationale. -->
+See the per-AC "Branch-coverage audit" subsections above (AC1–AC6) and the consolidated audit under AC9 for the line-by-line branch inventory. Tally:
 
-(to be filled at wrap)
+- **Pure-logic tests (vitest):** 19 cases on `validateOptimizeForm` cover every reachable branch (paramIds / per-param bounds / metric / tolerance / maxIterations + aggregated multi-field errors). 7 defensive TypeScript-contract branches (non-array / non-number guards) are documented as unreachable under typed call-sites.
+- **Component rendering (Playwright):** 11 optimize specs — AC1 shell (1), AC2 chip-bar / bounds table / no-params / inline validation (3), AC3 metric chips / direction default / scenario reset / advanced disclosure (4), AC4/AC8 happy-path (1), AC5 not-converged (1), AC6 form-state retention + scenario reset (1).
+- **Defensive / unreachable branches** (documented with rationale in the per-AC audits):
+  1. Seven TypeScript-contract guards in `validateOptimizeForm`.
+  2. `{#else if params.length === 0}` empty-state render + `applyModelYaml`'s else branch — no SAMPLE_MODEL has zero const params (same limitation as Sweep / Sensitivity / Goal Seek).
+  3. `geom.ok === false` path in the per-param range-bar cell — `validateOptimizeForm` + engine contract guarantee `lo < hi` and finite `paramValues[pid]`.
+  4. `optimizeError` 400/503 render branch — 400 is blocked by client-side form validation; 503 is handled by `infraUp()` skip (same pattern as Sweep/Sens/Goal Seek).
+  5. `runOptimize` `result.error ?? 'Optimize failed'` fallback — `client.ts` always sets `result.error` on failure.
+  6. `optimizeAdvancedOpen` reset to `false` on scenario change — exercised implicitly by the default-collapsed state assertion on first render.
+
+No reachable branch lacks a test. No speculative defensive code was added; every gap mirrors an existing m-E21-03 / m-E21-04 documented pattern or is structurally unreachable given typed inputs / engine contracts.
 
 ## Deferrals
 
 <!-- Work observed during this milestone but deliberately not done.
      Mirror each deferral into `work/gaps.md` before the milestone archives. -->
 
-- (none yet)
+- (none)
