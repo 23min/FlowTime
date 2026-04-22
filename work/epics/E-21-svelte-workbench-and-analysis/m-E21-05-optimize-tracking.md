@@ -4,7 +4,7 @@
 **Completed:** pending
 **Branch:** `milestone/m-E21-05-optimize` (branched from `epic/E-21-svelte-workbench-and-analysis` at commit `8c4898f`)
 **Spec:** `work/epics/E-21-svelte-workbench-and-analysis/m-E21-05-optimize.md`
-**Commits:** (pending)
+**Commits:** `f25d807` (start) · `65f4405` (AC1–AC9)
 
 <!-- Status is not carried here. The milestone spec's frontmatter `status:` field is
      canonical. `**Completed:**` is filled iff the spec is `complete`. -->
@@ -83,13 +83,13 @@ Probed `POST /v1/optimize` against the live Rust engine for `coffee-shop`. Confi
 
 ### AC1 — Optimize tab placeholder replaced with live shell
 
-Replaced the `coming in m-E21-05` stub at `ui/src/routes/analysis/+page.svelte:1277-1282` with a `<div class="flex flex-col gap-3" data-testid="optimize-panel">` shell (structural only — AC2–AC5 fill in chip-bar / bounds / results). Flipped the existing placeholder Playwright test (`svelte-analysis.spec.ts:43`) from asserting the stub to asserting `toBeAttached` on the shell + `toHaveCount(0)` on the stub copy. `toBeAttached` is the semantically correct assertion for a pure-structural shell — visibility comes from AC2+ content. · commit _(pending)_ · tests 9/9 on `svelte-analysis.spec.ts` (8 new pass + 1 pre-existing sweep env flake — `warehouse-picker-waves` / `servicewithbuffer` kind, documented in m-E21-04 Coverage Notes #10, reproduces on main)
+Replaced the `coming in m-E21-05` stub at `ui/src/routes/analysis/+page.svelte:1277-1282` with a `<div class="flex flex-col gap-3" data-testid="optimize-panel">` shell (structural only — AC2–AC5 fill in chip-bar / bounds / results). Flipped the existing placeholder Playwright test (`svelte-analysis.spec.ts:43`) from asserting the stub to asserting `toBeAttached` on the shell + `toHaveCount(0)` on the stub copy. `toBeAttached` is the semantically correct assertion for a pure-structural shell — visibility comes from AC2+ content. · commit `65f4405` · tests 9/9 on `svelte-analysis.spec.ts` (8 new pass + 1 pre-existing sweep env flake — `warehouse-picker-waves` / `servicewithbuffer` kind, documented in m-E21-04 Coverage Notes #10, reproduces on main)
 
 Branch-coverage audit for AC1: changed one `{:else if activeTab === 'optimize'}` render branch in `+page.svelte`; exercised by the rewritten Playwright test which clicks the Optimize tab. No guards, conditionals, or defensive paths introduced. No unreachable branches.
 
 ### AC2 — Chip-bar + bounds table + inline validation
 
-Created `ui/src/lib/utils/optimize-helpers.ts` with `validateOptimizeForm` (paramIds / per-param bounds / metricSeriesId / tolerance / maxIterations — error map keyed by field) and 19 vitest cases covering every reachable branch. Wired the AC1 shell with a param chip-bar, compact bounds table (Parameter / Baseline / lo / hi), empty-state `<p>` (`"No const-kind parameters in this model to optimize over."`), no-params-selected hint, and inline per-row `bounds-error` rows. Run button reflects `canRunOptimize = hasModel && optimizeValidation.ok`. Default behavior on scenario load: all params selected, bounds seeded via `defaultSearchBounds` (0.5× / 2× baseline), matching Sensitivity. Metric + direction + Advanced are AC3 scope — `optimizeMetric` is pre-seeded from `queueSeriesIds` to keep the Run-enabled happy path live. · commit _(pending)_ · 501 vitest (+19 new) / 12 Playwright specs passing on analysis spec (1 pre-existing sweep env flake from m-E21-04 coverage note #10, unchanged from main)
+Created `ui/src/lib/utils/optimize-helpers.ts` with `validateOptimizeForm` (paramIds / per-param bounds / metricSeriesId / tolerance / maxIterations — error map keyed by field) and 19 vitest cases covering every reachable branch. Wired the AC1 shell with a param chip-bar, compact bounds table (Parameter / Baseline / lo / hi), empty-state `<p>` (`"No const-kind parameters in this model to optimize over."`), no-params-selected hint, and inline per-row `bounds-error` rows. Run button reflects `canRunOptimize = hasModel && optimizeValidation.ok`. Default behavior on scenario load: all params selected, bounds seeded via `defaultSearchBounds` (0.5× / 2× baseline), matching Sensitivity. Metric + direction + Advanced are AC3 scope — `optimizeMetric` is pre-seeded from `queueSeriesIds` to keep the Run-enabled happy path live. · commit `65f4405` · 501 vitest (+19 new) / 12 Playwright specs passing on analysis spec (1 pre-existing sweep env flake from m-E21-04 coverage note #10, unchanged from main)
 
 Branch-coverage audit for AC2:
 
@@ -124,7 +124,7 @@ Rationale: mirrors the pattern set by `validateSearchInterval` in `goal-seek-hel
 
 ### AC3 — Metric chip shortcuts + direction toggle + Advanced disclosure
 
-Added a Sensitivity-style chip shortcut strip next to the `optimizeMetric` input (four pinned shortcuts `served`, `queue`, `flowLatencyMs`, `utilization` + topology-derived `targetSuggestions` from m-E21-03). Added a compact `minimize` / `maximize` segmented toggle with `aria-pressed` semantics, defaulting to `minimize` on first render and on every scenario-change reset per the AC3 rule. Added a collapsed-by-default "Advanced" disclosure (same `▶` / `▼` pattern as Goal Seek) exposing `tolerance` (default `1e-4`) and `maxIterations` (default `200`). `canRunOptimize` already aggregates tolerance / maxIterations / metric validity through `validateOptimizeForm`, so the Run button gates on every required field without additional wiring. · commit _(pending)_ · 501 vitest unchanged / 12 analysis Playwright specs passing (7 optimize: 3 AC2 + 4 AC3 + 1 AC1 shell + existing sweep/sens/goal-seek)
+Added a Sensitivity-style chip shortcut strip next to the `optimizeMetric` input (four pinned shortcuts `served`, `queue`, `flowLatencyMs`, `utilization` + topology-derived `targetSuggestions` from m-E21-03). Added a compact `minimize` / `maximize` segmented toggle with `aria-pressed` semantics, defaulting to `minimize` on first render and on every scenario-change reset per the AC3 rule. Added a collapsed-by-default "Advanced" disclosure (same `▶` / `▼` pattern as Goal Seek) exposing `tolerance` (default `1e-4`) and `maxIterations` (default `200`). `canRunOptimize` already aggregates tolerance / maxIterations / metric validity through `validateOptimizeForm`, so the Run button gates on every required field without additional wiring. · commit `65f4405` · 501 vitest unchanged / 12 analysis Playwright specs passing (7 optimize: 3 AC2 + 4 AC3 + 1 AC1 shell + existing sweep/sens/goal-seek)
 
 Branch-coverage audit for AC3:
 
@@ -140,7 +140,7 @@ Branch-coverage audit for AC3:
 
 ### AC4 — Run optimize + result card + per-param table + convergence chart
 
-Added `flowtime.optimize(body)` client method wrapping `POST /v1/optimize` with the session-mode OptimizeResponse shape (`paramValues` dict, `achievedMetricMean`, `converged`, `iterations`, `trace` list of `{iteration, paramValues, metricMean}`). Wired Run button to `runOptimize` which (1) snapshots `paramIds` / `ranges` / `direction` / `metric` pre-submit so the result UI renders against what was optimized even if the form is edited post-run; (2) shows `Loader2Icon` spinner while `optimizeRunning` is true and disables Run via `canRunOptimize`; (3) posts and reflects success/error into `optimizeResponse` / `optimizeError`. Added the shared `AnalysisResultCard` (badge = "converged" / "did not converge", teal / amber tone; meta rows = objective + achieved + iterations + tolerance; primary-value region shows achieved metric with "← {minimizing\|maximizing} {metric}" caption; footer renders the amber "did not converge" block for AC5 when applicable). Added the per-param table (columns: Parameter / Final value / `[lo, hi]` text / Range bar — range bar is its own column as the spec mandates, reusing `intervalMarkerGeometry` with `width=180`). Added the shared `ConvergenceChart` with no `target` prop (no target ref line for optimize) and a direction-reflecting `yLabel` (`"minimizing register_queue"` / `"maximizing register_queue"`). 400/503 inline errors surface through `optimizeError` → `data-testid="optimize-error"` with the same `AlertCircleIcon` + destructive-text pattern used by Goal Seek. · commit _(pending)_ · 501 vitest unchanged · 8/8 optimize Playwright specs passing + AC1 shell + all AC2/AC3 specs still green
+Added `flowtime.optimize(body)` client method wrapping `POST /v1/optimize` with the session-mode OptimizeResponse shape (`paramValues` dict, `achievedMetricMean`, `converged`, `iterations`, `trace` list of `{iteration, paramValues, metricMean}`). Wired Run button to `runOptimize` which (1) snapshots `paramIds` / `ranges` / `direction` / `metric` pre-submit so the result UI renders against what was optimized even if the form is edited post-run; (2) shows `Loader2Icon` spinner while `optimizeRunning` is true and disables Run via `canRunOptimize`; (3) posts and reflects success/error into `optimizeResponse` / `optimizeError`. Added the shared `AnalysisResultCard` (badge = "converged" / "did not converge", teal / amber tone; meta rows = objective + achieved + iterations + tolerance; primary-value region shows achieved metric with "← {minimizing\|maximizing} {metric}" caption; footer renders the amber "did not converge" block for AC5 when applicable). Added the per-param table (columns: Parameter / Final value / `[lo, hi]` text / Range bar — range bar is its own column as the spec mandates, reusing `intervalMarkerGeometry` with `width=180`). Added the shared `ConvergenceChart` with no `target` prop (no target ref line for optimize) and a direction-reflecting `yLabel` (`"minimizing register_queue"` / `"maximizing register_queue"`). 400/503 inline errors surface through `optimizeError` → `data-testid="optimize-error"` with the same `AlertCircleIcon` + destructive-text pattern used by Goal Seek. · commit `65f4405` · 501 vitest unchanged · 8/8 optimize Playwright specs passing + AC1 shell + all AC2/AC3 specs still green
 
 Branch-coverage audit for AC4:
 
@@ -168,7 +168,7 @@ Branch-coverage audit for AC4:
 
 ### AC5 — Not-converged state
 
-Asserted the AC4 wiring already covers AC5: forcing `maxIterations=1` on the AC8 happy-path tuple makes Nelder-Mead run out of iterations before tolerance is met. The `analysis-result-card-badge` renders "did not converge" with amber tone (from the `otone = resp.converged ? 'teal' : 'amber'` ternary); the `optimize-not-converged-warning` amber footer block renders (from the `{#if !resp.converged}` branch in the card footer snippet); the per-param table still populates `optimize-param-final-*` cells for both `customers_per_hour` and `barista_service_rate`. No new UI wiring was required — AC4's converged/amber branching had already landed the not-converged footer. · commit _(pending)_ · 1 new Playwright spec, all 9 optimize specs passing.
+Asserted the AC4 wiring already covers AC5: forcing `maxIterations=1` on the AC8 happy-path tuple makes Nelder-Mead run out of iterations before tolerance is met. The `analysis-result-card-badge` renders "did not converge" with amber tone (from the `otone = resp.converged ? 'teal' : 'amber'` ternary); the `optimize-not-converged-warning` amber footer block renders (from the `{#if !resp.converged}` branch in the card footer snippet); the per-param table still populates `optimize-param-final-*` cells for both `customers_per_hour` and `barista_service_rate`. No new UI wiring was required — AC4's converged/amber branching had already landed the not-converged footer. · commit `65f4405` · 1 new Playwright spec, all 9 optimize specs passing.
 
 Branch-coverage audit for AC5:
 - `resp.converged = false` branch of the badge-tone ternary (`otone`): hit by the AC5 not-converged test.
@@ -180,7 +180,7 @@ Branch-coverage audit for AC5:
 
 ### AC6 — Session form state + scenario-change reset
 
-Verified the AC2/AC3 wiring already satisfies AC6 without additional code. All optimize form state (`optimizeSelectedParams`, `optimizeBounds`, `optimizeMetric`, `optimizeDirection`, `optimizeTolerance`, `optimizeMaxIterations`, `optimizeAdvancedOpen`) lives in component `$state` scope — it outlives tab switches because `{:else if activeTab === 'optimize'}` only toggles render, not state ownership. Scenario changes invoke `applyModelYaml` which explicitly resets every optimize variable to defaults (per-scenario bounds, direction → `minimize`, metric → auto-seeded, advanced closed, tolerance/maxIterations defaults). · commit _(pending)_ · 1 new Playwright spec, all 10 optimize specs passing.
+Verified the AC2/AC3 wiring already satisfies AC6 without additional code. All optimize form state (`optimizeSelectedParams`, `optimizeBounds`, `optimizeMetric`, `optimizeDirection`, `optimizeTolerance`, `optimizeMaxIterations`, `optimizeAdvancedOpen`) lives in component `$state` scope — it outlives tab switches because `{:else if activeTab === 'optimize'}` only toggles render, not state ownership. Scenario changes invoke `applyModelYaml` which explicitly resets every optimize variable to defaults (per-scenario bounds, direction → `minimize`, metric → auto-seeded, advanced closed, tolerance/maxIterations defaults). · commit `65f4405` · 1 new Playwright spec, all 10 optimize specs passing.
 
 Branch-coverage audit for AC6:
 - Tab switch preservation: mutated direction/chip/metric/bounds/tolerance, switched to Goal Seek, returned to Optimize, asserted every mutation survived. Exercises the "state persists when `activeTab !== 'optimize'`" guarantee.
@@ -189,7 +189,7 @@ Branch-coverage audit for AC6:
 
 ### AC7 — Vitest coverage for optimize-helpers sibling module
 
-`optimize-helpers.ts` exports only `validateOptimizeForm` + its input/output types (no per-param geometry helper was needed — the Svelte component calls `intervalMarkerGeometry` from `interval-bar-geometry.ts` directly). Shared cross-surface helpers (`discoverConstParams`, `queueSeriesIds`, …) remained in `analysis-helpers.ts` — grep for "optimize" in `analysis-helpers.ts` returns zero hits, confirming no contamination. All 19 `validateOptimizeForm` branches are exercised by `optimize-helpers.test.ts`; 13 existing `intervalMarkerGeometry` cases in `interval-bar-geometry.test.ts` from m-E21-04 cover every branch the optimize per-param range bar relies on (ok/bad input, value-below-lo clamp, value-above-hi clamp, finite inputs). Ran both files together — 32 vitest cases pass, zero DOM or mocks. · commit _(pending)_
+`optimize-helpers.ts` exports only `validateOptimizeForm` + its input/output types (no per-param geometry helper was needed — the Svelte component calls `intervalMarkerGeometry` from `interval-bar-geometry.ts` directly). Shared cross-surface helpers (`discoverConstParams`, `queueSeriesIds`, …) remained in `analysis-helpers.ts` — grep for "optimize" in `analysis-helpers.ts` returns zero hits, confirming no contamination. All 19 `validateOptimizeForm` branches are exercised by `optimize-helpers.test.ts`; 13 existing `intervalMarkerGeometry` cases in `interval-bar-geometry.test.ts` from m-E21-04 cover every branch the optimize per-param range bar relies on (ok/bad input, value-below-lo clamp, value-above-hi clamp, finite inputs). Ran both files together — 32 vitest cases pass, zero DOM or mocks. · commit `65f4405`
 
 ### AC8 — Playwright coverage (happy path + no-params-selected + graceful skip)
 
@@ -199,7 +199,7 @@ All three AC8 requirements are satisfied by specs that landed in earlier ACs —
 - **No-params-selected state** — `optimize tab — no-params-selected hides table + disables Run (AC2)` at line 71. Deselects both chips, asserts `optimize-no-params-hint` visible, `optimize-bounds-table` count 0, Run disabled.
 - **Graceful skip on infra down** — inherited from the `Analysis` describe's `beforeEach` at line 30 (`if (!(await infraUp())) testInfo.skip()`). Probes `${API_URL}/v1/healthz` + `${SVELTE_URL}/` with a 1.5s timeout and skips all tests in the describe when either is unreachable. Matches the pattern already used by Sweep / Sensitivity / Goal Seek tests.
 
-Full optimize-tab suite: 11 specs (AC1 shell + 3 AC2 + 4 AC3 + AC4/AC8 happy-path + AC5 not-converged + AC6 state retention) — all green against the live Rust engine on the verification probe. · commit _(pending)_
+Full optimize-tab suite: 11 specs (AC1 shell + 3 AC2 + 4 AC3 + AC4/AC8 happy-path + AC5 not-converged + AC6 state retention) — all green against the live Rust engine on the verification probe. · commit `65f4405`
 
 ### AC9 — Final line-by-line branch audit
 
@@ -219,7 +219,7 @@ Performed the per-AC branch audit before each AC checkbox was ticked (see the AC
 5. `runOptimize` `result.error ?? 'Optimize failed'` fallback — `client.ts` always sets `result.error`.
 6. Advanced `optimizeAdvancedOpen` reset to `false` on scenario change — exercised implicitly by default-collapsed state on first render.
 
-No reachable branch lacks a test. No speculative defensive code was added — every gap above either mirrors an existing m-E21-03 / m-E21-04 documented pattern or is structurally unreachable given typed inputs / engine contracts. · commit _(pending)_
+No reachable branch lacks a test. No speculative defensive code was added — every gap above either mirrors an existing m-E21-03 / m-E21-04 documented pattern or is structurally unreachable given typed inputs / engine contracts. · commit `65f4405`
 
 ## Reviewer notes (optional)
 
