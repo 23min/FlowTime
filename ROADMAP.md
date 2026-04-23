@@ -84,7 +84,10 @@ Transform the Svelte UI from a Blazor-parallel clone into the primary platform f
 - m-E21-04: Goal Seek Surface — goal-seek panel on `/analysis`, shared `AnalysisResultCard` + `ConvergenceChart` components, additive `trace` on `/v1/goal-seek` and `/v1/optimize` per D-2026-04-21-034 (completed 2026-04-22)
 - m-E21-05: Optimize Surface — live `/v1/optimize` wired to the `/analysis` Optimize tab, N-param Nelder-Mead under bounds, per-param result table with range bars, new `flowtime.optimize(...)` client, sibling `optimize-helpers.ts` module (completed 2026-04-22)
 
-**Remaining:** m-E21-06 Heatmap View, m-E21-07 Validation Surface, m-E21-08 Polish.
+**In-progress:**
+- m-E21-06: Heatmap View — nodes-x-bins grid as sibling of topology, typed `<ViewSwitcher>`, shared view-state store, shared full-window 99p-clipped color-scale normalization (topology swaps from per-bin), shared-toolbar `[ Operational | Full ]` node-mode toggle (Blazor-parity) (started 2026-04-23, branch `milestone/m-E21-06-heatmap-view`)
+
+**Remaining:** m-E21-07 Validation Surface, m-E21-08 Polish.
 
 ## E-19 — Surface Alignment & Compatibility Cleanup (completed)
 
