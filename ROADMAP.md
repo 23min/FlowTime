@@ -69,9 +69,9 @@ Build a parallel SvelteKit + shadcn-svelte UI surface for demos and future evalu
 
 Superseded on 2026-04-15 (fork decision): Svelte becomes the platform for all new surfaces and Blazor enters maintenance mode. Remaining work moved to **E-21 — Svelte Workbench & Analysis Surfaces** below.
 
-## E-24 — Schema Alignment (in-progress — planning)
+## E-24 — Schema Alignment (in-progress)
 
-**Epic:** `work/epics/E-24-schema-alignment/spec.md` | **Status:** in-progress — planning (branch `epic/E-24-schema-alignment`, created from `main` 2026-04-24). Internal planning ratified **Option E (unify)** on 2026-04-24 per `D-2026-04-24-037`.
+**Epic:** `work/epics/E-24-schema-alignment/spec.md` | **Status:** in-progress — m-E24-01 Inventory & Design Decisions started 2026-04-24 on branch `milestone/m-E24-01-inventory-and-design-decisions` (epic integration branch `epic/E-24-schema-alignment`, created from `main` 2026-04-24). Internal planning ratified **Option E (unify)** on 2026-04-24 per `D-2026-04-24-037`.
 
 Unify FlowTime's post-substitution model representation. One C# type. One YAML schema. One validator. `SimModelArtifact` is **deleted**; Sim builds the unified type directly; Engine parses it directly. `Template` (authoring-time) stays distinct. Forward-only — no migration of stored bundles; Sim regenerates from templates going forward. camelCase throughout per project rule. Interrupts E-23 at m-E23-01; at E-24 close, m-E23-02 (call-site migration) and m-E23-03 (`ModelValidator` delete) become mechanical cleanup.
 
@@ -80,7 +80,7 @@ Unify FlowTime's post-substitution model representation. One C# type. One YAML s
 **Option A (rejected):** Preserve both types with a projection layer (`SimModelArtifact.ToEngineSubmission()`). Rejected as preserving accidental drift; converts the leak into a designed feature; accepts the ongoing duplication tax.
 
 **Planned milestones (5):**
-- m-E24-01 Inventory & Design Decisions (doc-only; unified-type home/name/provenance shape; six open questions)
+- m-E24-01 Inventory & Design Decisions — **in-progress (branch `milestone/m-E24-01-inventory-and-design-decisions`, started 2026-04-24)**; doc-only; unified-type home/name/provenance shape; six open questions
 - m-E24-02 Unify Model Type (introduce unified type; rewrite `SimModelBuilder` to emit it directly; switch Engine intake; delete `SimModelArtifact` and satellites `SimNode`/`SimOutput`/`SimProvenance`/`SimTraffic`/`SimArrival`/`SimArrivalPattern`; drop leaked-state fields `window`/`generator`/top-level `metadata`/top-level `mode`; regenerate fixtures)
 - m-E24-03 Schema Unification (rewrite `docs/schemas/model.schema.yaml` to describe the unified type in camelCase; rewrite `docs/schemas/README.md`; audit `docs/architecture/`)
 - m-E24-04 Parser/Validator Scalar-Style Fix (mirrored `ParseScalar` fix in both `ModelSchemaValidator` and `TemplateSchemaValidator`; test helper aligned)

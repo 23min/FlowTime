@@ -1,7 +1,7 @@
 ---
 id: m-E24-01-inventory-and-design-decisions
 epic: E-24-schema-alignment
-status: draft
+status: in-progress
 depends_on:
 completed:
 ---
