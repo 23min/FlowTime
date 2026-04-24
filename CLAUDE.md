@@ -8,6 +8,17 @@ Keep it assistant-neutral.
 Generated assistant adapter files under `.github/` and `.claude/` are local build outputs by default.
 Keep their source of truth in `.ai/` and `.ai-repo/`, and regenerate them locally with `bash .ai/sync.sh`.
 
+## Session Start
+
+At the start of every session, pick up accumulated context:
+
+- `work/decisions.md` — shared decision log across all agents
+- `work/agent-history/<role>.md` — your role's accumulated learnings (read only the file matching the active agent)
+- `work/gaps.md` — deferred work items
+- `## Current Work` section below — active epic + milestone
+
+After `/compact` or a fresh session, this file is re-available via the system prompt. If rules or project config changed mid-session, say **"refresh context"** to trigger a full re-read (see generated adapter files for the full refresh checklist).
+
 ## Hard Rules (summary — full rules in `.ai/rules.md`)
 
 - **NEVER commit or push without explicit human approval** — "continue" / "ok" do not count
@@ -22,10 +33,10 @@ Keep their source of truth in `.ai/` and `.ai-repo/`, and regenerate them locall
 
 | Intent | Agent | Read first |
 |--------|-------|------------|
-| build, implement, code, start, fix, patch | **builder** | `.ai/agents/builder.md` + relevant skill |
-| plan, design, scope, epic, architecture | **planner** | `.ai/agents/planner.md` + relevant skill |
-| review, check, validate, wrap, finish | **reviewer** | `.ai/agents/reviewer.md` + relevant skill |
-| release, deploy, tag, publish | **deployer** | `.ai/agents/deployer.md` + relevant skill |
+| build, implement, code, start, fix, patch | **builder** | `.claude/agents/builder.md` + relevant skill |
+| plan, design, scope, epic, architecture | **planner** | `.claude/agents/planner.md` + relevant skill |
+| review, check, validate, wrap, finish | **reviewer** | `.claude/agents/reviewer.md` + relevant skill |
+| release, deploy, tag, publish | **deployer** | `.claude/agents/deployer.md` + relevant skill |
 
 ## Framework Sources
 
@@ -33,8 +44,8 @@ Keep their source of truth in `.ai/` and `.ai-repo/`, and regenerate them locall
 |--------|---------|
 | `.ai/rules.md` | Full rules and enforcement levels |
 | `.ai/paths.md` | Artifact layout defaults |
-| `.ai/agents/` | Agent definitions (→ `.claude/agents/`, `.github/chatmodes/`) |
-| `.ai/skills/` | Skill workflows (→ `.claude/skills/`, `.github/skills/`) |
+| `.ai/agents/` | Agent source definitions (generated into `.claude/agents/` — read those at invocation time) |
+| `.ai/skills/` | Skill source workflows (generated into `.claude/skills/` and `.github/skills/`) |
 | `.ai/templates/` | Document templates |
 | `.ai-repo/rules/` | **Project-specific rules** — read before starting work |
 | `.ai-repo/config/` | Artifact layout overrides |
@@ -54,8 +65,8 @@ These values are resolved from framework defaults in .ai/paths.md and repo overr
 | `completedEpicPathTemplate` | `work/epics/completed/<epic>/` | Completed epic archive template |
 | `epicIdPattern` | `E-{NN}` | Epic ID naming pattern |
 | `milestoneIdPattern` | `m-E{NN}-<MM>-<slug>` | Milestone ID naming pattern |
-| `frameworkSkillPrefix` | `wf` | Prefix for framework skill slash-commands (e.g. `wf:patch`) |
-| `repoSkillPrefix` | `` | Prefix for repo-specific skill slash-commands (e.g. `wf-li:app-legibility`) |
+| `frameworkSkillPrefix` | `wf` | Prefix for framework skill slash-commands (e.g. `/wf-patch`) |
+| `repoSkillPrefix` | `` | Prefix for repo-specific skill slash-commands (e.g. `/wf-li-app-legibility`) |
 
 ## Project-Specific Rules
 
@@ -176,6 +187,7 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 - Do not reconstruct semantic or analytical identity in adapters or clients from `kind`, `logicalType`, file stems, or similar heuristics when compiled/runtime facts can own that truth.
 - When a runtime boundary changes, prefer forward-only regeneration of runs, fixtures, and approved outputs over compatibility readers that recover missing facts.
 - Do not keep both a bridge abstraction and its compiled replacement once the replacement milestone is active unless the spec explicitly allows a coexistence window.
+- "API stability" does not mean "keep old functions around." When a function has no production callers after a refactor, delete it and its tests in the same change — do not retain it as a dead alternative entry point under the banner of keeping the existing surface stable.
 - Do not treat aspirational docs as implementation authority.
 
 ## Documentation
@@ -191,7 +203,7 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 
 - **E-17** Interactive What-If Mode — **completed and merged to main (2026-04-12).** Archived to `work/epics/completed/E-17-interactive-what-if-mode/`.
   - 6 milestones. WebSocket bridge → parameter panel → topology heatmap → warnings → edge heatmap → time scrubber. 200 vitest + 26 Playwright E2E.
-- **E-18** Time Machine (`work/epics/E-18-headless-pipeline-and-optimization/spec.md`) — **in-progress**
+- **E-18** Time Machine (`work/epics/E-18-headless-pipeline-and-optimization/spec.md`) — **in-progress** — foundation + analysis layer delivered; Fit + Chunked + SDK carried forward as **E-22**.
   - Headless engine: parameterized evaluation → streaming protocol → pipeline component.
   - **m-E18-01** (complete): Parameterized evaluation — ParamTable, evaluate_with_params, compile-once eval-many.
   - **m-E18-02** (complete): Engine session + streaming protocol — persistent process, MessagePack over stdin/stdout.
@@ -208,13 +220,12 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
   - **Active delivery sequence (decided 2026-04-15, Option A):**
     1. ~~**m-E18-13 SessionModelEvaluator**~~ — complete and merged to epic branch.
     2. ~~**m-E18-14 .NET Time Machine CLI**~~ — complete and merged to epic branch.
-    3. **UI parity fork** (next) — Svelte becomes platform for new telemetry/fit/discovery surfaces; Blazor → maintenance mode (bug fixes + contract alignment only).
+    3. ~~**UI parity fork**~~ — now **E-21 Svelte Workbench & Analysis Surfaces** (in-progress). Svelte becomes platform for new telemetry/fit/discovery surfaces; Blazor → maintenance mode.
     4. **E-15 Telemetry Ingestion** — Gold Builder → Graph Builder → first dataset path.
     5. **Telemetry Loop & Parity** — parity harness (prerequisite for trustworthy fit).
-    6. **m-E18-XX Model Fit** — `FitSpec`/`FitRunner`/`POST /v1/fit`.
-    7. **Chunked evaluation** (Mode 6) — after discovery pipeline works end-to-end.
+    6. **E-22 Model Fit + Chunked Evaluation + Pipeline SDK** — carries the remaining E-18 scope forward as a dedicated epic. Fit, chunked evaluation, and the `FlowTime.Pipeline` embeddable SDK.
   - **Aspirational (see ROADMAP.md Cloud Deployment section):** Azure-native deployment — batch Functions, event-driven, long-running Container Apps service — with cloud `ITelemetrySource` adapters (ADX, Blob, Event Hubs), Blob artifact sink, OTEL/App Insights. Not scheduled; marker so near-term work stays compatible.
-  - **Deferred (tracked in `work/gaps.md`):** optimization constraints, Monte Carlo, `FlowTime.Pipeline` SDK, `FlowTime.Telemetry.*` adapters.
+  - **Deferred (tracked in `work/gaps.md`):** optimization constraints, Monte Carlo, `FlowTime.Telemetry.*` adapters.
   - **Architecture:** `docs/architecture/headless-engine-architecture.md` — four-layer design; `docs/architecture/time-machine-analysis-modes.md` — sweep/sensitivity/goal-seek/optimize.
 - **E-20** Matrix Engine — **completed and merged to main (2026-04-10).** Archived to `work/epics/completed/E-20-matrix-engine/`.
   - 10 milestones. 172 Rust tests + 1,332 .NET tests. E-17/E-18 unblocked.
@@ -222,7 +233,26 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 - **E-16** Formula-First Core Purification — **completed.** Archived to `work/epics/completed/E-16-formula-first-core-purification/`.
 - **E-19** Surface Alignment & Compatibility Cleanup — **completed and merged to main (2026-04-08).** Archived to `work/epics/completed/E-19-surface-alignment-and-compatibility-cleanup/`.
   - Deferred (tracked in `work/gaps.md`): `POST /v1/run` and `POST /v1/graph` Engine route deletion per D-2026-04-08-029 (test-infrastructure migration needed first).
-- **E-11** Svelte UI — paused after M6; E-17 completed on Svelte
-  - M1-M4 + M6 done, M5/M7/M8 remain
-  - **Fork decision (2026-04-15, active as of m-E18-14 wrap):** Svelte is the platform for new surfaces. Blazor is in maintenance mode (bug fixes + contract alignment only).
+- **E-23** Model Validation Consolidation (`work/epics/E-23-model-validation-consolidation/spec.md`) — **in-progress (planning)** — mini-epic interrupting E-21.
+  - Single-target consolidation: delete `ModelValidator` and route every call site through `ModelSchemaValidator` so JSON-schema truth is the only model-YAML validator. Directly enforces the 2026-04-23 Truth Discipline guard: *"'API stability' does not mean 'keep old functions around.'"*
+  - **Evidence:** Survey test at `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs` (uncommitted on the m-E21-06 branch) shows every one of twelve templates produces `val-err >= 1` under `TimeMachineValidator` (`/grid/start: All values fail against the false schema`) while every template runs successfully through `POST /v1/run`. Two validators silently disagreeing. Root cause: `ModelValidator` is a pre-schema hand-rolled checker; `ModelSchemaValidator` is the schema-driven one; the schema forbids `grid.start` that Sim deliberately emits and the Engine reads.
+  - **Planned milestones (3, may collapse to 2 — see Open Questions in spec):** m-E23-01 Schema Alignment (allow `grid.start`, commit survey canary, rule audit), m-E23-02 Call-Site Migration (`/v1/run`, CLI, `TimeMachineValidator`, tests), m-E23-03 Delete `ModelValidator` (file goes away, zero production callers).
+  - **Integration branch:** `epic/E-23-model-validation-consolidation` (created from `main`).
+  - **Out of scope (firm):** Sim's `grid.start` emission (Sim is correct), Blazor/Svelte UI code, active validation UI (lives in m-E21-07 after resume), new validator features (line/column mapping, LSP integration).
+- **E-21** Svelte Workbench & Analysis Surfaces (`work/epics/E-21-svelte-workbench-and-analysis/spec.md`) — **paused (2026-04-23)** — interrupted to run E-23 Model Validation Consolidation. m-E21-06 completed on branch `milestone/m-E21-06-heatmap-view`; merge into `epic/E-21-svelte-workbench-and-analysis` will happen when E-21 resumes. m-E21-07 Validation Surface is the reentry point — consumes the consolidated `ModelSchemaValidator` that E-23 delivers.
+  - **m-E21-01** (complete, merged to epic): Workbench Foundation — density system, dag-map events (library), workbench panel with click-to-pin node cards. 217 vitest + 293 dag-map tests.
+  - **m-E21-02** (complete, merged to epic): Metric Selector & Edge Cards — metric chip bar, edge click-to-pin, edge cards, class filter, custom TimelineScrubber, dark-mode/viz-palette fixes. 323 vitest + 293 dag-map = 616 tests.
+  - **m-E21-03** (complete, merged to epic 2026-04-17; ultrareview follow-ups 2026-04-20): Sweep & Sensitivity Surfaces — `/analysis` route with tabbed surfaces, sweep config + results, sensitivity bar chart. 433 vitest + 293 dag-map = 726 tests; 8 Playwright specs. D-2026-04-17-033 ratifies the `GET /v1/runs/{runId}/model` backend carve-out.
+  - **m-E21-04** (complete, merged to epic 2026-04-22 in commit `8c4898f`; **scope split 2026-04-21** — Optimize moved to m-E21-05): Goal Seek Surface — goal-seek panel on `/analysis`, shared `AnalysisResultCard` + `ConvergenceChart` components (pure-SVG with geometry siblings), `interval-bar-geometry` for search-interval visualization, new `flowtime.goalSeek(...)` client method. Backend `trace` on both `/v1/goal-seek` and `/v1/optimize` per **D-2026-04-21-034** (backend landed in commit `29ac3e9`; optimize trace ready for m-E21-05). 482 vitest (+49 new) + 293 dag-map = 775 tests; 8 Playwright passing / 1 pre-existing env flake. Full branch-coverage audit (backend + UI) in tracking doc.
+  - **m-E21-05** (complete, merged to epic 2026-04-22 in commit `a94fc66`): Optimize Surface — live `/v1/optimize` wired to the `/analysis` Optimize tab (N-param Nelder-Mead under bounds). Consumes shared `AnalysisResultCard` + `ConvergenceChart` + `interval-bar-geometry` from m-E21-04; adds `flowtime.optimize(...)` client method; sibling `optimize-helpers.ts` module for form validation. Per-param result table with separate range-bar column (via `intervalMarkerGeometry`) showing where each optimized value landed inside its bound. Backend trace landed in m-E21-04 commit `29ac3e9` — no backend work this milestone. 520 vitest (+19 new) · 11/11 optimize Playwright specs green against live Rust engine · 1 pre-existing sweep env flake (unchanged from main). Full branch-coverage audit in tracking doc.
+  - **m-E21-06** (complete, completed 2026-04-24 in commit `5dddb5d` on branch `milestone/m-E21-06-heatmap-view`): Heatmap View — nodes-x-bins grid as sibling of topology under `/time-travel/topology` with typed `<ViewSwitcher>` (inline views, no registry per ADR-m-E21-06-01), shared view-state store (`view-state.svelte.ts`), shared full-window 99p-clipped color-scale normalization (topology straight-swapped from per-bin per ADR-m-E21-06-02 — no escape hatch), shared-toolbar `[ Operational | Full ]` node-mode toggle reaching Blazor parity (AC15, `mode` param on `getStateWindow`). 15/15 ACs landed; zero backend work (`state_window` sufficed). Multiple mid-flight spec amendments (all dated and captured): pinned-first row-float removed (pin glyph sole indicator); column highlight reduced from full-column outline to top-bar marker; persistent-selection SVG overlay keyed to `viewState.selectedCell` (survives window blur) + workbench-card title cross-link; auto-fit `CELL_W` with fractional pixels + 4 px right-margin + root-layout `min-w-0` plumbing so SVG never exceeds container (iteration log v1→v5 in tracking doc); `fitWidth` toggle persisted in shared store. Dead-code cleanup landed the new framework guard (2026-04-23): `buildMetricMapForDef` + `buildMetricMapForDefFiltered` + `pinnedIds` on `HeatmapGridInput` deleted once they had no production callers — guard mirrored into `.ai-repo/rules/project.md` + `CLAUDE.md`. New chrome tokens `--ft-pin` (red pin glyph) + `--ft-highlight` (turquoise highlight/selection/card-title). **770 ui-vitest passing across 32 suites** (net +269 from the 501 baseline) · 16 Playwright specs on `svelte-heatmap.spec.ts` (13 AC14 + #12b/#12c/#12d/#12e), 11 pass / 2 graceful-skip on fixtures without class metadata · `.NET` green on single-test re-run (one pre-existing timing flake in a file untouched by this milestone). Four gaps filed (topology keyboard/ARIA posture, data-viz palette color-blind validation, heatmap sliding-window scrubber, bidirectional card↔view reverse cross-link). Full branch-coverage audit in tracking doc.
+  - 8 milestones (was 7 before split): workbench foundation → metric selector + edge cards → sweep/sensitivity → goal-seek → optimize → heatmap view → validation surface → polish.
+  - Absorbs E-11 M5/M7/M8 under workbench paradigm. Svelte is the platform for new surfaces; Blazor is maintenance-only.
+- **E-11** Svelte UI — paused after M6; absorbed into E-21
+  - M1-M4 + M6 done. M5 (Inspector) → E-21 workbench. M7 (Dashboard) → deferred. M8 (Polish) → E-21 m-E21-08.
 - **E-12–E-15:** planned, not started. E-15 is on critical path for client-telemetry vision.
+- **E-22** Time Machine: Model Fit & Chunked Evaluation (`work/epics/E-22-model-fit-chunked-evaluation/spec.md`) — **planning**
+  - Carries the remaining E-18 scope forward: model fit against real telemetry (`POST /v1/fit`), chunked evaluation (Rust `chunk_step` protocol + `POST /v1/chunked-eval`), and the `FlowTime.Pipeline` embeddable SDK wrapper.
+  - **Planned milestones (3):** m-E22-01 Model Fit, m-E22-02 Chunked Evaluation, m-E22-03 FlowTime.Pipeline SDK.
+  - **Depends on:** E-15 Telemetry Ingestion, Telemetry Loop & Parity. Sequenced after both per D-2026-04-15-032 Option A.
+  - **Out of scope (tracked in `work/gaps.md`):** optimization constraints, Monte Carlo, `FlowTime.Telemetry.*` direct-source adapters.

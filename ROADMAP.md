@@ -63,9 +63,46 @@ Migration is forward-only. Existing runs, fixtures, and approved snapshots are r
 
 ## E-11 — Svelte UI (Parallel Frontend Track)
 
-**Epic:** `work/epics/E-11-svelte-ui/spec.md` | **Status:** paused after M6 (M1-M4 + M6 done, M5/M7/M8 remain)
+**Epic:** `work/epics/E-11-svelte-ui/spec.md` | **Status:** paused after M6; absorbed into E-21 (M1-M4 + M6 done; M5 → E-21 workbench, M7 deferred, M8 → E-21 m-E21-08)
 
 Build a parallel SvelteKit + shadcn-svelte UI surface for demos and future evaluation while keeping the Blazor UI supported and in sync. Independent of engine work — both UIs consume existing APIs with zero backend changes.
+
+Superseded on 2026-04-15 (fork decision): Svelte becomes the platform for all new surfaces and Blazor enters maintenance mode. Remaining work moved to **E-21 — Svelte Workbench & Analysis Surfaces** below.
+
+## E-23 — Model Validation Consolidation (in-progress — planning)
+
+**Epic:** `work/epics/E-23-model-validation-consolidation/spec.md` | **Status:** in-progress — planning (branch `epic/E-23-model-validation-consolidation`)
+
+Mini-epic (3 milestones, possibly 2) that interrupts E-21. Collapses the codebase's two silently-disagreeing model validators to one: `ModelValidator` is **deleted**, `ModelSchemaValidator` is the single schema-driven entry point, and `docs/schemas/model.schema.yaml` becomes the sole structural contract for model YAML. Directly enforces the 2026-04-23 Truth Discipline guard *"'API stability' does not mean 'keep old functions around.'"*
+
+**Evidence:** survey test `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs` iterates all twelve templates under `templates/*.yaml` — every one produces tier-3 validator errors under `TimeMachineValidator` while running successfully through `POST /v1/run`. Root cause: the schema forbids `grid.start` via `additionalProperties: false`, but Sim emits it and the Engine consumes it.
+
+**Planned milestones:**
+- m-E23-01 Schema Alignment — allow `grid.start`, audit every `ModelValidator` rule against the schema, commit the template-warning survey as a regression canary
+- m-E23-02 Call-Site Migration — switch `/v1/run`, Engine CLI, `TimeMachineValidator`, and tests from `ModelValidator.Validate` to `ModelSchemaValidator.Validate`; audit error-message phrasing
+- m-E23-03 Delete `ModelValidator` — remove the file; assert zero production callers; final survey-canary green
+
+**Out of scope (firm):** Sim's `grid.start` emission, Blazor/Svelte UI code, active validation UI (lives in m-E21-07 after E-21 resumes), new validator features.
+
+**Dependencies:** none — the mini-epic stands on its own. After it lands, m-E21-07 Validation Surface resumes with a single consolidated validator to render.
+
+## E-21 — Svelte Workbench & Analysis Surfaces (paused — interrupted by E-23)
+
+**Epic:** `work/epics/E-21-svelte-workbench-and-analysis/spec.md` | **Status:** paused 2026-04-23 — interrupted to run E-23 Model Validation Consolidation. m-E21-06 completed on branch `milestone/m-E21-06-heatmap-view`; merge into `epic/E-21-svelte-workbench-and-analysis` deferred until E-21 resumes. Reentry point: m-E21-07 Validation Surface, which consumes the consolidated `ModelSchemaValidator` E-23 delivers.
+
+Transform the Svelte UI from a Blazor-parallel clone into the primary platform for expert flow analysis and Time Machine surfaces. Workbench paradigm: topology as navigation + click-to-pin inspection panel; `/analysis` route with tabbed Time Machine surfaces (sweep, sensitivity, goal-seek, optimize); heatmap view; validation surface; compact density with calm chrome + vivid data-viz palette.
+
+**Depends on:** E-11 (M1-M4 + M6), E-17, E-18 analysis endpoints.
+
+**Completed milestones:**
+- m-E21-01: Workbench Foundation — density tokens, dag-map `bindEvents`/`selected` (library), click-to-pin node cards (merged 2026-04-17)
+- m-E21-02: Metric Selector & Edge Cards — metric chip bar, edge cards, class filter, custom TimelineScrubber (merged 2026-04-17)
+- m-E21-03: Sweep & Sensitivity Surfaces — `/analysis` route with tabs, sweep config + results, sensitivity bar chart (merged 2026-04-17; ultrareview follow-ups 2026-04-20)
+- m-E21-04: Goal Seek Surface — goal-seek panel on `/analysis`, shared `AnalysisResultCard` + `ConvergenceChart` components, additive `trace` on `/v1/goal-seek` and `/v1/optimize` per D-2026-04-21-034 (completed 2026-04-22)
+- m-E21-05: Optimize Surface — live `/v1/optimize` wired to the `/analysis` Optimize tab, N-param Nelder-Mead under bounds, per-param result table with range bars, new `flowtime.optimize(...)` client, sibling `optimize-helpers.ts` module (completed 2026-04-22)
+- m-E21-06: Heatmap View — nodes-x-bins grid as sibling of topology under `/time-travel/topology`, typed `<ViewSwitcher>` (inline views, no registry per ADR-m-E21-06-01), shared view-state store, shared full-window 99p-clipped color-scale normalization (topology straight-swaps from per-bin per ADR-m-E21-06-02), shared-toolbar `[ Operational | Full ]` node-mode toggle reaching Blazor parity. 15/15 ACs; 770 ui-vitest (+269) across 32 suites; 16 Playwright specs on `svelte-heatmap.spec.ts`; zero backend work (completed 2026-04-24)
+
+**Remaining:** m-E21-07 Validation Surface, m-E21-08 Polish.
 
 ## E-19 — Surface Alignment & Compatibility Cleanup (completed)
 
@@ -148,14 +185,27 @@ FlowTime as a callable pure function in pipelines, optimization loops, model fit
 1. **UI parity fork** — Svelte UI becomes the platform for new telemetry/fit/discovery surfaces. Blazor enters maintenance mode at current functionality. Parallel track with E-15 below.
 2. **E-15 Telemetry Ingestion** — Gold Builder (raw → canonical bundle) → Graph Builder (telemetry → inferred topology) → first dataset path. Critical path for the client-telemetry vision.
 3. **Telemetry Loop & Parity** — parity harness validates synthetic-vs-replay drift bounds. Required before fit results are trustworthy.
-4. **m-E18-XX Model Fit** — `FitSpec`/`FitRunner`/`POST /v1/fit` composing `ITelemetrySource` + `Optimizer` to minimize residual. Completes the discovery pipeline.
-5. **Chunked evaluation** (Mode 6) — stateful chunk-step session command; unlocks feedback simulation and real-time prediction ("crystal ball"). Deferred until after discovery pipeline is end-to-end working.
+4. **E-22 Model Fit + Chunked Evaluation** — carries forward the remaining E-18 scope (`FitSpec`/`FitRunner`/`POST /v1/fit` and chunked stateful session protocol) plus the `FlowTime.Pipeline` embeddable SDK wrapper. Completes the discovery pipeline and crystallizes the embeddable surface. See epic: `work/epics/E-22-model-fit-chunked-evaluation/spec.md`.
 
 **Deferred with no owner milestone (tracked in `work/gaps.md`):**
 - Optimization constraints (penalty method on `OptimizeSpec`)
 - Monte Carlo (sampling layer on `IModelEvaluator`)
-- `FlowTime.Pipeline` embeddable SDK project
 - `FlowTime.Telemetry.*` adapter projects (Prometheus, OTEL, BPI) — direct-source `ITelemetrySource` implementations that bypass the E-15 Gold Builder pipeline for specific live sources; narrow bypasses, not part of E-15 scope
+
+## E-22 — Time Machine: Model Fit & Chunked Evaluation (planning)
+
+**Epic:** `work/epics/E-22-model-fit-chunked-evaluation/spec.md` | **Status:** planning
+
+Closes out the remaining Time Machine analysis modes from E-18: model fitting against real telemetry, chunked evaluation for feedback simulation, and the `FlowTime.Pipeline` embeddable SDK wrapper. Completes the "FlowTime as a callable function" arc.
+
+**Depends on:** E-15 Telemetry Ingestion (first dataset path), Telemetry Loop & Parity (validated drift bounds). Sequenced after both per D-2026-04-15-032 Option A.
+
+**Planned milestones:**
+- m-E22-01 Model Fit — `FitSpec`/`FitRunner`/`POST /v1/fit` composing `ITelemetrySource` + `Optimizer`; `flowtime fit` CLI
+- m-E22-02 Chunked Evaluation — Rust `chunk_step` session command; `POST /v1/chunked-eval`; external-controller integration
+- m-E22-03 `FlowTime.Pipeline` SDK — embeddable library wrapping all analysis modes; existing API/CLI callers rewritten to dogfood the SDK
+
+**Out of scope (tracked as gaps):** optimization constraints, Monte Carlo, `FlowTime.Telemetry.*` direct-source adapters, tiered validation parity across UIs/MCP.
 
 ## UI Paradigm Epics (draft — unnumbered until sequenced)
 
