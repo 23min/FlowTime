@@ -4,7 +4,7 @@
 **Completed:** 2026-04-24
 **Branch:** `milestone/m-E21-06-heatmap-view` (branched from `epic/E-21-svelte-workbench-and-analysis` at commit `b3b4a33`)
 **Spec:** `work/epics/E-21-svelte-workbench-and-analysis/m-E21-06-heatmap-view.md`
-**Commits:** `4abb114` (start), `<SHA-pending>` (implementation + wrap)
+**Commits:** `4abb114` (start), `5dddb5d` (implementation + wrap)
 
 <!-- Status is not carried here. The milestone spec's frontmatter `status:` field is
      canonical. `**Completed:**` is filled iff the spec is `complete`. -->
@@ -202,7 +202,7 @@ Status surfaces reconciled in this pass:
 - [x] `work/epics/epic-roadmap.md` E-21 block — narrative updated to reflect m-E21-06 completion.
 - [x] `CLAUDE.md` Current Work — E-21 block's m-E21-06 bullet rewritten from **in-progress** to **complete** with final figures (770 vitest, +269 delta, 16 Playwright specs, 15/15 ACs, framework guard addition).
 
-Framework guard added mid-milestone (2026-04-23): the Truth-Discipline "API stability" guard was appended to `.ai-repo/rules/project.md` and auto-mirrored to `CLAUDE.md` — motivated by the dead-code deletion of `buildMetricMapForDef` / `buildMetricMapForDefFiltered` + the `pinnedIds` pass-through cleanup. Commit SHA: filled post-commit in the chaser.
+Framework guard added mid-milestone (2026-04-23): the Truth-Discipline "API stability" guard was appended to `.ai-repo/rules/project.md` and auto-mirrored to `CLAUDE.md` — motivated by the dead-code deletion of `buildMetricMapForDef` / `buildMetricMapForDefFiltered` + the `pinnedIds` pass-through cleanup. Included in commit `5dddb5d`.
 
 Exclusions flagged at wrap time (unrelated to m-E21-06, not in the milestone commit):
 - `.devcontainer/devcontainer.json` — pre-existing session-start edit for gh CLI mount.
