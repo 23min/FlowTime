@@ -513,6 +513,81 @@ Not scheduled. No owner milestone. Tracked here pending planning.
 
 ---
 
+## FFI-based engine evaluator (alternative to subprocess)
+
+### Why this is a gap
+
+The current `IModelEvaluator` seam has two implementations — `RustModelEvaluator` (fresh subprocess per eval) and `SessionModelEvaluator` (persistent `flowtime-engine session` subprocess via MessagePack over stdio). Both share one property: the engine is a separate OS process, with IPC on every call.
+
+For Studio (E-23 as proposed), this boundary gets expensive:
+
+- **Per-session memory multiplies.** “One Rust process per session” with ~50 concurrent sessions = 50 process address spaces. The alternative — a pooled subprocess with session affinity — is real complexity that does not serve users.
+- **Session IR wants direct access to engine state.** Node identity, per-node cache, and generation counters live in Rust (per m-E23-01). The .NET session service projects patches onto that state via IPC round-trips. A shared-memory boundary would let the service hand the evaluator `&mut Graph` or an `Arc<Session>` directly.
+- **Cold start matters for short-lived embedders.** `FlowTime.Pipeline` SDK callers pay subprocess startup per invocation unless they keep a session open; an in-process library pays zero.
+- **Container profile.** On cloud-agnostic hosting (Hetzner, plain Docker), collapsing engine + service into one process shrinks image size and PID footprint.
+
+### Alternative shape
+
+Rust engine compiled as a **cdylib** (or `staticlib` for .NET AOT scenarios), loaded into the hosting process via FFI:
+
+- .NET host → P/Invoke or a managed wrapper around a stable C ABI.
+- Rust host → same crate linked directly (no FFI needed if the service is also Rust — see below).
+- Python/Node/Go embedders → same C ABI via their native-interop story.
+
+Keeps the language-boundary benefit (engine correctness isolated from service churn) without the process boundary.
+
+### Why this may or may not be worth doing
+
+Worth it if any of these bite:
+
+- Per-session memory at `N=50` concurrent sessions exceeds budget.
+- Cold-start latency on short-lived pipeline invocations shows up in traces.
+- The subprocess pool-with-affinity logic grows into a distinct subsystem rather than a small helper.
+
+Not worth it if:
+
+- Sessions are few and long-lived (the subprocess boundary amortizes).
+- The managed wrapper surface area (marshalling complex types, lifetime of native handles, allocator mismatches) exceeds the subprocess complexity it replaces.
+
+### Immediate implications
+
+- Keep `IModelEvaluator` as the seam; do not let subprocess assumptions leak past it.
+- Before committing to “one Rust process per session” in m-E23-01/m-E23-02, prototype an FFI-based evaluator alongside the subprocess one and measure memory + cold start at realistic `N`.
+- A language reconsideration for the service layer (see “Backend language choice for session service” below) interacts with this decision: if the service ends up in Rust, FFI collapses to a direct link and the IPC discussion ends.
+
+---
+
+## Backend language choice for session service
+
+### Why this is a gap
+
+The current stack is Rust engine + .NET session layer. The .NET choice is historical — it predates the Rust engine and predates Studio's scope expansion. Under cloud-agnostic deployment (Docker on Hetzner or similar) and with the Pipeline SDK's “embeddable into .NET only” framing challenged, the first-principles calculus shifts:
+
+- **Pipeline SDK embedding reach.** A Rust crate + C ABI reaches .NET (P/Invoke), Python (ctypes / PyO3), Node (NAPI), Go (cgo), and any other runtime. A .NET assembly reaches .NET only. Broader embedder reach is strictly better for “FlowTime as a callable function” positioning.
+- **Container profile on cloud-agnostic hosting.** Rust: ~10 MB static binary, sub-second cold start. .NET AOT-trimmed: ~80 MB, multi-second cold start. On managed Azure the gap is absorbed; on plain Docker hosting it is visible.
+- **Collapsing the engine/service divide.** If the service is Rust, the “engine as subprocess” discussion ends — the session service owns the engine state directly via a linked crate.
+- **Studio's .NET scope is mostly net-new.** Session IR, patch vocabulary, WS multiplex, snapshot/resume do not exist today. The rewrite cost is “build Studio in Rust from scratch” rather than “port a mature .NET layer to Rust.” The existing analysis runners (SweepRunner, Nelder-Mead, etc., ~1,600 LOC) are near-pure math and port cleanly.
+
+### Status
+
+Open question. Not scheduled. Worth deciding before m-E23-01 scope lands so the implementation substrate is settled.
+
+### Resolution path
+
+Prototype spike:
+
+1. `axum` or `actix-web` service exposing the current `/v1/sweep` shape, wrapping the Rust engine as a linked crate (no subprocess).
+2. Measure: cold start, steady-state memory at N=50 sessions, end-to-end sweep latency vs .NET + subprocess baseline, container image size.
+3. Re-evaluate with data. If Rust wins decisively on memory + deployment profile and the async-Rust complexity for WS fan-out is tractable, Studio (E-23) is the natural place to land the shift — it is mostly new scope anyway.
+
+### Immediate implications
+
+- Do not treat “.NET session service” as settled in the Studio architecture doc. Mark it as an assumption pending spike.
+- Keep the `IModelEvaluator` seam language-neutral in spirit — it is currently .NET-flavored but the pattern (compile-once-eval-many with parameter patches) ports directly.
+- Do not expand the .NET layer with anything that would be load-bearing to keep on .NET specifically. Structural patch handling, session IR, and WS multiplex should be written as if any language could host them.
+
+---
+
 ## Open Questions
 
 - Should path filters be part of the time-travel API or a separate analysis endpoint?
