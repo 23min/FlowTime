@@ -69,22 +69,47 @@ Build a parallel SvelteKit + shadcn-svelte UI surface for demos and future evalu
 
 Superseded on 2026-04-15 (fork decision): Svelte becomes the platform for all new surfaces and Blazor enters maintenance mode. Remaining work moved to **E-21 — Svelte Workbench & Analysis Surfaces** below.
 
-## E-23 — Model Validation Consolidation (in-progress — planning)
+## E-24 — Schema Alignment (in-progress — planning)
 
-**Epic:** `work/epics/E-23-model-validation-consolidation/spec.md` | **Status:** in-progress — planning (branch `epic/E-23-model-validation-consolidation`)
+**Epic:** `work/epics/E-24-schema-alignment/spec.md` | **Status:** in-progress — planning (branch `epic/E-24-schema-alignment`, created from `main` 2026-04-24). Internal planning ratified **Option E (unify)** on 2026-04-24 per `D-2026-04-24-037`.
 
-Mini-epic (3 milestones, possibly 2) that interrupts E-21. Collapses the codebase's two silently-disagreeing model validators to one: `ModelValidator` is **deleted**, `ModelSchemaValidator` is the single schema-driven entry point, and `docs/schemas/model.schema.yaml` becomes the sole structural contract for model YAML. Directly enforces the 2026-04-23 Truth Discipline guard *"'API stability' does not mean 'keep old functions around.'"*
+Unify FlowTime's post-substitution model representation. One C# type. One YAML schema. One validator. `SimModelArtifact` is **deleted**; Sim builds the unified type directly; Engine parses it directly. `Template` (authoring-time) stays distinct. Forward-only — no migration of stored bundles; Sim regenerates from templates going forward. camelCase throughout per project rule. Interrupts E-23 at m-E23-01; at E-24 close, m-E23-02 (call-site migration) and m-E23-03 (`ModelValidator` delete) become mechanical cleanup.
 
-**Evidence:** survey test `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs` iterates all twelve templates under `templates/*.yaml` — every one produces tier-3 validator errors under `TimeMachineValidator` while running successfully through `POST /v1/run`. Root cause: the schema forbids `grid.start` via `additionalProperties: false`, but Sim emits it and the Engine consumes it.
+**Why now (evidence):** The two-type split (`SimModelArtifact` vs `ModelDefinition`) is accidental drift, not a designed interface. `SimModelArtifact` was introduced in commit `ce9ec9e` (Oct 2025) shaped to the template schema, not to `model.schema.yaml` which predated it by a month. No C# type boundary exists between Sim and Engine — only a YAML string — and that YAML string fails the Engine's own schema in every shipped template (m-E23-01 canary: 726 validator errors across 16 divergence shapes). Each feature addition since has paid a duplication tax. Only `provenance` has genuine dual concern, and both sides already agree on the keys — they just disagree on casing. Investigation agent: `a5aa3dfe26394aff5`; survey agent: `a07d52c12dcaf3538`.
 
-**Planned milestones:**
-- m-E23-01 Schema Alignment — allow `grid.start`, audit every `ModelValidator` rule against the schema, commit the template-warning survey as a regression canary
-- m-E23-02 Call-Site Migration — switch `/v1/run`, Engine CLI, `TimeMachineValidator`, and tests from `ModelValidator.Validate` to `ModelSchemaValidator.Validate`; audit error-message phrasing
-- m-E23-03 Delete `ModelValidator` — remove the file; assert zero production callers; final survey-canary green
+**Option A (rejected):** Preserve both types with a projection layer (`SimModelArtifact.ToEngineSubmission()`). Rejected as preserving accidental drift; converts the leak into a designed feature; accepts the ongoing duplication tax.
+
+**Planned milestones (5):**
+- m-E24-01 Inventory & Design Decisions (doc-only; unified-type home/name/provenance shape; six open questions)
+- m-E24-02 Unify Model Type (introduce unified type; rewrite `SimModelBuilder` to emit it directly; switch Engine intake; delete `SimModelArtifact` and satellites `SimNode`/`SimOutput`/`SimProvenance`/`SimTraffic`/`SimArrival`/`SimArrivalPattern`; drop leaked-state fields `window`/`generator`/top-level `metadata`/top-level `mode`; regenerate fixtures)
+- m-E24-03 Schema Unification (rewrite `docs/schemas/model.schema.yaml` to describe the unified type in camelCase; rewrite `docs/schemas/README.md`; audit `docs/architecture/`)
+- m-E24-04 Parser/Validator Scalar-Style Fix (mirrored `ParseScalar` fix in both `ModelSchemaValidator` and `TemplateSchemaValidator`; test helper aligned)
+- m-E24-05 Canary Green + Hard Assertion (`TemplateWarningSurveyTests` asserts `val-err=0`; E-23 resume gate)
+
+**ADRs (ratified in m-E24-01):** ADR-E-24-01 Unify the post-substitution model type · ADR-E-24-02 Forward-only regeneration · ADR-E-24-03 Schema declares only consumed fields · ADR-E-24-04 (m-E24-04) `ScalarStyle.Plain` gates `ParseScalar` coercion.
+
+**Out of scope (firm):** `ModelValidator` deletion (stays with E-23 m-E23-03), UI work, new validator features, deprecated-field reintroduction, migration windows / aliases, bundle migration (forward-only), `Template` (authoring-time) redesign, E-15 runtime implementation.
+
+**Dependencies:** none upstream; E-23 paused at m-E23-01 awaiting E-24 close.
+
+**Decisions:** `work/decisions.md` → `D-2026-04-24-036` (E-23 paused, E-24 created) · `D-2026-04-24-037` (Option E ratified; 5-milestone plan).
+
+## E-23 — Model Validation Consolidation (paused — pending E-24)
+
+**Epic:** `work/epics/E-23-model-validation-consolidation/spec.md` | **Status:** paused 2026-04-24 — m-E23-01 surfaced 16 divergences beyond E-23's scope; E-24 Schema Alignment takes over the convergence work. E-23 resumes when E-24 closes; m-E23-02 and m-E23-03 then become byte-trivial.
+
+Mini-epic (3 milestones). Collapses the codebase's two silently-disagreeing model validators to one: `ModelValidator` is **deleted**, `ModelSchemaValidator` is the single schema-driven entry point. Directly enforces the 2026-04-23 Truth Discipline guard *"'API stability' does not mean 'keep old functions around.'"*
+
+**Uncommitted m-E23-01 input material** (schema edits, tracking doc, gaps.md entries) is stashed on branch `milestone/m-E23-01-schema-alignment` as preserved input for E-24 m-E24-01 — re-examined under the foundational framework, not treated as committed.
+
+**Milestone status after pause:**
+- m-E23-01 Schema Alignment — **paused (pending E-24)**
+- m-E23-02 Call-Site Migration — **pending (awaits E-24 close)**
+- m-E23-03 Delete `ModelValidator` — **pending (awaits E-24 close)**
 
 **Out of scope (firm):** Sim's `grid.start` emission, Blazor/Svelte UI code, active validation UI (lives in m-E21-07 after E-21 resumes), new validator features.
 
-**Dependencies:** none — the mini-epic stands on its own. After it lands, m-E21-07 Validation Surface resumes with a single consolidated validator to render.
+**Dependencies:** E-24 Schema Alignment. After E-24 + E-23 both land, m-E21-07 Validation Surface resumes with a single consolidated validator to render.
 
 ## E-21 — Svelte Workbench & Analysis Surfaces (paused — interrupted by E-23)
 

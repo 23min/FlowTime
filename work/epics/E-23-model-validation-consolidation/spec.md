@@ -1,11 +1,24 @@
 ---
 id: E-23-model-validation-consolidation
-status: draft
-depends_on:
+status: paused
+depends_on: E-24-schema-alignment
 completed:
 ---
 
 # E-23: Model Validation Consolidation
+
+## Amendment 2026-04-24 (pause)
+
+**Paused pending E-24 Schema Alignment.** m-E23-01's bisection survey surfaced 16 distinct schema-vs-reality divergences across five classifications (architectural seam, systematic rule violation, validator defect, emitter drift, emitter redundancy) — far beyond the single `grid.start` gap the E-23 context anticipated. Applying the "right, not easy" discipline per-field is broader than E-23's consolidation thesis. **E-24 Schema Alignment** (`work/epics/E-24-schema-alignment/spec.md`) takes over the convergence work. E-23 resumes when E-24 closes; at that point m-E23-02 and m-E23-03 become byte-trivial because `ModelSchemaValidator`, the schema, Sim's emitter, and the Engine's reader will actually agree on every currently-valid template.
+
+The uncommitted m-E23-01 artefacts (three schema edits on `milestone/m-E23-01-schema-alignment`, plus the rule-audit tracking doc and two `work/gaps.md` entries) are preserved as input material for E-24 m-E24-01. They are not committed; they are not discarded. See `D-2026-04-24-036` for the full context.
+
+**Amendment 2026-04-24 (Option E ratified within E-24):** Within E-24 planning, **Option E (unify `SimModelArtifact` and `ModelDefinition` into a single type, forward-only)** was ratified over Option A (preserve two types with a projection layer). E-24's milestone count collapsed from six to five. At E-24 close, `ModelSchemaValidator`, the schema, Sim's emitter, and the Engine's reader will share a single unified type definition — m-E23-02 and m-E23-03 remain mechanical cleanup, with the simplification that `ModelSchemaValidator` already validates the unified type used by every call site. See `D-2026-04-24-037` for the ratification context.
+
+Pointers:
+- E-24 epic spec: `work/epics/E-24-schema-alignment/spec.md`
+- m-E23-01 tracking (input to m-E24-01): held on branch `milestone/m-E23-01-schema-alignment` (stashed)
+- Decisions: `work/decisions.md` → `D-2026-04-24-036` (E-23 paused, E-24 created) · `D-2026-04-24-037` (Option E ratified)
 
 ## Goal
 
@@ -95,9 +108,9 @@ This epic exists in direct service of the 2026-04-23 addition to Truth Disciplin
 
 Sequencing: schema alignment first (no code changes, establishes the regression canary), then call-site migration (mechanical switch-over with phrasing audit), then the `ModelValidator` delete (cleanup + assertion that nothing calls it anymore). The default is three milestones; the Open Questions list above captures a collapse option.
 
-- [m-E23-01-schema-alignment](./m-E23-01-schema-alignment.md) — Update `model.schema.yaml` so every current template validates cleanly under `ModelSchemaValidator`; commit the template-warning survey as a regression canary. · depends on: —
-- [m-E23-02-call-site-migration](./m-E23-02-call-site-migration.md) — Switch every production call site and test from `ModelValidator.Validate` to `ModelSchemaValidator.Validate`; audit error-message phrasing. · depends on: m-E23-01
-- [m-E23-03-delete-model-validator](./m-E23-03-delete-model-validator.md) — Delete `ModelValidator.cs` and its dedicated tests; assert `grep` returns zero production callers. · depends on: m-E23-02
+- [m-E23-01-schema-alignment](./m-E23-01-schema-alignment.md) — Update `model.schema.yaml` so every current template validates cleanly under `ModelSchemaValidator`; commit the template-warning survey as a regression canary. · **paused (pending E-24) — branch `milestone/m-E23-01-schema-alignment` holds uncommitted input material for E-24 m-E24-01** · depends on: —
+- [m-E23-02-call-site-migration](./m-E23-02-call-site-migration.md) — Switch every production call site and test from `ModelValidator.Validate` to `ModelSchemaValidator.Validate`; audit error-message phrasing. · **pending (awaits E-24 close)** · depends on: m-E23-01, E-24
+- [m-E23-03-delete-model-validator](./m-E23-03-delete-model-validator.md) — Delete `ModelValidator.cs` and its dedicated tests; assert `grep` returns zero production callers. · **pending (awaits E-24 close)** · depends on: m-E23-02
 
 ## ADRs
 
