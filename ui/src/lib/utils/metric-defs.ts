@@ -9,6 +9,12 @@
  * series key (for sparklines from window data).
  */
 
+import {
+	computeSharedColorDomain,
+	type ColorDomainCell,
+} from './shared-color-domain.js';
+import { normalizeValueInDomain } from './value-normalize.js';
+
 export interface MetricDef {
 	id: string;
 	label: string;
@@ -60,17 +66,6 @@ export function extractMetricValue(node: Record<string, unknown>, path: string):
 	}
 	const n = Number(current);
 	return isFinite(n) ? n : undefined;
-}
-
-/**
- * Build a metric map from snapshot state nodes for a given metric definition.
- * Returns a Map<nodeId, { value, label }> suitable for DagMapView.
- */
-export function buildMetricMapForDef(
-	nodes: Record<string, unknown>[],
-	def: MetricDef
-): Map<string, { value: number; label: string }> {
-	return buildMetricMapForDefFiltered(nodes, def, new Set());
 }
 
 /**
@@ -132,26 +127,6 @@ export function extractMetricValueFiltered(
 }
 
 /**
- * Build a snapshot metric map honoring an active class filter.
- */
-export function buildMetricMapForDefFiltered(
-	nodes: Record<string, unknown>[],
-	def: MetricDef,
-	activeClasses: Set<string>
-): Map<string, { value: number; label: string }> {
-	const m = new Map<string, { value: number; label: string }>();
-	for (const node of nodes) {
-		const id = node.id as string;
-		if (!id) continue;
-		const v = extractMetricValueFiltered(node, def.path, activeClasses);
-		if (v !== undefined) {
-			m.set(id, { value: v, label: def.format(v) });
-		}
-	}
-	return m;
-}
-
-/**
  * Build per-node sparkline values from a state_window response's NodeSeries array.
  *
  * windowNodes shape: Array<{ id, series: { [key]: (number|null)[] }, byClass?: {...} }>
@@ -175,6 +150,74 @@ export function buildSparklineSeries(
 	}
 
 	return result;
+}
+
+/**
+ * Compute the shared color-scale domain over a full `state_window` response for
+ * a given metric + class filter — m-E21-06 AC5 + ADR-m-E21-06-02.
+ *
+ * Iterates every node's series under the active class filter and emits each finite
+ * value as an observed `ColorDomainCell`. The resulting `[lo, hi]` domain is what
+ * both topology and heatmap use for coloring so "bright red on node N at bin T"
+ * means the same thing in both views.
+ *
+ * Returns `null` when no observed cells survive the filter (caller falls back to
+ * baseline class colors — there is nothing meaningful to color).
+ */
+export function computeMetricDomainFromWindow(
+	windowNodes: Record<string, unknown>[],
+	def: MetricDef,
+	activeClasses: Set<string>
+): [number, number] | null {
+	const cells: ColorDomainCell[] = [];
+	for (const node of windowNodes) {
+		const id = node.id as string;
+		if (!id) continue;
+		const values = extractSeriesValues(node, def.seriesKey, activeClasses);
+		if (!values) continue;
+		for (const v of values) {
+			if (Number.isFinite(v)) {
+				cells.push({ value: v, state: 'observed' });
+			}
+		}
+	}
+	return computeSharedColorDomain(cells, { excludeNonObserved: true });
+}
+
+/**
+ * Build a topology metric map that carries BOTH the raw label and a normalized
+ * value in `[0, 1]` ready for the dag-map color palette.
+ *
+ * Consumes the shared domain computed from the window response (above) so the
+ * topology color for (node N at bin T) matches the heatmap color for cell (N, T)
+ * under the same class filter.
+ *
+ * `label` is still formatted from the RAW value — users read real units, not
+ * normalized fractions. `value` is the `0..1` position inside the shared domain.
+ *
+ * Nodes whose raw value lies outside the domain or falls in the degenerate
+ * single-value case are handled by `normalizeValueInDomain`; a null normalized
+ * result means "no color" and the node is omitted from the map so dag-map falls
+ * back to its class color.
+ */
+export function buildNormalizedMetricMap(
+	nodes: Record<string, unknown>[],
+	def: MetricDef,
+	activeClasses: Set<string>,
+	domain: readonly [number, number] | null
+): Map<string, { value: number; label: string }> {
+	const m = new Map<string, { value: number; label: string }>();
+	if (!domain) return m;
+	for (const node of nodes) {
+		const id = node.id as string;
+		if (!id) continue;
+		const raw = extractMetricValueFiltered(node, def.path, activeClasses);
+		if (raw === undefined) continue;
+		const normalized = normalizeValueInDomain(raw, domain);
+		if (normalized === null) continue;
+		m.set(id, { value: normalized, label: def.format(raw) });
+	}
+	return m;
 }
 
 function extractSeriesValues(

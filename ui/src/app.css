@@ -56,6 +56,15 @@
 	--ft-viz-green: hsl(140 40% 35%);
 	--ft-viz-amber: hsl(35 55% 42%);
 	--ft-viz-purple: hsl(270 40% 45%);
+
+	/* Chrome accent — pin glyph red. Distinct from --destructive (semantic "danger")
+	   and from the data-viz scale. Used for pinned-row glyphs and other
+	   pin-status chrome that should read red without triggering delete affordance. */
+	--ft-pin: hsl(355 65% 48%);
+
+	/* Chrome accent — current-bin / current-selection highlight. Brighter and more
+	   saturated than --ft-viz-teal so the highlight reads as chrome, not data. */
+	--ft-highlight: hsl(178 75% 40%);
 }
 
 .dark {
@@ -98,6 +107,12 @@
 	--ft-viz-green: hsl(140 40% 55%);
 	--ft-viz-amber: hsl(35 65% 58%);
 	--ft-viz-purple: hsl(270 40% 60%);
+
+	/* Chrome accent — pin glyph red (dark mode). */
+	--ft-pin: hsl(355 60% 60%);
+
+	/* Chrome accent — current-bin / current-selection highlight (dark mode). */
+	--ft-highlight: hsl(178 75% 55%);
 }
 
 @theme inline {

@@ -115,6 +115,7 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 - Do not reconstruct semantic or analytical identity in adapters or clients from `kind`, `logicalType`, file stems, or similar heuristics when compiled/runtime facts can own that truth.
 - When a runtime boundary changes, prefer forward-only regeneration of runs, fixtures, and approved outputs over compatibility readers that recover missing facts.
 - Do not keep both a bridge abstraction and its compiled replacement once the replacement milestone is active unless the spec explicitly allows a coexistence window.
+- "API stability" does not mean "keep old functions around." When a function has no production callers after a refactor, delete it and its tests in the same change — do not retain it as a dead alternative entry point under the banner of keeping the existing surface stable.
 - Do not treat aspirational docs as implementation authority.
 
 ## Documentation

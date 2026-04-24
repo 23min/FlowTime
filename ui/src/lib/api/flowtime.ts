@@ -97,11 +97,24 @@ export const flowtime = {
 		return getText(`${API}/runs/${encodeURIComponent(runId)}/model`);
 	},
 
-	/** Get state window (range of bins) */
-	async getStateWindow(runId: string, startBin: number, endBin: number) {
-		return get<StateWindowResponse>(
-			`${API}/runs/${encodeURIComponent(runId)}/state_window?startBin=${startBin}&endBin=${endBin}`
-		);
+	/**
+	 * Get state window (range of bins).
+	 *
+	 * `mode` (m-E21-06 AC15) toggles which node kinds the API returns:
+	 *   - `'operational'` (default on the server) hides `expr`/`const`/`pmf` computed nodes.
+	 *   - `'full'` exposes them so the heatmap and topology can render computed rows.
+	 *
+	 * Omitting the parameter keeps the URL byte-compatible with pre-milestone call sites.
+	 */
+	async getStateWindow(
+		runId: string,
+		startBin: number,
+		endBin: number,
+		mode?: 'operational' | 'full'
+	) {
+		let url = `${API}/runs/${encodeURIComponent(runId)}/state_window?startBin=${startBin}&endBin=${endBin}`;
+		if (mode !== undefined) url += `&mode=${mode}`;
+		return get<StateWindowResponse>(url);
 	},
 
 	/** Parameter sweep — POST /v1/sweep */
