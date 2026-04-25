@@ -5,6 +5,70 @@ It is intentionally short, factual, and forward-looking.
 
 ---
 
+## `ProvenanceEmbedder` parallel CLI path (Sim, dead code)
+
+### Why this is a gap
+
+Surfaced during m-E24-02 step 4 (deferred); confirmed during step-6 wrap audit. `src/FlowTime.Sim.Core/Services/ProvenanceEmbedder.cs` is a static helper that injects a `provenance:` block into a YAML string by inserting lines after `schemaVersion:`. It uses string-template emission (not `ProvenanceDto` serialization) and a separate `ProvenanceMetadata` type (in `src/FlowTime.Sim.Core/Models/`) with its own field names — including `source`, `schemaVersion`, `templateTitle` that the m-E24-01 Q5/A4 ratified shape **drops**.
+
+Status check (verified 2026-04-25):
+- `grep -rn "ProvenanceEmbedder\." src/ tests/` — **zero hits**. The static method has no callers.
+- `--embed-provenance` CLI flag in `Sim.Cli/Program.cs:744` carries help text: `"(Legacy) provenance is always embedded; flag retained for compatibility"`. The flag is parsed and stored, but it does not invoke `ProvenanceEmbedder` anywhere.
+- The unified `SimModelBuilder` → `ModelDto` → `ProvenanceDto` path (m-E24-02 step 4) is the sole live emission path.
+
+So `ProvenanceEmbedder` is a latent **wrong-shape emitter** — if anything ever resurrects the call site, it would emit a provenance block that violates the post-m-E24-02 contract (snake_case hangover from earlier shape, `source`/`schemaVersion`/`templateTitle` keys that AC6 drops).
+
+### Why deferred from m-E24-02
+
+Out of step-4 scope (parallel CLI path; the milestone owned the primary path). Confirmed dead during the step-6 wrap audit, after the milestone's order-of-work was already locked.
+
+### Resolution path
+
+Single small `chore(sim):` patch:
+- Delete `src/FlowTime.Sim.Core/Services/ProvenanceEmbedder.cs`.
+- Delete `src/FlowTime.Sim.Core/Models/ProvenanceMetadata.cs` (and any sibling files that exist solely to support `ProvenanceEmbedder`'s API surface) if they have zero remaining callers — verify with `grep`.
+- Delete the `--embed-provenance` flag parsing in `Sim.Cli/Program.cs` (lines 29, 44, 268, 744-745, 761, 804) and the `ArgParser_ParsesEmbedProvenanceFlag` test in `tests/FlowTime.Sim.Tests/Cli/GenerateProvenanceTests.cs:116`.
+- Run the full test suite. No coexistence window — forward-only delete.
+
+### Reference
+
+- `src/FlowTime.Sim.Core/Services/ProvenanceEmbedder.cs` (slated for deletion)
+- `src/FlowTime.Sim.Cli/Program.cs:744` (help text confirms "Legacy")
+- m-E24-02 tracking doc step-4 deferral notes (`work/epics/E-24-schema-alignment/m-E24-02-unify-model-type-tracking.md` lines 758, 876, 1065)
+
+---
+
+## `GridDefinition.StartTimeUtc` runtime-side rename (Engine)
+
+### Why this is a gap
+
+Surfaced during m-E24-02 step 2 — D-m-E24-02-03 ratified a deliberate wire/runtime naming asymmetry: the wire DTO `GridDto.StartTimeUtc` was renamed to `Start` (so the camelCase convention emits `start:`, matching production templates), but the runtime model `GridDefinition.StartTimeUtc` (in `src/FlowTime.Core/Models/ModelParser.cs:577`) kept its name. The boundary is `ModelService.ConvertToModelDefinition`: `StartTimeUtc = model.Grid.Start`.
+
+The asymmetry is real but cosmetic. Same concept, two names across the wire/runtime boundary. Readers of `model.Grid.Start` (wire) and `runtimeModel.Grid.StartTimeUtc` (runtime) see different identifiers for the same semantic.
+
+### Why out of E-24 scope
+
+E-24's scope is the post-substitution wire shape. The runtime model is the consumer of that shape, not part of it. Renaming the runtime property would touch `ModelParser`, every Engine evaluator that reads grid start, and a handful of tests authoring `ModelDefinition` directly. Out of step-2 budget at the time; carved out per D-m-E24-02-03.
+
+### Resolution path
+
+`refactor(core):` patch:
+- Rename `GridDefinition.StartTimeUtc` → `GridDefinition.Start` in `src/FlowTime.Core/Models/ModelParser.cs`.
+- Update `ModelService.ConvertToModelDefinition` (the wire-to-runtime bridge) accordingly.
+- Update every C# read of `runtimeModel.Grid.StartTimeUtc` (start in `src/FlowTime.TimeMachine/TelemetryCapture.cs:200`, then sweep with `rg "\.StartTimeUtc"`).
+- The unrelated `TelemetryManifestWindow.StartTimeUtc`, `FixtureWindow.StartTimeUtc`, and `CaptureManifestWriter` record-parameter `StartTimeUtc` are separate types and stay (they live under `window:` blocks, not `grid:`).
+- Run the full test suite. No wire-format change.
+
+Could be bundled into a single combined `chore(sim/core):` cleanup patch alongside the `ProvenanceEmbedder` delete and the Template-layer `Legacy*` cleanup — all three are small, all three are E-24 wake — minimizes commit churn.
+
+### Reference
+
+- `src/FlowTime.Core/Models/ModelParser.cs:577` (runtime property definition)
+- `src/FlowTime.Contracts/Services/ModelService.cs:47` (wire→runtime bridge)
+- D-m-E24-02-03 in `work/epics/E-24-schema-alignment/m-E24-02-unify-model-type-tracking.md` (decision rationale)
+
+---
+
 ## Template-layer `Legacy*` aliases (Sim authoring-time)
 
 ### Why this is a gap
