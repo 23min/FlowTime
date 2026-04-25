@@ -1,9 +1,9 @@
 ---
 id: m-E24-02-unify-model-type
 epic: E-24-schema-alignment
-status: in-progress
+status: complete
 depends_on: m-E24-01-inventory-and-design-decisions
-completed:
+completed: 2026-04-25
 ---
 
 # m-E24-02: Unify Model Type

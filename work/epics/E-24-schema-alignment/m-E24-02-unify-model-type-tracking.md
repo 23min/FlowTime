@@ -1,10 +1,11 @@
 # m-E24-02 Unify Model Type — Tracking
 
 **Started:** 2026-04-25
-**Completed:** pending
+**Completed:** 2026-04-25
 **Branch:** `milestone/m-E24-02-unify-model-type` (from `epic/E-24-schema-alignment`)
 **Spec:** `work/epics/E-24-schema-alignment/m-E24-02-unify-model-type.md`
-**Commits:** (pending)
+**Commits:** `131dd35` (step 1) · `c4064bf` (steps 2-4) · `3806097` (step 5) · `dece22f` (step 6 + gap filings)
+**Final test count:** 1,755 passed / 0 failed / 9 skipped
 
 <!-- Status is not carried here. The milestone spec's frontmatter `status:` field is
      canonical. `**Completed:**` is filled iff the spec is `complete`. -->
