@@ -1,7 +1,7 @@
 ---
 id: m-E24-02-unify-model-type
 epic: E-24-schema-alignment
-status: draft
+status: in-progress
 depends_on: m-E24-01-inventory-and-design-decisions
 completed:
 ---
@@ -47,7 +47,7 @@ This milestone implements those decisions. It is the single milestone where code
 - **Forward-only is non-negotiable.** No compatibility reader for the old two-type YAML. No "accept either shape" branch. If a test or fixture authored the old shape, it is regenerated or deleted here.
 - **Byte-identical `/v1/run` success is non-negotiable.** The diff evidence in AC7 must be zero for the representative templates. A byte-level diff indicates a defect in the unification and blocks milestone wrap.
 - **Test-fixture churn is acceptable.** Tests that authored `SimModelArtifact` directly are rewritten. No compatibility reader in test helpers.
-- **Emission stays declarative.** YamlDotNet serialization attributes (`[YamlMember]`, `DefaultValuesHandling.OmitNull`, `ShouldSerialize{X}()`) are the mechanism for omitting leaked-state fields — not custom string manipulation. The emitter's behavior is inspectable from the type definition.
+- **Emission stays declarative.** YamlDotNet serialization attributes (`[YamlMember]`, `[YamlIgnore]`) plus `DefaultValuesHandling.OmitNull | OmitEmptyCollections` configured on the `SerializerBuilder` are the mechanism for omitting leaked-state and absent fields — not custom string manipulation. The emitter's behavior is inspectable from the type definition. **Note:** YamlDotNet does not honor a `ShouldSerialize{X}()` convention — that is a Json.NET / `XmlSerializer` pattern. Per D-m-E24-02-03, all `ShouldSerialize*` shims that survive into m-E24-02 either die with their host type (`SimNode`, `LegacyStart`) or are replaced by nullable-property + `OmitNull` semantics.
 - **No Sim→Engine dependency inversion.** The unified type lives at its m-E24-01 home. If that home is `FlowTime.Contracts`, both Sim and the Engine reference it — Sim already references `FlowTime.Contracts`, and the Engine likewise. If the home is `FlowTime.Core`, Sim adds the reference. The Engine never references Sim.
 
 ## Design Notes

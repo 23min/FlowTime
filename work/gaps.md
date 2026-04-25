@@ -5,6 +5,40 @@ It is intentionally short, factual, and forward-looking.
 
 ---
 
+## Template-layer `Legacy*` aliases (Sim authoring-time)
+
+### Why this is a gap
+
+Surfaced during m-E24-02 (D-m-E24-02-03, 2026-04-25). `src/FlowTime.Sim.Core/Templates/Template.cs` carries three `Legacy*` properties on the authoring-time `Template` types, each paired with a `ShouldSerialize*` shim:
+
+| Property | YAML alias | C# canonical |
+|---|---|---|
+| `Template.Node.LegacyExpression` (line 264) | `expression:` | `Expr` (emits as `expr:`) |
+| `TemplateOutput.LegacySource` (line 339) | `source:` (in outputs) | `Series` (emits as `series:`) |
+| `TemplateOutput.LegacyFilename` (line 348) | `filename:` | `As` (emits as `as:`) |
+
+All three are **dead aliases**:
+- `expression:` — zero hits in `templates/*.yaml` (production), zero hits in `tests/**/*.yaml`. Real templates use `expr:`. Note: `examples/*.yaml` and `engine/fixtures/*.yaml` have hits for `expression:`, but those go through the Engine's `ModelParser`, not through `Template`.
+- `source:` (in outputs) — zero hits in production templates and tests. The `source:` matches in production templates (9 hits) are all on **nodes** (`nodes[].source: ${telemetryFooSource}`), a separate mechanism on `Template.Node`, not on `TemplateOutput`.
+- `filename:` — zero hits in production templates or tests.
+
+The paired `ShouldSerialize*` methods are no-ops at the YAML emitter — YamlDotNet does not honor the `ShouldSerialize{X}()` convention (it is a Json.NET / `XmlSerializer` pattern). See D-m-E24-02-03 for the YamlDotNet investigation.
+
+### Why deferred from m-E24-02
+
+`Template` is authoring-time, pre-substitution. E-24's scope is the post-substitution model boundary (the unified `ModelDto`). Touching `Template` would scope-creep the milestone.
+
+### Resolution path
+
+Small `chore(sim):` patch: delete the three `Legacy*` properties, the three `ShouldSerialize*` methods, and the (already absent) wire format hits. Run the Sim test suite. No coexistence window — forward-only delete.
+
+### Reference
+
+- `src/FlowTime.Sim.Core/Templates/Template.cs:263-270, 338-345, 347-354`
+- D-m-E24-02-03 (tracking doc: `work/epics/E-24-schema-alignment/m-E24-02-unify-model-type-tracking.md`)
+
+---
+
 ## Legacy / Compatibility Surface Cleanup
 
 ### Why this was a gap

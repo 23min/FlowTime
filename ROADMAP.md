@@ -71,7 +71,7 @@ Superseded on 2026-04-15 (fork decision): Svelte becomes the platform for all ne
 
 ## E-24 — Schema Alignment (in-progress)
 
-**Epic:** `work/epics/E-24-schema-alignment/spec.md` | **Status:** in-progress — m-E24-01 Inventory & Design Decisions **complete (2026-04-25, commit `c43e8c0`)**; m-E24-02 Unify Model Type next. Epic integration branch `epic/E-24-schema-alignment` (created from `main` 2026-04-24). Internal planning ratified **Option E (unify)** on 2026-04-24 per `D-2026-04-24-037`.
+**Epic:** `work/epics/E-24-schema-alignment/spec.md` | **Status:** in-progress — m-E24-01 Inventory & Design Decisions **complete (2026-04-25, commit `c43e8c0`)**; m-E24-02 Unify Model Type **in-progress (branch `milestone/m-E24-02-unify-model-type`, started 2026-04-25)**. Epic integration branch `epic/E-24-schema-alignment` (created from `main` 2026-04-24). Internal planning ratified **Option E (unify)** on 2026-04-24 per `D-2026-04-24-037`.
 
 Unify FlowTime's post-substitution model representation. One C# type. One YAML schema. One validator. `SimModelArtifact` is **deleted**; Sim builds the unified type directly; Engine parses it directly. `Template` (authoring-time) stays distinct. Forward-only — no migration of stored bundles; Sim regenerates from templates going forward. camelCase throughout per project rule. Interrupts E-23 at m-E23-01; at E-24 close, m-E23-02 (call-site migration) and m-E23-03 (`ModelValidator` delete) become mechanical cleanup.
 
@@ -81,7 +81,7 @@ Unify FlowTime's post-substitution model representation. One C# type. One YAML s
 
 **Planned milestones (5):**
 - m-E24-01 Inventory & Design Decisions — **complete (2026-04-25, commit `c43e8c0`)**; doc-only; unified type home (`FlowTime.Contracts`), name (`ModelDto`), nested 7-field camelCase provenance shape, six open questions ratified (Q1–Q6 + A1–A5)
-- m-E24-02 Unify Model Type (introduce unified type; rewrite `SimModelBuilder` to emit it directly; switch Engine intake; delete `SimModelArtifact` and satellites `SimNode`/`SimOutput`/`SimProvenance`/`SimTraffic`/`SimArrival`/`SimArrivalPattern`; drop leaked-state fields `window`/`generator`/top-level `metadata`/top-level `mode`; regenerate fixtures)
+- m-E24-02 Unify Model Type — **in-progress (branch `milestone/m-E24-02-unify-model-type`, started 2026-04-25)**; introduce unified type (`ModelDto` + new `ProvenanceDto`); rewrite `SimModelBuilder` to emit it  directly; switch Engine intake; delete `SimModelArtifact` and satellites `SimNode`/`SimOutput`/`SimProvenance`/`SimTraffic`/`SimArrival`/`SimArrivalPattern`; drop leaked-state fields `window`/`generator`/top-level `metadata`/top-level `mode`; regenerate fixtures
 - m-E24-03 Schema Unification (rewrite `docs/schemas/model.schema.yaml` to describe the unified type in camelCase; rewrite `docs/schemas/README.md`; audit `docs/architecture/`)
 - m-E24-04 Parser/Validator Scalar-Style Fix (mirrored `ParseScalar` fix in both `ModelSchemaValidator` and `TemplateSchemaValidator`; test helper aligned)
 - m-E24-05 Canary Green + Hard Assertion (`TemplateWarningSurveyTests` asserts `val-err=0`; E-23 resume gate)

@@ -27,6 +27,15 @@ public sealed class ModelDto
     public List<OutputDto> Outputs { get; set; } = new();
     public RngDto? Rng { get; set; }
     public TopologyDto? Topology { get; set; }
+
+    /// <summary>
+    /// Provenance block (forensic / reproducibility — not load-bearing for evaluation).
+    /// Nested camelCase shape ratified in m-E24-01 (Q5/A4): seven fields, parameters as
+    /// nested map. Replaces the satellite SimProvenance type that is being deleted alongside
+    /// SimModelArtifact in m-E24-02. Nullable so callers that author models without
+    /// provenance (e.g. tests, CLI snippets) do not have to construct an empty block.
+    /// </summary>
+    public ProvenanceDto? Provenance { get; set; }
 }
 
 /// <summary>
@@ -103,12 +112,17 @@ public sealed class ArrivalPatternDto
 }
 
 /// <summary>
-/// Output definition for CSV generation
+/// Output definition for CSV generation.
+/// `as` is optional under the m-E24-01 Q3 decision: presence means "also export this
+/// series as CSV"; auto-added outputs (e.g. EnsureSemanticsOutputs) emit no `as` field.
+/// `exclude` mirrors the Sim-side SimOutput.Exclude shape so the unified DTO covers
+/// every Sim-emitted output column without a satellite type.
 /// </summary>
 public sealed class OutputDto
 {
     public string Series { get; set; } = "";
-    public string As { get; set; } = "out.csv";
+    public List<string>? Exclude { get; set; }
+    public string? As { get; set; }
 }
 
 public sealed class TopologyDto
@@ -212,4 +226,41 @@ public sealed class DispatchScheduleDto
     public int PeriodBins { get; set; }
     public int? PhaseOffset { get; set; }
     public string? CapacitySeries { get; set; }
+}
+
+/// <summary>
+/// Provenance block embedded in the unified post-substitution model.
+/// Seven camelCase fields, ratified in m-E24-01 (Q5/A4). Source / schemaVersion are
+/// explicitly excluded — `source` collapsed into `generator`, root already carries
+/// `schemaVersion`. Provenance is forensic data: no Engine runtime consumer reads it,
+/// but Sim and downstream tooling (TelemetryManifest construction in
+/// RunOrchestrationService) depend on the shape for reproducibility and lookup.
+/// </summary>
+public sealed class ProvenanceDto
+{
+    /// <summary>Producing system identifier, e.g. "flowtime-sim".</summary>
+    public string Generator { get; set; } = string.Empty;
+
+    /// <summary>ISO-8601 UTC timestamp at which the model was rendered from its template.</summary>
+    public string GeneratedAt { get; set; } = string.Empty;
+
+    /// <summary>Template identifier (e.g. "transportation-basic").</summary>
+    public string TemplateId { get; set; } = string.Empty;
+
+    /// <summary>Template version at render time. Enables version-pinned regeneration.</summary>
+    public string TemplateVersion { get; set; } = string.Empty;
+
+    /// <summary>Template mode — "simulation" or "telemetry". Survives here because it is
+    /// a model-generation input, not a model-runtime field.</summary>
+    public string Mode { get; set; } = string.Empty;
+
+    /// <summary>Stable identifier for this rendered model. Distinguishes two runs of the
+    /// same template with different parameter values.</summary>
+    public string ModelId { get; set; } = string.Empty;
+
+    /// <summary>Template parameter values at render time, serialized as a nested map.
+    /// Schema declares additionalProperties: true — values are forensic, not a typed
+    /// contract. Nullable so empty parameter sets serialize as YAML omission via
+    /// `DefaultValuesHandling.OmitNull` (see D-m-E24-02-03).</summary>
+    public Dictionary<string, object?>? Parameters { get; set; }
 }
