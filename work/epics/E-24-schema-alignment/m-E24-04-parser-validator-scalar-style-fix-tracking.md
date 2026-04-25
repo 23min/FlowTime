@@ -1,11 +1,11 @@
 # m-E24-04 Parser/Validator Scalar-Style Fix — Tracking
 
 **Started:** 2026-04-25
-**Completed:** pending
+**Completed:** 2026-04-25
 **Branch:** `milestone/m-E24-04-parser-validator-scalar-style-fix` (from `epic/E-24-schema-alignment`)
 **Spec:** `work/epics/E-24-schema-alignment/m-E24-04-parser-validator-scalar-style-fix.md`
-**Commits:** pending
-**Final test count:** pending
+**Commits:** `a7c984f` (implementation — parser fix + emitter sibling + test matrix)
+**Final test count:** Core 353/353, Sim 225/225 (3 skip pre-existing), TimeMachine 239/239, API 264/264, UI.Tests 265/265, CLI 91/91, FlowTime.Tests 228/228 (6 skip pre-existing), Integration 84/84 — full suite green.
 
 <!-- Status is not carried here. The milestone spec's frontmatter `status:` field is
      canonical. `**Completed:**` is filled iff the spec is `complete`. -->
@@ -125,7 +125,18 @@ The 4 remaining warnings are pre-existing analysis-tier signals (not validator e
 
 ## Test Summary
 
-<!-- Filled at wrap. -->
+| Project | Passed | Skipped | Notes |
+|---------|--------|---------|-------|
+| FlowTime.Tests (Core) | 353 | 0 | +18 from `Validation/ParseScalarStyleTests.cs` |
+| FlowTime.Sim.Tests | 225 | 3 | +17 from `Templates/ParseScalarStyleTests.cs`; +29 from `Templates/QuotedAmbiguousStringEmitterTests.cs`; pre-existing skips unchanged |
+| FlowTime.TimeMachine.Tests | 239 | 0 | `TemplateSchemaValidationTests` coercion helper rewritten (still 1/1 conformance) |
+| FlowTime.Api.Tests | 264 | 0 | unchanged |
+| FlowTime.UI.Tests | 265 | 0 | unchanged |
+| FlowTime.Cli.Tests | 91 | 0 | unchanged |
+| FlowTime.Tests (legacy harness) | 228 | 6 | pre-existing skips unchanged |
+| FlowTime.Integration.Tests | 84 | 0 | canary `val-err=0` in this milestone |
+
+Net new this milestone: **+64 tests** (18 Engine ParseScalar + 17 Sim ParseScalar + 29 emitter round-trip).
 
 ## Notes
 
@@ -136,4 +147,19 @@ The 4 remaining warnings are pre-existing analysis-tier signals (not validator e
 
 ## Completion
 
-<!-- Filled at wrap. -->
+**Completed 2026-04-25** in implementation commit `a7c984f` (`feat(E-24): m-E24-04 — ParseScalar honors ScalarStyle; quote type-ambiguous strings on emit`).
+
+All 9 ACs landed. Canary collapsed **231 → 0** errors at `ValidationTier.Analyse` across all 12 templates; histogram empty post-fix; step-4 emitter regressions: 0. Closure required both halves of the round-trip pair: parser-side `ScalarStyle.Plain` guard (AC1/AC2) **and** sibling `QuotedAmbiguousStringEmitter` on the Sim emitter (D-m-E24-04-03 / ADR-E-24-05).
+
+**Decisions made during this milestone:**
+
+- D-m-E24-04-01 — m-E24-04 does not widen `ParseScalar` to recognize the YAML null keyword (out of scope; test pins existing string-passthrough behavior).
+- D-m-E24-04-02 — `value is null` defensive branch is unreachable through YamlDotNet's public surface; not modified by this milestone.
+- D-m-E24-04-03 — Round-trip pair: emitter mirrors validator. Sibling `IEventEmitter` (`QuotedAmbiguousStringEmitter`) plugged into `TemplateService.CreateYamlSerializer` next to `FlowSequenceEventEmitter`. Source-type-driven, ambiguity classifier mirrors the validator's plain-scalar coercion attempt-order.
+
+**ADRs ratified:**
+
+- ADR-E-24-04 — `ScalarStyle.Plain` gates numeric / boolean coercion in `ParseScalar`. (Was a candidate ADR on the epic spec; this milestone ratifies it.)
+- ADR-E-24-05 — `QuotedAmbiguousStringEmitter` (round-trip symmetry on the emitter side). New ADR introduced in this milestone; recorded above.
+
+**Next:** m-E24-05 Canary Green + Hard Assertion — promotes the canary's `val-err=0` to a build-time hard `Assert`, completes the docs audit, flips E-23 to ready-to-resume.
