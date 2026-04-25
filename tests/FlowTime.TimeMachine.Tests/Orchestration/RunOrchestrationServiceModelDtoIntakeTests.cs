@@ -1,9 +1,9 @@
-// m-E24-02 step 3 — Engine intake reads ModelDto.
+// m-E24-02 — Engine intake reads ModelDto.
 //
-// Pins the post-step-3 contract: RunOrchestrationService validates and builds
-// telemetry manifests directly off ModelDto (the unified post-substitution
-// type). The pre-step-3 path deserialized YAML to SimModelArtifact and read
-// leaked-state fields (window.start / window.timezone). Step 3 collapses
+// Pins the contract: RunOrchestrationService validates and builds telemetry
+// manifests directly off ModelDto (the unified post-substitution type). The
+// pre-unification path deserialized YAML to a Sim-side artifact and read
+// leaked-state fields (window.start / window.timezone). m-E24-02 collapses
 // that to a single ModelDto-based intake and reads grid.start instead.
 //
 // All three helpers under test (ValidateSimulationModel /
@@ -105,12 +105,14 @@ public class RunOrchestrationServiceModelDtoIntakeTests
     [Fact]
     public void ValidateSimulationModel_AbsorbsLeakedStateFields_FromSimEmittedYaml()
     {
-        // The post-step-3 contract: Sim-emitted YAML still carries leaked-state
-        // fields (window:, generator:, top-level metadata:, top-level mode:) at
-        // this point — those are stripped from emission in step 4. The
-        // ModelDto-based intake must silently absorb them via
-        // IgnoreUnmatchedProperties() on the deserializer in ModelService.
-        // Otherwise step 3's "SimModelArtifact stays alive" guarantee is broken.
+        // Forward-compatibility guarantee: even though Sim no longer emits
+        // leaked-state fields (window:, generator:, top-level metadata:,
+        // top-level mode:) post-m-E24-02, the ModelDto intake must silently
+        // absorb them if encountered (e.g. older stored YAML, third-party
+        // producers) via IgnoreUnmatchedProperties() on the deserializer in
+        // ModelService. This pins the absorption invariant so a future strict-
+        // deserialization flip cannot land without breaking + replacing this
+        // guard.
         var simEmittedYaml = """
             schemaVersion: 1
             generator: flowtime-sim

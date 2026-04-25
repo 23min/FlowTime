@@ -9,7 +9,7 @@ namespace FlowTime.Core.Tests.Parsing;
 /// <summary>
 /// Round-trip and shape tests for additive m-E24-02 step-1 changes to the wire DTOs:
 ///   - new <see cref="ProvenanceDto"/> with 7 camelCase fields nested on <see cref="ModelDto"/>
-///   - <see cref="OutputDto.Exclude"/> mirroring the Sim-side <c>SimOutput.Exclude</c>
+///   - <see cref="OutputDto.Exclude"/> for skipping series patterns when expanding wildcards
 ///   - <see cref="OutputDto.As"/> nullable (no default), so wire YAML can omit <c>as:</c>
 ///   - <see cref="NodeDto.Values"/> nullable, so empty/absent values are omitted via
 ///     <c>DefaultValuesHandling.OmitNull</c> on the serializer (see D-m-E24-02-03)

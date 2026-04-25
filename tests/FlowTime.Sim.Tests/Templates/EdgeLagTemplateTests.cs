@@ -23,7 +23,7 @@ public sealed class EdgeLagTemplateTests
         foreach (var template in templates)
         {
             var yaml = await templateService.GenerateEngineModelAsync(template.Metadata.Id, new Dictionary<string, object>());
-            // m-E24-02: deserialize into the unified ModelDto (SimModelArtifact deleted).
+            // m-E24-02: deserialize into the unified ModelDto.
             var model = ModelService.ParseYaml(yaml);
             var laggedEdges = model.Topology?.Edges?
                 .Where(edge => edge.Lag.HasValue && edge.Lag.Value > 0)

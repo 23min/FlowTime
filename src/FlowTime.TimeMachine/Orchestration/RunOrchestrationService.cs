@@ -818,15 +818,14 @@ public sealed class RunOrchestrationService
         }
     }
 
-    // m-E24-02 step 3: Engine intake reads ModelDto directly.
+    // m-E24-02: Engine intake reads ModelDto directly.
     // ValidateSimulationModel / BuildSimulationPlanManifest /
     // BuildSimulationTelemetryManifest each operate on the unified
-    // post-substitution model (ModelDto) instead of the soon-to-be-deleted
-    // SimModelArtifact. The window.timezone defensive double-check is gone:
-    // TemplateValidator guarantees timezone="UTC" upstream, and the leaked-
-    // state `window:` block disappears from emission in step 4 anyway. The
-    // grid.start property carries the same start timestamp under the
-    // unified shape (already populated by SimModelBuilder lines 34-37).
+    // post-substitution model (ModelDto). The window.timezone defensive
+    // double-check is gone: TemplateValidator guarantees timezone="UTC"
+    // upstream, and the leaked-state `window:` block is no longer emitted.
+    // The grid.start property carries the same start timestamp under the
+    // unified shape (populated by SimModelBuilder).
     //
     // Helpers are `internal static` so the Tests project can drive them
     // directly via InternalsVisibleTo. The previous instance-method form

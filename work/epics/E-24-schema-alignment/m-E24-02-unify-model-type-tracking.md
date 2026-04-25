@@ -13,18 +13,18 @@
 
 <!-- Mirror ACs from the spec. Check each when its Work Log entry lands. -->
 
-- [x] **AC1 — Unified type exists at its ratified home.** `ModelDto` (the unified type per m-E24-01 Q1+Q2) lives in `FlowTime.Contracts`. A reader who opens `POST /v1/run`'s handler can follow the type reference to a single definition that represents the full post-substitution model. *Step 4: every YAML-intake call site reads ModelDto directly. Step 5 closes by deleting SimModelArtifact source.*
+- [x] **AC1 — Unified type exists at its ratified home.** `ModelDto` (the unified type per m-E24-01 Q1+Q2) lives in `FlowTime.Contracts`. A reader who opens `POST /v1/run`'s handler can follow the type reference to a single definition that represents the full post-substitution model. *Step 4: every YAML-intake call site reads ModelDto directly. Step 5: `SimModelArtifact` source deleted — `ModelDto` is now the sole post-substitution model type in the codebase.*
 - [x] **AC2 — `SimModelBuilder` emits the unified type directly.** `SimModelBuilder.Build(...)` returns `ModelDto` (or an immutable value carrying it). No intermediate `SimModelArtifact` instance is constructed as a bridge. The serialization path produces YAML matching the unified schema shape. *Landed step 4 (rewrite of SimModelBuilder.cs).*
 - [x] **AC3 — Engine intake parses the unified type directly.** Every YAML → runtime model path on the Engine side passes through `ModelDto` before reaching `ModelDefinition`. Canonical path: `ModelService.ParseYaml(yaml) → ModelDto → ModelService.ConvertToModelDefinition(dto) → ModelDefinition → ModelParser.ParseModel(ModelDefinition)`. No Engine-side site deserializes YAML directly into `ModelDefinition` or `SimModelArtifact`. `RunOrchestrationService.cs:627` (and siblings `:813`, `:838`, `:861`) and any other YAML-intake call site operates on `ModelDto`. *Landed step 3.*
-- [ ] **AC4 — `SimModelArtifact` is deleted.** `src/FlowTime.Sim.Core/Templates/SimModelArtifact.cs` is removed from the repo. `grep -rn "SimModelArtifact" --include='*.cs'` returns zero hits. *Step 5; step 4 verified zero callers.*
-- [ ] **AC5 — Satellite Sim-side types are deleted.** `SimNode`, `SimOutput`, `SimProvenance`, `SimTraffic`, `SimArrival`, `SimArrivalPattern` are removed. Each satellite either merged into the unified type's equivalent (per m-E24-01 satellite-disposition table) or was deleted because it had no consumer. `grep -rn "SimNode\b\|SimOutput\b\|SimProvenance\b\|SimTraffic\b\|SimArrival\b\|SimArrivalPattern\b" --include='*.cs'` returns zero hits. *Step 5; step 4 verified zero callers across all satellites.*
+- [x] **AC4 — `SimModelArtifact` is deleted.** `src/FlowTime.Sim.Core/Templates/SimModelArtifact.cs` is removed from the repo. `grep -rn "SimModelArtifact" --include='*.cs'` returns zero hits. *Landed step 5: file deleted; comment-only references in 13 sites cleaned to satisfy the strict zero-hit grep.*
+- [x] **AC5 — Satellite Sim-side types are deleted.** `SimNode`, `SimOutput`, `SimProvenance`, `SimTraffic`, `SimArrival`, `SimArrivalPattern` are removed. All six satellites lived inline in `SimModelArtifact.cs` (one file, one delete). `grep -rn "\bSimNode\b\|\bSimOutput\b\|\bSimProvenance\b\|\bSimTraffic\b\|\bSimArrival\b\|\bSimArrivalPattern\b" --include='*.cs'` returns zero hits post-step-5. *Landed step 5 alongside the host file delete.*
 - [x] **AC6 — Leaked-state fields dropped from emission.** Per m-E24-01's decisions, `window`, `generator`, top-level `metadata`, and top-level `mode` no longer appear in emitted YAML. Whatever traceability content was meaningful has been moved into `provenance` (per Q5/A4 — `mode` and `generator` survive there). *Landed step 4; verified by `Emission_DropsTopLevelLeakedStateFields_PerAC6` test (line-anchored grep on emitted YAML for all four leaked-state root keys).*
 - [ ] **AC7 — `POST /v1/run` byte-identical success.** For every template in `templates/*.yaml` with default parameters, `POST /v1/run` returns the same response body pre- and post-m-E24-02. The pre-/post-comparison is captured in this tracking doc as explicit evidence (JSON response diff on at least three representative templates: one minimal, one with PMF nodes, one with classes).
 - [ ] **AC8 — `POST /v1/validate` at Analyse.** The canary `TemplateWarningSurveyTests` is run pre- and post-m-E24-02. The non-`ParseScalar` portion of `val-err` (the four top-level leaked-state shapes, the provenance snake_case shapes, the outputs shapes, the empty-classes shape) drops to zero post-m-E24-02. The `ParseScalar` residual (~231 errors) remains until m-E24-04 lands. The full residual histogram is captured here.
 - [ ] **AC9 — Fixtures and samples regenerated.** Every test fixture, sample bundle, and reference YAML under `tests/` and `docs/samples/` (or equivalent paths) is regenerated under the unified shape in this milestone. No compatibility reader survives. Any fixture that cannot be regenerated is deleted with a tracking-doc note explaining why.
 - [x] **AC10 — `SimModelBuilder` tests updated in place.** Tests in `tests/FlowTime.Sim.Tests` that asserted the presence of `SimModelArtifact` fields (e.g. `window.start`, top-level `metadata`, provenance snake_case keys) are updated to assert against the unified shape or deleted if the test's only purpose was asserting drift. *Landed step 4: 7 Sim test files migrated; provenance source/schemaVersion assertions reshaped under Q5; window/metadata/generator/mode top-level assertions removed; new emission-evidence tests pin the post-step-4 contract.*
 - [~] **AC11 — Engine tests updated in place.** Tests in `tests/FlowTime.Core.Tests`, `tests/FlowTime.Api.Tests`, `tests/FlowTime.TimeMachine.Tests`, and `tests/FlowTime.Integration.Tests` that author `ModelDefinition` instances directly are updated to author the unified type. *Step 4 covers the one Engine-side test that asserted leaked-state wire fields (`SimToEngineWorkflowTests.Telemetry_Mode_Model_Parses_WithFileSources` — Q4 source-drop guard added). No other Engine tests author `ModelDefinition` instances via the wire path; canonical step-3 chain covers the Engine intake.*
-- [x] **AC12 — Forward-only guard.** No compatibility reader for the old two-type YAML shape exists at epic-branch tip after this milestone. Any legacy-shape detection code that appeared during refactor is deleted in the same change. *Step 4 introduced no compat reader; the `IgnoreUnmatchedProperties()` flag (load-bearing during steps 3↔4 coexistence) becomes a forward-compat cushion only — Sim's emission no longer carries the leaked-state fields it was absorbing.*
+- [x] **AC12 — Forward-only guard.** No compatibility reader for the old two-type YAML shape exists at epic-branch tip after this milestone. Any legacy-shape detection code that appeared during refactor is deleted in the same change. *Step 4 introduced no compat reader; the `IgnoreUnmatchedProperties()` flag (load-bearing during steps 3↔4 coexistence) becomes a forward-compat cushion only — Sim's emission no longer carries the leaked-state fields it was absorbing. **Strengthened in step 5:** `SimModelArtifact` and the six satellites are deleted as source — no dead alternative entry points survive. The `Template.Node.Initial` scalar (D-m-E24-02-01) is also deleted in step 5, closing the only remaining producer-only-no-reader chain in the Sim authoring layer.*
 - [x] **AC13 — Full `.NET` test suite green.** `dotnet test FlowTime.sln` passes. No new regressions beyond the known validator residuals (tracked in AC8) which close in m-E24-03 and m-E24-04. *Green on this run — 1,750 passed / 9 skipped. One pre-existing Rust-bridge subprocess-cleanup flake is documented and reproduces intermittently; passes in isolated re-run.*
 - [x] **AC14 — Branch coverage complete.** Every reachable branch added or modified in `SimModelBuilder`, `ModelDto`'s serializer hooks, and the Engine's parser is exercised by at least one test. Node-kind variants (value / expr / pmf / inflow / outflow), empty-collection cases (no classes, no outputs, no provenance), and optional-field absence (`grid.start` omitted, `nodes[].source` omitted per m-E24-01 decision) each have coverage. *Step 4 audit table covers every new branch in `SimModelBuilder`, the SerializerBuilder change, the producer-side rewrites, and the new `TopologySemanticsDto.Errors` nullable shape. Defensive-but-typesystem-unreachable branches documented under spec Coverage notes.*
 
@@ -757,6 +757,124 @@ Tests:
 - `Template`-layer `Legacy*` aliases (`LegacyExpression`, `LegacySource`, `LegacyFilename`) untouched — out of E-24 scope (gap).
 - `ProvenanceEmbedder` (the parallel Sim-side `--embed-provenance` CLI path that uses string-template emission and a separate `ProvenanceMetadata` type) untouched — out of step-4 scope.
 - Engine wire-format byte-equivalence on the three representative templates (minimal / PMF / classes) — partial step-4 evidence is the BEFORE/AFTER diff for `transportation-basic`; full byte-identical evidence on three templates lands in step 6 (fixture regeneration) where the canonical AFTER baselines are re-captured.
+
+### Step 5 — `SimModelArtifact` + satellites deleted — 2026-04-25
+
+Order-of-work step 5 ("Delete `SimModelArtifact` and its satellites. Run `grep` to confirm zero callers") landed as a destructive cleanup pass. Step 4's grep verification had already proved zero non-comment callers; step 5 closes AC4 + AC5 by physically removing the source and tightening the strict zero-hit grep to include comment / XML-doc references that mention the deleted types by name. The `Template.Node.Initial` scalar (D-m-E24-02-01) is also deleted in this step — producer-only, zero readers.
+
+**Files deleted:**
+
+- `src/FlowTime.Sim.Core/Templates/SimModelArtifact.cs` — the host file. Contained `SimModelArtifact` (lines 9–35) plus all six satellites inline: `SimNode` (40–66), `SimOutput` (71–76), `SimTraffic` (78–81), `SimArrival` (83–88), `SimArrivalPattern` (90–95), `SimProvenance` (100–111). Single file deletion handles AC4 + AC5. The pre-existing `SimNode.ShouldSerializeValues()` shim (`SimModelArtifact.cs:65`) tracked under "Pre-existing shim audit" is gone with the host type.
+
+**Files modified — `Template.Node.Initial` deletion (D-m-E24-02-01):**
+
+- `src/FlowTime.Sim.Core/Templates/Template.cs:273` — `public double? Initial { get; set; }` removed from `Template.Node`. The matching `SimModelBuilder.cs:357` write-site (`Initial = node.Initial`) was already deleted in step 4. Verified producer-only chain has zero remaining hits via `grep -rn "node\.Initial\b\|\bInitial\s*=\s*[^=]"` filtered against the known `InitialCondition` / `nodesRequiringInitial` / `EnsureInitialConditions` machinery (separate `topology.initialCondition.queueDepth` concept, intact).
+
+**Files modified — comment / doc-comment cleanup (AC4 strict zero-hit):**
+
+The strict reading of AC4 (`grep -rn "SimModelArtifact" --include='*.cs'` returns zero hits) requires removing references in comments, XML doc, and inline notes that named the deleted types. Each rewrite preserves the migration context but stops naming a type the codebase no longer declares.
+
+- `src/FlowTime.Sim.Core/Templates/SimModelBuilder.cs:12-25` (XML doc) — removed the `<c>SimModelArtifact</c> / <c>SimNode</c> / <c>SimOutput</c> / <c>SimProvenance</c> / <c>SimTraffic</c> / <c>SimArrival</c> / <c>SimArrivalPattern</c>` reference list. Preserved the post-migration contract description.
+- `src/FlowTime.Contracts/Dtos/ModelDtos.cs:31-37` (XML doc on `ModelDto.Provenance`) — dropped "Replaces the satellite SimProvenance type that is being deleted alongside SimModelArtifact in m-E24-02"; preserved the m-E24-01 (Q5/A4) shape rationale.
+- `src/FlowTime.Contracts/Dtos/ModelDtos.cs:111-117` (XML doc on `OutputDto`) — replaced "`exclude` mirrors the Sim-side SimOutput.Exclude shape …" with a self-contained description of `exclude`'s purpose (skip series patterns when expanding wildcards).
+- `src/FlowTime.TimeMachine/Orchestration/RunOrchestrationService.cs:821-829` (inline comment) — rewritten in past tense; removed "soon-to-be-deleted SimModelArtifact" phrasing.
+- `src/FlowTime.Sim.Cli/Program.cs:415-420` (inline comment) — same treatment; removed the soon-to-be-deleted phrasing.
+- `src/FlowTime.Sim.Service/Program.cs:1085-1089` (inline comment) — same treatment.
+- `tests/FlowTime.Sim.Tests/Templates/SinkTemplateTests.cs:27` — "(SimModelArtifact deleted)" parenthetical removed.
+- `tests/FlowTime.Sim.Tests/Templates/EdgeLagTemplateTests.cs:26` — same.
+- `tests/FlowTime.Sim.Tests/Templates/TransitNodeTemplateTests.cs:53` — same.
+- `tests/FlowTime.Sim.Tests/Service/TemplateArrayParameterTests.cs:121,146,171,195` — same (4 occurrences via `replace_all`).
+- `tests/FlowTime.Sim.Tests/NodeBased/ModelGenerationTests.cs:468` — same.
+- `tests/FlowTime.TimeMachine.Tests/Orchestration/RunOrchestrationServiceModelDtoIntakeTests.cs:1-15` (file-header comment) — rewritten to drop step-3-era "SimModelArtifact stays alive" phrasing; preserved the contract pinning.
+- `tests/FlowTime.TimeMachine.Tests/Orchestration/RunOrchestrationServiceModelDtoIntakeTests.cs:108-116` (inline comment on the leaked-state-absorption test) — rewritten as a forward-compatibility guarantee for older stored YAML / third-party producers; removed the step-3 step-4 transition narrative.
+- `tests/FlowTime.Core.Tests/Parsing/ModelDtoSerializationTests.cs:12` (XML doc) — replaced the `<c>SimOutput.Exclude</c>` mirror reference with a self-contained description.
+
+**Post-delete grep evidence (AC4 + AC5):**
+
+```
+$ grep -rn "SimModelArtifact" --include='*.cs' /workspaces/flowtime-vnext/src /workspaces/flowtime-vnext/tests
+(no output, exit 1)
+
+$ grep -rn "\bSimNode\b\|\bSimOutput\b\|\bSimProvenance\b\|\bSimTraffic\b\|\bSimArrival\b\|\bSimArrivalPattern\b" --include='*.cs' /workspaces/flowtime-vnext/src /workspaces/flowtime-vnext/tests
+(no output, exit 1)
+```
+
+Both greps return zero hits. AC4 + AC5 satisfied to their strict reading (no source declaration, no caller, no comment / doc-comment reference). The `\b` word-boundaries ensure `SimArrival` does not falsely match `SimArrivalPattern`.
+
+**Post-delete grep evidence (`Template.Node.Initial` removal):**
+
+```
+$ grep -n "public double? Initial" /workspaces/flowtime-vnext/src/FlowTime.Sim.Core/Templates/Template.cs
+(no output, exit 1)
+
+$ grep -rn "node\.Initial\b\|\bInitial\s*=\s*" --include='*.cs' /workspaces/flowtime-vnext/src/FlowTime.Sim.Core/ \
+    | grep -v "InitialCondition\|nodesRequiringInitial\|nodesWithInitial\|TemplateInitial\|FixtureInitial\|RequiresInitial"
+(no output, exit 1)
+```
+
+The dead scalar is gone; the live `topology.initialCondition.queueDepth` machinery is unaffected.
+
+**Tests deleted: zero.** Step 4 already migrated every test that authored `SimModelArtifact` / satellites or asserted on the leaked-state shape. Per the conservative rule ("only delete a test if its sole purpose was asserting the prior shape"), step 5 found no surviving drift-only tests. The forward-only guards in `SimModelBuilderUnifiedEmissionTests.cs` (4 `Assert.DoesNotContain` lines for snake_case forms) and `ModelDtoSerializationTests.cs` (4 `Assert.DoesNotContain` lines for snake_case forms) are kept — they pin the post-unification contract, not drift. A separate `grep` for tests asserting leaked-state field names (`Window.Start`, `Window.Timezone`, `model.Generator`, `model.Mode`, `artifact.Generator`, `artifact.Mode`, `artifact.Window`) found 9 hits; each was inspected and confirmed legitimate — all reference template-side `Template.Window.Start` (authoring-time, out of E-24 scope), `RunMetadata.Window` (different runtime type), `MetricsResponse.Window` (API DTO), or `TelemetryManifest.Window` (separate manifest record). None reference the deleted `SimModelArtifact.Window`.
+
+**Branch-coverage audit:**
+
+Pure deletes add no new branches; deleted code's branches no longer exist to need coverage. The post-step-5 surface is identical to the post-step-4 surface minus dead source. Test-suite delta is zero.
+
+**ACs advanced:**
+
+- **AC4 (`SimModelArtifact` is deleted) — landed.** Source file removed; `grep` returns zero hits. Strict reading satisfied.
+- **AC5 (Satellite Sim-side types are deleted) — landed.** All six satellites lived inline in `SimModelArtifact.cs`; deleted with the host file. `grep` with word-boundaries returns zero hits.
+- **AC12 (Forward-only guard) — strengthened.** No dead alternative entry points survive — `SimModelArtifact`, the 6 satellites, and `Template.Node.Initial` are all gone as source. Per CLAUDE.md Truth Discipline ("API stability does not mean keep old functions around"), step 5 closes the cleanup that step 4's caller migration enabled. The pre-existing `SimNode.ShouldSerializeValues` shim tracked under the step-1-follow-up "Pre-existing shim audit" dies with its host type — schedule fully closed for E-24 scope; the three remaining `Template.Legacy*` shims (`LegacyExpression`, `LegacySource`, `LegacyFilename`) remain tracked under the gap.
+
+**Test-suite delta:**
+
+| | Step-4 baseline | After step 5 | Delta |
+|---|---:|---:|---:|
+| Passed | 1,750 | 1,750 | **0** (flake-recovered) |
+| Failed | 0–1 (flake-dependent) | 0–1 (flake-dependent) | within-flake |
+| Skipped | 9 | 9 | 0 |
+| Total | 1,759 | 1,759 | 0 |
+
+Three full-suite runs across step 5:
+
+1. Run #1 (immediately post-delete): 1 failure (`RustEngine_Timeout_ThrowsRustEngineException` — passes in isolated re-run; same Rust subprocess-timing flake category documented from steps 1–4).
+2. Run #2 (post-comment-cleanup): 0 failures in `FlowTime.Integration.Tests` but 1 failure in `FlowTime.Tests` (transient — passes in isolated re-run).
+3. Run #3 (final): 1 failure (`RustEngine_CleansUpTempDirectory_OnFailure` — same documented baseline subprocess-cleanup flake from step 1+).
+
+Steady-state full-suite count: **1,750 passed / 9 skipped / 0 failed in flake-recovered mode**. Identical to step 4 baseline. No tests added; no tests deleted (none were drift-only); no source-side test impact (only inline / XML-doc comment edits on test files).
+
+**Files changed:**
+
+Production:
+
+- `src/FlowTime.Sim.Core/Templates/SimModelArtifact.cs` — **deleted** (entire file).
+- `src/FlowTime.Sim.Core/Templates/Template.cs` — `Template.Node.Initial` property removed (D-m-E24-02-01).
+- `src/FlowTime.Sim.Core/Templates/SimModelBuilder.cs` — XML doc cleaned.
+- `src/FlowTime.Contracts/Dtos/ModelDtos.cs` — two XML doc references cleaned (`ModelDto.Provenance`, `OutputDto`).
+- `src/FlowTime.TimeMachine/Orchestration/RunOrchestrationService.cs` — inline comment cleaned.
+- `src/FlowTime.Sim.Cli/Program.cs` — inline comment cleaned.
+- `src/FlowTime.Sim.Service/Program.cs` — inline comment cleaned.
+
+Tests:
+
+- `tests/FlowTime.Sim.Tests/Templates/{Sink,EdgeLag,TransitNode}TemplateTests.cs` — inline comment cleaned (3 files).
+- `tests/FlowTime.Sim.Tests/Service/TemplateArrayParameterTests.cs` — inline comment cleaned (4 occurrences via `replace_all`).
+- `tests/FlowTime.Sim.Tests/NodeBased/ModelGenerationTests.cs` — inline comment cleaned.
+- `tests/FlowTime.TimeMachine.Tests/Orchestration/RunOrchestrationServiceModelDtoIntakeTests.cs` — file-header + inline comment cleaned.
+- `tests/FlowTime.Core.Tests/Parsing/ModelDtoSerializationTests.cs` — XML doc cleaned.
+
+Total: 1 file deleted; 13 files modified.
+
+**Out-of-scope discipline preserved:**
+
+- Schema YAML at `docs/schemas/model.schema.yaml` untouched — m-E24-03.
+- `ParseScalar` validator fix untouched — m-E24-04.
+- Fixture regeneration of the three representative templates (minimal / PMF / classes) for AC7 byte-identical evidence — step 6.
+- Canary `TemplateWarningSurveyTests` re-run for AC8 — step 6.
+- `ModelValidator` untouched — E-23 m-E23-03.
+- `Template`-layer `Legacy*` aliases (`LegacyExpression`, `LegacySource`, `LegacyFilename`) untouched — out of E-24 scope (gap).
+- `ProvenanceEmbedder` (the parallel Sim-side `--embed-provenance` CLI path) untouched — deferred from step 4 as out-of-step-scope; remains a deferred item, not in this milestone.
+- `GridDefinition.StartTimeUtc` (runtime-side) untouched — out of E-24 scope per D-m-E24-02-03.
 
 ## Reviewer notes (optional)
 

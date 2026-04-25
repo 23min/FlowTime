@@ -270,7 +270,6 @@ public class TemplateNode
     public bool ShouldSerializeLegacyExpression() => false;
 
     public List<string>? Dependencies { get; set; }
-    public double? Initial { get; set; }
 
     // For serviceWithBuffer nodes (stateful queue accumulator)
     public string? Inflow { get; set; }

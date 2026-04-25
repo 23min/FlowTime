@@ -50,7 +50,7 @@ public sealed class TransitNodeTemplateTests
         AssertEdge(model, "analytics_delay_to_support", "AnalyticsDelay:out", "SupportAnalytics:in");
     }
 
-    // m-E24-02: tests now consume the unified ModelDto (SimModelArtifact deleted).
+    // m-E24-02: tests now consume the unified ModelDto.
     private static async Task<ModelDto> LoadTemplateAsync(string templateId)
     {
         var templatesDirectory = ResolveTemplatesDirectory();

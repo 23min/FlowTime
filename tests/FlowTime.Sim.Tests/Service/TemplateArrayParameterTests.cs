@@ -118,7 +118,7 @@ outputs:
 
         var artifactYaml = await service.GenerateEngineModelAsync("quoted-array", parameters);
 
-        // m-E24-02: deserialize into the unified ModelDto (SimModelArtifact deleted).
+        // m-E24-02: deserialize into the unified ModelDto.
         var artifact = ModelService.ParseYaml(artifactYaml);
 
         var node = artifact.Nodes.First(n => n.Id == "base_requests");
@@ -143,7 +143,7 @@ outputs:
 
         Assert.False(string.IsNullOrWhiteSpace(model));
 
-        // m-E24-02: deserialize into the unified ModelDto (SimModelArtifact deleted).
+        // m-E24-02: deserialize into the unified ModelDto.
         var artifact = ModelService.ParseYaml(model);
         Assert.NotNull(artifact);
     }
@@ -168,7 +168,7 @@ outputs:
 
             var model = await service.GenerateEngineModelAsync("network-reliability", parameters);
 
-            // m-E24-02: deserialize into the unified ModelDto (SimModelArtifact deleted).
+            // m-E24-02: deserialize into the unified ModelDto.
             var artifact = ModelService.ParseYaml(model);
             Assert.NotNull(artifact);
         }
@@ -192,7 +192,7 @@ outputs:
             var service = new TemplateService(tempDirectory, NullLogger<TemplateService>.Instance);
             var model = await service.GenerateEngineModelAsync("network-reliability", new Dictionary<string, object>());
 
-            // m-E24-02: deserialize into the unified ModelDto (SimModelArtifact deleted).
+            // m-E24-02: deserialize into the unified ModelDto.
             var artifact = ModelService.ParseYaml(model);
             Assert.NotNull(artifact);
         }

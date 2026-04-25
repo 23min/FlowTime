@@ -465,7 +465,7 @@ outputs:
         return new TemplateService(templates, NullLogger<TemplateService>.Instance);
     }
 
-    // m-E24-02: deserialize into the unified ModelDto (SimModelArtifact deleted).
+    // m-E24-02: deserialize into the unified ModelDto.
     // Uses IgnoreUnmatchedProperties so any residual leaked-state fields would be
     // tolerated; assertions below pin the new shape (Q5/A4 — provenance.mode etc.).
     private static ModelDto DeserializeArtifact(string yaml) => ModelService.ParseYaml(yaml);

@@ -1082,11 +1082,11 @@ public partial class Program
 		warningRegistry.UpdateWarnings(templateId, warnings);
 
 		var modelHash = ModelHasher.ComputeModelHash(modelYaml);
-		// m-E24-02 step 4: Engine intake reads the unified post-substitution model
-		// (ModelDto) instead of SimModelArtifact. The template title (template-
-		// authoring-only) is passed in by the caller because the unified model
-		// no longer carries a top-level template `metadata` block (Q5/A4 — only
-		// templateId / templateVersion survive inside provenance).
+		// m-E24-02: Engine intake reads the unified post-substitution model (ModelDto).
+		// The template title (template-authoring-only) is passed in by the caller
+		// because the unified model no longer carries a top-level template
+		// `metadata` block (Q5/A4 — only templateId / templateVersion survive
+		// inside provenance).
 		var model = ModelService.ParseYaml(modelYaml);
 		var hasWindow = !string.IsNullOrWhiteSpace(model.Grid?.Start);
 		var hasTopology = model.Topology?.Nodes?.Count > 0;

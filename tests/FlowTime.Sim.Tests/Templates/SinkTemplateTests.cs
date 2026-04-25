@@ -24,7 +24,7 @@ public sealed class SinkTemplateTests
         foreach (var templateId in templateIds)
         {
             var yaml = await templateService.GenerateEngineModelAsync(templateId, new Dictionary<string, object>());
-            // m-E24-02: deserialize into the unified ModelDto (SimModelArtifact deleted).
+            // m-E24-02: deserialize into the unified ModelDto.
             var template = ModelService.ParseYaml(yaml);
             Assert.NotNull(template.Topology);
 

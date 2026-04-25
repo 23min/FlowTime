@@ -412,12 +412,12 @@ namespace FlowTime.Sim.Cli
             return 0;
         }
 
-        // m-E24-02 step 4: Sim CLI now reads the unified post-substitution model
-        // (ModelDto) instead of the soon-to-be-deleted SimModelArtifact. Field
-        // mappings: artifact.Window.Start → grid.start (Q5/A4); artifact.Mode →
-        // provenance.mode; artifact.Generator → provenance.generator; artifact.
-        // Metadata.* → not preserved on ModelDto (template-authoring only) —
-        // templateId / templateVersion survive inside provenance.
+        // m-E24-02: Sim CLI reads the unified post-substitution model (ModelDto).
+        // Field mappings (post-unification): grid.start carries the start timestamp;
+        // provenance.mode carries the template mode; provenance.generator carries
+        // the producer identifier. Template-authoring fields (Metadata.*) are not
+        // preserved on ModelDto — templateId / templateVersion survive inside
+        // provenance.
         private static ModelDto DeserializeModel(string modelYaml) => ModelService.ParseYaml(modelYaml);
 
         private static bool HasWindow(ModelDto model) => !string.IsNullOrWhiteSpace(model.Grid?.Start);

@@ -31,9 +31,8 @@ public sealed class ModelDto
     /// <summary>
     /// Provenance block (forensic / reproducibility — not load-bearing for evaluation).
     /// Nested camelCase shape ratified in m-E24-01 (Q5/A4): seven fields, parameters as
-    /// nested map. Replaces the satellite SimProvenance type that is being deleted alongside
-    /// SimModelArtifact in m-E24-02. Nullable so callers that author models without
-    /// provenance (e.g. tests, CLI snippets) do not have to construct an empty block.
+    /// nested map. Nullable so callers that author models without provenance
+    /// (e.g. tests, CLI snippets) do not have to construct an empty block.
     /// </summary>
     public ProvenanceDto? Provenance { get; set; }
 }
@@ -112,8 +111,7 @@ public sealed class ArrivalPatternDto
 /// Output definition for CSV generation.
 /// `as` is optional under the m-E24-01 Q3 decision: presence means "also export this
 /// series as CSV"; auto-added outputs (e.g. EnsureSemanticsOutputs) emit no `as` field.
-/// `exclude` mirrors the Sim-side SimOutput.Exclude shape so the unified DTO covers
-/// every Sim-emitted output column without a satellite type.
+/// `exclude` lists series patterns to skip when expanding the wildcard (`series: "*"`).
 /// </summary>
 public sealed class OutputDto
 {

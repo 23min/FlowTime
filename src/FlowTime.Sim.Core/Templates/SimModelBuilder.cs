@@ -11,11 +11,8 @@ namespace FlowTime.Sim.Core.Templates;
 
 /// <summary>
 /// Transforms validated templates into the unified post-substitution model
-/// (<see cref="ModelDto"/>) per E-24 m-E24-02. Replaces the prior emission of
-/// the <c>SimModelArtifact</c> satellite type plus its nested <c>SimNode</c> /
-/// <c>SimOutput</c> / <c>SimProvenance</c> / <c>SimTraffic</c> /
-/// <c>SimArrival</c> / <c>SimArrivalPattern</c> shapes. Leaked-state root
-/// fields (<c>window</c>, top-level <c>generator</c>, top-level <c>metadata</c>,
+/// (<see cref="ModelDto"/>) per E-24 m-E24-02. Leaked-state root fields
+/// (<c>window</c>, top-level <c>generator</c>, top-level <c>metadata</c>,
 /// top-level <c>mode</c>) are dropped; per Q5/A4, <c>generator</c> and
 /// <c>mode</c> survive inside <c>provenance</c> only. The scalar
 /// <c>nodes[].initial</c> field (D-m-E24-02-01) is dead and not propagated.
