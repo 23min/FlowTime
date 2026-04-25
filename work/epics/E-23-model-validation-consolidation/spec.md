@@ -17,14 +17,14 @@ Decision: `D-2026-04-25-038` logs E-24's close and E-23's ready-to-resume flip.
 
 ## Amendment 2026-04-24 (pause)
 
-**Paused pending E-24 Schema Alignment.** m-E23-01's bisection survey surfaced 16 distinct schema-vs-reality divergences across five classifications (architectural seam, systematic rule violation, validator defect, emitter drift, emitter redundancy) — far beyond the single `grid.start` gap the E-23 context anticipated. Applying the "right, not easy" discipline per-field is broader than E-23's consolidation thesis. **E-24 Schema Alignment** (`work/epics/E-24-schema-alignment/spec.md`) takes over the convergence work. E-23 resumes when E-24 closes; at that point m-E23-02 and m-E23-03 become byte-trivial because `ModelSchemaValidator`, the schema, Sim's emitter, and the Engine's reader will actually agree on every currently-valid template.
+**Paused pending E-24 Schema Alignment.** m-E23-01's bisection survey surfaced 16 distinct schema-vs-reality divergences across five classifications (architectural seam, systematic rule violation, validator defect, emitter drift, emitter redundancy) — far beyond the single `grid.start` gap the E-23 context anticipated. Applying the "right, not easy" discipline per-field is broader than E-23's consolidation thesis. **E-24 Schema Alignment** (`work/epics/completed/E-24-schema-alignment/spec.md`) takes over the convergence work. E-23 resumes when E-24 closes; at that point m-E23-02 and m-E23-03 become byte-trivial because `ModelSchemaValidator`, the schema, Sim's emitter, and the Engine's reader will actually agree on every currently-valid template.
 
 The uncommitted m-E23-01 artefacts (three schema edits on `milestone/m-E23-01-schema-alignment`, plus the rule-audit tracking doc and two `work/gaps.md` entries) are preserved as input material for E-24 m-E24-01. They are not committed; they are not discarded. See `D-2026-04-24-036` for the full context.
 
 **Amendment 2026-04-24 (Option E ratified within E-24):** Within E-24 planning, **Option E (unify `SimModelArtifact` and `ModelDefinition` into a single type, forward-only)** was ratified over Option A (preserve two types with a projection layer). E-24's milestone count collapsed from six to five. At E-24 close, `ModelSchemaValidator`, the schema, Sim's emitter, and the Engine's reader will share a single unified type definition — m-E23-02 and m-E23-03 remain mechanical cleanup, with the simplification that `ModelSchemaValidator` already validates the unified type used by every call site. See `D-2026-04-24-037` for the ratification context.
 
 Pointers:
-- E-24 epic spec: `work/epics/E-24-schema-alignment/spec.md`
+- E-24 epic spec: `work/epics/completed/E-24-schema-alignment/spec.md`
 - m-E23-01 tracking (input to m-E24-01): held on branch `milestone/m-E23-01-schema-alignment` (stashed)
 - Decisions: `work/decisions.md` → `D-2026-04-24-036` (E-23 paused, E-24 created) · `D-2026-04-24-037` (Option E ratified) · `D-2026-04-25-038` (E-24 closed; E-23 ready to resume)
 
