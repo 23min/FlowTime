@@ -1,9 +1,10 @@
 ---
 id: m-E24-05-canary-green-hard-assertion
 epic: E-24-schema-alignment
-status: draft
+status: complete
 depends_on: m-E24-04-parser-validator-scalar-style-fix
-completed:
+started: 2026-04-25
+completed: 2026-04-25
 ---
 
 # m-E24-05: Canary Green and Hard Assertion
