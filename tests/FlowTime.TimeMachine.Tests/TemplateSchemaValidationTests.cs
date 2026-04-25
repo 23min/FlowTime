@@ -1,19 +1,16 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using FlowTime.Tests.Support;
 using Json.Schema;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
+using YamlDotNet.Core;
+using YamlDotNet.RepresentationModel;
 
 namespace FlowTime.TimeMachine.Tests;
 
 public sealed class TemplateSchemaValidationTests
 {
     private static readonly JsonSchema templateSchema = LoadSchema();
-    private static readonly IDeserializer yamlDeserializer = new DeserializerBuilder()
-        .WithNamingConvention(CamelCaseNamingConvention.Instance)
-        .IgnoreUnmatchedProperties()
-        .Build();
 
     public static IEnumerable<string> TemplatePaths
     {
@@ -31,10 +28,18 @@ public sealed class TemplateSchemaValidationTests
         foreach (var path in TemplatePaths)
         {
             var yaml = File.ReadAllText(path);
-            var parsed = yamlDeserializer.Deserialize<Dictionary<string, object?>>(yaml);
-            var payload = NormalizeYaml(parsed);
 
-            using var document = JsonDocument.Parse(JsonSerializer.Serialize(payload));
+            // m-E24-04 / AC3 — convert via YamlStream + ScalarStyle-aware coercion so
+            // quoted scalars (`expr: "0"`, `graph.hidden: "true"`) resolve as strings,
+            // matching ModelSchemaValidator.ParseScalar exactly. The earlier path used
+            // YamlDotNet's generic dictionary deserializer plus an aggressive
+            // TryConvertScalar helper that re-introduced the defect at the test layer
+            // (every quoted-text field that happened to look like a number / bool was
+            // silently coerced back to int / bool — masking the very contract this test
+            // is meant to guard).
+            var jsonNode = YamlToJsonNode(yaml);
+
+            using var document = JsonDocument.Parse(jsonNode.ToJsonString());
             var evaluation = templateSchema.Evaluate(document.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.Hierarchical });
             if (!evaluation.IsValid)
             {
@@ -131,41 +136,87 @@ public sealed class TemplateSchemaValidationTests
 
     private static string GetName(JsonElement parameter) => parameter.TryGetProperty("name", out var name) ? name.GetString() ?? "<unknown>" : "<unknown>";
 
-    private static object? NormalizeYaml(object? value)
+    /// <summary>
+    /// Converts a YAML document to a <see cref="JsonNode"/> using ScalarStyle-aware
+    /// coercion that mirrors <c>ModelSchemaValidator.ParseScalar</c>. Quoted scalars
+    /// (<see cref="ScalarStyle.SingleQuoted"/>, <see cref="ScalarStyle.DoubleQuoted"/>) and
+    /// block scalars (<see cref="ScalarStyle.Literal"/>, <see cref="ScalarStyle.Folded"/>)
+    /// resolve as strings; only plain scalars are candidates for bool / int / double
+    /// coercion. The two helpers must move in lock-step — the test layer cannot mask
+    /// real wire-shape behavior.
+    /// </summary>
+    private static JsonNode YamlToJsonNode(string yaml)
     {
-        return value switch
+        var stream = new YamlStream();
+        stream.Load(new StringReader(yaml));
+        if (stream.Documents.Count == 0)
         {
-            null => null,
-            IDictionary<object, object?> dict => dict.ToDictionary(kvp => kvp.Key.ToString() ?? string.Empty, kvp => NormalizeYaml(kvp.Value), StringComparer.OrdinalIgnoreCase),
-            IDictionary<string, object?> stringDict => stringDict.ToDictionary(kvp => kvp.Key, kvp => NormalizeYaml(kvp.Value), StringComparer.OrdinalIgnoreCase),
-            IEnumerable<object?> list => list.Select(NormalizeYaml).ToList(),
-            string s when TryConvertScalar(s, out var converted) => converted,
-            _ => value
-        };
+            throw new InvalidDataException("YAML document was empty.");
+        }
+        return ConvertYamlNode(stream.Documents[0].RootNode);
     }
 
-    private static bool TryConvertScalar(string input, out object? converted)
+    private static JsonNode ConvertYamlNode(YamlNode node) => node switch
     {
-        if (int.TryParse(input, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intValue))
+        YamlScalarNode scalar => ParseScalar(scalar),
+        YamlSequenceNode sequence => ConvertSequence(sequence),
+        YamlMappingNode mapping => ConvertMapping(mapping),
+        _ => JsonValue.Create(node.ToString() ?? string.Empty)!,
+    };
+
+    private static JsonArray ConvertSequence(YamlSequenceNode sequence)
+    {
+        var array = new JsonArray();
+        foreach (var child in sequence.Children)
         {
-            converted = intValue;
-            return true;
+            array.Add(ConvertYamlNode(child));
+        }
+        return array;
+    }
+
+    private static JsonObject ConvertMapping(YamlMappingNode mapping)
+    {
+        var obj = new JsonObject();
+        foreach (var entry in mapping.Children)
+        {
+            if (entry.Key is not YamlScalarNode keyNode)
+            {
+                continue;
+            }
+            obj[keyNode.Value ?? string.Empty] = ConvertYamlNode(entry.Value);
+        }
+        return obj;
+    }
+
+    private static JsonNode ParseScalar(YamlScalarNode scalar)
+    {
+        var value = scalar.Value;
+        if (value is null)
+        {
+            return JsonValue.Create((string?)null)!;
         }
 
-        if (double.TryParse(input, NumberStyles.Float, CultureInfo.InvariantCulture, out var doubleValue))
+        if (scalar.Style != ScalarStyle.Plain)
         {
-            converted = doubleValue;
-            return true;
+            return JsonValue.Create(value)!;
         }
 
-        if (bool.TryParse(input, out var boolValue))
+        if (bool.TryParse(value, out var boolResult))
         {
-            converted = boolValue;
-            return true;
+            return JsonValue.Create(boolResult)!;
         }
 
-        converted = null;
-        return false;
+        if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intResult))
+        {
+            return JsonValue.Create(intResult)!;
+        }
+
+        if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var doubleResult))
+        {
+            return JsonValue.Create(doubleResult)!;
+        }
+
+        return JsonValue.Create(value)!;
     }
 
     private static IEnumerable<string> CollectErrors(EvaluationResults results)

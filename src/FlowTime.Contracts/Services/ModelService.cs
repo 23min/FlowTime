@@ -44,7 +44,7 @@ public static class ModelService
                 Bins = model.Grid.Bins,
                 BinSize = model.Grid.BinSize,
                 BinUnit = model.Grid.BinUnit,
-                StartTimeUtc = model.Grid.StartTimeUtc
+                Start = model.Grid.Start
             },
             Classes = model.Classes.Select(c => new ClassDefinition
             {
@@ -111,7 +111,12 @@ public static class ModelService
             Outputs = model.Outputs.Select(o => new OutputDefinition
             {
                 Series = o.Series,
-                As = o.As
+                // OutputDto.As became nullable per m-E24-01 Q3 — wire YAML may omit `as:`
+                // when an output is a result-pin without CSV materialization. Coerce to
+                // empty string so OutputDefinition.As stays non-nullable; existing
+                // consumers (TelemetryBundleBuilder.cs:279, RunArtifactReader.cs:77) are
+                // already IsNullOrWhiteSpace-aware.
+                As = o.As ?? string.Empty
             }).ToList()
         };
 

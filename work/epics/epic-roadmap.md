@@ -85,16 +85,26 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 - **Fork decision (2026-04-15, active as of m-E18-14 wrap):** Svelte UI is the platform for all new telemetry/fit/discovery surfaces. Blazor UI is in maintenance mode at current functionality — bug fixes and contract alignment only, no new features. New Svelte work is tracked under E-21 below.
 - **dag-map:** M3 (topology rendering), M4 (heatmap mode) delivered. Click/hover events + `selected` render option added in E-21 m-E21-01.
 
+#### E-24 — Schema Alignment (completed)
+
+- **Folder:** `work/epics/completed/E-24-schema-alignment/`
+- **Status:** **Complete** — all five milestones merged to main (2026-04-25)
+- **Goal:** Unify FlowTime's post-substitution model representation. One C# type (`ModelDto` + `ProvenanceDto` in `FlowTime.Contracts`), one YAML schema (`docs/schemas/model.schema.yaml`), one validator. `SimModelArtifact` and six satellites deleted; Sim emits the unified type directly; Engine parses it directly. `Template` (authoring-time) stays distinct. Forward-only — no bundle migration. camelCase throughout. `TemplateWarningSurveyTests.Survey_Templates_For_Warnings` promoted to a hard `val-err == 0` build-time gate at `ValidationTier.Analyse`.
+- **Five milestones:** m-E24-01 Inventory & Design Decisions (doc-only) → m-E24-02 Unify Model Type (`SimModelArtifact` + 6 satellites deleted; YamlDotNet 17.0.1) → m-E24-03 Schema Unification (schema rewritten top-to-bottom against unified `ModelDto`; nested 7-field camelCase provenance; consumer citations) → m-E24-04 Parser/Validator Scalar-Style Fix (mirrored `ParseScalar` `ScalarStyle.Plain` guard + sibling `QuotedAmbiguousStringEmitter` for round-trip symmetry) → m-E24-05 Canary Green + Hard Assertion (regression-catching verified end-to-end).
+- **ADRs:** ADR-E-24-01 Unify (m-E24-01) · ADR-E-24-02 Forward-only regeneration (m-E24-01) · ADR-E-24-03 Schema declares only consumed fields (m-E24-01) · ADR-E-24-04 `ScalarStyle.Plain` gates `ParseScalar` (m-E24-04) · ADR-E-24-05 `QuotedAmbiguousStringEmitter` round-trip symmetry (m-E24-04).
+- **Unblocks:** E-23 m-E23-02 + m-E23-03 (byte-trivial mechanical cleanup); m-E21-07 Validation Surface eventually; E-15 Telemetry Ingestion `nodes[].source` forward contract.
+- **Decisions:** `D-2026-04-24-036` (E-23 paused, E-24 created) · `D-2026-04-24-037` (Option E ratified; 5-milestone plan) · `D-2026-04-25-038` (E-24 closed; E-23 ready to resume)
+- **Reference:** `work/epics/completed/E-24-schema-alignment/spec.md`
+
 #### E-23 — Model Validation Consolidation
 
 - **Folder:** `work/epics/E-23-model-validation-consolidation/`
-- **Status:** In-progress — planning (branch `epic/E-23-model-validation-consolidation`, created from `main` 2026-04-23)
-- **Goal:** Delete `src/FlowTime.Core/Models/ModelValidator.cs` outright and route every call site (`POST /v1/run`, Engine CLI, `TimeMachineValidator`, tests) through `ModelSchemaValidator` so JSON-schema truth is the single structural contract for model YAML. Update `docs/schemas/model.schema.yaml` to cover every rule currently in `ModelValidator` (notably allow `grid.start`, which Sim emits and the Engine consumes today but the schema forbids via `additionalProperties: false`).
-- **Why now:** Two silently-disagreeing validators surfaced during m-E21-07 scoping. Every current template emits tier-3 errors under `TimeMachineValidator` while running successfully through `POST /v1/run`. This is the concrete case that motivated the 2026-04-23 Truth Discipline guard (`.ai-repo/rules/project.md`): *"'API stability' does not mean 'keep old functions around.'"*
-- **Key milestones:** m-E23-01 Schema Alignment, m-E23-02 Call-Site Migration, m-E23-03 Delete `ModelValidator`
-- **Dependencies:** none
-- **Unblocks:** m-E21-07 Validation Surface (Svelte) — consumes the consolidated validator
-- **Regression canary:** `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs` — commits in m-E23-01, stays as a standing integration test thereafter
+- **Status:** **Ready to resume (2026-04-25)** — E-24 Schema Alignment closed (all five milestones landed on `epic/E-24-schema-alignment`); m-E23-02 (call-site migration) and m-E23-03 (`ModelValidator` delete) are now byte-trivial mechanical cleanup because `ModelSchemaValidator`, the schema, Sim's emitter, and the Engine's reader literally share a single unified type definition (`ModelDto` / `ProvenanceDto` in `FlowTime.Contracts`). Reentry needs a status-reconciliation pass on the `milestone/m-E23-01-schema-alignment` branch's stashed input material (most input has been absorbed by E-24).
+- **Goal:** Delete `src/FlowTime.Core/Models/ModelValidator.cs` outright and route every call site (`POST /v1/run`, Engine CLI, `TimeMachineValidator`, tests) through `ModelSchemaValidator`. Directly enforces the 2026-04-23 Truth Discipline guard *"'API stability' does not mean 'keep old functions around.'"*
+- **Milestone status post E-24 close:** m-E23-01 largely absorbed by E-24 (`model.schema.yaml` rewritten by m-E24-03; canary committed and now hard-asserts under m-E24-05); needs a status-reconciliation pass on the stashed branch · m-E23-02 ready (E-24 prerequisite cleared) · m-E23-03 ready (waits on m-E23-02)
+- **Dependencies:** E-24 Schema Alignment (cleared 2026-04-25)
+- **Unblocks (after E-23 closes):** m-E21-07 Validation Surface (Svelte)
+- **Regression canary:** `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs` — promoted to hard assertion at m-E24-05 (`val-err == 0` in-process tier-3 survey across all 12 templates; build-breaks on any future regression)
 - **Reference:** `work/epics/E-23-model-validation-consolidation/spec.md`
 
 #### E-21 — Svelte Workbench & Analysis Surfaces
