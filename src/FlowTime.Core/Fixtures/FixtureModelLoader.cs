@@ -61,7 +61,7 @@ internal sealed class FixtureDocument
                 Bins = Window.Bins,
                 BinSize = Window.BinSize,
                 BinUnit = Window.BinUnit ?? "minutes",
-                StartTimeUtc = Window.StartTimeUtc
+                Start = Window.StartTimeUtc
             },
             Nodes = new List<NodeDefinition>(),
             Outputs = new List<OutputDefinition>(),

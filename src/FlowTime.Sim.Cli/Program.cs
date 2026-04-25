@@ -25,8 +25,7 @@ namespace FlowTime.Sim.Cli
         string? TemplatesDir,
         string? ModelsDir,
         string? Mode,
-        string? ProvenancePath,  // SIM-M2.7: Path to save provenance JSON
-        bool EmbedProvenance     // SIM-M2.7: Embed provenance in model YAML
+        string? ProvenancePath  // SIM-M2.7: Path to save provenance JSON
     )
     {
         public static CliOptions Defaults => new(
@@ -40,8 +39,7 @@ namespace FlowTime.Sim.Cli
             null,
             null,
             null,
-            null,  // ProvenancePath
-            false); // EmbedProvenance
+            null);
     }
 
     internal static class Program
@@ -261,13 +259,6 @@ namespace FlowTime.Sim.Cli
             if (string.IsNullOrWhiteSpace(opts.TemplateId))
             {
                 Console.Error.WriteLine("Error: --id required for 'generate' command");
-                return 2;
-            }
-
-            // SIM-M2.7: Validate mutual exclusivity of provenance options
-            if (!string.IsNullOrWhiteSpace(opts.ProvenancePath) && opts.EmbedProvenance)
-            {
-                Console.Error.WriteLine("Error: --provenance and --embed-provenance are mutually exclusive");
                 return 2;
             }
 
@@ -741,8 +732,6 @@ namespace FlowTime.Sim.Cli
             Console.WriteLine("  --mode <simulation|telemetry>");
             Console.WriteLine("                           Override template mode before validation/generation");
             Console.WriteLine("  --provenance <file>      Save provenance metadata to separate JSON file");
-            Console.WriteLine("  --embed-provenance       (Legacy) provenance is always embedded; flag retained for compatibility");
-            Console.WriteLine("                           NOTE: --provenance and --embed-provenance are mutually exclusive");
             Console.WriteLine("  --verbose, -v            Verbose output");
             Console.WriteLine("  --help, -h               Show this help\n");
             Console.WriteLine("Examples:");
@@ -758,8 +747,6 @@ namespace FlowTime.Sim.Cli
             Console.WriteLine("                                             # Override mode for telemetry replay");
             Console.WriteLine("  flow-sim generate --id transportation-basic --out model.yaml --provenance provenance.json");
             Console.WriteLine("                                             # Generate with separate provenance file");
-            Console.WriteLine("  flow-sim generate --id transportation-basic --out model.yaml --embed-provenance");
-            Console.WriteLine("                                             # Legacy flag (no longer required)");
         }
     }
 
@@ -801,7 +788,6 @@ namespace FlowTime.Sim.Cli
                 else if (a is "--models-dir") opts = opts with { ModelsDir = ArgValue(args, ref i) };
                 else if (a is "--mode") opts = opts with { Mode = ArgValue(args, ref i) };
                 else if (a is "--provenance") opts = opts with { ProvenancePath = ArgValue(args, ref i) };  // SIM-M2.7
-                else if (a is "--embed-provenance") opts = opts with { EmbedProvenance = true };  // SIM-M2.7
                 else if (a is "--verbose" or "-v") opts = opts with { Verbose = true };
                 else if (a is "--help" or "-h")
                 {

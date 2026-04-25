@@ -112,35 +112,6 @@ outputs:
         Assert.Equal("provenance.json", opts.ProvenancePath);
     }
 
-    [Fact]
-    public void ArgParser_ParsesEmbedProvenanceFlag()
-    {
-        // Arrange & Act
-        var opts = ArgParser.ParseArgs(new[] { "generate", "--id", "test-template", "--embed-provenance" });
-
-        // Assert
-        Assert.Equal("generate", opts.Verb);
-        Assert.Equal("test-template", opts.TemplateId);
-        Assert.True(opts.EmbedProvenance);
-    }
-
-    [Fact]
-    public void ArgParser_ParsesBothProvenanceOptions()
-    {
-        // Arrange & Act
-        var opts = ArgParser.ParseArgs(new[] 
-        { 
-            "generate", 
-            "--id", "test-template", 
-            "--provenance", "provenance.json",
-            "--embed-provenance"
-        });
-
-        // Assert
-        Assert.Equal("provenance.json", opts.ProvenancePath);
-        Assert.True(opts.EmbedProvenance);
-    }
-
     #endregion
 
     #region Separate Provenance File Tests
@@ -162,8 +133,7 @@ outputs:
             templatesDir,
             null,
             null,
-            provenancePath,  // ProvenancePath
-            false);          // EmbedProvenance
+            provenancePath);
 
         // Act
         var exitCode = await ExecuteGenerateWithProvenance(templateService, opts);
@@ -204,8 +174,7 @@ outputs:
             templatesDir,
             null,
             null,
-            provenancePath,
-            false);
+            provenancePath);
 
         // Act
         var exitCode = await ExecuteGenerateWithProvenance(templateService, opts);
@@ -239,8 +208,7 @@ outputs:
             templatesDir,
             null,
             null,
-            null,  // No provenance path
-            false);
+            null);  // No provenance path
 
         // Act
         var exitCode = await ExecuteGenerateWithProvenance(templateService, opts);
@@ -253,117 +221,7 @@ outputs:
 
     #endregion
 
-    #region Embedded Provenance Tests
-
-    [Fact]
-    public async Task Generate_WithEmbedProvenanceFlag_EmbedsProvenanceInModel()
-    {
-        // Arrange
-        var modelPath = Path.Combine(testDir, "model.yaml");
-        var opts = new CliOptions(
-            "generate",
-            null,
-            "test-template",
-            null,
-            modelPath,
-            "yaml",
-            false,
-            templatesDir,
-            null,
-            null,
-            null,
-            true);  // EmbedProvenance = true
-
-        // Act
-        var exitCode = await ExecuteGenerateWithProvenance(templateService, opts);
-
-        // Assert
-        Assert.Equal(0, exitCode);
-        Assert.True(File.Exists(modelPath));
-
-        var modelYaml = await File.ReadAllTextAsync(modelPath);
-        
-        // Verify embedded provenance structure
-        // m-E24-02 (Q5/A4): provenance.source dropped — generator carries the
-        // producing-system identifier; templateId remains; modelId remains.
-        Assert.Contains("provenance:", modelYaml);
-        Assert.Contains("generator: flowtime-sim", modelYaml);
-        Assert.Contains("templateId: test-template", modelYaml);
-        Assert.Matches(@"modelId: [a-f0-9]{64}", modelYaml);
-        
-        // Verify provenance comes after schemaVersion but before grid
-        var schemaVersionPos = modelYaml.IndexOf("schemaVersion:");
-        var provenancePos = modelYaml.IndexOf("provenance:");
-        var outputsPos = modelYaml.IndexOf("outputs:");
-        
-        Assert.True(schemaVersionPos < provenancePos, "provenance should come after schemaVersion");
-        Assert.True(outputsPos >= 0, "outputs section should be present");
-        Assert.True(provenancePos > outputsPos, "provenance should follow outputs");
-    }
-
-    [Fact]
-    public async Task Generate_WithEmbedProvenance_NoSeparateProvenanceFile()
-    {
-        // Arrange
-        var modelPath = Path.Combine(testDir, "model.yaml");
-        var provenancePath = Path.Combine(testDir, "provenance.json");
-        var opts = new CliOptions(
-            "generate",
-            null,
-            "test-template",
-            null,
-            modelPath,
-            "yaml",
-            false,
-            templatesDir,
-            null,
-            null,
-            null,
-            true);  // EmbedProvenance = true
-
-        // Act
-        var exitCode = await ExecuteGenerateWithProvenance(templateService, opts);
-
-        // Assert
-        Assert.Equal(0, exitCode);
-        Assert.True(File.Exists(modelPath));
-        Assert.False(File.Exists(provenancePath), "No separate provenance file should be created");
-    }
-
-    #endregion
-
-    #region Mutual Exclusivity Tests
-
-    [Fact]
-    public async Task Generate_WithBothProvenanceOptions_ReturnsError()
-    {
-        // Arrange
-        var modelPath = Path.Combine(testDir, "model.yaml");
-        var provenancePath = Path.Combine(testDir, "provenance.json");
-        var opts = new CliOptions(
-            "generate",
-            null,
-            "test-template",
-            null,
-            modelPath,
-            "yaml",
-            false,
-            templatesDir,
-            null,
-            null,
-            provenancePath,  // ProvenancePath set
-            true);           // EmbedProvenance also set
-
-        // Act
-        var exitCode = await ExecuteGenerateWithProvenance(templateService, opts);
-
-        // Assert
-        Assert.NotEqual(0, exitCode); // Should return error code
-        
-        // Model should not be created when there's an error
-        Assert.False(File.Exists(modelPath), "Model should not be created on error");
-        Assert.False(File.Exists(provenancePath), "Provenance should not be created on error");
-    }
+    #region Mode Override Tests
 
     [Fact]
     public async Task Generate_WithModeOverride_WritesTelemetryMode()
@@ -381,8 +239,7 @@ outputs:
             templatesDir,
             null,
             "telemetry",
-            null,
-            false);
+            null);
 
         // Act
         var exitCode = await ExecuteGenerateWithProvenance(templateService, opts);
@@ -409,8 +266,7 @@ outputs:
             templatesDir,
             null,
             "invalid",
-            null,
-            false);
+            null);
 
         // Act
         var exitCode = await ExecuteGenerateWithProvenance(templateService, opts);
@@ -440,8 +296,7 @@ outputs:
             templatesDir,
             null,
             null,
-            null,  // No provenance options
-            false);
+            null);  // No provenance options
 
         // Act
         var exitCode = await ExecuteGenerateWithProvenance(templateService, opts);
@@ -451,7 +306,7 @@ outputs:
         Assert.True(File.Exists(modelPath));
 
         var modelYaml = await File.ReadAllTextAsync(modelPath);
-        
+
         // Embedded provenance is now included by default in generated models
         Assert.Contains("provenance:", modelYaml);
         

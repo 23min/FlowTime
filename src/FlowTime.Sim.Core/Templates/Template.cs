@@ -260,15 +260,6 @@ public class TemplateNode
         set => expr = value;
     }
 
-    [YamlMember(Alias = "expression")]
-    public string? LegacyExpression
-    {
-        get => expr;
-        set => expr = value;
-    }
-
-    public bool ShouldSerializeLegacyExpression() => false;
-
     public List<string>? Dependencies { get; set; }
 
     // For serviceWithBuffer nodes (stateful queue accumulator)
@@ -333,24 +324,6 @@ public class TemplateOutput
     public string Series { get; set; } = "*";
     public List<string>? Exclude { get; set; }
     public string? As { get; set; }
-
-    [YamlMember(Alias = "source")]
-    public string? LegacySource
-    {
-        get => Series;
-        set => Series = value ?? "*";
-    }
-
-    public bool ShouldSerializeLegacySource() => false;
-
-    [YamlMember(Alias = "filename")]
-    public string? LegacyFilename
-    {
-        get => As;
-        set => As = value;
-    }
-
-    public bool ShouldSerializeLegacyFilename() => false;
 }
 
 /// <summary>
