@@ -197,7 +197,7 @@ public sealed class TelemetryCapture
 
     private static TelemetryManifestWindow BuildWindow(ModelDefinition model)
     {
-        var start = model.Grid?.StartTimeUtc;
+        var start = model.Grid?.Start;
         var durationMinutes = ComputeDurationMinutes(model.Grid);
         return new TelemetryManifestWindow(start, durationMinutes);
     }
