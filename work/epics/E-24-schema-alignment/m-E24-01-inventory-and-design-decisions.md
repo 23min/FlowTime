@@ -1,9 +1,9 @@
 ---
 id: m-E24-01-inventory-and-design-decisions
 epic: E-24-schema-alignment
-status: draft
+status: complete
 depends_on:
-completed:
+completed: 2026-04-25
 ---
 
 # m-E24-01: Inventory and Design Decisions
