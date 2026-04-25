@@ -1,8 +1,9 @@
 ---
 id: m-E24-04-parser-validator-scalar-style-fix
 epic: E-24-schema-alignment
-status: draft
+status: in-progress
 depends_on: m-E24-03-schema-unification
+started: 2026-04-25
 completed:
 ---
 

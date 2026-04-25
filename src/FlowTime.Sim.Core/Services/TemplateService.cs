@@ -74,9 +74,17 @@ public class TemplateService : ITemplateService
         // never populated `classes:` or `outputs[].exclude` don't emit `[]` / `{}`.
         // OmitDefaults is intentionally NOT enabled — value-type defaults
         // (e.g. `binSize: 0`, `weight: 0`) carry intent, and zero is a real value.
+        //
+        // m-E24-04 / D-m-E24-04-03: QuotedAmbiguousStringEmitter forces double-quoted
+        // emission on strings whose literal text would otherwise re-resolve as a
+        // YAML 1.2 plain scalar (bool / int / float / null). Closes the round-trip
+        // asymmetry that left `expr: "0"` (string in source) emitted as `expr: 0`
+        // (re-typed as integer by the validator). Source-type-driven so any string
+        // field — including newly-added ones — is guarded automatically.
         return new SerializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)
             .WithEventEmitter(next => new FlowSequenceEventEmitter(next))
+            .WithEventEmitter(next => new QuotedAmbiguousStringEmitter(next))
             .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull | DefaultValuesHandling.OmitEmptyCollections)
             .Build();
     }
