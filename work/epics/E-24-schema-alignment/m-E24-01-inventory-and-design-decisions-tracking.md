@@ -1,10 +1,10 @@
 # m-E24-01 Inventory and Design Decisions — Tracking
 
 **Started:** 2026-04-24
-**Completed:** pending (AC1–AC8 landed in doc; commit pending user approval 2026-04-24)
+**Completed:** 2026-04-25
 **Branch:** `milestone/m-E24-01-inventory-and-design-decisions` (from `epic/E-24-schema-alignment`)
 **Spec:** `work/epics/E-24-schema-alignment/m-E24-01-inventory-and-design-decisions.md`
-**Commits:** (pending — single commit queued for user approval)
+**Commits:** `c43e8c0` (single doc-only commit)
 
 <!-- Status is not carried here. The milestone spec's frontmatter `status:` field is
      canonical. `**Completed:**` is filled iff the spec is `complete`. -->
