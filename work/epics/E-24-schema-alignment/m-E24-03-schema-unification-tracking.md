@@ -1,11 +1,11 @@
 # m-E24-03 Schema Unification — Tracking
 
 **Started:** 2026-04-25
-**Completed:** pending
+**Completed:** 2026-04-25
 **Branch:** `milestone/m-E24-03-schema-unification` (from `epic/E-24-schema-alignment`)
 **Spec:** `work/epics/E-24-schema-alignment/m-E24-03-schema-unification.md`
-**Commits:** pending
-**Final test count:** pending
+**Commits:** `d6a3263` (schema rewrite + README + architecture doc + tracking)
+**Final test count:** 1,750 passed / 0 failed / 9 skipped
 
 <!-- Status is not carried here. The milestone spec's frontmatter `status:` field is
      canonical. `**Completed:**` is filled iff the spec is `complete`. -->
@@ -143,7 +143,7 @@ Scope: every file under `docs/architecture/` (including `reviews/`). Search keys
 
 ## Completion
 
-- **Completed:** pending (commit gate)
+- **Completed:** 2026-04-25 (commit `d6a3263`)
 - **Final test count:** 1,750 passed / 9 skipped / 0 failed.
 - **Deferred items:** (none) — the 231 ParseScalar errors are m-E24-04's contract; they are not deferred work for m-E24-03.
 - **Reviewer notes:** Schema rewrite was a top-to-bottom regeneration rather than spot edits (D-m-E24-03-01) — every property now carries DTO-source + consumer citations, but the line-count grew (927 → 1059) because of those citations. Two design adjacencies surfaced (D-m-E24-03-02 modelId examples; D-m-E24-03-03 mode enum); both are forward improvements aligned with m-E24-01 A4. The post-state ParseScalar count rose from 89 to 231 — this is expected and explained: `nodes[].metadata` was previously rejected wholesale at the metadata level, masking 142 newly-reachable inner errors that all fall under the same ParseScalar defect (`graph.hidden`, `pmf.expected`). m-E24-04 will close all 231 in a single fix.
