@@ -1,16 +1,19 @@
-# FlowTime Model Schema (Target) - JSON Schema Definition
-# This is the unified schema that FlowTime-Sim will output and FlowTime Engine will execute
-# Replaces legacy binMinutes format with binSize/binUnit for M-02.09
+# FlowTime Unified Model Schema (post-substitution)
+# This file describes the single shape that FlowTime-Sim emits and FlowTime Engine
+# consumes after parameter substitution. There is one C# type (`ModelDto`,
+# src/FlowTime.Contracts/Dtos/ModelDtos.cs), one schema, one validator
+# (`ModelSchemaValidator`). Authoring-time templates live under a separate schema
+# (`template.schema.json`).
 
 $schema: "https://json-schema.org/draft-07/schema#"
-$id: "https://flowtime.dev/schemas/target-model.schema.yaml"
-title: "FlowTime Model Schema (Target)"
+$id: "https://flowtime.dev/schemas/model.schema.yaml"
+title: "FlowTime Unified Model Schema"
 description: |
-  Unified schema for FlowTime models. This is the convergence point for M-02.09 schema evolution.
-  - FlowTime-Sim generates models in this format
-  - FlowTime Engine executes models in this format
-  - Replaces legacy binMinutes format with binSize/binUnit
-  - Supports optional provenance metadata for traceability
+  Unified schema for FlowTime post-substitution models (the model both Sim emits and
+  the Engine consumes). Source of truth for the field set is `ModelDto` in
+  src/FlowTime.Contracts/Dtos/ModelDtos.cs. Every property declared here maps to a
+  member on `ModelDto` (or one of its nested DTOs); every member on `ModelDto` has
+  a declaration here. Keys are camelCase throughout.
 
 type: object
 required:
@@ -22,11 +25,19 @@ properties:
   schemaVersion:
     type: integer
     const: 1
-    description: "Schema version identifier for evolution tracking. Always 1 for current version."
+    description: |
+      Schema version identifier for evolution tracking. Always 1 for the current version.
+      Consumer: `src/FlowTime.Core/Compiler/ModelCompiler.cs:129` propagates it onto the compiled
+      `ModelDefinition` (`ModelParser.cs:537`). DTO source: `ModelDto.SchemaVersion`
+      (`src/FlowTime.Contracts/Dtos/ModelDtos.cs:22`).
 
   grid:
     type: object
-    description: "Time grid definition with flexible time unit support"
+    description: |
+      Time grid definition. DTO source: `GridDto`
+      (`src/FlowTime.Contracts/Dtos/ModelDtos.cs:49`).
+      Consumer: `src/FlowTime.Core/Models/ModelParser.cs:35-39` reads `bins`/`binSize`/`binUnit`
+      to construct the `TimeGrid`; line 62 reads `start` via `ParseStartTime(model.Grid.Start)`.
     required:
       - bins
       - binSize
@@ -36,7 +47,9 @@ properties:
         type: integer
         minimum: 1
         maximum: 10000
-        description: "Number of time periods in the simulation"
+        description: |
+          Number of time periods in the simulation. DTO source: `GridDto.Bins`.
+          Consumer: `src/FlowTime.Core/Models/ModelParser.cs:39` and `:59` populate `TimeGrid.Bins`.
         examples:
           - 24      # 24 periods
           - 168     # 1 week worth
@@ -47,7 +60,9 @@ properties:
         type: integer
         minimum: 1
         maximum: 1000
-        description: "Duration of each time period (magnitude)"
+        description: |
+          Duration of each time period (magnitude). DTO source: `GridDto.BinSize`.
+          Consumer: `src/FlowTime.Core/Models/ModelParser.cs:39` and `:60` propagate to `TimeGrid.BinSize`.
         examples:
           - 1       # Single unit
           - 5       # 5-minute or 5-hour bins
@@ -61,21 +76,50 @@ properties:
           - hours
           - days
           - weeks
-        description: "Time unit for binSize duration"
+        description: |
+          Time unit for binSize duration. DTO source: `GridDto.BinUnit`.
+          Consumer: `src/FlowTime.Core/Models/ModelParser.cs:38` parses via
+          `TimeUnitExtensions.Parse` and feeds the result into the constructed `TimeGrid`.
         examples:
           - "hours"    # Most common
           - "minutes"  # High resolution
           - "days"     # Daily simulations
           - "weeks"    # Long-term planning
 
+      start:
+        type: string
+        format: date-time
+        description: |
+          Optional ISO-8601 UTC timestamp anchoring bin 0. Models authored without `start`
+          continue to validate (it is **not** in `grid.required`). DTO source:
+          `GridDto.Start` (renamed from `StartTimeUtc` in m-E24-02 per A2; the
+          `LegacyStart` shim was deleted in the same milestone per A1).
+          Consumer: `src/FlowTime.Core/Models/ModelParser.cs:62` calls
+          `ParseStartTime(model.Grid.Start)` and stores the result on the compiled
+          grid metadata.
+        examples:
+          - "2025-01-01T00:00:00Z"
+
     additionalProperties: false
 
   topology:
     type: object
-    description: "Declarative topology description (nodes + edges) used by UI/inspectors."
+    description: |
+      Optional declarative topology description (nodes + edges + constraints) used by
+      Engine compile/analysis paths and the Time-Travel UI. DTO source: `TopologyDto`
+      (`src/FlowTime.Contracts/Dtos/ModelDtos.cs:123`).
+      Consumer: `src/FlowTime.Core/Compiler/ModelCompiler.cs:19` short-circuits when
+      `Topology?.Nodes` is empty; `src/FlowTime.Core/Analysis/InvariantAnalyzer.cs:35`
+      and `:50` walk nodes/edges; `src/FlowTime.Core/Models/ModelParser.cs:69-73`
+      converts each list.
     properties:
       nodes:
         type: array
+        description: |
+          Topology node list. DTO source: `TopologyDto.Nodes` (`TopologyNodeDto`,
+          `ModelDtos.cs:130`).
+          Consumer: `src/FlowTime.Core/Compiler/ModelCompiler.cs:29` iterates each
+          to materialize queue / retry-echo nodes.
         items:
           type: object
           required:
@@ -85,71 +129,273 @@ properties:
             id:
               type: string
               minLength: 1
+              description: |
+                Topology node id. DTO source: `TopologyNodeDto.Id`.
+                Consumer: `src/FlowTime.Core/Compiler/ModelCompiler.cs:42` (`ResolveProducerId`)
+                and `src/FlowTime.Core/Models/ModelParser.cs:272` (initial-condition
+                validation) reference it.
             kind:
               type: string
+              description: |
+                Topology node kind (e.g. `service`, `serviceWithBuffer`, `queue`).
+                DTO source: `TopologyNodeDto.Kind` (default `"service"`).
+                Consumer: `src/FlowTime.Core/Compiler/ModelCompiler.cs:36`
+                (`IsQueueLikeKind`) drives queue-node synthesis;
+                `src/FlowTime.API/Services/GraphService.cs:241` calls `ResolveDisplayKind`.
+            nodeRole:
+              type: string
+              description: |
+                Optional role label (e.g. `source`, `sink`). DTO source:
+                `TopologyNodeDto.NodeRole`. Consumer: graph layout in
+                `src/FlowTime.API/Services/GraphService.cs`.
+            group:
+              type: string
+              description: |
+                Optional grouping tag for UI clustering. DTO source:
+                `TopologyNodeDto.Group`. Consumer: graph layout in
+                `src/FlowTime.API/Services/GraphService.cs`.
+            ui:
+              type: object
+              description: |
+                Optional UI hint block. DTO source: `TopologyNodeDto.Ui` (`UiHintsDto`,
+                `ModelDtos.cs:204`). Consumer: graph rendering in
+                `src/FlowTime.API/Services/GraphService.cs`.
+              properties:
+                x: { type: number, description: "X coordinate hint." }
+                y: { type: number, description: "Y coordinate hint." }
+              additionalProperties: true
             constraints:
               type: array
+              description: |
+                Optional list of constraint ids referenced by this node. DTO source:
+                `TopologyNodeDto.Constraints`. Consumer:
+                `src/FlowTime.Core/Analysis/InvariantAnalyzer.cs` constraint-matching pass.
               items:
                 type: string
             semantics:
               type: object
+              description: |
+                Series bindings that drive analytical evaluation for this topology node.
+                DTO source: `TopologyNodeDto.Semantics` (`TopologySemanticsDto`,
+                `ModelDtos.cs:143`).
+                Consumer: `src/FlowTime.Core/DataSources/SemanticLoader.cs:25-51` reads
+                `arrivals`/`served`/`capacity`/`parallelism`/`servedCount`;
+                `src/FlowTime.Core/Analysis/InvariantAnalyzer.cs:147-227` consumes the
+                same surface for invariants; `src/FlowTime.Core/Compiler/ModelCompiler.cs:33-53`
+                resolves `queueDepth` / `retryEcho` for queue-like nodes.
               properties:
-                arrivals: { type: string }
-                served: { type: string }
-                errors: { type: string }
-                attempts: { type: string }
-                failures: { type: string }
-                retryEcho: { type: string }
-                queueDepth:
-                  type:
-                    - string
+                arrivals:
+                  type: string
                   description: |
-                    Series providing queue depth. When set to the literal "self", depth is derived from the node itself.
-                capacity: { type: string }
+                    Series id (or `file:` reference) carrying arrival counts. DTO source:
+                    `TopologySemanticsDto.Arrivals`. Consumer: `SemanticLoader.cs:25`,
+                    `InvariantAnalyzer.cs:147`.
+                served:
+                  type: string
+                  description: |
+                    Series id carrying served counts. DTO source:
+                    `TopologySemanticsDto.Served`. Consumer: `SemanticLoader.cs:26`,
+                    `InvariantAnalyzer.cs:151`.
+                errors:
+                  type: string
+                  description: |
+                    Series id carrying error counts. DTO source:
+                    `TopologySemanticsDto.Errors`. Consumer: `ModelCompiler.cs:50`
+                    (used as queue `loss`); `InvariantAnalyzer.cs` flow checks.
+                attempts:
+                  type: string
+                  description: |
+                    Series id for attempt counts. DTO source: `TopologySemanticsDto.Attempts`.
+                    Consumer: `InvariantAnalyzer.cs` retry-echo flow checks.
+                failures:
+                  type: string
+                  description: |
+                    Series id for failure counts. DTO source: `TopologySemanticsDto.Failures`.
+                    Consumer: `ModelCompiler.cs:82` (retry-echo synthesis).
+                exhaustedFailures:
+                  type: string
+                  description: |
+                    Series id for exhausted-failure counts. DTO source:
+                    `TopologySemanticsDto.ExhaustedFailures`. Consumer:
+                    `InvariantAnalyzer.cs` exhausted-policy checks.
+                retryEcho:
+                  type: string
+                  description: |
+                    Series id producing retry echoes (synthesized when absent). DTO source:
+                    `TopologySemanticsDto.RetryEcho`. Consumer: `ModelCompiler.cs:34`
+                    drives synthesis when no node defines this series.
+                retryBudgetRemaining:
+                  type: string
+                  description: |
+                    Series id for remaining retry budget. DTO source:
+                    `TopologySemanticsDto.RetryBudgetRemaining`. Consumer:
+                    `InvariantAnalyzer.cs` retry-budget validation.
+                retryKernel:
+                  type: array
+                  items:
+                    type: number
+                  description: |
+                    Inline retry kernel coefficients used to synthesize a retry-echo node.
+                    DTO source: `TopologySemanticsDto.RetryKernel`. Consumer:
+                    `src/FlowTime.Core/Compiler/ModelCompiler.cs:90-101`
+                    (`RetryKernelPolicy.Apply`).
+                externalDemand:
+                  type: string
+                  description: |
+                    Series id for external demand pressure. DTO source:
+                    `TopologySemanticsDto.ExternalDemand`. Consumer: `InvariantAnalyzer.cs`
+                    demand-balance checks.
+                queueDepth:
+                  type: string
+                  description: |
+                    Series id providing queue depth. The literal `"self"` resolves the
+                    depth from the topology node itself. DTO source:
+                    `TopologySemanticsDto.QueueDepth`. Consumer:
+                    `src/FlowTime.Core/Compiler/ModelCompiler.cs:33-53` synthesizes a
+                    queue node when no producer exists; `ModelParser.cs:278` and `:334`
+                    propagate the binding to ServiceWithBuffer initial seeding.
+                capacity:
+                  type: string
+                  description: |
+                    Series id for capacity. DTO source: `TopologySemanticsDto.Capacity`.
+                    Consumer: `SemanticLoader.cs:45`, `InvariantAnalyzer.cs:179`.
                 parallelism:
                   oneOf:
                     - type: number
                       minimum: 1
                     - type: string
-                external_demand: { type: string }
-                processingTimeMsSum: { type: string }
-                servedCount: { type: string }
-                slaMin: { type: number }
+                  description: |
+                    Parallelism factor (constant or series id). DTO source:
+                    `TopologySemanticsDto.Parallelism` (`ParallelismReference`).
+                    Consumer: `SemanticLoader.cs:47`,
+                    `src/FlowTime.Core/Metrics/RuntimeAnalyticalEvaluator.cs:1059`.
+                processingTimeMsSum:
+                  type: string
+                  description: |
+                    Series id for cumulative processing time (ms). DTO source:
+                    `TopologySemanticsDto.ProcessingTimeMsSum`. Consumer:
+                    `InvariantAnalyzer.cs` latency derivations.
+                servedCount:
+                  type: string
+                  description: |
+                    Series id for served-count totals (when `served` carries rates).
+                    DTO source: `TopologySemanticsDto.ServedCount`.
+                    Consumer: `SemanticLoader.cs:51`.
+                slaMin:
+                  type: number
+                  description: |
+                    SLA minimum (target). DTO source: `TopologySemanticsDto.SlaMin`.
+                    Consumer: `InvariantAnalyzer.cs` SLA breach checks.
+                maxAttempts:
+                  type: number
+                  description: |
+                    Maximum allowed retry attempts. DTO source:
+                    `TopologySemanticsDto.MaxAttempts`. Consumer: `InvariantAnalyzer.cs`
+                    retry-budget bounds.
+                backoffStrategy:
+                  type: string
+                  description: |
+                    Retry backoff strategy label. DTO source:
+                    `TopologySemanticsDto.BackoffStrategy`. Consumer:
+                    `InvariantAnalyzer.cs` retry-strategy checks.
+                exhaustedPolicy:
+                  type: string
+                  description: |
+                    Policy applied when retries are exhausted. DTO source:
+                    `TopologySemanticsDto.ExhaustedPolicy`. Consumer:
+                    `InvariantAnalyzer.cs` exhausted-policy checks.
                 aliases:
                   type: object
-                  additionalProperties: true
+                  description: |
+                    Optional alias map (alias → canonical series id). DTO source:
+                    `TopologySemanticsDto.Aliases`. Consumer: `InvariantAnalyzer.cs`
+                    series-id resolution.
+                  additionalProperties:
+                    type: string
               additionalProperties: true
             initialCondition:
               type: object
+              description: |
+                Optional initial condition for queue-like topology nodes. DTO source:
+                `TopologyNodeDto.InitialCondition` (`TopologyInitialConditionDto`,
+                `ModelDtos.cs:174`).
+                Consumer: `src/FlowTime.Core/Models/ModelParser.cs:336`
+                (`topoNode.InitialCondition?.QueueDepth ?? 0d`) seeds the
+                ServiceWithBuffer node.
               properties:
-                queueDepth: { type: number }
+                queueDepth:
+                  type: number
+                  description: |
+                    Initial queue depth seeded into the synthesized ServiceWithBuffer.
+                    DTO source: `TopologyInitialConditionDto.QueueDepth`. Consumer:
+                    `ModelParser.cs:336` and `:354`.
               additionalProperties: true
             dispatchSchedule:
               $ref: "#/$defs/dispatchSchedule"
-            metadata:
-              type: object
-              additionalProperties: true
           additionalProperties: true
       edges:
         type: array
+        description: |
+          Topology edges (flow / dependency relations). DTO source: `TopologyDto.Edges`
+          (`TopologyEdgeDto`, `ModelDtos.cs:179`).
+          Consumer: `src/FlowTime.Core/Analysis/InvariantAnalyzer.cs:50-79` walks
+          edges for flow-balance checks; `src/FlowTime.TimeMachine/Orchestration/RunOrchestrationService.cs:720`
+          (`EdgeFlowMaterializer.BuildEdgeFlowSeries`) materializes per-edge series.
         items:
           type: object
           properties:
-            id: { type: string }
-            from: { type: string }
-            to: { type: string }
-            weight: { type: number }
+            id:
+              type: string
+              description: |
+                Edge id. DTO source: `TopologyEdgeDto.Id`. Consumer:
+                `InvariantAnalyzer.cs` edge-balance reporting.
+            from:
+              type: string
+              description: |
+                Source node id. DTO source: `TopologyEdgeDto.From`. Consumer:
+                `InvariantAnalyzer.cs` edge walks.
+            to:
+              type: string
+              description: |
+                Target node id. DTO source: `TopologyEdgeDto.To`. Consumer:
+                `InvariantAnalyzer.cs` edge walks.
+            weight:
+              type: number
+              description: |
+                Optional edge weight. DTO source: `TopologyEdgeDto.Weight`. Consumer:
+                `EdgeFlowMaterializer` weight-scaling.
             type:
               type: string
               enum: [throughput, effort, terminal, dependency]
+              description: |
+                Edge type label. DTO source: `TopologyEdgeDto.Type`. Consumer:
+                `EdgeFlowMaterializer` materialization branching.
             measure:
               type: string
               enum: [served, attempts, errors, failures, exhaustedFailures, load]
-            multiplier: { type: number }
-            lag: { type: integer }
+              description: |
+                Series measure consumed by this edge. DTO source:
+                `TopologyEdgeDto.Measure`. Consumer: `EdgeFlowMaterializer`
+                series selection.
+            multiplier:
+              type: number
+              description: |
+                Optional flow multiplier. DTO source: `TopologyEdgeDto.Multiplier`.
+                Consumer: `EdgeFlowMaterializer` flow-scaling.
+            lag:
+              type: integer
+              description: |
+                Optional bin lag applied at this edge. DTO source:
+                `TopologyEdgeDto.Lag`. Consumer: `EdgeFlowMaterializer` SHIFT-style
+                lag application.
           additionalProperties: true
       constraints:
         type: array
+        description: |
+          Topology-level constraint blocks. DTO source: `TopologyDto.Constraints`
+          (`TopologyConstraintDto`, `ModelDtos.cs:191`). Consumer:
+          `src/FlowTime.Core/Analysis/InvariantAnalyzer.cs:46` builds a constraint
+          lookup keyed by id and matches against topology nodes.
         items:
           type: object
           required:
@@ -159,19 +405,51 @@ properties:
             id:
               type: string
               minLength: 1
+              description: |
+                Constraint identifier. DTO source: `TopologyConstraintDto.Id`. Consumer:
+                `InvariantAnalyzer.cs:46` constraint lookup.
             semantics:
               type: object
+              description: |
+                Constraint semantics block. DTO source:
+                `TopologyConstraintDto.Semantics` (`ConstraintSemanticsDto`,
+                `ModelDtos.cs:197`). Consumer: `InvariantAnalyzer.cs` constraint-binding
+                pass.
               properties:
-                arrivals: { type: string }
-                served: { type: string }
-                errors: { type: string }
-                latencyMinutes: { type: string }
+                arrivals:
+                  type: string
+                  description: |
+                    Series binding for arrivals. DTO source:
+                    `ConstraintSemanticsDto.Arrivals`. Consumer: `InvariantAnalyzer.cs`
+                    constraint pass.
+                served:
+                  type: string
+                  description: |
+                    Series binding for served counts. DTO source:
+                    `ConstraintSemanticsDto.Served`. Consumer: `InvariantAnalyzer.cs`.
+                errors:
+                  type: string
+                  description: |
+                    Series binding for errors. DTO source:
+                    `ConstraintSemanticsDto.Errors`. Consumer: `InvariantAnalyzer.cs`.
+                latencyMinutes:
+                  type: string
+                  description: |
+                    Series binding for latency (minutes). DTO source:
+                    `ConstraintSemanticsDto.LatencyMinutes`. Consumer:
+                    `InvariantAnalyzer.cs` SLA / latency checks.
               additionalProperties: true
     additionalProperties: false
 
   nodes:
     type: array
-    description: "Array of computation nodes defining the model structure"
+    description: |
+      Computation node list. DTO source: `ModelDto.Nodes` (`NodeDto`,
+      `src/FlowTime.Contracts/Dtos/ModelDtos.cs:60`).
+      Consumer: `src/FlowTime.Core/Compiler/ModelCompiler.cs:24` clones the list and
+      may append synthesized queue / retry-echo nodes;
+      `src/FlowTime.Core/Models/ModelParser.cs:341` materializes each into an
+      `INode`; `src/FlowTime.Core/Services/GraphAnalyzer.cs:18-40` builds the graph.
     minItems: 1
     items:
       type: object
@@ -182,7 +460,10 @@ properties:
         id:
           type: string
           pattern: "^[a-zA-Z_][a-zA-Z0-9_]*$"
-          description: "Unique node identifier, must be valid variable name"
+          description: |
+            Unique node identifier (must be a valid C-style identifier). DTO source:
+            `NodeDto.Id`. Consumer: `src/FlowTime.Core/Models/ModelParser.cs:367-373`
+            requires non-empty; node-id uniqueness enforced during compile.
           examples:
             - "demand"
             - "capacity"
@@ -197,12 +478,21 @@ properties:
             - pmf
             - serviceWithBuffer
             - router
-          description: "Node type: constant values, expression, or probability mass function"
+          description: |
+            Node type. DTO source: `NodeDto.Kind` (default `"const"`). Consumer:
+            `src/FlowTime.Core/Models/ModelParser.cs:370-378` (`ParseSingleNode`
+            switch); `src/FlowTime.Core/Compiler/ModelCompiler.cs:36-57`
+            (`IsQueueLikeKind`); `src/FlowTime.API/Services/GraphService.cs:241`
+            (`ResolveDisplayKind`).
 
         # Properties for 'const' nodes
         values:
           type: array
-          description: "Array of constant values (required for const nodes, length must equal grid.bins)"
+          description: |
+            Constant values, length must equal `grid.bins`. DTO source: `NodeDto.Values`.
+            Consumer: `src/FlowTime.Core/Models/ModelParser.cs` const-node materialization;
+            `src/FlowTime.Core/Artifacts/RunArtifactWriter.cs:457-513` writes per-bin
+            CSVs.
           items:
             type: number
           examples:
@@ -212,7 +502,12 @@ properties:
         # Properties for 'expr' nodes
         expr:
           type: string
-          description: "Expression formula (required for expr nodes)"
+          description: |
+            Expression formula (required for `kind: expr`). DTO source: `NodeDto.Expr`.
+            Consumer: `src/FlowTime.Core/Models/ModelParser.cs:298` instantiates
+            `ExpressionParser`; `src/FlowTime.Core/Services/GraphAnalyzer.cs:26`
+            extracts dependencies; `src/FlowTime.Core/Artifacts/RunArtifactWriter.cs:514`
+            preserves the source on the cloned definition.
           examples:
             - "MIN(demand, capacity)"
             - "MAX(0, arrivals - served + SHIFT(backlog, 1))"
@@ -222,14 +517,20 @@ properties:
         # Properties for 'pmf' nodes
         pmf:
           type: object
-          description: "Probability mass function definition (required for pmf nodes)"
+          description: |
+            Probability mass function definition (required for `kind: pmf`). DTO source:
+            `NodeDto.Pmf` (`PmfDto`, `ModelDtos.cs:78`). Consumer:
+            `src/FlowTime.Core/Pmf/PmfCompiler.cs:145` samples via `rng.NextDouble()`;
+            `src/FlowTime.Core/Services/GraphAnalyzer.cs:40` recognizes the kind.
           required:
             - values
             - probabilities
           properties:
             values:
               type: array
-              description: "Possible outcome values"
+              description: |
+                Possible outcome values. DTO source: `PmfDto.Values`. Consumer:
+                `PmfCompiler.cs` sample-table construction.
               items:
                 type: number
               minItems: 1
@@ -240,7 +541,10 @@ properties:
 
             probabilities:
               type: array
-              description: "Probability for each value (must sum to 1.0)"
+              description: |
+                Probability for each value (must sum to 1.0). DTO source:
+                `PmfDto.Probabilities`. Consumer: `PmfCompiler.cs` rejects
+                non-normalized distributions.
               items:
                 type: number
                 minimum: 0
@@ -253,18 +557,40 @@ properties:
 
           additionalProperties: false
 
+        metadata:
+          type: object
+          description: |
+            Per-node metadata bag (string-valued). DTO source: `NodeDto.Metadata`
+            (`Dictionary<string,string>?`).
+            Consumer: `src/FlowTime.API/Services/GraphService.cs:415` reads
+            `origin.kind` via `TryGetMetadataValue`; `:441` reads `graph.hidden`;
+            `:448` reads `ui.hidden`. `src/FlowTime.API/Services/StateQueryService.cs:2163`
+            reads `series.origin`. `src/FlowTime.Core/Artifacts/RunArtifactWriter.cs:516`
+            preserves the dictionary on the cloned node definition.
+            `src/FlowTime.Core/Compiler/ModelCompiler.cs:65-69` and `:107-110`
+            populate `graph.hidden` / `series.origin` on synthesized nodes.
+          additionalProperties:
+            type: string
+
         inputs:
           type: object
-          description: "Router inputs configuration"
+          description: |
+            Router inputs configuration. DTO source: `NodeDto.Inputs` (`RouterInputsDto`,
+            `ModelDtos.cs:210`). Consumer: router evaluator (registered via
+            `ModelParser.ParseSingleNode` switch).
           properties:
             queue:
               type: string
-              description: "Source node routed by this router"
+              description: |
+                Source node routed by this router. DTO source: `RouterInputsDto.Queue`.
+                Consumer: router evaluator.
           additionalProperties: false
 
         routes:
           type: array
-          description: "Router routes mapping to downstream targets"
+          description: |
+            Router route list. DTO source: `NodeDto.Routes` (`RouterRouteDto`,
+            `ModelDtos.cs:215`). Consumer: router evaluator.
           minItems: 1
           items:
             type: object
@@ -273,28 +599,46 @@ properties:
             properties:
               target:
                 type: string
-                description: "Target node receiving this route"
+                description: |
+                  Target node receiving this route. DTO source: `RouterRouteDto.Target`.
+                  Consumer: router evaluator.
               classes:
                 type: array
-                description: "Optional list of class IDs routed 100% to this target"
+                description: |
+                  Optional list of class IDs routed 100% to this target. DTO source:
+                  `RouterRouteDto.Classes`. Consumer: router evaluator class-binding.
                 items:
                   type: string
               weight:
                 type: number
-                description: "Weight used to split remaining classes when no classes list is provided"
+                description: |
+                  Weight used to split remaining classes when no `classes` list is provided.
+                  DTO source: `RouterRouteDto.Weight`. Consumer: router evaluator
+                  weight-based splitting.
             additionalProperties: false
 
         inflow:
           type: string
-          description: "ServiceWithBuffer inflow node id (required when kind=serviceWithBuffer)"
+          description: |
+            ServiceWithBuffer inflow node id (required when `kind: serviceWithBuffer`).
+            DTO source: `NodeDto.Inflow`. Consumer:
+            `src/FlowTime.Core/Models/ModelParser.cs:349` (`ServiceWithBufferNode`
+            constructor); `src/FlowTime.Core/Analysis/InvariantAnalyzer.cs:1575`
+            class-coverage gate.
 
         outflow:
           type: string
-          description: "ServiceWithBuffer outflow node id (required when kind=serviceWithBuffer)"
+          description: |
+            ServiceWithBuffer outflow node id (required when `kind: serviceWithBuffer`).
+            DTO source: `NodeDto.Outflow`. Consumer:
+            `src/FlowTime.Core/Models/ModelParser.cs:350`; `InvariantAnalyzer.cs:1586`.
 
         loss:
           type: string
-          description: "Optional loss sink node id for ServiceWithBuffer depletion"
+          description: |
+            Optional loss-sink node id for ServiceWithBuffer depletion. DTO source:
+            `NodeDto.Loss`. Consumer:
+            `src/FlowTime.Core/Models/ModelParser.cs:351`; `InvariantAnalyzer.cs:1587`.
 
         dispatchSchedule:
           $ref: "#/$defs/dispatchSchedule"
@@ -373,24 +717,50 @@ properties:
 
   outputs:
     type: array
-    description: "Optional output definitions for CSV export (may be ignored in API mode)"
+    description: |
+      Output declarations. Each entry pins a series in the run result; entries that
+      additionally set `as` are also exported as CSV. DTO source: `ModelDto.Outputs`
+      (`OutputDto`, `src/FlowTime.Contracts/Dtos/ModelDtos.cs:116`).
+      Consumer: `src/FlowTime.Core/Compiler/ModelCompiler.cs:134` clones the list onto
+      the compiled model; `src/FlowTime.Core/Artifacts/RunArtifactWriter.cs:119`
+      resolves series; `src/FlowTime.TimeMachine/TelemetryBundleBuilder.cs:279` and
+      `src/FlowTime.TimeMachine/Capture/RunArtifactReader.cs:78` use `as` for CSV
+      file naming.
     items:
       type: object
       required:
         - series
-        - as
       properties:
         series:
           type: string
-          description: "Node ID to output"
+          description: |
+            Node id (or wildcard) to retain as a result series. DTO source:
+            `OutputDto.Series`. Consumer: `RunArtifactWriter.cs:119` series resolution;
+            `TelemetryBundleBuilder.cs:290`; `RunArtifactReader.cs:81` alias-map
+            construction.
           examples:
             - "demand"
             - "served"
-            - "utilization"
+            - "*"
+
+        exclude:
+          type: array
+          description: |
+            Optional list of series patterns to skip when expanding a wildcard `series`.
+            DTO source: `OutputDto.Exclude`. Consumer: Sim's `SimModelBuilder`
+            output-expansion (when wildcards are resolved against the node set).
+          items:
+            type: string
 
         as:
           type: string
-          description: "Output filename (typically .csv)"
+          description: |
+            Optional output filename. Presence opts the series in for CSV export.
+            Auto-added outputs (e.g. semantics-derived pins) emit no `as` field —
+            ratified Q3/A in m-E24-01: `as` is **optional**. DTO source: `OutputDto.As`
+            (`string?`). Consumer: `src/FlowTime.TimeMachine/TelemetryBundleBuilder.cs:279`
+            and `src/FlowTime.TimeMachine/Capture/RunArtifactReader.cs:78` use it as
+            the on-disk file name.
           pattern: "^[a-zA-Z0-9_-]+\\.(csv|txt)$"
           examples:
             - "demand.csv"
@@ -401,7 +771,14 @@ properties:
 
   classes:
     type: array
-    description: "Optional set of flow classes; when present, traffic arrivals must declare classId"
+    description: |
+      Optional set of flow classes; when present, traffic arrivals must declare
+      `classId`. DTO source: `ModelDto.Classes` (`ClassDto`,
+      `src/FlowTime.Contracts/Dtos/ModelDtos.cs:84`). Consumer:
+      `src/FlowTime.Core/Compiler/ModelCompiler.cs:131` propagates the list onto the
+      compiled model; downstream class-aware evaluators read it.
+      `minItems: 1` retained per m-E24-01 inventory; the empty-list emitter guard
+      lands in m-E24-04.
     minItems: 1
     items:
       type: object
@@ -411,28 +788,45 @@ properties:
         id:
           type: string
           pattern: "^[A-Za-z0-9_-]+$"
-          description: "Class identifier referenced by traffic definitions"
+          description: |
+            Class identifier referenced by traffic definitions. DTO source: `ClassDto.Id`.
+            Consumer: `src/FlowTime.Core/Artifacts/ClassAssignmentMapBuilder.cs:16`
+            iterates `model.Traffic.Arrivals` and resolves `classId` to a `ClassDto`.
           examples:
             - "Order"
             - "Refund"
             - "Invoice"
         displayName:
           type: string
-          description: "Human-readable class name"
+          description: |
+            Human-readable class name for UI surfaces. DTO source:
+            `ClassDto.DisplayName`. Consumer: UI layers reading the compiled model
+            (no Engine runtime consumer).
           examples:
             - "Order Flow"
             - "Refund Flow"
         description:
           type: string
-          description: "Optional class description"
+          description: |
+            Optional class description. DTO source: `ClassDto.Description`.
+            Consumer: UI display.
       additionalProperties: false
 
   traffic:
     type: object
-    description: "Optional traffic definitions, including arrivals per class"
+    description: |
+      Optional traffic definitions, including arrivals per class. DTO source:
+      `ModelDto.Traffic` (`TrafficDto`, `src/FlowTime.Contracts/Dtos/ModelDtos.cs:91`).
+      Consumer: `src/FlowTime.Core/Compiler/ModelCompiler.cs:132` propagates the
+      block; `src/FlowTime.Core/Artifacts/ClassAssignmentMapBuilder.cs:11-16` builds
+      the class-assignment map.
     properties:
       arrivals:
         type: array
+        description: |
+          Arrival rows. DTO source: `TrafficDto.Arrivals` (`ArrivalDto`,
+          `ModelDtos.cs:96`). Consumer: `ClassAssignmentMapBuilder.cs:16` materializes
+          per-class assignment vectors.
         minItems: 1
         items:
           type: object
@@ -442,12 +836,21 @@ properties:
           properties:
             nodeId:
               type: string
-              description: "Target node receiving arrivals"
+              description: |
+                Target node receiving these arrivals. DTO source: `ArrivalDto.NodeId`.
+                Consumer: `ClassAssignmentMapBuilder.cs:16` per-arrival materialization.
             classId:
               type: string
-              description: "Class identifier (required when classes are declared)"
+              description: |
+                Class identifier (required when `classes` is declared on the model).
+                DTO source: `ArrivalDto.ClassId` (nullable). Consumer:
+                `ClassAssignmentMapBuilder.cs:16` resolves the class binding.
             pattern:
               type: object
+              description: |
+                Arrival pattern descriptor. DTO source: `ArrivalDto.Pattern`
+                (`ArrivalPatternDto`, `ModelDtos.cs:103`). Consumer:
+                `ClassAssignmentMapBuilder.cs:16` materialization.
               required:
                 - kind
               properties:
@@ -456,21 +859,41 @@ properties:
                   enum:
                     - constant
                     - poisson
-                  description: "Arrival pattern kind"
+                  description: |
+                    Arrival pattern kind. DTO source: `ArrivalPatternDto.Kind`.
+                    Consumer: `ClassAssignmentMapBuilder.cs:16` switches on this.
                 ratePerBin:
                   type: number
-                  description: "Arrivals per bin for constant patterns"
+                  description: |
+                    Arrivals per bin for constant patterns. DTO source:
+                    `ArrivalPatternDto.RatePerBin`. Consumer:
+                    `ClassAssignmentMapBuilder.cs:16` per-bin rate emission.
+                rate:
+                  type: number
+                  description: |
+                    Continuous-time arrival rate. DTO source:
+                    `ArrivalPatternDto.Rate`. Consumer:
+                    `ClassAssignmentMapBuilder.cs:16` rate emission.
               additionalProperties: true
           additionalProperties: false
     additionalProperties: false
 
   rng:
     type: object
-    description: "Optional random number generator configuration for reproducibility"
+    description: |
+      Optional random number generator configuration. DTO source: `ModelDto.Rng`
+      (`RngDto`, `src/FlowTime.Contracts/Dtos/ModelDtos.cs:11`). Consumer:
+      `src/FlowTime.TimeMachine/Orchestration/RunOrchestrationService.cs:364-365`
+      reads `kind`/`seed` for the input-hash and run identification;
+      `src/FlowTime.Core/Pmf/PmfCompiler.cs:145` samples PMF values via
+      `rng.NextDouble()`. The Engine treats this block as descriptive — Sim does the
+      sampling.
     properties:
       kind:
         type: string
-        description: "RNG algorithm name"
+        description: |
+          RNG algorithm name. DTO source: `RngDto.Kind` (default `"pcg32"`).
+          Consumer: `RunOrchestrationService.cs:364`, `:572-577` (validation gate).
         enum:
           - pcg32
           - mt19937
@@ -480,7 +903,10 @@ properties:
 
       seed:
         type: integer
-        description: "Random seed for deterministic execution"
+        description: |
+          Random seed for deterministic execution. DTO source: `RngDto.Seed`.
+          Consumer: `RunOrchestrationService.cs:365`, `:377` (input-hash key
+          contribution).
         minimum: 0
         maximum: 2147483647
         examples:
@@ -493,59 +919,89 @@ properties:
   provenance:
     type: object
     description: |
-      Optional model provenance metadata for traceability.
-      Tracks template origin, generation parameters, and lineage.
-      Engine accepts provenance via HTTP header (X-Model-Provenance) OR embedded in YAML.
-      Header takes precedence if both present.
-      Provenance is stripped from spec.yaml and stored in provenance.json.
+      Provenance metadata for traceability and reproducibility. Forensic data — no
+      Engine runtime consumer reads it during evaluation. Sim emits it via
+      `src/FlowTime.Sim.Core/Templates/SimModelBuilder.cs:40` (`BuildProvenance`).
+      The shape is the seven-field nested camelCase form ratified in m-E24-01 (Q5/A4):
+      `generator`, `generatedAt`, `templateId`, `templateVersion`, `mode`, `modelId`,
+      `parameters`. `source` was collapsed into `generator`; `schemaVersion` is
+      carried on the root, never duplicated here. DTO source: `ModelDto.Provenance`
+      (`ProvenanceDto`, `src/FlowTime.Contracts/Dtos/ModelDtos.cs:238`).
+    additionalProperties: false
     properties:
-      source:
+      generator:
         type: string
-        description: "Source system that generated this model"
+        description: |
+          Producing system identifier (e.g. `"flowtime-sim"`). Replaces the prior
+          `source` + `generator` duplicate pair. DTO source: `ProvenanceDto.Generator`.
+          Consumer: `src/FlowTime.Sim.Service/Program.cs:1102` reads
+          `model.Provenance` for downstream telemetry-manifest construction.
         examples:
           - "flowtime-sim"
-          - "manual"
           - "ui-builder"
 
-      model_id:
+      generatedAt:
         type: string
-        description: "Unique identifier for this model instance"
-        pattern: "^model_[0-9]{8}T[0-9]{6}Z_[a-f0-9]{8,}$"
+        format: date-time
+        description: |
+          ISO-8601 UTC timestamp at which the model was rendered from its template.
+          DTO source: `ProvenanceDto.GeneratedAt`. Consumer:
+          `src/FlowTime.Sim.Service/Program.cs:1102` reads the provenance block for
+          telemetry-manifest construction.
         examples:
-          - "model_20250925T120000Z_abc123def"
+          - "2026-04-25T12:00:00Z"
 
-      template_id:
+      templateId:
         type: string
-        description: "Template identifier if generated from template"
+        description: |
+          Template identifier (e.g. `"transportation-basic"`). Enables template-level
+          regeneration and lookup. DTO source: `ProvenanceDto.TemplateId`. Consumer:
+          `src/FlowTime.Sim.Service/Program.cs:1102` and downstream telemetry-manifest
+          provenance.
         examples:
           - "it-system-microservices"
           - "manufacturing-line"
           - "supply-chain-multi-tier"
 
-      template_version:
+      templateVersion:
         type: string
-        description: "Template version used for generation"
+        description: |
+          Template version at render time. Enables version-pinned regeneration. DTO
+          source: `ProvenanceDto.TemplateVersion`. Consumer:
+          `src/FlowTime.Sim.Service/Program.cs:1102`.
         examples:
           - "1.0"
           - "2.1.0"
 
-      generated_at:
+      mode:
         type: string
-        format: date-time
-        description: "ISO 8601 timestamp when model was generated"
-        examples:
-          - "2025-09-25T12:00:00Z"
+        description: |
+          Template mode — `"simulation"` or `"telemetry"`. Survives here because it is
+          a model-generation input, not a model-runtime field. DTO source:
+          `ProvenanceDto.Mode`. Consumer: `src/FlowTime.Sim.Service/Program.cs:1102`.
+        enum:
+          - simulation
+          - telemetry
 
-      generator:
+      modelId:
         type: string
-        description: "Generator name and version"
+        description: |
+          Stable identifier for this rendered model. Distinguishes two runs of the
+          same template with different parameter values. DTO source:
+          `ProvenanceDto.ModelId`. Consumer: `src/FlowTime.Sim.Service/Program.cs:1102`
+          and downstream lookup by content hash.
         examples:
-          - "flowtime-sim/0.4.0"
-          - "ui-builder/1.2.0"
+          - "model_20250925T120000Z_abc123def"
+          - "sha256:0123456789abcdef..."
 
       parameters:
         type: object
-        description: "Template parameters used during generation (free-form)"
+        description: |
+          Template parameter values at render time, serialized as a nested map. Values
+          are forensic data, not a typed contract — `additionalProperties: true`.
+          DTO source: `ProvenanceDto.Parameters` (`Dictionary<string, object?>?`).
+          Consumer: `src/FlowTime.Sim.Service/Program.cs:1102` reads the block for
+          telemetry-manifest construction; not consumed by the Engine runtime.
         additionalProperties: true
         examples:
           - bins: 12
@@ -553,36 +1009,76 @@ properties:
             binUnit: hours
             loadBalancerCapacity: 300
 
-    additionalProperties: false
-
 additionalProperties: false
 
 $defs:
   dispatchSchedule:
     type: object
-    description: "Optional schedule controlling when ServiceWithBuffer nodes release flow"
+    description: |
+      Optional schedule controlling when ServiceWithBuffer nodes release flow.
+      DTO source: `DispatchScheduleDto` (`src/FlowTime.Contracts/Dtos/ModelDtos.cs:222`).
+      Consumer: `src/FlowTime.Core/Models/ModelParser.cs:512-519` reads
+      `periodBins`/`phaseOffset`/`capacitySeries` to construct the
+      `DispatchScheduleConfig` passed into the `ServiceWithBufferNode`.
     properties:
       kind:
         type: string
         enum:
           - time-based
         default: time-based
-        description: "Schedule type (time-based cadence)"
+        description: |
+          Schedule type (currently only `time-based`). DTO source:
+          `DispatchScheduleDto.Kind`. Consumer: validation surface (no runtime
+          branching today).
       periodBins:
         type: integer
         minimum: 1
-        description: "Number of bins between dispatch events"
+        description: |
+          Number of bins between dispatch events. DTO source:
+          `DispatchScheduleDto.PeriodBins`. Consumer:
+          `src/FlowTime.Core/Models/ModelParser.cs:519` (`DispatchScheduleConfig`
+          period parameter).
       phaseOffset:
         type: integer
-        description: "Bin offset that determines the first dispatch bin (0-indexed, modulo period)"
+        description: |
+          Bin offset that determines the first dispatch bin (0-indexed, modulo
+          period). DTO source: `DispatchScheduleDto.PhaseOffset`. Consumer:
+          `src/FlowTime.Core/Models/ModelParser.cs:518` (`DispatchScheduleConfig`
+          phase parameter).
       capacitySeries:
         type: string
-        description: "Optional node ID containing per-bin dispatch capacity overrides"
+        description: |
+          Optional node id containing per-bin dispatch capacity overrides. DTO source:
+          `DispatchScheduleDto.CapacitySeries`. Consumer:
+          `src/FlowTime.Core/Models/ModelParser.cs:513-516` resolves the id to a
+          `NodeId`.
     required:
       - periodBins
     additionalProperties: false
 
-# Example valid models demonstrating schema capabilities
+# Cross-block constraint: when `classes` is present, every traffic arrival must
+# declare `classId`. Consumer: same validator that runs the rest of this schema —
+# `src/FlowTime.Core/Models/ModelSchemaValidator.cs`.
+allOf:
+  - if:
+      required:
+        - classes
+      properties:
+        classes:
+          type: array
+          minItems: 1
+    then:
+      properties:
+        traffic:
+          properties:
+            arrivals:
+              items:
+                required:
+                  - classId
+
+# Example valid models demonstrating schema capabilities. These exercise the unified
+# camelCase shape post-m-E24-02 (no `window`, no top-level `mode`/`generator`/`metadata`;
+# nested camelCase provenance).
 examples:
   # Minimal model with constant and expression nodes
   - schemaVersion: 1
@@ -598,7 +1094,7 @@ examples:
         kind: expr
         expr: "demand * 0.8"
 
-  # Complete model with all node types
+  # Complete model with all node types and an RNG seed
   - schemaVersion: 1
     grid:
       bins: 8
@@ -634,15 +1130,16 @@ examples:
       kind: pcg32
       seed: 42
 
-  # Model with embedded provenance (template-generated)
+  # Model with embedded provenance (template-generated). camelCase keys; nested
+  # parameters map; no `source`, no duplicated `schemaVersion`.
   - schemaVersion: 1
     provenance:
-      source: flowtime-sim
-      model_id: model_20250925T120000Z_abc123def
-      template_id: it-system-microservices
-      template_version: "1.0"
-      generated_at: "2025-09-25T12:00:00Z"
-      generator: "flowtime-sim/0.4.0"
+      generator: "flowtime-sim"
+      generatedAt: "2026-04-25T12:00:00Z"
+      templateId: it-system-microservices
+      templateVersion: "1.0"
+      mode: simulation
+      modelId: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
       parameters:
         bins: 12
         binSize: 1
@@ -667,7 +1164,20 @@ examples:
       - series: served
         as: served.csv
 
-  # Model with feedback loop using SHIFT
+  # Auto-added outputs (no `as` — pinning only, no CSV export)
+  - schemaVersion: 1
+    grid:
+      bins: 4
+      binSize: 1
+      binUnit: hours
+    nodes:
+      - id: demand
+        kind: const
+        values: [100, 120, 150, 130]
+    outputs:
+      - series: demand   # pinned only; no CSV file produced
+
+  # Model with a serviceWithBuffer queue
   - schemaVersion: 1
     grid:
       bins: 24
@@ -703,118 +1213,26 @@ examples:
       - series: backlog_queue
         as: backlog_queue.csv
 
-  # Daily simulation for a year
-  - schemaVersion: 1
-    grid:
-      bins: 365
-      binSize: 1
-      binUnit: days
-    nodes:
-      - id: daily_demand
-        kind: pmf
-        pmf:
-          values: [800, 1000, 1200, 1400]
-          probabilities: [0.2, 0.3, 0.3, 0.2]
-      - id: daily_capacity
-        kind: const
-        values: [1500]  # Note: This would need 365 values in practice
-      - id: served
-        kind: expr
-        expr: "MIN(daily_demand, daily_capacity)"
-
-  # High-resolution 15-minute bins
-  - schemaVersion: 1
-    grid:
-      bins: 96  # 24 hours * 4 (15-min intervals)
-      binSize: 15
-      binUnit: minutes
-    nodes:
-      - id: request_rate
-        kind: pmf
-        pmf:
-          values: [10, 20, 30, 40]
-          probabilities: [0.4, 0.3, 0.2, 0.1]
-      - id: response_time
-        kind: expr
-        expr: "100 / MAX(request_rate, 1)"
-
-  # Weekly planning for a year
-  - schemaVersion: 1
-    grid:
-      bins: 52
-      binSize: 1
-      binUnit: weeks
-    nodes:
-      - id: weekly_orders
-        kind: const
-        values: [1000]  # Note: Would need 52 values in practice
-      - id: weekly_production
-        kind: const
-        values: [1100]
-      - id: inventory
-        kind: expr
-        expr: "weekly_production - weekly_orders + SHIFT(inventory, 1)"
-
-allOf:
-  - if:
-      required:
-        - classes
-      properties:
-        classes:
-          type: array
-          minItems: 1
-    then:
-      properties:
-        traffic:
-          properties:
-            arrivals:
-              items:
-                required:
-                  - classId
-
-# Schema validation notes and migration guidance
+# Notes
 notes:
-  migration_from_binMinutes: |
-    Old format (current Engine input):
-      grid:
-        bins: 24
-        binSize: 1
-        binUnit: hours
-    
-    New format (target schema):
-      grid:
-        bins: 24
-        binSize: 1
-        binUnit: hours
-    
-    Conversion table:
-      binSize: 1   binUnit: minutes     → binSize: 1,  binUnit: minutes
-      binSize: 5   binUnit: minutes     → binSize: 5,  binUnit: minutes
-      binSize: 15   binUnit: minutes    → binSize: 15, binUnit: minutes
-      binSize: 1   binUnit: hours    → binSize: 1,  binUnit: hours
-      binMinutes: 120   → binSize: 2,  binUnit: hours
-      binSize: 1   binUnit: days  → binSize: 1,  binUnit: days
-      binSize: 1   binUnit: weeks → binSize: 1,  binUnit: weeks
-
   validation_rules: |
-    Additional semantic validation performed by FlowTime Engine:
-    
-    1. Node ID Uniqueness: All node IDs must be unique across the model
-    2. Const Node Length: values array length must equal grid.bins exactly
-    3. PMF Probabilities: Must sum to 1.0 (tolerance: ±0.0001)
-    4. Expression References: All node IDs in expr strings must exist
-    5. Dependency Order: No circular dependencies except through SHIFT function
-    6. Output References: All series fields must reference existing node IDs
-    7. Time Grid Sanity: bins × binSize × unit_multiplier should be reasonable
-    
-    The schema validator checks structural correctness; the Engine checks semantic correctness.
+    Adjunct semantic validation performed by FlowTime Engine beyond declarative schema:
+
+    1. Node ID Uniqueness: All node IDs must be unique across the model.
+    2. Const Node Length: `values` array length must equal `grid.bins` exactly.
+    3. PMF Probabilities: Must sum to 1.0 (tolerance ±0.0001).
+    4. Expression References: All node IDs in `expr` strings must exist.
+    5. Dependency Order: No circular dependencies except through SHIFT.
+    6. Output References: All `series` values must reference existing node IDs.
+
+    Schema validates structural correctness; `ModelSchemaValidator` runs adjunct
+    semantic checks (e.g. `ValidateClassReferences`).
 
   expression_syntax: |
     Supported expression operators and functions:
-    
-    Arithmetic:
-      +, -, *, /
-    
+
+    Arithmetic: + - * /
+
     Functions:
       MIN(a, b)        - Minimum of two values
       MAX(a, b)        - Maximum of two values
@@ -822,106 +1240,43 @@ notes:
       ABS(a)           - Absolute value
       SQRT(a)          - Square root
       POW(a, b)        - Power (a^b)
-    
-    References:
-      Use node IDs directly (e.g., demand, capacity)
-    
-    Literals:
-      Numeric constants (e.g., 100, 0.5, -10)
-    
-    Future extensions:
-      SUM(series)      - Sum across all bins
-      AVG(series)      - Average across all bins
-      CUMSUM(series)   - Cumulative sum
-      IF(cond, a, b)   - Conditional expression
+
+    References: Use node IDs directly (e.g., demand, capacity).
+    Literals: Numeric constants (e.g., 100, 0.5, -10).
 
   time_unit_conversion: |
     Engine internal conversion to minutes:
-    
     minutes → × 1
     hours   → × 60
     days    → × 1440
     weeks   → × 10080
-    
-    Future extensions:
-    months  → × ~43200 (30 days average)
-    years   → × ~525600 (365 days)
-
-  breaking_changes_from_current: |
-    This schema introduces breaking changes from current Engine input format:
-    
-    1. grid.binMinutes → grid.binSize + grid.binUnit (REQUIRED)
-    2. schemaVersion field now REQUIRED (was optional)
-    3. Stricter validation on node types and required fields
-    4. PMF probabilities must sum exactly to 1.0 (tighter tolerance)
-    
-    Migration required for:
-    - FlowTime-Sim: Remove binMinutes conversion, output binSize/binUnit
-    - FlowTime Engine: Add binSize/binUnit parsing, internal conversion
-    - All examples: Update to new format
-    - All tests: Update assertions and fixtures
-
-  implementation_phases: |
-    M-02.09 Implementation Plan:
-    
-    Phase 0: Test-Driven Setup
-      - Isolate legacy tests to .Legacy namespaces
-      - Write failing tests for new schema format
-      - Establish test architecture for TDD cycle
-    
-    Phase 1: Documentation (COMPLETED)
-      - ✅ Create target-model-schema.md
-      - ✅ Create target-model-schema.yaml
-      - ✅ Update M-02.09 milestone document
-    
-    Phase 2: FlowTime Engine Evolution
-      - Add TimeUnit enum and conversion logic
-      - Update model parser for binSize/binUnit
-      - Update validation rules
-      - Implement new node types (PMF, RNG)
-      - Pass all new tests
-    
-    Phase 3: FlowTime-Sim Updates
-      - Remove binMinutes conversion logic
-      - Update output format to binSize/binUnit
-      - Update tests and examples
-      - Coordinate with Engine changes
-    
-    Phase 4: Integration & Validation
-      - End-to-end testing
-      - Update all documentation
-      - Version bump (Engine 0.5.0, Sim 0.4.0)
 
   design_rationale: |
-    Key design decisions:
-    
-    1. binSize/binUnit over binMinutes:
-       - More human-readable ("1 hour" vs "60 minutes")
-       - Supports diverse time scales natively
-       - Easier to extend (months, years, quarters)
-       - Matches user mental model
-    
-    2. expr not expression:
-       - Shorter, more concise
-       - Common in DSLs (SQL, GraphQL)
-       - Clearly signals executable code
-       - Easier to parse and distinguish
-    
-    3. series/as in outputs:
-       - Clear source (series) vs destination (as)
-       - Flexible naming independent of node IDs
-       - Room for future output options
-    
-    4. schemaVersion required:
-       - Explicit versioning enables evolution
-       - Clear compatibility checking
-       - Better error messages for version mismatches
-    
-    5. Separate PMF from const:
-       - Clear semantic distinction
-       - Engine can optimize sampling
-       - Enables future distribution types
-       - Makes stochastic behavior explicit
+    Key design decisions (E-24 epic):
 
-version: 1.0.0
-lastModified: "2025-10-01"
+    1. Unified post-substitution model: one C# type (`ModelDto`), one schema, one
+       validator. The previous `SimModelArtifact` / `ModelDefinition` split was
+       accidental drift; m-E24-02 collapsed it.
+
+    2. camelCase everywhere: no snake_case anywhere. The provenance block's
+       previously snake_cased fields were renamed to camelCase in m-E24-03 — see
+       `work/epics/E-24-schema-alignment/m-E24-03-schema-unification.md` for the
+       per-field rename list.
+
+    3. Schema declares only consumed fields (ADR-E-24-03): no decorative pass-through.
+       Sim's prior `window` / top-level `mode` / `generator` / `metadata` had no
+       Engine consumer and were dropped in m-E24-02.
+
+    4. `outputs[].as` optional (Q3): presence means "also export this series as CSV";
+       auto-added pins (e.g. `EnsureSemanticsOutputs`) emit no `as`.
+
+    5. `nodes[].source` not declared (Q4): no Engine consumer until E-15 Telemetry
+       Ingestion lands. E-15 will add the schema declaration and the consumer
+       coherently.
+
+    6. `provenance` is nested (Q5/A4): seven camelCase fields with `parameters` as a
+       nested permissive map. `source` collapsed into `generator`; `schemaVersion`
+       lives only at the root.
+
+version: "2.0.0"
+lastModified: "2026-04-25"
