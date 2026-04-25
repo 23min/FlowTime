@@ -68,10 +68,16 @@ public class TemplateService : ITemplateService
 
     private static ISerializer CreateYamlSerializer()
     {
+        // m-E24-02 step 4 / D-m-E24-02-03: OmitNull suppresses null DTO fields
+        // (e.g. NodeDto.Values when not set, ProvenanceDto.Parameters when empty);
+        // OmitEmptyCollections suppresses empty list/dict fields so callers who
+        // never populated `classes:` or `outputs[].exclude` don't emit `[]` / `{}`.
+        // OmitDefaults is intentionally NOT enabled — value-type defaults
+        // (e.g. `binSize: 0`, `weight: 0`) carry intent, and zero is a real value.
         return new SerializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)
             .WithEventEmitter(next => new FlowSequenceEventEmitter(next))
-            .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull | DefaultValuesHandling.OmitDefaults)
+            .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull | DefaultValuesHandling.OmitEmptyCollections)
             .Build();
     }
 

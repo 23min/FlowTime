@@ -178,7 +178,7 @@ grid:
   bins: {definition.Bins}
   binSize: {definition.BinSize}
   binUnit: minutes
-  startTimeUtc: "2025-01-01T00:00:00Z"
+  start: "2025-01-01T00:00:00Z"
 {topologyBlock}
 
 nodes:

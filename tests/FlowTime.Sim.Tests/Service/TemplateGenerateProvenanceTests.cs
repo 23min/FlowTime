@@ -110,17 +110,22 @@ outputs:
         Assert.NotNull(modelYaml);
         Assert.Contains("schemaVersion:", modelYaml);
         
-        // Provenance should have all required fields
-        Assert.True(provenanceElement.TryGetProperty("source", out _));
+        // m-E24-02 Q5/A4: provenance is the unified 7-field block. `source` collapsed
+        // into `generator`; `schemaVersion` dropped (root already carries it). `mode`
+        // moved into provenance from top-level.
         Assert.True(provenanceElement.TryGetProperty("modelId", out _));
         Assert.True(provenanceElement.TryGetProperty("templateId", out _));
         Assert.True(provenanceElement.TryGetProperty("templateVersion", out _));
         Assert.True(provenanceElement.TryGetProperty("parameters", out _));
         Assert.True(provenanceElement.TryGetProperty("generatedAt", out _));
         Assert.True(provenanceElement.TryGetProperty("generator", out _));
-        Assert.True(provenanceElement.TryGetProperty("schemaVersion", out _));
-        
-        Assert.Equal("flowtime-sim", provenanceElement.GetProperty("source").GetString());
+        Assert.True(provenanceElement.TryGetProperty("mode", out _));
+        Assert.False(provenanceElement.TryGetProperty("source", out _),
+            "m-E24-02 Q5: provenance.source dropped (collapsed into provenance.generator).");
+        Assert.False(provenanceElement.TryGetProperty("schemaVersion", out _),
+            "m-E24-02 Q5: provenance.schemaVersion dropped (root carries schemaVersion).");
+
+        Assert.StartsWith("flowtime-sim", provenanceElement.GetProperty("generator").GetString());
         Assert.Equal("test-template", provenanceElement.GetProperty("templateId").GetString());
         Assert.Matches(@"[a-f0-9]{64}", provenanceElement.GetProperty("modelId").GetString());
 
@@ -164,8 +169,10 @@ outputs:
         Assert.NotNull(modelYaml);
         
         // Model YAML should contain embedded provenance section
+        // m-E24-02 Q5/A4: provenance.source dropped — generator carries the producing-
+        // system identifier; templateId/modelId remain.
         Assert.Contains("provenance:", modelYaml);
-        Assert.Contains("source: flowtime-sim", modelYaml);
+        Assert.Contains("generator: flowtime-sim", modelYaml);
         Assert.Matches(@"modelId: [a-f0-9]{64}", modelYaml);
         Assert.Contains("templateId: test-template", modelYaml);
         

@@ -221,7 +221,7 @@ public sealed class TelemetryStateGoldenTests
         sb.AppendLine($"  bins: {definition.Bins}");
         sb.AppendLine($"  binSize: {definition.BinSize}");
         sb.AppendLine("  binUnit: minutes");
-        sb.AppendLine("  startTimeUtc: \"2025-01-01T00:00:00Z\"");
+        sb.AppendLine("  start: \"2025-01-01T00:00:00Z\"");
 
         sb.AppendLine(BuildTopologySection(definition));
         sb.AppendLine();

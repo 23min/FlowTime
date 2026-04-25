@@ -15,14 +15,13 @@ using FlowTime.Core.TimeTravel;
 using FlowTime.Core.Routing;
 using FlowTime.TimeMachine.Artifacts;
 using FlowTime.TimeMachine.Models;
+using FlowTime.Contracts.Dtos;
 using FlowTime.Sim.Core.Hashing;
 using FlowTime.Sim.Core.Services;
 using FlowTime.Sim.Core.Templates;
 using FlowTime.Sim.Core.Templates.Exceptions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
 
 namespace FlowTime.TimeMachine.Orchestration;
 
@@ -48,10 +47,6 @@ public sealed class RunOrchestrationService
     private readonly IProvenanceService provenanceService;
     private readonly string? telemetryRoot;
     private readonly RunManifestReader manifestReader = new();
-    private readonly IDeserializer simModelDeserializer = new DeserializerBuilder()
-        .IgnoreUnmatchedProperties()
-        .WithNamingConvention(CamelCaseNamingConvention.Instance)
-        .Build();
 
     public RunOrchestrationService(
         ITemplateService templateService,
@@ -624,13 +619,24 @@ public sealed class RunOrchestrationService
         CancellationToken cancellationToken)
     {
         var modelYaml = await templateService.GenerateEngineModelAsync(inputContext.TemplateId, effectiveParameters, TemplateMode.Simulation).ConfigureAwait(false);
-        var simArtifact = simModelDeserializer.Deserialize<SimModelArtifact>(modelYaml) ?? throw new InvalidOperationException("Generated simulation model artifact could not be deserialized.");
+        // m-E24-02 step 3: Engine intake reads the unified ModelDto. ModelService
+        // owns the deserializer (IgnoreUnmatchedProperties absorbs the leaked-state
+        // fields that Sim still emits at this point — window/generator/top-level
+        // metadata/top-level mode — until step 4 strips them from emission).
+        var simModel = ModelService.ParseYaml(modelYaml) ?? throw new InvalidOperationException("Generated simulation model could not be deserialized.");
 
-        ValidateSimulationArtifact(simArtifact, inputContext.TemplateId);
+        ValidateSimulationModel(simModel, inputContext.TemplateId);
+
+        logger.LogInformation(
+            runValidationEvent,
+            "Simulation template {TemplateId} validated (gridStart={GridStart}, topologyNodes={NodeCount})",
+            inputContext.TemplateId,
+            simModel.Grid?.Start,
+            simModel.Topology?.Nodes.Count ?? 0);
 
         if (request.DryRun)
         {
-            var planManifest = BuildSimulationPlanManifest(simArtifact);
+            var planManifest = BuildSimulationPlanManifest(simModel);
             var plan = new RunOrchestrationPlan(
                 inputContext.TemplateId,
                 TemplateMode.Simulation.ToSerializedValue(),
@@ -655,7 +661,9 @@ public sealed class RunOrchestrationService
         try
         {
             Directory.CreateDirectory(outputRoot);
-            var canonicalModel = ModelService.ParseAndConvert(modelYaml);
+            // Convert once from the already-parsed ModelDto (above). Avoids the
+            // pre-step-3 wasteful double-deserialization of the same YAML.
+            var canonicalModel = ModelService.ConvertToModelDefinition(simModel);
             var compiledModel = ModelCompiler.Compile(canonicalModel);
             var (grid, graph) = ModelParser.ParseModel(compiledModel);
 
@@ -766,7 +774,7 @@ public sealed class RunOrchestrationService
             var modelDirectory = Path.Combine(finalRunDirectory, "model");
             var manifestMetadata = await manifestReader.ReadAsync(modelDirectory, cancellationToken).ConfigureAwait(false);
             var runDocument = await RunDirectoryUtilities.LoadRunDocumentAsync(finalRunDirectory, cancellationToken).ConfigureAwait(false);
-            var telemetryManifest = BuildSimulationTelemetryManifest(simArtifact, manifestMetadata, finalRunId, writeResult.ScenarioHash, runDocument.Warnings);
+            var telemetryManifest = BuildSimulationTelemetryManifest(simModel, manifestMetadata, finalRunId, writeResult.ScenarioHash, runDocument.Warnings);
             await WriteSimulationTelemetryManifestAsync(finalRunDirectory, telemetryManifest, cancellationToken).ConfigureAwait(false);
 
             runsCreatedCounter.Add(1, CreateMetricTags(inputContext.TemplateId, inputContext.ModeValue));
@@ -810,44 +818,57 @@ public sealed class RunOrchestrationService
         }
     }
 
-    private void ValidateSimulationArtifact(SimModelArtifact artifact, string templateId)
+    // m-E24-02: Engine intake reads ModelDto directly.
+    // ValidateSimulationModel / BuildSimulationPlanManifest /
+    // BuildSimulationTelemetryManifest each operate on the unified
+    // post-substitution model (ModelDto). The window.timezone defensive
+    // double-check is gone: TemplateValidator guarantees timezone="UTC"
+    // upstream, and the leaked-state `window:` block is no longer emitted.
+    // The grid.start property carries the same start timestamp under the
+    // unified shape (populated by SimModelBuilder).
+    //
+    // Helpers are `internal static` so the Tests project can drive them
+    // directly via InternalsVisibleTo. The previous instance-method form
+    // captured the logger only for an info-level "validated" message; that
+    // information is also available via the request-level
+    // RunOrchestrationStart event, so dropping the logger from
+    // ValidateSimulationModel keeps the helper pure and unit-testable.
+    internal static void ValidateSimulationModel(ModelDto model, string templateId)
     {
-        if (artifact.Window is null || string.IsNullOrWhiteSpace(artifact.Window.Start) || string.IsNullOrWhiteSpace(artifact.Window.Timezone))
+        if (model.Grid is null || string.IsNullOrWhiteSpace(model.Grid.Start))
         {
-            throw new TemplateValidationException($"Simulation template '{templateId}' must define window.start and window.timezone.");
+            throw new TemplateValidationException($"Simulation template '{templateId}' must define grid.start.");
         }
 
-        if (artifact.Grid is null || artifact.Grid.Bins <= 0 || artifact.Grid.BinSize <= 0)
+        if (model.Grid.Bins <= 0)
         {
-            throw new TemplateValidationException($"Simulation template '{templateId}' must define grid.bins and grid.binSize greater than zero.");
+            throw new TemplateValidationException($"Simulation template '{templateId}' must define grid.bins greater than zero.");
         }
 
-        if (artifact.Topology?.Nodes is null || artifact.Topology.Nodes.Count == 0)
+        if (model.Grid.BinSize <= 0)
+        {
+            throw new TemplateValidationException($"Simulation template '{templateId}' must define grid.binSize greater than zero.");
+        }
+
+        if (model.Topology?.Nodes is null || model.Topology.Nodes.Count == 0)
         {
             throw new TemplateValidationException($"Simulation template '{templateId}' must define at least one topology node.");
         }
-
-        logger.LogInformation(
-            runValidationEvent,
-            "Simulation template {TemplateId} validated (windowStart={WindowStart}, topologyNodes={NodeCount})",
-            templateId,
-            artifact.Window.Start,
-            artifact.Topology.Nodes.Count);
     }
 
-    private static TelemetryManifest BuildSimulationPlanManifest(SimModelArtifact artifact)
+    internal static TelemetryManifest BuildSimulationPlanManifest(ModelDto model)
     {
-        var durationMinutes = TryComputeDurationMinutes(artifact.Grid);
+        var durationMinutes = TryComputeDurationMinutes(model.Grid);
 
         return new TelemetryManifest(
             SchemaVersion: 1,
             Window: new TelemetryManifestWindow(
-                artifact.Window?.Start,
+                model.Grid?.Start,
                 durationMinutes),
             Grid: new TelemetryManifestGrid(
-                artifact.Grid?.Bins ?? 0,
-                artifact.Grid?.BinSize ?? 0,
-                NormalizeBinUnit(artifact.Grid?.BinUnit)),
+                model.Grid?.Bins ?? 0,
+                model.Grid?.BinSize ?? 0,
+                NormalizeBinUnit(model.Grid?.BinUnit)),
             Files: Array.Empty<TelemetryManifestFile>(),
             Warnings: Array.Empty<CaptureWarning>(),
             Provenance: new TelemetryManifestProvenance(
@@ -857,14 +878,14 @@ public sealed class RunOrchestrationService
                 DateTime.UtcNow.ToString("O")));
     }
 
-    private static TelemetryManifest BuildSimulationTelemetryManifest(
-        SimModelArtifact artifact,
+    internal static TelemetryManifest BuildSimulationTelemetryManifest(
+        ModelDto model,
         RunManifestMetadata manifestMetadata,
         string runId,
         string scenarioHash,
         IReadOnlyList<RunWarningEntryDto>? runWarnings)
     {
-        var durationMinutes = TryComputeDurationMinutes(artifact.Grid);
+        var durationMinutes = TryComputeDurationMinutes(model.Grid);
         var manifestWarnings = (runWarnings ?? Array.Empty<RunWarningEntryDto>())
             .Select(w => new CaptureWarning(
                 w.Code,
@@ -877,12 +898,12 @@ public sealed class RunOrchestrationService
         return new TelemetryManifest(
             SchemaVersion: 1,
             Window: new TelemetryManifestWindow(
-                artifact.Window?.Start,
+                model.Grid?.Start,
                 durationMinutes),
             Grid: new TelemetryManifestGrid(
-                artifact.Grid?.Bins ?? 0,
-                artifact.Grid?.BinSize ?? 0,
-                NormalizeBinUnit(artifact.Grid?.BinUnit)),
+                model.Grid?.Bins ?? 0,
+                model.Grid?.BinSize ?? 0,
+                NormalizeBinUnit(model.Grid?.BinUnit)),
             Files: Array.Empty<TelemetryManifestFile>(),
             Warnings: manifestWarnings,
             Provenance: new TelemetryManifestProvenance(
@@ -898,7 +919,7 @@ public sealed class RunOrchestrationService
         await CaptureManifestWriter.WriteAsync(manifestPath, manifest, cancellationToken).ConfigureAwait(false);
     }
 
-    private static int? TryComputeDurationMinutes(TemplateGrid? grid)
+    private static int? TryComputeDurationMinutes(GridDto? grid)
     {
         if (grid is null || grid.Bins <= 0 || grid.BinSize <= 0)
         {

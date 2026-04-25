@@ -177,7 +177,9 @@ outputs:
         var provenanceJson = await File.ReadAllTextAsync(provenancePath);
         var provenance = JsonDocument.Parse(provenanceJson);
         
-        Assert.Equal("flowtime-sim", provenance.RootElement.GetProperty("source").GetString());
+        // m-E24-02 (Q5/A4): provenance.source dropped (collapses into provenance.generator).
+        // generator carries the producing-system identifier (e.g. "flowtime-sim/0.6.0").
+        Assert.StartsWith("flowtime-sim", provenance.RootElement.GetProperty("generator").GetString());
         Assert.Equal("test-template", provenance.RootElement.GetProperty("templateId").GetString());
         Assert.Matches(@"[a-f0-9]{64}", provenance.RootElement.GetProperty("modelId").GetString());
     }
@@ -282,8 +284,10 @@ outputs:
         var modelYaml = await File.ReadAllTextAsync(modelPath);
         
         // Verify embedded provenance structure
+        // m-E24-02 (Q5/A4): provenance.source dropped — generator carries the
+        // producing-system identifier; templateId remains; modelId remains.
         Assert.Contains("provenance:", modelYaml);
-        Assert.Contains("source: flowtime-sim", modelYaml);
+        Assert.Contains("generator: flowtime-sim", modelYaml);
         Assert.Contains("templateId: test-template", modelYaml);
         Assert.Matches(@"modelId: [a-f0-9]{64}", modelYaml);
         
