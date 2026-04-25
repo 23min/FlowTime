@@ -236,7 +236,7 @@ grid:
   bins: 4
   binSize: 5
   binUnit: minutes
-  startTimeUtc: "2025-01-01T00:00:00Z"
+  start: "2025-01-01T00:00:00Z"
 
 topology:
   nodes:
@@ -265,7 +265,7 @@ grid:
   bins: 6
   binSize: 5
   binUnit: minutes
-  startTimeUtc: "2025-01-01T00:00:00Z"
+  start: "2025-01-01T00:00:00Z"
 
 topology:
   nodes:
@@ -288,7 +288,7 @@ grid:
   bins: 6
   binSize: 5
   binUnit: minutes
-  startTimeUtc: "2025-01-01T00:00:00Z"
+  start: "2025-01-01T00:00:00Z"
 
 topology:
   nodes:
@@ -311,7 +311,7 @@ grid:
   bins: 600
   binSize: 5
   binUnit: minutes
-  startTimeUtc: "2025-01-01T00:00:00Z"
+  start: "2025-01-01T00:00:00Z"
 
 topology:
   nodes:

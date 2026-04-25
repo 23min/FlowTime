@@ -44,7 +44,10 @@ public static class ModelService
                 Bins = model.Grid.Bins,
                 BinSize = model.Grid.BinSize,
                 BinUnit = model.Grid.BinUnit,
-                StartTimeUtc = model.Grid.StartTimeUtc
+                // Wire-side property is `Start` (post-A2 rename); runtime
+                // GridDefinition keeps `StartTimeUtc` as its property name (out
+                // of E-24 scope — runtime model not the wire DTO).
+                StartTimeUtc = model.Grid.Start
             },
             Classes = model.Classes.Select(c => new ClassDefinition
             {

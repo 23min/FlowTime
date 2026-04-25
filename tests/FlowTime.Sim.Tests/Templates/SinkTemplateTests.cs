@@ -3,12 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using FlowTime.Contracts.Services;
 using FlowTime.Sim.Core.Services;
-using FlowTime.Sim.Core.Templates;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
 
 namespace FlowTime.Sim.Tests.Templates;
 
@@ -22,19 +20,17 @@ public sealed class SinkTemplateTests
         var sinkNodes = new[] { "Airport", "Downtown", "Industrial" };
         var lineNodes = new[] { "LineAirport", "LineDowntown", "LineIndustrial" };
         var templateService = new TemplateService(templatesDirectory, NullLogger<TemplateService>.Instance);
-        var deserializer = new DeserializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .IgnoreUnmatchedProperties()
-            .Build();
 
         foreach (var templateId in templateIds)
         {
             var yaml = await templateService.GenerateEngineModelAsync(templateId, new Dictionary<string, object>());
-            var template = deserializer.Deserialize<SimModelArtifact>(yaml);
+            // m-E24-02: deserialize into the unified ModelDto (SimModelArtifact deleted).
+            var template = ModelService.ParseYaml(yaml);
+            Assert.NotNull(template.Topology);
 
             foreach (var nodeId in sinkNodes)
             {
-                var node = Assert.Single(template.Topology.Nodes, n => string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
+                var node = Assert.Single(template.Topology!.Nodes, n => string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
                 Assert.True(
                     string.Equals(node.Kind, "sink", StringComparison.OrdinalIgnoreCase),
                     $"Expected {templateId} node '{nodeId}' to be kind sink, but was '{node.Kind}'.");
@@ -42,7 +38,7 @@ public sealed class SinkTemplateTests
 
             foreach (var nodeId in lineNodes)
             {
-                var node = Assert.Single(template.Topology.Nodes, n => string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
+                var node = Assert.Single(template.Topology!.Nodes, n => string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
                 Assert.False(
                     string.Equals(node.Kind, "sink", StringComparison.OrdinalIgnoreCase),
                     $"Expected {templateId} node '{nodeId}' to be non-sink, but was '{node.Kind}'.");

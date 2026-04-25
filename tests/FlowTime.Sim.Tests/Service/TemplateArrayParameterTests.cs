@@ -3,13 +3,12 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using FlowTime.Contracts.Services;
 using FlowTime.Sim.Core.Services;
 using FlowTime.Sim.Core.Templates;
 using FlowTime.Sim.Core.Templates.Exceptions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
 
 namespace FlowTime.Sim.Tests.Service;
 
@@ -119,12 +118,8 @@ outputs:
 
         var artifactYaml = await service.GenerateEngineModelAsync("quoted-array", parameters);
 
-        var deserializer = new DeserializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .IgnoreUnmatchedProperties()
-            .Build();
-
-        var artifact = deserializer.Deserialize<SimModelArtifact>(artifactYaml);
+        // m-E24-02: deserialize into the unified ModelDto (SimModelArtifact deleted).
+        var artifact = ModelService.ParseYaml(artifactYaml);
 
         var node = artifact.Nodes.First(n => n.Id == "base_requests");
         Assert.Equal(new[] { 1d, 2d, 3d }, node.Values);
@@ -148,12 +143,8 @@ outputs:
 
         Assert.False(string.IsNullOrWhiteSpace(model));
 
-        var deserializer = new DeserializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .IgnoreUnmatchedProperties()
-            .Build();
-
-        var artifact = deserializer.Deserialize<SimModelArtifact>(model);
+        // m-E24-02: deserialize into the unified ModelDto (SimModelArtifact deleted).
+        var artifact = ModelService.ParseYaml(model);
         Assert.NotNull(artifact);
     }
 
@@ -177,12 +168,8 @@ outputs:
 
             var model = await service.GenerateEngineModelAsync("network-reliability", parameters);
 
-            var deserializer = new DeserializerBuilder()
-                .WithNamingConvention(CamelCaseNamingConvention.Instance)
-                .IgnoreUnmatchedProperties()
-                .Build();
-
-            var artifact = deserializer.Deserialize<SimModelArtifact>(model);
+            // m-E24-02: deserialize into the unified ModelDto (SimModelArtifact deleted).
+            var artifact = ModelService.ParseYaml(model);
             Assert.NotNull(artifact);
         }
         finally
@@ -205,12 +192,8 @@ outputs:
             var service = new TemplateService(tempDirectory, NullLogger<TemplateService>.Instance);
             var model = await service.GenerateEngineModelAsync("network-reliability", new Dictionary<string, object>());
 
-            var deserializer = new DeserializerBuilder()
-                .WithNamingConvention(CamelCaseNamingConvention.Instance)
-                .IgnoreUnmatchedProperties()
-                .Build();
-
-            var artifact = deserializer.Deserialize<SimModelArtifact>(model);
+            // m-E24-02: deserialize into the unified ModelDto (SimModelArtifact deleted).
+            var artifact = ModelService.ParseYaml(model);
             Assert.NotNull(artifact);
         }
         finally

@@ -28,7 +28,7 @@ This milestone implements those decisions. It is the single milestone where code
 
 1. **Unified type exists at its ratified home.** The type named in m-E24-01 lives at its ratified namespace and name. A reader who opens `POST /v1/run`'s handler can follow the type reference to a single definition that represents the full post-substitution model.
 2. **`SimModelBuilder` emits the unified type directly.** `SimModelBuilder.Build(...)` returns the unified type (or an immutable value carrying it). No intermediate `SimModelArtifact` instance is constructed as a bridge. The serialization path produces YAML matching the unified schema shape.
-3. **Engine intake parses the unified type directly.** `ModelParser.ParseFromCoreModel` (or its replacement) deserializes into the unified type. `RunOrchestrationService.cs:627` and sibling Engine-side deserialization sites operate on the unified type.
+3. **Engine intake parses the unified type directly.** Every YAML → runtime model path on the Engine side passes through the unified type before reaching `ModelDefinition`. The canonical path is `ModelService.ParseYaml(yaml) → ModelDto → ModelService.ConvertToModelDefinition(dto) → ModelDefinition → ModelParser.ParseModel(ModelDefinition)`. No Engine-side site deserializes YAML directly into `ModelDefinition` or `SimModelArtifact`. `RunOrchestrationService.cs:627` (and siblings `:813`, `:838`, `:861`) and any other YAML-intake call site operates on `ModelDto`.
 4. **`SimModelArtifact` is deleted.** `src/FlowTime.Sim.Core/Templates/SimModelArtifact.cs` is removed from the repo. `grep -rn "SimModelArtifact" --include='*.cs'` returns zero hits.
 5. **Satellite Sim-side types are deleted.** `SimNode`, `SimOutput`, `SimProvenance`, `SimTraffic`, `SimArrival`, `SimArrivalPattern` are removed from the repo. Each satellite either merged into the unified type's equivalent (per m-E24-01) or was deleted because it had no consumer. `grep -rn "SimNode\b\|SimOutput\b\|SimProvenance\b\|SimTraffic\b\|SimArrival\b\|SimArrivalPattern\b" --include='*.cs'` returns zero hits.
 6. **Leaked-state fields dropped from emission.** Per m-E24-01's decisions, `window`, `generator`, top-level `metadata`, and top-level `mode` no longer appear in emitted YAML. Whatever traceability content was meaningful has been moved into `provenance`.
@@ -77,6 +77,29 @@ This milestone implements those decisions. It is the single milestone where code
 - `tests/FlowTime.Sim.Tests`, `tests/FlowTime.Core.Tests`, `tests/FlowTime.Api.Tests`, `tests/FlowTime.TimeMachine.Tests`, `tests/FlowTime.Integration.Tests` (fixtures and tests regenerated)
 - `docs/samples/` (reference YAML regenerated if applicable)
 - `work/epics/E-24-schema-alignment/m-E24-02-unify-model-type-tracking.md` (new)
+
+## Coverage notes
+
+Defensive-but-typesystem-unreachable branches (per `wf-tdd-cycle.md` audit
+guidance) introduced or carried forward by this milestone:
+
+- **`RunOrchestrationService.ParseYaml(...) ?? throw`** — `ModelService.ParseYaml`
+  returns `Deserialize<ModelDto>(yaml)`; YamlDotNet's `Deserialize<T>` returns
+  non-null for any non-empty YAML document. The `?? throw` mirrors the
+  pre-step-3 defensive null guard that wrapped `Deserialize<SimModelArtifact>`
+  for the same reason. Reachable only by literal `null` YAML documents,
+  which the upstream `TemplateService.GenerateEngineModelAsync` does not
+  produce.
+- **`RunOrchestrationService.ValidateSimulationModel`'s `model.Grid is null`
+  guard** — `ModelDto.Grid` is non-nullable (`public GridDto Grid { get; set; }
+  = new();`); the typesystem makes this branch unreachable for a constructed
+  `ModelDto` instance. Kept for structural symmetry with the previous
+  `artifact.Window is null` defensive check.
+- **`RunOrchestrationService.TryComputeDurationMinutes`'s `grid is null` and
+  `OverflowException` catch** — same typesystem reasoning for the null path;
+  the overflow path requires `Bins × BinSize > int.MaxValue` which
+  `ValidateSimulationModel` rejects upstream and which no realistic model
+  constructs. Kept for forward-compatibility with future high-resolution grids.
 
 ## Out of Scope
 

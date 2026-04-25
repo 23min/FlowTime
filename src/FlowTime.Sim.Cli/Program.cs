@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using FlowTime.Contracts.Dtos;
 using FlowTime.Contracts.Services;
 using FlowTime.Core.Analysis;
 using FlowTime.Sim.Core.Services;
@@ -10,8 +11,6 @@ using FlowTime.Sim.Core.Analysis;
 using FlowTime.Sim.Core.Templates.Exceptions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
 
 namespace FlowTime.Sim.Cli
 {
@@ -47,10 +46,6 @@ namespace FlowTime.Sim.Cli
 
     internal static class Program
     {
-        private static readonly IDeserializer artifactDeserializer = new DeserializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .IgnoreUnmatchedProperties()
-            .Build();
 
         internal static async Task<int> Main(string[] args)
         {
@@ -319,7 +314,7 @@ namespace FlowTime.Sim.Cli
 
             // Generate model (YAML already contains provenance block)
             var model = await service.GenerateEngineModelAsync(opts.TemplateId, parameters, modeOverride);
-            var artifact = DeserializeArtifact(model);
+            var artifact = DeserializeModel(model);
             var invariantAnalysis = TemplateInvariantAnalyzer.Analyze(model);
             var displayWarnings = invariantAnalysis.Warnings
                 .Where(ShouldDisplayWarning)
@@ -356,7 +351,9 @@ namespace FlowTime.Sim.Cli
 
             if (opts.Verbose)
             {
-                Console.WriteLine($"Mode: {artifact.Mode}");
+                // m-E24-02: mode + generator survive in provenance (Q5/A4); schemaVersion
+                // is still a top-level ModelDto field; window collapses into grid.start.
+                Console.WriteLine($"Mode: {artifact.Provenance?.Mode ?? string.Empty}");
                 Console.WriteLine($"Schema Version: {artifact.SchemaVersion}");
                 Console.WriteLine($"Has Window: {HasWindow(artifact)}");
                 Console.WriteLine($"Has Topology: {HasTopology(artifact)}");
@@ -415,13 +412,26 @@ namespace FlowTime.Sim.Cli
             return 0;
         }
 
-        private static SimModelArtifact DeserializeArtifact(string modelYaml) => artifactDeserializer.Deserialize<SimModelArtifact>(modelYaml);
+        // m-E24-02 step 4: Sim CLI now reads the unified post-substitution model
+        // (ModelDto) instead of the soon-to-be-deleted SimModelArtifact. Field
+        // mappings: artifact.Window.Start → grid.start (Q5/A4); artifact.Mode →
+        // provenance.mode; artifact.Generator → provenance.generator; artifact.
+        // Metadata.* → not preserved on ModelDto (template-authoring only) —
+        // templateId / templateVersion survive inside provenance.
+        private static ModelDto DeserializeModel(string modelYaml) => ModelService.ParseYaml(modelYaml);
 
-        private static bool HasWindow(SimModelArtifact artifact) => !string.IsNullOrWhiteSpace(artifact.Window?.Start);
+        private static bool HasWindow(ModelDto model) => !string.IsNullOrWhiteSpace(model.Grid?.Start);
 
-        private static bool HasTopology(SimModelArtifact artifact) => artifact.Topology?.Nodes is { Count: > 0 };
+        private static bool HasTopology(ModelDto model) => model.Topology?.Nodes is { Count: > 0 };
 
-        private static bool HasTelemetrySources(SimModelArtifact artifact) => artifact.Nodes.Any(n => !string.IsNullOrWhiteSpace(n.Source));
+        // Per Q4 / D-m-E24-02-01: nodes[].source is dropped from emission and not
+        // declared on NodeDto. Engine-side telemetry-sources now come from
+        // TelemetrySourceMetadataExtractor on the wire YAML (not the C# DTO),
+        // and the verbose "Has Telemetry Sources" line in the CLI no longer
+        // reflects a NodeDto-visible field. Sim CLI keeps the helper signature
+        // stable but always returns false until E-15 reinstates a typed source
+        // contract; the verbose output is still backed by the Extractor below.
+        private static bool HasTelemetrySources(ModelDto model) => false;
 
         private static IReadOnlyList<string> DescribeDispatchSchedules(string modelYaml)
         {

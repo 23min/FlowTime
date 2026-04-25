@@ -187,7 +187,7 @@ public sealed class MetricsEndpointTests : IClassFixture<TestWebApplicationFacto
                         $"  bins: {binCount}",
                         $"  binSize: {binSizeMinutes}",
                         "  binUnit: minutes",
-                        $"  startTimeUtc: \"{startTimeUtc:O}\"",
+                        $"  start: \"{startTimeUtc:O}\"",
                         string.Empty,
                         "topology:",
                         "  nodes:",

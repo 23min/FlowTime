@@ -3,12 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using FlowTime.Contracts.Dtos;
+using FlowTime.Contracts.Services;
 using FlowTime.Sim.Core.Services;
-using FlowTime.Sim.Core.Templates;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
 
 namespace FlowTime.Sim.Tests.Templates;
 
@@ -18,7 +17,8 @@ public sealed class TransitNodeTemplateTests
     public async Task TransportationClassesTemplate_UsesTransitNodesForLineDelays()
     {
         var model = await LoadTemplateAsync("transportation-basic-classes");
-        var nodeIds = model.Topology.Nodes.Select(node => node.Id).ToHashSet(StringComparer.Ordinal);
+        Assert.NotNull(model.Topology);
+        var nodeIds = model.Topology!.Nodes.Select(node => node.Id).ToHashSet(StringComparer.Ordinal);
 
         Assert.Contains("TransitAirport", nodeIds);
         Assert.Contains("TransitDowntown", nodeIds);
@@ -40,7 +40,8 @@ public sealed class TransitNodeTemplateTests
     public async Task IncidentRetryTemplate_UsesAnalyticsDelayTransitNode()
     {
         var model = await LoadTemplateAsync("supply-chain-incident-retry");
-        var nodeIds = model.Topology.Nodes.Select(node => node.Id).ToHashSet(StringComparer.Ordinal);
+        Assert.NotNull(model.Topology);
+        var nodeIds = model.Topology!.Nodes.Select(node => node.Id).ToHashSet(StringComparer.Ordinal);
 
         Assert.Contains("AnalyticsDelay", nodeIds);
         AssertNodeKind(model, "AnalyticsDelay", "service");
@@ -49,30 +50,26 @@ public sealed class TransitNodeTemplateTests
         AssertEdge(model, "analytics_delay_to_support", "AnalyticsDelay:out", "SupportAnalytics:in");
     }
 
-    private static async Task<SimModelArtifact> LoadTemplateAsync(string templateId)
+    // m-E24-02: tests now consume the unified ModelDto (SimModelArtifact deleted).
+    private static async Task<ModelDto> LoadTemplateAsync(string templateId)
     {
         var templatesDirectory = ResolveTemplatesDirectory();
         var templateService = new TemplateService(templatesDirectory, NullLogger<TemplateService>.Instance);
         var yaml = await templateService.GenerateEngineModelAsync(templateId, new Dictionary<string, object>());
-        var deserializer = new DeserializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .IgnoreUnmatchedProperties()
-            .Build();
-
-        return deserializer.Deserialize<SimModelArtifact>(yaml);
+        return ModelService.ParseYaml(yaml);
     }
 
-    private static void AssertNodeKind(SimModelArtifact model, string nodeId, string expectedKind)
+    private static void AssertNodeKind(ModelDto model, string nodeId, string expectedKind)
     {
-        var node = Assert.Single(model.Topology.Nodes, candidate => string.Equals(candidate.Id, nodeId, StringComparison.Ordinal));
+        var node = Assert.Single(model.Topology!.Nodes, candidate => string.Equals(candidate.Id, nodeId, StringComparison.Ordinal));
         Assert.True(
             string.Equals(node.Kind, expectedKind, StringComparison.OrdinalIgnoreCase),
             $"Expected node '{nodeId}' to be kind '{expectedKind}', but was '{node.Kind}'.");
     }
 
-    private static void AssertEdge(SimModelArtifact model, string edgeId, string from, string to)
+    private static void AssertEdge(ModelDto model, string edgeId, string from, string to)
     {
-        var edge = Assert.Single(model.Topology.Edges, candidate => string.Equals(candidate.Id, edgeId, StringComparison.Ordinal));
+        var edge = Assert.Single(model.Topology!.Edges, candidate => string.Equals(candidate.Id, edgeId, StringComparison.Ordinal));
         Assert.Equal(from, edge.From);
         Assert.Equal(to, edge.To);
         Assert.True(edge.Lag == null || edge.Lag == 0, $"Expected edge '{edgeId}' to have no lag.");

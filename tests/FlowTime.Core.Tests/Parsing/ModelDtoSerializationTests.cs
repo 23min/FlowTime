@@ -411,4 +411,128 @@ outputs:
         Assert.Contains("values:", yaml);
     }
 
+    // ----- GridDto.Start (m-E24-02 step 2 — A1 + A2) ---------------------------
+    // m-E24-01 ratified A1 (delete `LegacyStart` compat shim) and A2 (rename
+    // `StartTimeUtc` → `Start`; wire name stays `start`). Production wire format
+    // is `start:` in 12 of 12 templates and the canonical schema says `start:`.
+    // The pre-step-2 GridDto carried two C# properties (`StartTimeUtc` + `LegacyStart`)
+    // both referencing the same field — `LegacyStart` was a `[YamlMember(Alias = "start")]`
+    // shim that forwarded the wire key `start:` onto `StartTimeUtc`. After step 2,
+    // the shim is gone and the camelCase convention emits/reads `Start` ↔ `start:`
+    // natively.
+
+    [Fact]
+    public void GridDto_Start_DeserializesFromCanonicalStartWireKey()
+    {
+        // The canonical wire key is `start:` (12/12 production templates).
+        var yaml = """
+schemaVersion: 1
+grid:
+  bins: 4
+  binSize: 5
+  binUnit: minutes
+  start: '2026-04-25T10:00:00Z'
+nodes: []
+outputs: []
+""";
+
+        var model = ModelService.ParseYaml(yaml);
+
+        Assert.Equal("2026-04-25T10:00:00Z", model.Grid.Start);
+    }
+
+    [Fact]
+    public void GridDto_Start_SerializesAsStartWireKey()
+    {
+        // After A1+A2, `Start` (C# property) emits as `start:` via the camelCase
+        // convention — no `[YamlMember(Alias = "start")]` shim needed.
+        var model = new ModelDto
+        {
+            Grid = new GridDto
+            {
+                Bins = 4,
+                BinSize = 5,
+                BinUnit = "minutes",
+                Start = "2026-04-25T10:00:00Z"
+            }
+        };
+
+        var yaml = CreateSerializer().Serialize(model);
+
+        Assert.Contains("start: ", yaml);
+        // The fictional `startTimeUtc:` emission target is gone forever — the
+        // pre-rename camelCase emission of `StartTimeUtc` produced this key, but it
+        // never appeared on the wire in production templates.
+        Assert.DoesNotContain("startTimeUtc:", yaml);
+    }
+
+    [Fact]
+    public void GridDto_Start_DefaultsToNull_WhenNotAuthored()
+    {
+        var grid = new GridDto();
+
+        Assert.Null(grid.Start);
+    }
+
+    [Fact]
+    public void GridDto_Start_DeserializesAsNull_WhenAbsentFromWireYaml()
+    {
+        // AC14 branch coverage: `grid:` block with no `start:` key — the absent
+        // optional-field case. Confirms the optional-field absence semantics
+        // survive the A1+A2 cleanup (no `LegacyStart` no longer means absent
+        // becomes accidentally non-null via the alias).
+        var yaml = """
+schemaVersion: 1
+grid:
+  bins: 4
+  binSize: 5
+  binUnit: minutes
+nodes: []
+outputs: []
+""";
+
+        var model = ModelService.ParseYaml(yaml);
+
+        Assert.Null(model.Grid.Start);
+    }
+
+    [Fact]
+    public void GridDto_Start_OmittedFromYaml_WhenNull()
+    {
+        // `OmitNull` on the serializer suppresses emission of `start:` when the
+        // C# property is null.
+        var model = new ModelDto
+        {
+            Grid = new GridDto { Bins = 1, BinSize = 60, BinUnit = "minutes", Start = null }
+        };
+
+        var yaml = CreateSerializer().Serialize(model);
+
+        Assert.DoesNotContain("start:", yaml);
+        Assert.DoesNotContain("startTimeUtc:", yaml);
+    }
+
+    [Fact]
+    public void GridDto_DoesNotAcceptUnknownStartTimeUtcAlias()
+    {
+        // Forward-only guard: after A1, the `LegacyStart` alias is gone, so
+        // wire YAML using `startTimeUtc:` no longer maps to anything (and is
+        // silently ignored by `IgnoreUnmatchedProperties()`). This test pins
+        // the post-rename behavior — if a fixture still uses the dropped key
+        // it will deserialize as Start = null rather than carrying the value.
+        var yaml = """
+schemaVersion: 1
+grid:
+  bins: 4
+  binSize: 5
+  binUnit: minutes
+  startTimeUtc: '2026-04-25T10:00:00Z'
+nodes: []
+outputs: []
+""";
+
+        var model = ModelService.ParseYaml(yaml);
+
+        Assert.Null(model.Grid.Start);
+    }
 }
