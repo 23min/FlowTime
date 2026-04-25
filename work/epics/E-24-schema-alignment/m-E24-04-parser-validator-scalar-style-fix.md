@@ -1,9 +1,10 @@
 ---
 id: m-E24-04-parser-validator-scalar-style-fix
 epic: E-24-schema-alignment
-status: draft
+status: complete
 depends_on: m-E24-03-schema-unification
-completed:
+started: 2026-04-25
+completed: 2026-04-25
 ---
 
 # m-E24-04: Parser/Validator Scalar-Style Fix
