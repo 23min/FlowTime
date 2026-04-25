@@ -1,9 +1,10 @@
 ---
 id: m-E24-03-schema-unification
 epic: E-24-schema-alignment
-status: draft
+status: complete
 depends_on: m-E24-02-unify-model-type
-completed:
+started: 2026-04-25
+completed: 2026-04-25
 ---
 
 # m-E24-03: Schema Unification
