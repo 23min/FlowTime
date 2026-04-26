@@ -984,8 +984,8 @@ nodes:
         resolution_hint: add a spec at work/epics/<slug>/, remove the prose reference, or mark status:dropped
   - id: E-23
     kind: epic
-    path: work/epics/E-23-model-validation-consolidation
-    status: ready-to-resume
+    path: work/epics/completed/E-23-model-validation-consolidation
+    status: complete
     confidence: low
     status_evidence:
       - source: roadmap-row
@@ -1352,7 +1352,7 @@ nodes:
         resolution_hint: add a spec at work/epics/<slug>/, remove the prose reference, or mark status:dropped
   - id: m-E23-01
     kind: milestone
-    status: absorbed
+    status: complete
     confidence: medium
     status_evidence:
       - source: roadmap-row
@@ -1361,6 +1361,7 @@ nodes:
         value: absorbed
   - id: m-E23-02
     kind: milestone
+    status: complete
     confidence: none
     conflicts:
       - field: presence
@@ -1369,6 +1370,7 @@ nodes:
         resolution_hint: add a spec at work/epics/<slug>/, remove the prose reference, or mark status:dropped
   - id: m-E23-03
     kind: milestone
+    status: complete
     confidence: none
     conflicts:
       - field: presence

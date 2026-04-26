@@ -1,9 +1,9 @@
 ---
 id: m-E23-01-rule-coverage-audit
 epic: E-23-model-validation-consolidation
-status: ready
+status: completed
 depends_on:
-completed:
+completed: 2026-04-26
 ---
 
 # m-E23-01: Rule-Coverage Audit

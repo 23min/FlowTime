@@ -244,13 +244,6 @@ internal static class SimModelBuilder
             Id = node.Id,
             Kind = "const",
             Values = values,
-            Pmf = node.Pmf == null
-                ? null
-                : new PmfDto
-                {
-                    Values = node.Pmf.Values?.ToArray() ?? Array.Empty<double>(),
-                    Probabilities = node.Pmf.Probabilities?.ToArray() ?? Array.Empty<double>()
-                },
             Metadata = mergedMetadata
         };
     }

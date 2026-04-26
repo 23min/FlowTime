@@ -40,19 +40,16 @@ public static class TimeMachineValidator
 
     private static ValidationResult ValidateSchema(string yaml)
     {
-        var errors = new List<string>();
-
-        // Schema + class refs
+        // m-E23-02: tier-1 is now the schema-driven evaluator alone. The earlier
+        // dual-validator path (ModelSchemaValidator + ModelValidator) is retired —
+        // m-E23-01 closed the rule-coverage parity, so the schema-driven evaluator
+        // catches every legacy-field, structure, and grid-shape concern that
+        // ModelValidator previously caught.
         var schemaResult = ModelSchemaValidator.Validate(yaml);
-        errors.AddRange(schemaResult.Errors);
 
-        // Structure + legacy field detection
-        var structResult = ModelValidator.Validate(yaml);
-        errors.AddRange(structResult.Errors);
-
-        if (errors.Count > 0)
+        if (schemaResult.Errors.Count > 0)
         {
-            return ValidationResult.Invalid(ValidationTier.Schema, errors);
+            return ValidationResult.Invalid(ValidationTier.Schema, schemaResult.Errors);
         }
 
         return ValidationResult.Valid(ValidationTier.Schema);

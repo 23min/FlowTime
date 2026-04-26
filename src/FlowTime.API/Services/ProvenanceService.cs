@@ -1,4 +1,5 @@
 using FlowTime.API.Models;
+using YamlDotNet.RepresentationModel;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -119,29 +120,56 @@ public static class ProvenanceService
 
     /// <summary>
     /// Strips the provenance section from model YAML to ensure clean execution spec.
+    /// Uses a <see cref="YamlStream"/>-based surgical removal (mirroring the pattern in
+    /// <c>RunArtifactWriter.NormalizeTopologySemantics</c>) so that scalar styles on every
+    /// other node are preserved byte-for-byte.
+    ///
+    /// <para>Why structural removal, not Dictionary&lt;string,object&gt; round-trip.</para>
+    /// The previous implementation deserialized to a generic dictionary and re-serialized,
+    /// which discards every original scalar's <see cref="YamlDotNet.Core.ScalarStyle"/>.
+    /// Strings whose literal text is YAML-1.2-ambiguous (e.g. <c>pmf.expected</c> emitted
+    /// by <c>SimModelBuilder</c> as a <c>G17</c>-formatted string like <c>"3.5"</c>) were
+    /// re-emitted as plain scalars, which the canonical schema's
+    /// <c>nodes[].metadata.additionalProperties.type: string</c> constraint then rejects.
+    /// Walking the parsed <see cref="YamlMappingNode"/> tree and emitting via
+    /// <see cref="YamlStream.Save(System.IO.TextWriter, bool)"/> preserves every
+    /// untouched scalar exactly as it appeared on the wire.
     /// </summary>
     /// <param name="yaml">The original YAML with potential provenance section</param>
-    /// <returns>YAML without provenance section</returns>
+    /// <returns>YAML without provenance section, with all other scalar styles preserved</returns>
     public static string StripProvenance(string yaml)
     {
-        try
+        if (string.IsNullOrWhiteSpace(yaml))
         {
-            var yamlDoc = genericDeserializer.Deserialize<Dictionary<string, object>>(yaml);
-            if (yamlDoc != null && yamlDoc.ContainsKey("provenance"))
-            {
-                yamlDoc.Remove("provenance");
-                
-                // Re-serialize to YAML without naming convention (preserve original)
-                var serializer = new SerializerBuilder()
-                    .Build();
-                return serializer.Serialize(yamlDoc);
-            }
-        }
-        catch (Exception)
-        {
-            // If parsing fails, return original YAML
+            return yaml;
         }
 
-        return yaml;
+        var stream = new YamlStream();
+        try
+        {
+            stream.Load(new StringReader(yaml));
+        }
+        catch
+        {
+            // If the YAML cannot be parsed we fall back to the original text.
+            return yaml;
+        }
+
+        if (stream.Documents.Count == 0 || stream.Documents[0].RootNode is not YamlMappingNode root)
+        {
+            return yaml;
+        }
+
+        var provenanceKey = new YamlScalarNode("provenance");
+        if (!root.Children.ContainsKey(provenanceKey))
+        {
+            return yaml;
+        }
+
+        root.Children.Remove(provenanceKey);
+
+        var writer = new StringWriter();
+        stream.Save(writer, assignAnchors: false);
+        return writer.ToString();
     }
 }

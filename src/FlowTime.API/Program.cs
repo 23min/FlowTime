@@ -653,8 +653,8 @@ v1.MapPost("/run", async (HttpRequest req, IArtifactRegistry registry, ILogger<P
         // Strip provenance from YAML to get clean execution spec
         var cleanYaml = ProvenanceService.StripProvenance(yaml);
 
-        // Validate schema before parsing
-        var validationResult = ModelValidator.Validate(cleanYaml);
+        // Validate schema before parsing (m-E23-02: switched to ModelSchemaValidator)
+        var validationResult = ModelSchemaValidator.Validate(cleanYaml);
         if (!validationResult.IsValid)
         {
             var errorMsg = string.Join("; ", validationResult.Errors);
