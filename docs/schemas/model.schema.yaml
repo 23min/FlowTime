@@ -125,6 +125,8 @@ properties:
           required:
             - id
             - kind
+            # rule from ModelParser.cs:93-94 — added m-E23-01
+            - semantics
           properties:
             id:
               type: string
@@ -136,6 +138,8 @@ properties:
                 validation) reference it.
             kind:
               type: string
+              # rule from ModelDtos.cs:133 — added m-E23-01
+              default: service
               description: |
                 Topology node kind (e.g. `service`, `serviceWithBuffer`, `queue`).
                 DTO source: `TopologyNodeDto.Kind` (default `"service"`).
@@ -183,6 +187,10 @@ properties:
                 `src/FlowTime.Core/Analysis/InvariantAnalyzer.cs:147-227` consumes the
                 same surface for invariants; `src/FlowTime.Core/Compiler/ModelCompiler.cs:33-53`
                 resolves `queueDepth` / `retryEcho` for queue-like nodes.
+              # rule from ModelParser.cs:98-99 — added m-E23-01
+              required:
+                - arrivals
+                - served
               properties:
                 arrivals:
                   type: string
@@ -343,6 +351,10 @@ properties:
           (`EdgeFlowMaterializer.BuildEdgeFlowSeries`) materializes per-edge series.
         items:
           type: object
+          # rule from ModelParser.cs:145-146 — added m-E23-01
+          required:
+            - from
+            - to
           properties:
             id:
               type: string
@@ -361,6 +373,8 @@ properties:
                 `InvariantAnalyzer.cs` edge walks.
             weight:
               type: number
+              # rule from ModelService.cs:175-176 — added m-E23-01
+              default: 1.0
               description: |
                 Optional edge weight. DTO source: `TopologyEdgeDto.Weight`. Consumer:
                 `EdgeFlowMaterializer` weight-scaling.
@@ -415,6 +429,10 @@ properties:
                 `TopologyConstraintDto.Semantics` (`ConstraintSemanticsDto`,
                 `ModelDtos.cs:197`). Consumer: `InvariantAnalyzer.cs` constraint-binding
                 pass.
+              # rule from ModelParser.cs:178-179 — added m-E23-01
+              required:
+                - arrivals
+                - served
               properties:
                 arrivals:
                   type: string
@@ -478,6 +496,8 @@ properties:
             - pmf
             - serviceWithBuffer
             - router
+          # rule from ModelDtos.cs:63 — added m-E23-01
+          default: const
           description: |
             Node type. DTO source: `NodeDto.Kind` (default `"const"`). Consumer:
             `src/FlowTime.Core/Models/ModelParser.cs:370-378` (`ParseSingleNode`
@@ -495,6 +515,8 @@ properties:
             CSVs.
           items:
             type: number
+          # rule from ModelParser.cs:391-392 — added m-E23-01
+          minItems: 1
           examples:
             - [100, 120, 150, 130]
             - [50.5, 60.2, 75.8, 80.0]
@@ -502,6 +524,8 @@ properties:
         # Properties for 'expr' nodes
         expr:
           type: string
+          # rule from ModelParser.cs:399-400 — added m-E23-01
+          minLength: 1
           description: |
             Expression formula (required for `kind: expr`). DTO source: `NodeDto.Expr`.
             Consumer: `src/FlowTime.Core/Models/ModelParser.cs:298` instantiates
@@ -581,6 +605,8 @@ properties:
           properties:
             queue:
               type: string
+              # rule from ModelParser.cs:467-470 — added m-E23-01
+              minLength: 1
               description: |
                 Source node routed by this router. DTO source: `RouterInputsDto.Queue`.
                 Consumer: router evaluator.
@@ -599,6 +625,8 @@ properties:
             properties:
               target:
                 type: string
+                # rule from ModelParser.cs:479-481 — added m-E23-01
+                minLength: 1
                 description: |
                   Target node receiving this route. DTO source: `RouterRouteDto.Target`.
                   Consumer: router evaluator.
@@ -611,6 +639,8 @@ properties:
                   type: string
               weight:
                 type: number
+                # rule from ModelParser.cs:484-486 — added m-E23-01
+                exclusiveMinimum: 0
                 description: |
                   Weight used to split remaining classes when no `classes` list is provided.
                   DTO source: `RouterRouteDto.Weight`. Consumer: router evaluator
@@ -643,75 +673,92 @@ properties:
         dispatchSchedule:
           $ref: "#/$defs/dispatchSchedule"
 
-      # Validation rules based on 'kind'
-      allOf:
-        # const nodes must have 'values', not 'expr' or 'pmf'
-        - if:
-            properties:
-              kind:
-                const: const
-          then:
-            required:
-              - values
-            not:
-              anyOf:
-                - required: [expr]
-                - required: [pmf]
+      # Per-kind structural constraints. oneOf is structurally airtight: an instance
+      # whose `kind` value matches no arm fails validation cleanly. Adding a node
+      # kind requires (1) extending the kind enum at the top of `nodes[].items.properties.kind`,
+      # and (2) adding an arm here. Forgetting the arm causes a hard fail rather than
+      # a silent skip — exactly the future-proof property we want.
+      #
+      # Each arm uses `additionalProperties: false` with an explicit allow-list of
+      # property *names* (the property *schemas* — types, patterns, minItems, etc. —
+      # remain at the outer `properties` block above and continue to apply via JSON
+      # Schema property-evaluation order). Forbidden fields are expressed implicitly
+      # by being absent from the arm's `properties` allow-list. This avoids the
+      # `not`-keyword reporting blind spot in JsonEverything (D3, m-E23-01) for the
+      # const/expr/pmf mutual-exclusion rules — `additionalProperties: false`
+      # violations surface cleanly as standard validation errors.
+      oneOf:
+        # const nodes must have 'values'; 'expr' and 'pmf' are forbidden.
+        - properties:
+            id: true
+            kind:
+              const: const
+            values: true
+            metadata: true
+            dispatchSchedule: true
+          required:
+            - values
+          additionalProperties: false
 
-        # expr nodes must have 'expr', not 'values' or 'pmf'
-        - if:
-            properties:
-              kind:
-                const: expr
-          then:
-            required:
-              - expr
-            not:
-              anyOf:
-                - required: [values]
-                - required: [pmf]
+        # expr nodes must have 'expr'; 'values' and 'pmf' are forbidden.
+        - properties:
+            id: true
+            kind:
+              const: expr
+            expr: true
+            metadata: true
+            dispatchSchedule: true
+          required:
+            - expr
+          additionalProperties: false
 
-        # pmf nodes must have 'pmf', not 'values' or 'expr'
-        - if:
-            properties:
-              kind:
-                const: pmf
-          then:
-            required:
-              - pmf
-            not:
-              anyOf:
-                - required: [values]
-                - required: [expr]
+        # pmf nodes must have 'pmf'; 'values' and 'expr' are forbidden.
+        - properties:
+            id: true
+            kind:
+              const: pmf
+            pmf: true
+            metadata: true
+            dispatchSchedule: true
+          required:
+            - pmf
+          additionalProperties: false
 
-        # router nodes require inputs.queue and at least one route
-        - if:
-            properties:
-              kind:
-                const: router
-          then:
-            required:
-              - inputs
-              - routes
-            properties:
-              inputs:
-                required:
-                  - queue
-              routes:
-                items:
-                  anyOf:
-                    - required: [classes]
-                    - required: [weight]
+        # router nodes require inputs.queue and at least one route. routes[]
+        # entries must declare either `classes` or `weight` (or both).
+        - properties:
+            id: true
+            kind:
+              const: router
+            inputs:
+              required:
+                - queue
+            routes:
+              items:
+                anyOf:
+                  - required: [classes]
+                  - required: [weight]
+            metadata: true
+            dispatchSchedule: true
+          required:
+            - inputs
+            - routes
+          additionalProperties: false
 
-        # serviceWithBuffer nodes require inflow/outflow
-        - if:
-            properties:
-              kind:
-                const: serviceWithBuffer
-          then:
-            required:
-              - inflow
-              - outflow
+        # serviceWithBuffer nodes require inflow and outflow; loss is optional.
+        - properties:
+            id: true
+            kind:
+              const: serviceWithBuffer
+            inflow: true
+            outflow: true
+            loss: true
+            metadata: true
+            dispatchSchedule: true
+          required:
+            - inflow
+            - outflow
+          additionalProperties: false
 
       additionalProperties: false
 
@@ -891,6 +938,8 @@ properties:
     properties:
       kind:
         type: string
+        # rule from ModelDtos.cs:13 — added m-E23-01
+        default: pcg32
         description: |
           RNG algorithm name. DTO source: `RngDto.Kind` (default `"pcg32"`).
           Consumer: `RunOrchestrationService.cs:364`, `:572-577` (validation gate).
@@ -1040,6 +1089,8 @@ $defs:
           period parameter).
       phaseOffset:
         type: integer
+        # rule from ModelParser.cs:518 — added m-E23-01
+        default: 0
         description: |
           Bin offset that determines the first dispatch bin (0-indexed, modulo
           period). DTO source: `DispatchScheduleDto.PhaseOffset`. Consumer:
@@ -1216,17 +1267,42 @@ examples:
 # Notes
 notes:
   validation_rules: |
-    Adjunct semantic validation performed by FlowTime Engine beyond declarative schema:
+    JSON Schema draft-07 cannot express cross-reference, cross-array, or run-mode-conditional
+    rules. `ModelSchemaValidator` runs the following named adjunct methods after JSON-schema
+    evaluation, alongside `ValidateClassReferences` (the prior-art adjunct for class IDs):
 
-    1. Node ID Uniqueness: All node IDs must be unique across the model.
-    2. Const Node Length: `values` array length must equal `grid.bins` exactly.
-    3. PMF Probabilities: Must sum to 1.0 (tolerance ±0.0001).
-    4. Expression References: All node IDs in `expr` strings must exist.
-    5. Dependency Order: No circular dependencies except through SHIFT.
-    6. Output References: All `series` values must reference existing node IDs.
+    1.  `ValidateNodeIdUniqueness`              — All `nodes[].id` unique within `nodes[]`.
+    2.  `ValidateOutputSeriesReferences`        — `outputs[].series` resolves to a node id (or `*`).
+    3.  `ValidateExpressionNodeReferences`      — Every node id referenced inside `expr` resolves to a declared node.
+    4.  `ValidateConstNodeValueCount`           — `const` node `values.length == grid.bins`.
+    5.  `ValidatePmfArrayLengths`               — `pmf.values.length == pmf.probabilities.length`.
+    6.  `ValidatePmfValueUniqueness`            — `pmf.values` contain no duplicates.
+    7.  `ValidatePmfProbabilitySum`             — `pmf.probabilities` sum to 1.0 (±1e-4).
+    8.  `ValidateSelfShiftRequiresInitialCondition`
+                                                — A node with a self-shift expression (e.g. `SHIFT(self, 1)`)
+                                                  requires `topology.initialCondition.queueDepth` for that node.
+    9.  `ValidateTopologySeriesReferences`      — `topology.nodes[].semantics.{arrivals,served,errors,queueDepth,...}`
+                                                  series-id references resolve to declared node ids
+                                                  (after stripping `file:`, `series:`, `@classId` prefixes; `self` allowed).
+    10. `ValidateWipOverflowTarget`             — `wipOverflow` (when not `loss`) references an existing topology node id.
+    11. `ValidateWipOverflowAcyclic`            — WIP-overflow routing graph contains no cycles.
+    12. `ValidateDateTimeFormats`               — `format: date-time` fields (`grid.start`, `provenance.generatedAt`)
+                                                  parse via `DateTime.TryParse(... InvariantCulture, AdjustToUniversal | AssumeUniversal)`.
+                                                  (Draft-07 `format: date-time` is annotation-only and not enforced
+                                                  by JsonEverything.)
 
-    Schema validates structural correctness; `ModelSchemaValidator` runs adjunct
-    semantic checks (e.g. `ValidateClassReferences`).
+    Plus, prior-art:
+        `ValidateClassReferences`               — Every `traffic.arrivals[].classId` (and router `routes[].classes[]`)
+                                                  exists in `classes[]`.
+
+    Mode-specific orchestration check (NOT an adjunct on this validator path):
+        Simulation runs additionally require `grid.start` non-empty AND `topology.nodes` non-empty.
+        Enforced at `RunOrchestrationService.ValidateSimulationModel`. Telemetry-mode runs
+        legitimately need neither, so this rule is mode-conditional and stays at the
+        orchestration layer rather than the schema-validator path.
+
+    Compile-time graph invariant (enforced post-validate):
+        No circular dependencies except through `SHIFT`.
 
   expression_syntax: |
     Supported expression operators and functions:

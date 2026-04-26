@@ -36,7 +36,7 @@ The earlier approach (standalone `roslynator analyze` CLI against `FlowTime.sln`
 
 ## Public surface notes
 
-- **`FlowTime.Contracts`** is consumed by sibling repo `flowtime-sim-vnext` — treat its public types (`ModelDto`, `ProvenanceDto`, response shapes) as **live unless cross-repo grep confirms no callers**. Roslynator only sees this repo.
+- **`FlowTime.Contracts`** types (`ModelDto`, `ProvenanceDto`, response shapes) are the wire-contract surface consumed by HTTP clients, CLI tooling, and test fixtures. Treat public types as **live unless explicit cross-surface inspection confirms no callers**. Roslynator may flag them as unreferenced.
 - **Engine API `/v1/*` endpoints** in `FlowTime.API/Program.cs` are consumed by Blazor UI (`FlowTime.UI`), Svelte UI (`ui/`), and external Time Machine clients. Endpoint-handler methods and request/response DTOs may have no `.cs` caller in this repo but are part of an HTTP contract.
 - **CLI public commands** in `FlowTime.Cli` and `FlowTime.Sim.Cli` are entry points; their `Run*` methods may look unused but are dispatched from the command-line parser.
 - **`FlowTime.Adapters.Synthetic`** — public fixture-generator types are consumed by integration tests across multiple test projects.
