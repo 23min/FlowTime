@@ -1,0 +1,22 @@
+<Project>
+
+  <!--
+    Repo-wide build customization.
+
+    The Roslynator.Analyzers PackageReference is restored everywhere but its
+    rule execution is gated on the RoslynatorAnalyze property, so daily
+    `dotnet build` does not pay the analyzer cost. The /wf-dead-code-audit
+    skill's dotnet recipe sets this property when it invokes the build.
+  -->
+
+  <PropertyGroup>
+    <RoslynatorAnalyze Condition="'$(RoslynatorAnalyze)' == ''">false</RoslynatorAnalyze>
+    <RunAnalyzers Condition="'$(RoslynatorAnalyze)' == 'true'">true</RunAnalyzers>
+    <RunAnalyzersDuringBuild Condition="'$(RoslynatorAnalyze)' == 'true'">true</RunAnalyzersDuringBuild>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(RoslynatorAnalyze)' == 'true'">
+    <PackageReference Include="Roslynator.Analyzers" Version="4.13.1" PrivateAssets="all" IncludeAssets="analyzers" />
+  </ItemGroup>
+
+</Project>

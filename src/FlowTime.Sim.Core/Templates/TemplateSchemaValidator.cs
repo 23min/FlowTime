@@ -170,12 +170,29 @@ internal static class TemplateSchemaValidator
         return obj;
     }
 
-    private static JsonNode ParseScalar(YamlScalarNode scalar)
+    /// <summary>
+    /// Convert a YAML scalar node to a typed JSON value. Mirrors
+    /// <see cref="FlowTime.Core.ModelSchemaValidator.ParseScalar"/> — YAML 1.2 says
+    /// quoted scalars (<see cref="YamlDotNet.Core.ScalarStyle.SingleQuoted"/>,
+    /// <see cref="YamlDotNet.Core.ScalarStyle.DoubleQuoted"/>) and block scalars
+    /// (<see cref="YamlDotNet.Core.ScalarStyle.Literal"/>,
+    /// <see cref="YamlDotNet.Core.ScalarStyle.Folded"/>) are typed as strings; only plain
+    /// scalars are candidates for bool/int/double resolution (m-E24-04 / ADR-E-24-04).
+    /// <c>internal</c> for direct test access.
+    /// </summary>
+    internal static JsonNode ParseScalar(YamlScalarNode scalar)
     {
         var value = scalar.Value;
         if (value is null)
         {
             return JsonValue.Create((string?)null)!;
+        }
+
+        // YAML 1.2: only plain scalars are candidates for type resolution. Quoted and
+        // block scalars are unconditionally typed as strings — author intent is preserved.
+        if (scalar.Style != YamlDotNet.Core.ScalarStyle.Plain)
+        {
+            return JsonValue.Create(value)!;
         }
 
         if (bool.TryParse(value, out var b))

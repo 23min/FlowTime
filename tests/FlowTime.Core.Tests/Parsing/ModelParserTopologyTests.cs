@@ -18,7 +18,7 @@ public class ModelParserTopologyTests
                 Bins = 4,
                 BinSize = 5,
                 BinUnit = "minutes",
-                StartTimeUtc = "2025-10-07T00:00:00Z"
+                Start = "2025-10-07T00:00:00Z"
             },
             Topology = new TopologyDefinition
             {
@@ -64,7 +64,7 @@ public class ModelParserTopologyTests
                 Bins = 2,
                 BinSize = 15,
                 BinUnit = "minutes",
-                StartTimeUtc = null
+                Start = null
             }
         };
 

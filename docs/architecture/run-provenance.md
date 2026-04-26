@@ -353,27 +353,34 @@ GET /v1/runs/{run_id}/provenance.json
 
 **Add provenance to model.schema (optional section):**
 ```yaml
-# model.schema.yaml
+# model.schema.yaml — see the live schema for the canonical 7-field shape (E-24)
 properties:
   schemaVersion:
     type: integer
     const: 1
-    
-  provenance:  # NEW: Optional provenance section
+
+  provenance:  # Optional provenance section, camelCase (post-E-24)
     type: object
     description: "Optional model provenance metadata"
     properties:
-      source:
+      generator:
         type: string
         examples: ["flowtime-sim", "manual", "import"]
-      model_id:
+      modelId:
         type: string
-      template_id:
+      templateId:
         type: string
-      generated_at:
+      templateVersion:
+        type: string
+      generatedAt:
         type: string
         format: date-time
-      
+      mode:
+        type: string
+      parameters:
+        type: object
+        additionalProperties: true
+
   grid:
     type: object
     # ... existing
@@ -412,7 +419,7 @@ grid:
 
 **Result:**
 - Run executes normally
-- provenance.json created with model_id
+- provenance.json created with modelId
 - manifest.json includes provenance reference
 - Registry entry includes provenance metadata
 
@@ -433,7 +440,7 @@ User sees run → ??? → No idea which template or parameters
 
 **After:**
 ```
-User sees run → provenance.json → model_id, template_id, parameters
+User sees run → provenance.json → modelId, templateId, parameters
                                           ↓
                          All metadata stored in Engine artifacts
 ```
@@ -443,14 +450,14 @@ User sees run → provenance.json → model_id, template_id, parameters
 ### Enhanced Queries
 
 Registry queries support filtering by provenance metadata:
-- Find all runs from a specific template: `GET /v1/runs?template_id=it-system`
-- Find all runs from a specific model: `GET /v1/runs?model_id=model_abc123`
-- Compare runs from same template with different parameters: query by template_id, inspect parameters
+- Find all runs from a specific template: `GET /v1/runs?templateId=it-system`
+- Find all runs from a specific model: `GET /v1/runs?modelId=model_abc123`
+- Compare runs from same template with different parameters: query by templateId, inspect parameters
 
 ### Compare Workflow
 
 1. User selects baseline run
-2. UI queries registry for runs with matching template_id
+2. UI queries registry for runs with matching templateId
 3. UI displays candidate runs for comparison
 4. Parameters visible in provenance.json enable understanding configuration differences
 

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using FlowTime.Contracts.Dtos;
 using FlowTime.Contracts.Services;
 using FlowTime.Core.Analysis;
 using FlowTime.Sim.Core.Services;
@@ -10,8 +11,6 @@ using FlowTime.Sim.Core.Analysis;
 using FlowTime.Sim.Core.Templates.Exceptions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
 
 namespace FlowTime.Sim.Cli
 {
@@ -26,8 +25,7 @@ namespace FlowTime.Sim.Cli
         string? TemplatesDir,
         string? ModelsDir,
         string? Mode,
-        string? ProvenancePath,  // SIM-M2.7: Path to save provenance JSON
-        bool EmbedProvenance     // SIM-M2.7: Embed provenance in model YAML
+        string? ProvenancePath  // SIM-M2.7: Path to save provenance JSON
     )
     {
         public static CliOptions Defaults => new(
@@ -41,16 +39,11 @@ namespace FlowTime.Sim.Cli
             null,
             null,
             null,
-            null,  // ProvenancePath
-            false); // EmbedProvenance
+            null);
     }
 
     internal static class Program
     {
-        private static readonly IDeserializer artifactDeserializer = new DeserializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .IgnoreUnmatchedProperties()
-            .Build();
 
         internal static async Task<int> Main(string[] args)
         {
@@ -269,13 +262,6 @@ namespace FlowTime.Sim.Cli
                 return 2;
             }
 
-            // SIM-M2.7: Validate mutual exclusivity of provenance options
-            if (!string.IsNullOrWhiteSpace(opts.ProvenancePath) && opts.EmbedProvenance)
-            {
-                Console.Error.WriteLine("Error: --provenance and --embed-provenance are mutually exclusive");
-                return 2;
-            }
-
             // Load parameters from file if provided
             var parameters = new Dictionary<string, object>();
             if (!string.IsNullOrWhiteSpace(opts.ParamsPath))
@@ -319,7 +305,7 @@ namespace FlowTime.Sim.Cli
 
             // Generate model (YAML already contains provenance block)
             var model = await service.GenerateEngineModelAsync(opts.TemplateId, parameters, modeOverride);
-            var artifact = DeserializeArtifact(model);
+            var artifact = DeserializeModel(model);
             var invariantAnalysis = TemplateInvariantAnalyzer.Analyze(model);
             var displayWarnings = invariantAnalysis.Warnings
                 .Where(ShouldDisplayWarning)
@@ -356,7 +342,9 @@ namespace FlowTime.Sim.Cli
 
             if (opts.Verbose)
             {
-                Console.WriteLine($"Mode: {artifact.Mode}");
+                // m-E24-02: mode + generator survive in provenance (Q5/A4); schemaVersion
+                // is still a top-level ModelDto field; window collapses into grid.start.
+                Console.WriteLine($"Mode: {artifact.Provenance?.Mode ?? string.Empty}");
                 Console.WriteLine($"Schema Version: {artifact.SchemaVersion}");
                 Console.WriteLine($"Has Window: {HasWindow(artifact)}");
                 Console.WriteLine($"Has Topology: {HasTopology(artifact)}");
@@ -415,13 +403,26 @@ namespace FlowTime.Sim.Cli
             return 0;
         }
 
-        private static SimModelArtifact DeserializeArtifact(string modelYaml) => artifactDeserializer.Deserialize<SimModelArtifact>(modelYaml);
+        // m-E24-02: Sim CLI reads the unified post-substitution model (ModelDto).
+        // Field mappings (post-unification): grid.start carries the start timestamp;
+        // provenance.mode carries the template mode; provenance.generator carries
+        // the producer identifier. Template-authoring fields (Metadata.*) are not
+        // preserved on ModelDto — templateId / templateVersion survive inside
+        // provenance.
+        private static ModelDto DeserializeModel(string modelYaml) => ModelService.ParseYaml(modelYaml);
 
-        private static bool HasWindow(SimModelArtifact artifact) => !string.IsNullOrWhiteSpace(artifact.Window?.Start);
+        private static bool HasWindow(ModelDto model) => !string.IsNullOrWhiteSpace(model.Grid?.Start);
 
-        private static bool HasTopology(SimModelArtifact artifact) => artifact.Topology?.Nodes is { Count: > 0 };
+        private static bool HasTopology(ModelDto model) => model.Topology?.Nodes is { Count: > 0 };
 
-        private static bool HasTelemetrySources(SimModelArtifact artifact) => artifact.Nodes.Any(n => !string.IsNullOrWhiteSpace(n.Source));
+        // Per Q4 / D-m-E24-02-01: nodes[].source is dropped from emission and not
+        // declared on NodeDto. Engine-side telemetry-sources now come from
+        // TelemetrySourceMetadataExtractor on the wire YAML (not the C# DTO),
+        // and the verbose "Has Telemetry Sources" line in the CLI no longer
+        // reflects a NodeDto-visible field. Sim CLI keeps the helper signature
+        // stable but always returns false until E-15 reinstates a typed source
+        // contract; the verbose output is still backed by the Extractor below.
+        private static bool HasTelemetrySources(ModelDto model) => false;
 
         private static IReadOnlyList<string> DescribeDispatchSchedules(string modelYaml)
         {
@@ -731,8 +732,6 @@ namespace FlowTime.Sim.Cli
             Console.WriteLine("  --mode <simulation|telemetry>");
             Console.WriteLine("                           Override template mode before validation/generation");
             Console.WriteLine("  --provenance <file>      Save provenance metadata to separate JSON file");
-            Console.WriteLine("  --embed-provenance       (Legacy) provenance is always embedded; flag retained for compatibility");
-            Console.WriteLine("                           NOTE: --provenance and --embed-provenance are mutually exclusive");
             Console.WriteLine("  --verbose, -v            Verbose output");
             Console.WriteLine("  --help, -h               Show this help\n");
             Console.WriteLine("Examples:");
@@ -748,8 +747,6 @@ namespace FlowTime.Sim.Cli
             Console.WriteLine("                                             # Override mode for telemetry replay");
             Console.WriteLine("  flow-sim generate --id transportation-basic --out model.yaml --provenance provenance.json");
             Console.WriteLine("                                             # Generate with separate provenance file");
-            Console.WriteLine("  flow-sim generate --id transportation-basic --out model.yaml --embed-provenance");
-            Console.WriteLine("                                             # Legacy flag (no longer required)");
         }
     }
 
@@ -791,7 +788,6 @@ namespace FlowTime.Sim.Cli
                 else if (a is "--models-dir") opts = opts with { ModelsDir = ArgValue(args, ref i) };
                 else if (a is "--mode") opts = opts with { Mode = ArgValue(args, ref i) };
                 else if (a is "--provenance") opts = opts with { ProvenancePath = ArgValue(args, ref i) };  // SIM-M2.7
-                else if (a is "--embed-provenance") opts = opts with { EmbedProvenance = true };  // SIM-M2.7
                 else if (a is "--verbose" or "-v") opts = opts with { Verbose = true };
                 else if (a is "--help" or "-h")
                 {

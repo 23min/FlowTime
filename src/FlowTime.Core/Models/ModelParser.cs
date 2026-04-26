@@ -59,7 +59,7 @@ public static class ModelParser
             Bins = model.Grid.Bins,
             BinSize = model.Grid.BinSize,
             BinUnit = unit,
-            StartTime = ParseStartTime(model.Grid.StartTimeUtc)
+            StartTime = ParseStartTime(model.Grid.Start)
         };
         var nodeDefinitionsById = (model.Nodes ?? new List<NodeDefinition>())
             .Where(definition => !string.IsNullOrWhiteSpace(definition.Id))
@@ -574,7 +574,7 @@ public class GridDefinition
     public int Bins { get; set; }
     public int BinSize { get; set; }
     public string BinUnit { get; set; } = "minutes";
-    public string? StartTimeUtc { get; set; }
+    public string? Start { get; set; }
 }
 
 public class NodeDefinition

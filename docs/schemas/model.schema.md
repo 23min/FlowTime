@@ -408,12 +408,12 @@ rng:
 
 ```yaml
 provenance:
-  source: flowtime-sim
-  model_id: model_20250925T120000Z_abc123def
-  template_id: it-system-microservices
-  template_version: "1.0"
-  generated_at: "2025-09-25T12:00:00Z"
-  generator: "flowtime-sim/0.4.0"
+  generator: "flowtime-sim"
+  generatedAt: "2026-04-25T12:00:00Z"
+  templateId: it-system-microservices
+  templateVersion: "1.0"
+  mode: simulation
+  modelId: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
   parameters:
     bins: 12
     binSize: 1
@@ -421,14 +421,14 @@ provenance:
     loadBalancerCapacity: 300
 ```
 
-**Properties:**
-- `source` (optional): String, system that generated this model
-- `model_id` (optional): String, unique identifier for this model instance
-- `template_id` (optional): String, template identifier if generated from template
-- `template_version` (optional): String, template version used
-- `generated_at` (optional): String (ISO 8601), generation timestamp
-- `generator` (optional): String, generator name and version
-- `parameters` (optional): Object, template parameters used during generation
+**Properties (camelCase, 7-field nested form ratified in E-24 m-E24-01 Q5/A4):**
+- `generator` (optional): String, producing system identifier (e.g. `"flowtime-sim"`). Replaces the prior `source` + `generator` duplicate pair.
+- `generatedAt` (optional): String (ISO 8601 UTC), timestamp at which the model was rendered from its template.
+- `templateId` (optional): String, template identifier (enables template-level regeneration and lookup).
+- `templateVersion` (optional): String, template version at render time (enables version-pinned regeneration).
+- `mode` (optional): String, template mode — `"simulation"` or `"telemetry"` (model-generation input, not a runtime field).
+- `modelId` (optional): String, stable identifier for this rendered model (distinguishes runs of the same template under different parameter values).
+- `parameters` (optional): Object, free-form template parameter values at render time (forensic data, not a typed contract).
 
 **Purpose:**
 - **Traceability**: Track model lineage from template to execution
@@ -446,7 +446,7 @@ provenance:
 **Alternative: HTTP Header**
 ```http
 POST /v1/run
-X-Model-Provenance: model_20250925T120000Z_abc123def
+X-Model-Provenance: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 Content-Type: application/x-yaml
 
 schemaVersion: 1
@@ -454,16 +454,22 @@ schemaVersion: 1
 ```
 
 **Rules:**
-- Entire `provenance` section is optional
-- All fields within provenance are optional
-- Free-form `parameters` object (template-specific)
-- `model_id` should follow pattern: `model_YYYYMMDDTHHmmssZ_<hash>`
+- Entire `provenance` section is optional.
+- All fields within provenance are optional.
+- Free-form `parameters` object (template-specific values; `additionalProperties: true`).
+- `modelId` may be a content hash (`sha256:…`) or a timestamped form (`model_YYYYMMDDTHHmmssZ_<hash>`); both are accepted.
+- `source` and `schemaVersion` are intentionally absent from the provenance block — `source` was collapsed into `generator` in E-24 m-E24-01 (Q5/A4); `schemaVersion` lives on the model root and is never duplicated under provenance.
 
 **Use Cases:**
 - **Template-generated models**: FlowTime-Sim embeds provenance automatically
 - **Manual models**: Users can add provenance for documentation
 - **UI workflows**: UI can track model creation context
 - **Self-contained files**: Model + provenance travels together
+
+> **Historical note.** Pre-E-24 (before April 2026), the provenance block used snake_case keys
+> (`source`, `model_id`, `template_id`, `template_version`, `generated_at`). E-24 m-E24-03 rewrote
+> `model.schema.yaml` to declare the seven-field nested camelCase form above. Forward-only —
+> bundles authored under the snake_case shape are obsolete.
 
 **See Also:**
 - [Run Provenance Architecture](../architecture/run-provenance.md)

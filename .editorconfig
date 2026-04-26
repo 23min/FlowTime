@@ -4,6 +4,21 @@ root = true
 [*.cs]
 dotnet_diagnostic.IDE1006.severity = warning
 
+# Roslynator + Roslyn analyzer severity tuning (consumed by /wf-dead-code-audit
+# when run with /p:RoslynatorAnalyze=true; otherwise these settings only affect
+# IDE display since the analyzers are not loaded into the build).
+#
+# Suppress noisy codes that fire on idiomatic patterns we deliberately use.
+dotnet_diagnostic.RCS1163.severity = none  # unused parameter — fires on event handlers and DI-injected deps
+dotnet_diagnostic.RCS1058.severity = none  # use compound assignment — pure style
+dotnet_diagnostic.RCS1090.severity = none  # call ConfigureAwait — fires across the codebase
+#
+# High-signal dead-code codes — keep at warning so the recipe sees them.
+dotnet_diagnostic.RCS1213.severity = warning  # unused private member
+dotnet_diagnostic.RCS1170.severity = warning  # use read-only auto property
+dotnet_diagnostic.IDE0051.severity = warning  # unused private member (Roslyn)
+dotnet_diagnostic.IDE0052.severity = warning  # private field assigned but never read
+
 # Naming rules
 dotnet_naming_rule.private_fields_camelcase.severity = error
 dotnet_naming_rule.private_fields_camelcase.symbols = private_fields

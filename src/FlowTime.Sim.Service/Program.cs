@@ -14,6 +14,8 @@ using FlowTime.Sim.Core.Templates.Exceptions;
 using FlowTime.Sim.Service; // TemplateRegistry
 using FlowTime.Sim.Service.Services; // ServiceInfoProvider
 using FlowTime.Sim.Service.Extensions; // TemplateValidationExtensions
+using FlowTime.Contracts.Dtos;
+using FlowTime.Contracts.Services;
 using FlowTime.Contracts.TimeTravel;
 using FlowTime.Contracts.Storage;
 using YamlDotNet.Serialization;
@@ -24,10 +26,6 @@ using FlowTime.TimeMachine.Orchestration;
 // Explicit Program class for integration tests & clear structure
 public partial class Program
 {
-	private static readonly IDeserializer artifactDeserializer = new DeserializerBuilder()
-		.WithNamingConvention(CamelCaseNamingConvention.Instance)
-		.IgnoreUnmatchedProperties()
-		.Build();
 
 	public static async Task Main(string[] args)
 	{
@@ -377,7 +375,12 @@ public partial class Program
 
 				var modelYaml = await templateService.GenerateEngineModelAsync(id, parameters, modeOverride);
 				var invariantAnalysis = TemplateInvariantAnalyzer.Analyze(modelYaml);
-				return await BuildGenerateResponseAsync(id, modelYaml, invariantAnalysis.Warnings, config, warningRegistry, storage, cancellationToken).ConfigureAwait(false);
+				// m-E24-02: templateTitle is not preserved on the unified ModelDto
+				// (template-authoring-only). Look it up via the template service so
+				// the response-shape contract is preserved.
+				var loadedTemplate = await templateService.GetTemplateAsync(id).ConfigureAwait(false);
+				var templateTitle = loadedTemplate?.Metadata.Title ?? string.Empty;
+				return await BuildGenerateResponseAsync(id, templateTitle, modelYaml, invariantAnalysis.Warnings, config, warningRegistry, storage, cancellationToken).ConfigureAwait(false);
 			}
 			catch (ArgumentException ex)
 			{
@@ -434,7 +437,9 @@ public partial class Program
 				var draftTemplateService = CreateDraftTemplateService(draftId, draftYaml, templateLogger);
 				var modelYaml = await draftTemplateService.GenerateEngineModelAsync(draftId, parameters, modeOverride).ConfigureAwait(false);
 				var invariantAnalysis = TemplateInvariantAnalyzer.Analyze(modelYaml);
-				return await BuildGenerateResponseAsync(draftId, modelYaml, invariantAnalysis.Warnings, config, warningRegistry, storage, cancellationToken).ConfigureAwait(false);
+				var loadedDraft = await draftTemplateService.GetTemplateAsync(draftId).ConfigureAwait(false);
+				var draftTitle = loadedDraft?.Metadata.Title ?? string.Empty;
+				return await BuildGenerateResponseAsync(draftId, draftTitle, modelYaml, invariantAnalysis.Warnings, config, warningRegistry, storage, cancellationToken).ConfigureAwait(false);
 			}
 			catch (ArgumentException ex)
 			{
@@ -1066,6 +1071,7 @@ public partial class Program
 
 	private static async Task<IResult> BuildGenerateResponseAsync(
 		string templateId,
+		string templateTitle,
 		string modelYaml,
 		IReadOnlyList<InvariantWarning> warnings,
 		IConfiguration config,
@@ -1076,9 +1082,14 @@ public partial class Program
 		warningRegistry.UpdateWarnings(templateId, warnings);
 
 		var modelHash = ModelHasher.ComputeModelHash(modelYaml);
-		var artifact = artifactDeserializer.Deserialize<SimModelArtifact>(modelYaml);
-		var hasWindow = !string.IsNullOrWhiteSpace(artifact.Window?.Start);
-		var hasTopology = artifact.Topology?.Nodes?.Count > 0;
+		// m-E24-02: Engine intake reads the unified post-substitution model (ModelDto).
+		// The template title (template-authoring-only) is passed in by the caller
+		// because the unified model no longer carries a top-level template
+		// `metadata` block (Q5/A4 — only templateId / templateVersion survive
+		// inside provenance).
+		var model = ModelService.ParseYaml(modelYaml);
+		var hasWindow = !string.IsNullOrWhiteSpace(model.Grid?.Start);
+		var hasTopology = model.Topology?.Nodes?.Count > 0;
 		var telemetryMetadata = FlowTime.Core.TimeTravel.TelemetrySourceMetadataExtractor.Extract(modelYaml);
 		var hasTelemetrySources = telemetryMetadata.TelemetrySources.Count > 0;
 
@@ -1088,24 +1099,33 @@ public partial class Program
 			: modelHash;
 		var modelId = $"model_{modelHashValue}";
 
+		var provenance = model.Provenance;
+		var resolvedTemplateId = provenance?.TemplateId ?? templateId;
+		var resolvedTemplateVersion = provenance?.TemplateVersion ?? string.Empty;
+		var resolvedMode = provenance?.Mode ?? string.Empty;
+		var resolvedGenerator = provenance?.Generator ?? string.Empty;
+		var resolvedSchemaVersion = model.SchemaVersion ?? 1;
+		var resolvedParameters = provenance?.Parameters
+			?? new Dictionary<string, object?>(StringComparer.Ordinal);
+
 		var metadata = new
 		{
-			templateId = artifact.Metadata.Id,
-			templateTitle = artifact.Metadata.Title,
-			templateVersion = artifact.Metadata.Version,
-			schemaVersion = artifact.SchemaVersion,
-			mode = artifact.Mode,
+			templateId = resolvedTemplateId,
+			templateTitle,
+			templateVersion = resolvedTemplateVersion,
+			schemaVersion = resolvedSchemaVersion,
+			mode = resolvedMode,
 			hasWindow,
 			hasTopology,
 			hasTelemetrySources,
 			telemetrySources = telemetryMetadata.TelemetrySources,
 			nodeSources = telemetryMetadata.NodeSources,
 			modelHash = modelHashValue,
-			parameters = artifact.Provenance.Parameters,
+			parameters = resolvedParameters,
 			generatedAtUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture)
 		};
 
-		var provenanceJson = JsonSerializer.Serialize(artifact.Provenance, new JsonSerializerOptions
+		var provenanceJson = JsonSerializer.Serialize(provenance, new JsonSerializerOptions
 		{
 			WriteIndented = true,
 			PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -1121,11 +1141,11 @@ public partial class Program
 			ContentType = "application/zip",
 			Metadata = new Dictionary<string, string>
 			{
-				["templateId"] = artifact.Metadata.Id,
-				["templateTitle"] = artifact.Metadata.Title,
-				["templateVersion"] = artifact.Metadata.Version,
-				["schemaVersion"] = artifact.SchemaVersion.ToString(CultureInfo.InvariantCulture),
-				["mode"] = artifact.Mode,
+				["templateId"] = resolvedTemplateId,
+				["templateTitle"] = templateTitle,
+				["templateVersion"] = resolvedTemplateVersion,
+				["schemaVersion"] = resolvedSchemaVersion.ToString(CultureInfo.InvariantCulture),
+				["mode"] = resolvedMode,
 				["modelHash"] = modelHashValue,
 				["generatedAtUtc"] = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture)
 			}
@@ -1133,12 +1153,12 @@ public partial class Program
 
 		var metadataSummary = new
 		{
-			templateId = artifact.Metadata.Id,
-			templateTitle = artifact.Metadata.Title,
-			templateVersion = artifact.Metadata.Version,
-			schemaVersion = artifact.SchemaVersion,
-			generator = artifact.Generator,
-			mode = artifact.Mode,
+			templateId = resolvedTemplateId,
+			templateTitle,
+			templateVersion = resolvedTemplateVersion,
+			schemaVersion = resolvedSchemaVersion,
+			generator = resolvedGenerator,
+			mode = resolvedMode,
 			hasWindow,
 			hasTopology,
 			hasTelemetrySources,
@@ -1153,7 +1173,7 @@ public partial class Program
 			bins = w.Bins
 		}).ToArray();
 
-		return Results.Ok(new { model = modelYaml, provenance = artifact.Provenance, metadata = metadataSummary, warnings = warningsPayload, modelRef = modelWrite.Reference });
+		return Results.Ok(new { model = modelYaml, provenance, metadata = metadataSummary, warnings = warningsPayload, modelRef = modelWrite.Reference });
 	}
 
 	private static Dictionary<string, object> BuildParameters(Dictionary<string, JsonElement>? parameters)

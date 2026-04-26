@@ -3,12 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using FlowTime.Contracts.Services;
 using FlowTime.Sim.Core.Services;
-using FlowTime.Sim.Core.Templates;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
 
 namespace FlowTime.Sim.Tests.Templates;
 
@@ -20,17 +18,14 @@ public sealed class EdgeLagTemplateTests
         var templatesDirectory = ResolveTemplatesDirectory();
         var templateService = new TemplateService(templatesDirectory, NullLogger<TemplateService>.Instance);
         var templates = await templateService.GetAllTemplatesAsync();
-        var deserializer = new DeserializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .IgnoreUnmatchedProperties()
-            .Build();
         var failures = new List<string>();
 
         foreach (var template in templates)
         {
             var yaml = await templateService.GenerateEngineModelAsync(template.Metadata.Id, new Dictionary<string, object>());
-            var artifact = deserializer.Deserialize<SimModelArtifact>(yaml);
-            var laggedEdges = artifact.Topology.Edges?
+            // m-E24-02: deserialize into the unified ModelDto.
+            var model = ModelService.ParseYaml(yaml);
+            var laggedEdges = model.Topology?.Edges?
                 .Where(edge => edge.Lag.HasValue && edge.Lag.Value > 0)
                 .Select(edge => $"{edge.Id}({edge.From}->{edge.To}, lag {edge.Lag})")
                 .ToList();

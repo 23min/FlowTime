@@ -23,6 +23,20 @@ if ! command -v uv >/dev/null 2>&1; then
   export PATH="$HOME/.local/bin:$PATH"
 fi
 
+# Install Rust toolchain with clippy (needed by /wf-dead-code-audit rust recipe)
+if ! command -v cargo >/dev/null 2>&1; then
+  echo "Installing Rust toolchain (stable + clippy)..."
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal --component clippy
+  export PATH="$HOME/.cargo/bin:$PATH"
+fi
+
+# Install Roslynator CLI (needed by /wf-dead-code-audit dotnet recipe)
+if ! command -v roslynator >/dev/null 2>&1; then
+  echo "Installing Roslynator CLI..."
+  dotnet tool install -g Roslynator.DotNet.Cli
+  export PATH="$HOME/.dotnet/tools:$PATH"
+fi
+
 echo "Restoring solution..."
 dotnet restore >/dev/null
 

@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using FlowTime.Contracts.Dtos;
+using FlowTime.Contracts.Services;
 using FlowTime.Sim.Core.Services;
 using FlowTime.Sim.Core.Templates;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
 
 namespace FlowTime.Sim.Tests.NodeBased;
 
@@ -61,13 +61,9 @@ outputs:
 
         var model = DeserializeArtifact(generatedYaml);
 
+        // m-E24-02: top-level leaked-state fields (generator/mode/metadata/window) gone;
+        // their meaningful subset surfaces inside provenance (Q5/A4) or grid.start (window.start).
         Assert.Equal(1, model.SchemaVersion);
-        Assert.Equal("flowtime-sim", model.Generator);
-        Assert.Equal("simulation", model.Mode);
-        Assert.Equal("const-model-test", model.Metadata.Id);
-        Assert.Equal("Constant Node Model Test", model.Metadata.Title);
-        Assert.Equal("2025-01-01T00:00:00Z", model.Window.Start);
-        Assert.Equal("UTC", model.Window.Timezone);
 
         Assert.Equal(4, model.Grid.Bins);
         Assert.Equal(30, model.Grid.BinSize);
@@ -80,12 +76,13 @@ outputs:
         Assert.Contains(model.Outputs, o => o.Series == "arrivals");
         Assert.Contains(model.Outputs, o => o.Series == "served");
 
-        Assert.Equal("flowtime-sim", model.Provenance.Source);
-        Assert.Equal("const-model-test", model.Provenance.TemplateId);
+        Assert.NotNull(model.Provenance);
+        Assert.Equal("const-model-test", model.Provenance!.TemplateId);
         Assert.Equal("1.0.0", model.Provenance.TemplateVersion);
         Assert.Equal("simulation", model.Provenance.Mode);
         Assert.StartsWith("flowtime-sim/", model.Provenance.Generator);
-        Assert.True(model.Provenance.Parameters.TryGetValue("arrival_rate", out var arrivalRate));
+        Assert.NotNull(model.Provenance.Parameters);
+        Assert.True(model.Provenance.Parameters!.TryGetValue("arrival_rate", out var arrivalRate));
         Assert.Equal(80, Convert.ToInt32(arrivalRate));
         Assert.False(string.IsNullOrWhiteSpace(model.Provenance.ModelId));
     }
@@ -153,10 +150,13 @@ outputs:
         Assert.Equal(0.2, pmfNode.Pmf.Probabilities[1]);
         Assert.Equal(0.6, pmfNode.Pmf.Probabilities[2]);
 
-        Assert.Equal("simulation", model.Mode);
-        Assert.Equal("pmf-model-test", model.Metadata.Id);
+        // m-E24-02: top-level mode/metadata gone; survives in provenance.* (Q5/A4).
+        Assert.NotNull(model.Provenance);
+        Assert.Equal("simulation", model.Provenance!.Mode);
+        Assert.Equal("pmf-model-test", model.Provenance.TemplateId);
         Assert.Equal("2025-02-01T00:00:00Z", model.Grid.Start);
-        Assert.True(model.Provenance.Parameters.TryGetValue("high_prob", out var highProb));
+        Assert.NotNull(model.Provenance.Parameters);
+        Assert.True(model.Provenance.Parameters!.TryGetValue("high_prob", out var highProb));
         Assert.Equal(0.2, Convert.ToDouble(highProb, System.Globalization.CultureInfo.InvariantCulture));
     }
 
@@ -208,9 +208,9 @@ outputs:
         Assert.NotNull(profiledNode.Values);
         Assert.Equal(12, profiledNode.Values!.Length);
         Assert.NotNull(profiledNode.Metadata);
-        Assert.NotNull(profiledNode.Pmf);
-        Assert.Equal(new[] { 50d, 100d }, profiledNode.Pmf!.Values);
-        Assert.Equal(new[] { 0.4d, 0.6d }, profiledNode.Pmf.Probabilities);
+        // m-E23-01 Fix 2: profiled-pmf nodes emit kind: const without a top-level pmf block.
+        // Source distribution lives in the template; metadata.pmf.expected captures the derived stat.
+        Assert.Null(profiledNode.Pmf);
 
         var expectedMean = 50 * 0.4 + 100 * 0.6;
         var average = profiledNode.Values.Average();
@@ -270,9 +270,8 @@ outputs:
         Assert.Equal("const", profiledNode.Kind);
         Assert.NotNull(profiledNode.Values);
         Assert.Equal(3, profiledNode.Values!.Length);
-        Assert.NotNull(profiledNode.Pmf);
-        Assert.Equal(new[] { 20d, 40d }, profiledNode.Pmf!.Values);
-        Assert.Equal(new[] { 0.5d, 0.5d }, profiledNode.Pmf.Probabilities);
+        // m-E23-01 Fix 2: profiled-pmf nodes emit kind: const without a top-level pmf block.
+        Assert.Null(profiledNode.Pmf);
 
         var expectedMean = 30d;
         var expectedSeries = new[] { expectedMean * 0.5, expectedMean * 1.5, expectedMean * 1.0 };
@@ -340,8 +339,11 @@ outputs:
         var exprNode = model.Nodes.Single(n => n.Id == "served");
         Assert.Equal("expr", exprNode.Kind);
         Assert.Equal("MIN(demand, capacity * 0.9)", exprNode.Expr);
-        Assert.Equal("simulation", model.Mode);
-        Assert.True(model.Provenance.Parameters.TryGetValue("efficiency", out var efficiency));
+        // m-E24-02: top-level mode gone; survives in provenance.mode.
+        Assert.NotNull(model.Provenance);
+        Assert.Equal("simulation", model.Provenance!.Mode);
+        Assert.NotNull(model.Provenance.Parameters);
+        Assert.True(model.Provenance.Parameters!.TryGetValue("efficiency", out var efficiency));
         Assert.Equal(0.9, Convert.ToDouble(efficiency, System.Globalization.CultureInfo.InvariantCulture));
     }
 
@@ -389,13 +391,16 @@ outputs:
 
         var model = DeserializeArtifact(generatedYaml);
 
-        Assert.Equal("telemetry", model.Mode);
-        Assert.Equal("telemetry", model.Provenance.Mode);
-        Assert.Contains(model.Nodes, n =>
-            n.Id == "arrivals" &&
-            n.Source == "file://telemetry/order-service_arrivals.csv");
+        // m-E24-02: top-level mode gone; survives in provenance.mode (Q5/A4).
+        Assert.NotNull(model.Provenance);
+        Assert.Equal("telemetry", model.Provenance!.Mode);
+        // Per Q4: nodes[].source is dropped from emission; not declared on NodeDto.
+        // Verify the arrivals node exists (without checking Source — it no longer exists).
+        Assert.Contains(model.Nodes, n => n.Id == "arrivals");
         Assert.Contains(model.Nodes, n => n.Id == "served" && n.Values is { Length: 2 });
-        Assert.Empty(model.Provenance.Parameters);
+        // Empty parameter sets serialize as YAML omission (D-m-E24-02-03 — nullable +
+        // OmitNull). Allow either null or empty dictionary on the round-trip.
+        Assert.True(model.Provenance.Parameters is null || model.Provenance.Parameters.Count == 0);
     }
 
     [Fact]
@@ -443,7 +448,8 @@ outputs:
             new Dictionary<string, object>());
 
         var model = DeserializeArtifact(generatedYaml);
-        var node = Assert.Single(model.Topology.Nodes, n => n.Id == "IncidentIntake");
+        Assert.NotNull(model.Topology);
+        var node = Assert.Single(model.Topology!.Nodes, n => n.Id == "IncidentIntake");
         Assert.Equal("processing_sum", node.Semantics.ProcessingTimeMsSum);
         Assert.Equal("served", node.Semantics.ServedCount);
     }
@@ -458,12 +464,8 @@ outputs:
         return new TemplateService(templates, NullLogger<TemplateService>.Instance);
     }
 
-    private static SimModelArtifact DeserializeArtifact(string yaml)
-    {
-        var deserializer = new DeserializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .Build();
-
-        return deserializer.Deserialize<SimModelArtifact>(yaml);
-    }
+    // m-E24-02: deserialize into the unified ModelDto.
+    // Uses IgnoreUnmatchedProperties so any residual leaked-state fields would be
+    // tolerated; assertions below pin the new shape (Q5/A4 — provenance.mode etc.).
+    private static ModelDto DeserializeArtifact(string yaml) => ModelService.ParseYaml(yaml);
 }

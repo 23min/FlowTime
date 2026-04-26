@@ -65,8 +65,13 @@ These values are resolved from framework defaults in .ai/paths.md and repo overr
 | `completedEpicPathTemplate` | `work/epics/completed/<epic>/` | Completed epic archive template |
 | `epicIdPattern` | `E-{NN}` | Epic ID naming pattern |
 | `milestoneIdPattern` | `m-E{NN}-<MM>-<slug>` | Milestone ID naming pattern |
+| `adrPath` | `docs/decisions/` | Architecture Decision Records folder (filename `NNNN-<slug>.md`) |
+| `adrTemplatePath` | `.ai/templates/adr.md` | Repo-neutral ADR template used by `architect` and `wrap-epic` |
 | `frameworkSkillPrefix` | `wf` | Prefix for framework skill slash-commands (e.g. `/wf-patch`) |
 | `repoSkillPrefix` | `` | Prefix for repo-specific skill slash-commands (e.g. `/wf-li-app-legibility`) |
+| `scratchPath` | `.ai-repo/scratch/` | Per-work-unit scratch dir; cleaned up at wrap. |
+| `scratchAuditThresholdMb` | `100` | Size threshold (MB) for SessionStart scratch-audit warning. |
+| `contractSurfaces` | `not configured` | Opt-in: enables `doc-lint`'s uncovered-contract-surface check. See `.ai/paths.md`. |
 
 ## Project-Specific Rules
 
@@ -201,6 +206,12 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
+**Active focus:** E-21 Svelte Workbench & Analysis Surfaces — **resumed (2026-04-26)** with `epic/E-21-svelte-workbench-and-analysis` caught up to main and m-E21-06 Heatmap View merged in. Reentry milestone is **m-E21-07 Validation Surface (Svelte)** which consumes the now-consolidated `ModelSchemaValidator`.
+
+**Why now:** E-23 Model Validation Consolidation completed and merged to main (2026-04-26). All three embedments closed: type (E-24), schema document (E-24), rule evaluator (E-23). `ModelSchemaValidator.Validate` is now the single model-YAML validator in the codebase. `ModelValidator.cs` deleted; `ValidationResult` relocated to its own file. Both canaries green; full suite 1862 / 0 / 9.
+
+> **Note:** the catalog below is a historical trail kept manually; convention prefers a narrow narrative-only Current Work section. The catalog exceeds the 15-line guideline — slated for trim during a future cleanup pass; not in scope for this milestone.
+
 - **E-17** Interactive What-If Mode — **completed and merged to main (2026-04-12).** Archived to `work/epics/completed/E-17-interactive-what-if-mode/`.
   - 6 milestones. WebSocket bridge → parameter panel → topology heatmap → warnings → edge heatmap → time scrubber. 200 vitest + 26 Playwright E2E.
 - **E-18** Time Machine (`work/epics/E-18-headless-pipeline-and-optimization/spec.md`) — **in-progress** — foundation + analysis layer delivered; Fit + Chunked + SDK carried forward as **E-22**.
@@ -233,7 +244,12 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 - **E-16** Formula-First Core Purification — **completed.** Archived to `work/epics/completed/E-16-formula-first-core-purification/`.
 - **E-19** Surface Alignment & Compatibility Cleanup — **completed and merged to main (2026-04-08).** Archived to `work/epics/completed/E-19-surface-alignment-and-compatibility-cleanup/`.
   - Deferred (tracked in `work/gaps.md`): `POST /v1/run` and `POST /v1/graph` Engine route deletion per D-2026-04-08-029 (test-infrastructure migration needed first).
-- **E-21** Svelte Workbench & Analysis Surfaces (`work/epics/E-21-svelte-workbench-and-analysis/spec.md`) — **in-progress**
+- **E-24** Schema Alignment — **completed and merged to main (2026-04-25).** Archived to `work/epics/completed/E-24-schema-alignment/`.
+  - 5 milestones. Unified the post-substitution model: one C# type (`ModelDto`+`ProvenanceDto` in `FlowTime.Contracts`), one schema (`docs/schemas/model.schema.yaml`), one validator. `SimModelArtifact` + 6 satellites deleted; Sim emits the unified type directly; Engine parses it directly. Mirrored `ParseScalar` `ScalarStyle.Plain` guard + sibling `QuotedAmbiguousStringEmitter` round-trip pair. Canary `Survey_Templates_For_Warnings` promoted to hard `val-err == 0` build-time gate. 5 ADRs ratified. Closure logged in `D-2026-04-25-038`; E-23 unblocked.
+- **E-23** Model Validation Consolidation — **completed and merged to main (2026-04-26).** Archived to `work/epics/completed/E-23-model-validation-consolidation/`.
+  - 3 milestones. m-E23-01: 94 rules audited; 16 schema-add edits + 5-arm `oneOf` schema restructure + silent-error fallback; 12 named adjunct methods on `ModelSchemaValidator`; 32-test negative-case regression catalogue. m-E23-02: 3 production call sites + 28 test calls migrated to `ModelSchemaValidator.Validate`; `TimeMachineValidator` redundant-delegation block removed; real `ProvenanceService.StripProvenance` round-trip bug fixed via YamlStream surgical removal preserving scalar styles; +16 tests including a watertight `/v1/run`-level integration regression. m-E23-03: `ModelValidator.cs` deleted; `ValidationResult` relocated to its own file. **`ModelSchemaValidator.Validate` is now the single model-YAML validator in the codebase.** Final suite 1862 / 0 / 9. Stashed input material from the pre-pivot `milestone/m-E23-01-schema-alignment` branch + `stash@{0}` is now obsolete — schema-alignment work was absorbed by E-24 m-E24-03 / m-E24-05; safe to discard.
+  - **Unblocks:** m-E21-07 Validation Surface (Svelte) — consumes the consolidated `ModelSchemaValidator` once E-21 resumes.
+- **E-21** Svelte Workbench & Analysis Surfaces (`work/epics/E-21-svelte-workbench-and-analysis/spec.md`) — **resumed (2026-04-26)** — paused 2026-04-23 to run E-24 then E-23; both closed. m-E21-06 Heatmap View merged into `epic/E-21-svelte-workbench-and-analysis` 2026-04-26 (backfill of the missing wrap-time merge); main caught up onto the epic branch in the same pass. Reentry point is m-E21-07 Validation Surface — consumes the consolidated `ModelSchemaValidator` that E-23 delivers.
   - **m-E21-01** (complete, merged to epic): Workbench Foundation — density system, dag-map events (library), workbench panel with click-to-pin node cards. 217 vitest + 293 dag-map tests.
   - **m-E21-02** (complete, merged to epic): Metric Selector & Edge Cards — metric chip bar, edge click-to-pin, edge cards, class filter, custom TimelineScrubber, dark-mode/viz-palette fixes. 323 vitest + 293 dag-map = 616 tests.
   - **m-E21-03** (complete, merged to epic 2026-04-17; ultrareview follow-ups 2026-04-20): Sweep & Sensitivity Surfaces — `/analysis` route with tabbed surfaces, sweep config + results, sensitivity bar chart. 433 vitest + 293 dag-map = 726 tests; 8 Playwright specs. D-2026-04-17-033 ratifies the `GET /v1/runs/{runId}/model` backend carve-out.

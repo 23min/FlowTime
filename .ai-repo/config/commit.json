@@ -1,6 +1,6 @@
 {
   "coAuthors": {
-    "claude":  "Claude <noreply@anthropic.com>",
+    "claude":  "Claude Opus 4.7 (1M context) <noreply@anthropic.com>",
     "copilot": "GitHub Copilot <noreply@github.com>",
     "codex":   "OpenAI Codex <noreply@openai.com>"
   }

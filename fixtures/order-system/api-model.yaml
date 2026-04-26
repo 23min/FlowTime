@@ -3,7 +3,7 @@ grid:
   bins: 288
   binSize: 5
   binUnit: minutes
-  startTimeUtc: "2025-10-07T00:00:00Z"
+  start: "2025-10-07T00:00:00Z"
 nodes:
   - id: order_arrivals
     kind: const

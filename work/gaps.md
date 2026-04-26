@@ -5,6 +5,89 @@ It is intentionally short, factual, and forward-looking.
 
 ---
 
+## `ProvenanceEmbedder` parallel CLI path (Sim, dead code) (resolved 2026-04-25)
+
+### Why this was a gap
+
+Surfaced during m-E24-02 step 4 (deferred); confirmed during step-6 wrap audit. `src/FlowTime.Sim.Core/Services/ProvenanceEmbedder.cs` is a static helper that injects a `provenance:` block into a YAML string by inserting lines after `schemaVersion:`. It uses string-template emission (not `ProvenanceDto` serialization) and a separate `ProvenanceMetadata` type (in `src/FlowTime.Sim.Core/Models/`) with its own field names — including `source`, `schemaVersion`, `templateTitle` that the m-E24-01 Q5/A4 ratified shape **drops**.
+
+Status check (verified 2026-04-25):
+- `grep -rn "ProvenanceEmbedder\." src/ tests/` — **zero hits**. The static method has no callers.
+- `--embed-provenance` CLI flag in `Sim.Cli/Program.cs:744` carries help text: `"(Legacy) provenance is always embedded; flag retained for compatibility"`. The flag is parsed and stored, but it does not invoke `ProvenanceEmbedder` anywhere.
+- The unified `SimModelBuilder` → `ModelDto` → `ProvenanceDto` path (m-E24-02 step 4) is the sole live emission path.
+
+So `ProvenanceEmbedder` is a latent **wrong-shape emitter** — if anything ever resurrects the call site, it would emit a provenance block that violates the post-m-E24-02 contract (snake_case hangover from earlier shape, `source`/`schemaVersion`/`templateTitle` keys that AC6 drops).
+
+### Why deferred from m-E24-02
+
+Out of step-4 scope (parallel CLI path; the milestone owned the primary path). Confirmed dead during the step-6 wrap audit, after the milestone's order-of-work was already locked.
+
+### Status
+
+**Resolved 2026-04-25** via `chore/e-24-cleanup-wave` patch branch:
+- `src/FlowTime.Sim.Core/Services/ProvenanceEmbedder.cs` deleted.
+- `src/FlowTime.Sim.Core/Models/ProvenanceMetadata.cs` retained — has live consumers via `IProvenanceService.CreateProvenance` (`ProvenanceService`, `RunOrchestrationService`, `ProvenanceServiceTests`); only the dead emitter helper was removable.
+- `--embed-provenance` flag, `EmbedProvenance` field on `CliOptions`, mutual-exclusivity validation, help text, and example removed from `src/FlowTime.Sim.Cli/Program.cs`. Five CLI tests covering the now-removed flag (`ArgParser_ParsesEmbedProvenanceFlag`, `ArgParser_ParsesBothProvenanceOptions`, `Generate_WithEmbedProvenanceFlag_EmbedsProvenanceInModel`, `Generate_WithEmbedProvenance_NoSeparateProvenanceFile`, `Generate_WithBothProvenanceOptions_ReturnsError`) deleted from `tests/FlowTime.Sim.Tests/Cli/GenerateProvenanceTests.cs`. Service-side `?embed_provenance=` query-string shim left in place (separate concern, documented as legacy in `FlowTime.Sim.Service.http`).
+
+---
+
+## `GridDefinition.StartTimeUtc` runtime-side rename (Engine) (resolved 2026-04-25)
+
+### Why this was a gap
+
+Surfaced during m-E24-02 step 2 — D-m-E24-02-03 ratified a deliberate wire/runtime naming asymmetry: the wire DTO `GridDto.StartTimeUtc` was renamed to `Start` (so the camelCase convention emits `start:`, matching production templates), but the runtime model `GridDefinition.StartTimeUtc` (in `src/FlowTime.Core/Models/ModelParser.cs:577`) kept its name. The boundary is `ModelService.ConvertToModelDefinition`: `StartTimeUtc = model.Grid.Start`.
+
+The asymmetry is real but cosmetic. Same concept, two names across the wire/runtime boundary. Readers of `model.Grid.Start` (wire) and `runtimeModel.Grid.StartTimeUtc` (runtime) see different identifiers for the same semantic.
+
+### Why out of E-24 scope
+
+E-24's scope is the post-substitution wire shape. The runtime model is the consumer of that shape, not part of it. Renaming the runtime property would touch `ModelParser`, every Engine evaluator that reads grid start, and a handful of tests authoring `ModelDefinition` directly. Out of step-2 budget at the time; carved out per D-m-E24-02-03.
+
+### Status
+
+**Resolved 2026-04-25** via `chore/e-24-cleanup-wave` patch branch:
+- `GridDefinition.StartTimeUtc` → `GridDefinition.Start` in `src/FlowTime.Core/Models/ModelParser.cs`.
+- `ModelService.ConvertToModelDefinition` (`src/FlowTime.Contracts/Services/ModelService.cs`) updated; the wire/runtime asymmetry comment is now obsolete and was removed.
+- `TelemetryCapture.BuildWindow` (`src/FlowTime.TimeMachine/TelemetryCapture.cs:200`) and `FixtureModelLoader` (`src/FlowTime.Core/Fixtures/FixtureModelLoader.cs:64`) updated to read `model.Grid.Start`.
+- `ModelParserTopologyTests` (`tests/FlowTime.Core.Tests/Parsing/ModelParserTopologyTests.cs`) test fixtures construct `GridDefinition { Start = ... }` directly.
+- `TelemetryManifestWindow.StartTimeUtc`, `FixtureWindow.StartTimeUtc`, and `CaptureManifestWriter` record-parameter `StartTimeUtc` left untouched per their gap-entry carve-out (different types; live under `window:` blocks).
+- Bundled with the `ProvenanceEmbedder` delete and the Template-layer `Legacy*` cleanup as the rationale predicted.
+
+---
+
+## Template-layer `Legacy*` aliases (Sim authoring-time) (resolved 2026-04-25)
+
+### Why this was a gap
+
+Surfaced during m-E24-02 (D-m-E24-02-03, 2026-04-25). `src/FlowTime.Sim.Core/Templates/Template.cs` carries three `Legacy*` properties on the authoring-time `Template` types, each paired with a `ShouldSerialize*` shim:
+
+| Property | YAML alias | C# canonical |
+|---|---|---|
+| `Template.Node.LegacyExpression` (line 264) | `expression:` | `Expr` (emits as `expr:`) |
+| `TemplateOutput.LegacySource` (line 339) | `source:` (in outputs) | `Series` (emits as `series:`) |
+| `TemplateOutput.LegacyFilename` (line 348) | `filename:` | `As` (emits as `as:`) |
+
+All three are **dead aliases**:
+- `expression:` — zero hits in `templates/*.yaml` (production), zero hits in `tests/**/*.yaml`. Real templates use `expr:`. Note: `examples/*.yaml` and `engine/fixtures/*.yaml` have hits for `expression:`, but those go through the Engine's `ModelParser`, not through `Template`.
+- `source:` (in outputs) — zero hits in production templates and tests. The `source:` matches in production templates (9 hits) are all on **nodes** (`nodes[].source: ${telemetryFooSource}`), a separate mechanism on `Template.Node`, not on `TemplateOutput`.
+- `filename:` — zero hits in production templates or tests.
+
+The paired `ShouldSerialize*` methods are no-ops at the YAML emitter — YamlDotNet does not honor the `ShouldSerialize{X}()` convention (it is a Json.NET / `XmlSerializer` pattern). See D-m-E24-02-03 for the YamlDotNet investigation.
+
+### Why deferred from m-E24-02
+
+`Template` is authoring-time, pre-substitution. E-24's scope is the post-substitution model boundary (the unified `ModelDto`). Touching `Template` would scope-creep the milestone.
+
+### Status
+
+**Resolved 2026-04-25** via `chore/e-24-cleanup-wave` patch branch:
+- `Template.Node.LegacyExpression` (and `ShouldSerializeLegacyExpression`) deleted.
+- `TemplateOutput.LegacySource` (and `ShouldSerializeLegacySource`) deleted.
+- `TemplateOutput.LegacyFilename` (and `ShouldSerializeLegacyFilename`) deleted.
+- Pre-delete sweep confirmed zero live consumers in production templates and Sim tests; the one `filename:` hit in `tests/FlowTime.Sim.Tests/ArtifactHashingTests.cs` flows through `ModelHasher` (raw YAML deserialization to `object?`), not through `Template`. The `LegacyExpression`-named test in `tests/FlowTime.Tests/Schema/TargetSchemaValidationTests.cs:182` exercises Engine-side `ModelValidator`, not Sim's `Template`, and is unaffected.
+
+---
+
 ## Legacy / Compatibility Surface Cleanup
 
 ### Why this was a gap
@@ -781,6 +864,81 @@ Open, deferred by user decision 2026-04-24. Fit-to-width is the 80 % solution fo
 - Until the sliding-window milestone lands, fit-to-width is the only knob for wide runs on the heatmap.
 - Plan for a new E-21 milestone after m-E21-07 Validation and m-E21-08 Polish — or fold into polish if scope allows.
 - When the milestone lands, the Blazor-parity gesture needs to be muscle-memory-compatible for existing users (drag the window body; resize via handles).
+
+---
+
+## FFI-based engine evaluator (alternative to subprocess)
+
+### Why this is a gap
+
+The current `IModelEvaluator` seam has two implementations — `RustModelEvaluator` (fresh subprocess per eval) and `SessionModelEvaluator` (persistent `flowtime-engine session` subprocess via MessagePack over stdio). Both share one property: the engine is a separate OS process, with IPC on every call.
+
+For Studio (E-23 as proposed), this boundary gets expensive:
+
+- **Per-session memory multiplies.** “One Rust process per session” with ~50 concurrent sessions = 50 process address spaces. The alternative — a pooled subprocess with session affinity — is real complexity that does not serve users.
+- **Session IR wants direct access to engine state.** Node identity, per-node cache, and generation counters live in Rust (per m-E23-01). The .NET session service projects patches onto that state via IPC round-trips. A shared-memory boundary would let the service hand the evaluator `&mut Graph` or an `Arc<Session>` directly.
+- **Cold start matters for short-lived embedders.** `FlowTime.Pipeline` SDK callers pay subprocess startup per invocation unless they keep a session open; an in-process library pays zero.
+- **Container profile.** On cloud-agnostic hosting (Hetzner, plain Docker), collapsing engine + service into one process shrinks image size and PID footprint.
+
+### Alternative shape
+
+Rust engine compiled as a **cdylib** (or `staticlib` for .NET AOT scenarios), loaded into the hosting process via FFI:
+
+- .NET host → P/Invoke or a managed wrapper around a stable C ABI.
+- Rust host → same crate linked directly (no FFI needed if the service is also Rust — see below).
+- Python/Node/Go embedders → same C ABI via their native-interop story.
+
+Keeps the language-boundary benefit (engine correctness isolated from service churn) without the process boundary.
+
+### Why this may or may not be worth doing
+
+Worth it if any of these bite:
+
+- Per-session memory at `N=50` concurrent sessions exceeds budget.
+- Cold-start latency on short-lived pipeline invocations shows up in traces.
+- The subprocess pool-with-affinity logic grows into a distinct subsystem rather than a small helper.
+
+Not worth it if:
+
+- Sessions are few and long-lived (the subprocess boundary amortizes).
+- The managed wrapper surface area (marshalling complex types, lifetime of native handles, allocator mismatches) exceeds the subprocess complexity it replaces.
+
+### Immediate implications
+
+- Keep `IModelEvaluator` as the seam; do not let subprocess assumptions leak past it.
+- Before committing to “one Rust process per session” in m-E23-01/m-E23-02, prototype an FFI-based evaluator alongside the subprocess one and measure memory + cold start at realistic `N`.
+- A language reconsideration for the service layer (see “Backend language choice for session service” below) interacts with this decision: if the service ends up in Rust, FFI collapses to a direct link and the IPC discussion ends.
+
+---
+
+## Backend language choice for session service
+
+### Why this is a gap
+
+The current stack is Rust engine + .NET session layer. The .NET choice is historical — it predates the Rust engine and predates Studio's scope expansion. Under cloud-agnostic deployment (Docker on Hetzner or similar) and with the Pipeline SDK's “embeddable into .NET only” framing challenged, the first-principles calculus shifts:
+
+- **Pipeline SDK embedding reach.** A Rust crate + C ABI reaches .NET (P/Invoke), Python (ctypes / PyO3), Node (NAPI), Go (cgo), and any other runtime. A .NET assembly reaches .NET only. Broader embedder reach is strictly better for “FlowTime as a callable function” positioning.
+- **Container profile on cloud-agnostic hosting.** Rust: ~10 MB static binary, sub-second cold start. .NET AOT-trimmed: ~80 MB, multi-second cold start. On managed Azure the gap is absorbed; on plain Docker hosting it is visible.
+- **Collapsing the engine/service divide.** If the service is Rust, the “engine as subprocess” discussion ends — the session service owns the engine state directly via a linked crate.
+- **Studio's .NET scope is mostly net-new.** Session IR, patch vocabulary, WS multiplex, snapshot/resume do not exist today. The rewrite cost is “build Studio in Rust from scratch” rather than “port a mature .NET layer to Rust.” The existing analysis runners (SweepRunner, Nelder-Mead, etc., ~1,600 LOC) are near-pure math and port cleanly.
+
+### Status
+
+Open question. Not scheduled. Worth deciding before m-E23-01 scope lands so the implementation substrate is settled.
+
+### Resolution path
+
+Prototype spike:
+
+1. `axum` or `actix-web` service exposing the current `/v1/sweep` shape, wrapping the Rust engine as a linked crate (no subprocess).
+2. Measure: cold start, steady-state memory at N=50 sessions, end-to-end sweep latency vs .NET + subprocess baseline, container image size.
+3. Re-evaluate with data. If Rust wins decisively on memory + deployment profile and the async-Rust complexity for WS fan-out is tractable, Studio (E-23) is the natural place to land the shift — it is mostly new scope anyway.
+
+### Immediate implications
+
+- Do not treat “.NET session service” as settled in the Studio architecture doc. Mark it as an assumption pending spike.
+- Keep the `IModelEvaluator` seam language-neutral in spirit — it is currently .NET-flavored but the pattern (compile-once-eval-many with parameter patches) ports directly.
+- Do not expand the .NET layer with anything that would be load-bearing to keep on .NET specifically. Structural patch handling, session IR, and WS multiplex should be written as if any language could host them.
 
 ---
 

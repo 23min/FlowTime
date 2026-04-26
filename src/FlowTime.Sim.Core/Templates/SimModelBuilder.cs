@@ -4,104 +4,85 @@ using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using FlowTime.Contracts.Dtos;
 using FlowTime.Sim.Core.Templates.Exceptions;
 
 namespace FlowTime.Sim.Core.Templates;
 
 /// <summary>
-/// Transforms validated templates into KISS-compliant simulation models.
+/// Transforms validated templates into the unified post-substitution model
+/// (<see cref="ModelDto"/>) per E-24 m-E24-02. Leaked-state root fields
+/// (<c>window</c>, top-level <c>generator</c>, top-level <c>metadata</c>,
+/// top-level <c>mode</c>) are dropped; per Q5/A4, <c>generator</c> and
+/// <c>mode</c> survive inside <c>provenance</c> only. The scalar
+/// <c>nodes[].initial</c> field (D-m-E24-02-01) is dead and not propagated.
+/// The <c>nodes[].source</c> field (Q4) is dropped from emission and not
+/// declared on <see cref="NodeDto"/>; <see cref="TemplateNode.Source"/> stays
+/// as an authoring-only field.
 /// </summary>
 internal static class SimModelBuilder
 {
-    public static SimModelArtifact Build(Template template, Dictionary<string, object?> parameterValues, string substitutedYaml)
+    public static ModelDto Build(Template template, Dictionary<string, object?> parameterValues, string substitutedYaml)
     {
         ArgumentNullException.ThrowIfNull(template);
 
-        var artifact = new SimModelArtifact
+        var model = new ModelDto
         {
             SchemaVersion = template.SchemaVersion,
-            Generator = template.Generator,
-            Mode = template.Mode.ToSerializedValue(),
-            Metadata = CloneMetadata(template.Metadata),
-            Window = CloneWindow(template.Window),
-            Grid = CloneGrid(template.Grid),
-            Topology = CloneTopology(template.Topology),
-            Classes = CloneClasses(template.Classes),
-            Traffic = CloneTraffic(template.Traffic, template.Classes),
+            Grid = BuildGrid(template.Grid, template.Window),
+            Topology = BuildTopology(template.Topology),
+            Classes = BuildClasses(template.Classes),
+            Traffic = BuildTraffic(template.Traffic, template.Classes),
             Nodes = BuildNodes(template),
             Outputs = BuildOutputs(template.Outputs)
         };
-        if (artifact.Grid != null && string.IsNullOrWhiteSpace(artifact.Grid.Start))
-        {
-            artifact.Grid.Start = artifact.Window?.Start;
-        }
 
-        artifact.Provenance = BuildProvenance(template, parameterValues, substitutedYaml);
-        return artifact;
+        model.Provenance = BuildProvenance(template, parameterValues, substitutedYaml);
+        return model;
     }
 
-    private static TemplateMetadata CloneMetadata(TemplateMetadata metadata)
+    private static GridDto BuildGrid(TemplateGrid grid, TemplateWindow window)
     {
-        return new TemplateMetadata
-        {
-            Id = metadata.Id,
-            Title = metadata.Title,
-            Description = metadata.Description,
-            Narrative = metadata.Narrative,
-            Version = metadata.Version,
-            Tags = new List<string>(metadata.Tags),
-            CaptureKey = metadata.CaptureKey
-        };
-    }
-
-    private static TemplateWindow CloneWindow(TemplateWindow window)
-    {
-        return new TemplateWindow
-        {
-            Start = window.Start,
-            Timezone = window.Timezone
-        };
-    }
-
-    private static TemplateGrid CloneGrid(TemplateGrid grid)
-    {
-        return new TemplateGrid
+        var start = !string.IsNullOrWhiteSpace(grid.Start) ? grid.Start : window.Start;
+        return new GridDto
         {
             Bins = grid.Bins,
             BinSize = grid.BinSize,
             BinUnit = grid.BinUnit,
-            Start = grid.Start
+            Start = string.IsNullOrWhiteSpace(start) ? null : start
         };
     }
 
-    private static TemplateTopology CloneTopology(TemplateTopology topology)
+    private static TopologyDto BuildTopology(TemplateTopology topology)
     {
-        var clone = new TemplateTopology
+        var dto = new TopologyDto
         {
-            Nodes = new List<TemplateTopologyNode>(),
-            Edges = new List<TemplateTopologyEdge>(),
-            Constraints = new List<TemplateTopologyConstraint>()
+            Nodes = new List<TopologyNodeDto>(),
+            Edges = new List<TopologyEdgeDto>(),
+            Constraints = new List<TopologyConstraintDto>()
         };
 
         foreach (var node in topology.Nodes)
         {
-            clone.Nodes.Add(new TemplateTopologyNode
+            dto.Nodes.Add(new TopologyNodeDto
             {
                 Id = node.Id,
                 Kind = node.Kind,
                 NodeRole = node.NodeRole,
                 Group = node.Group,
                 Constraints = node.Constraints is null ? null : new List<string>(node.Constraints),
-                Semantics = node.Semantics == null ? new TemplateNodeSemantics() : CloneSemantics(node.Semantics),
-                InitialCondition = node.InitialCondition == null ? null : new TemplateInitialCondition { QueueDepth = node.InitialCondition.QueueDepth },
-                Ui = node.Ui == null ? null : new TemplateUiHint { X = node.Ui.X, Y = node.Ui.Y },
+                Semantics = BuildSemantics(node.Semantics),
+                InitialCondition = node.InitialCondition is { QueueDepth: { } qd }
+                    ? new TopologyInitialConditionDto { QueueDepth = qd }
+                    : null,
+                Ui = node.Ui == null ? null : new UiHintsDto { X = node.Ui.X, Y = node.Ui.Y },
                 DispatchSchedule = CloneDispatchSchedule(node.DispatchSchedule)
             });
         }
 
         foreach (var edge in topology.Edges)
         {
-            clone.Edges.Add(new TemplateTopologyEdge
+            dto.Edges.Add(new TopologyEdgeDto
             {
                 Id = edge.Id,
                 From = edge.From,
@@ -118,15 +99,15 @@ internal static class SimModelBuilder
         {
             foreach (var constraint in topology.Constraints)
             {
-                clone.Constraints.Add(new TemplateTopologyConstraint
+                dto.Constraints.Add(new TopologyConstraintDto
                 {
                     Id = constraint.Id,
                     Semantics = constraint.Semantics == null
-                        ? new TemplateConstraintSemantics()
-                        : new TemplateConstraintSemantics
+                        ? new ConstraintSemanticsDto()
+                        : new ConstraintSemanticsDto
                         {
-                            Arrivals = constraint.Semantics.Arrivals,
-                            Served = constraint.Semantics.Served,
+                            Arrivals = constraint.Semantics.Arrivals ?? string.Empty,
+                            Served = constraint.Semantics.Served ?? string.Empty,
                             Errors = constraint.Semantics.Errors,
                             LatencyMinutes = constraint.Semantics.LatencyMinutes
                         }
@@ -134,62 +115,19 @@ internal static class SimModelBuilder
             }
         }
 
-        return clone;
+        return dto;
     }
 
-    private static List<TemplateClass> CloneClasses(List<TemplateClass> classes) =>
-        classes?.Select(c => new TemplateClass
-        {
-            Id = c.Id,
-            DisplayName = c.DisplayName,
-            Description = c.Description
-        }).ToList() ?? new List<TemplateClass>();
-
-    private static SimTraffic? CloneTraffic(TemplateTraffic? traffic, List<TemplateClass> classes)
+    private static TopologySemanticsDto BuildSemantics(TemplateNodeSemantics semantics)
     {
-        if (traffic?.Arrivals == null || traffic.Arrivals.Count == 0)
+        var dto = new TopologySemanticsDto
         {
-            return null;
-        }
-
-        var declaredClasses = new HashSet<string>(classes.Select(c => c.Id), StringComparer.Ordinal);
-        var arrivals = new List<SimArrival>();
-
-        foreach (var arrival in traffic.Arrivals)
-        {
-            var classId = arrival.ClassId;
-            if (string.IsNullOrWhiteSpace(classId))
-            {
-                classId = declaredClasses.Count > 0 ? throw new TemplateValidationException($"Arrival targeting '{arrival.NodeId}' must declare classId because classes are defined.") : "*";
-            }
-            else if (declaredClasses.Count > 0 && !declaredClasses.Contains(classId))
-            {
-                throw new TemplateValidationException($"Class '{classId}' referenced by arrivals is not declared under classes.");
-            }
-
-            arrivals.Add(new SimArrival
-            {
-                NodeId = arrival.NodeId,
-                ClassId = classId,
-                Pattern = new SimArrivalPattern
-                {
-                    Kind = arrival.Pattern?.Kind ?? string.Empty,
-                    RatePerBin = arrival.Pattern?.RatePerBin,
-                    Rate = arrival.Pattern?.Rate
-                }
-            });
-        }
-
-        return new SimTraffic { Arrivals = arrivals };
-    }
-
-    private static TemplateNodeSemantics CloneSemantics(TemplateNodeSemantics semantics)
-    {
-        var clone = new TemplateNodeSemantics
-        {
-            Arrivals = semantics.Arrivals,
-            Served = semantics.Served,
-            Errors = semantics.Errors,
+            Arrivals = semantics.Arrivals ?? string.Empty,
+            Served = semantics.Served ?? string.Empty,
+            // Errors is nullable on TopologySemanticsDto — leave null when source is null
+            // so OmitNull suppresses `errors: ''` for sink nodes that legitimately don't
+            // declare errors. Wire shape: matches BEFORE m-E24-02 emission for these nodes.
+            Errors = string.IsNullOrWhiteSpace(semantics.Errors) ? null : semantics.Errors,
             Capacity = semantics.Capacity,
             Parallelism = semantics.Parallelism,
             Attempts = semantics.Attempts,
@@ -204,20 +142,65 @@ internal static class SimModelBuilder
                 : new Dictionary<string, string>(semantics.Aliases, StringComparer.OrdinalIgnoreCase)
         };
 
-        // Normalize semantics: emit queueDepth only (will also accept legacy 'queue' during parse)
         if (!string.IsNullOrWhiteSpace(semantics.QueueDepth))
         {
-            clone.QueueDepth = semantics.QueueDepth;
+            dto.QueueDepth = semantics.QueueDepth;
         }
-        return clone;
+        return dto;
     }
 
-    private static List<SimNode> BuildNodes(Template template)
+    private static List<ClassDto> BuildClasses(List<TemplateClass> classes) =>
+        classes?.Select(c => new ClassDto
+        {
+            Id = c.Id,
+            DisplayName = c.DisplayName,
+            Description = c.Description
+        }).ToList() ?? new List<ClassDto>();
+
+    private static TrafficDto? BuildTraffic(TemplateTraffic? traffic, List<TemplateClass> classes)
+    {
+        if (traffic?.Arrivals == null || traffic.Arrivals.Count == 0)
+        {
+            return null;
+        }
+
+        var declaredClasses = new HashSet<string>(classes.Select(c => c.Id), StringComparer.Ordinal);
+        var arrivals = new List<ArrivalDto>();
+
+        foreach (var arrival in traffic.Arrivals)
+        {
+            var classId = arrival.ClassId;
+            if (string.IsNullOrWhiteSpace(classId))
+            {
+                classId = declaredClasses.Count > 0 ? throw new TemplateValidationException($"Arrival targeting '{arrival.NodeId}' must declare classId because classes are defined.") : "*";
+            }
+            else if (declaredClasses.Count > 0 && !declaredClasses.Contains(classId))
+            {
+                throw new TemplateValidationException($"Class '{classId}' referenced by arrivals is not declared under classes.");
+            }
+
+            arrivals.Add(new ArrivalDto
+            {
+                NodeId = arrival.NodeId,
+                ClassId = classId,
+                Pattern = new ArrivalPatternDto
+                {
+                    Kind = arrival.Pattern?.Kind ?? string.Empty,
+                    RatePerBin = arrival.Pattern?.RatePerBin,
+                    Rate = arrival.Pattern?.Rate
+                }
+            });
+        }
+
+        return new TrafficDto { Arrivals = arrivals };
+    }
+
+    private static List<NodeDto> BuildNodes(Template template)
     {
         ArgumentNullException.ThrowIfNull(template);
         ArgumentNullException.ThrowIfNull(template.Grid);
 
-        var nodes = new List<SimNode>(template.Nodes.Count);
+        var nodes = new List<NodeDto>(template.Nodes.Count);
         foreach (var node in template.Nodes)
         {
             var kind = node.Kind?.Trim().ToLowerInvariant();
@@ -239,7 +222,7 @@ internal static class SimModelBuilder
         return nodes;
     }
 
-    private static SimNode BuildProfiledConstNode(TemplateNode node, ProfileResolution resolution, TemplateGrid grid)
+    private static NodeDto BuildProfiledConstNode(TemplateNode node, ProfileResolution resolution, TemplateGrid grid)
     {
         if (grid.Bins != resolution.Weights.Length)
         {
@@ -256,19 +239,11 @@ internal static class SimModelBuilder
         var profileMetadata = BuildProfileMetadata(node, resolution, expectedValue);
         var mergedMetadata = MergeMetadata(CloneMetadata(node.Metadata), profileMetadata);
 
-        return new SimNode
+        return new NodeDto
         {
             Id = node.Id,
             Kind = "const",
             Values = values,
-            Source = node.Source,
-            Pmf = node.Pmf == null
-                ? null
-                : new PmfSpec
-                {
-                    Values = node.Pmf.Values?.ToArray() ?? Array.Empty<double>(),
-                    Probabilities = node.Pmf.Probabilities?.ToArray() ?? Array.Empty<double>()
-                },
             Metadata = mergedMetadata
         };
     }
@@ -332,10 +307,10 @@ internal static class SimModelBuilder
         return merged;
     }
 
-    private static SimNode BuildDefaultNode(TemplateNode node)
+    private static NodeDto BuildDefaultNode(TemplateNode node)
     {
         var kind = node.Kind?.Trim().ToLowerInvariant();
-        return new SimNode
+        return new NodeDto
         {
             Id = node.Id,
             Kind = node.Kind ?? string.Empty,
@@ -346,15 +321,13 @@ internal static class SimModelBuilder
                 _ => node.Values?.ToArray()
             },
             Expr = node.Expr,
-            Source = node.Source,
             Pmf = node.Pmf == null
                 ? null
-                : new PmfSpec
+                : new PmfDto
                 {
                     Values = node.Pmf.Values?.ToArray() ?? Array.Empty<double>(),
                     Probabilities = node.Pmf.Probabilities?.ToArray() ?? Array.Empty<double>()
                 },
-            Initial = node.Initial,
             Inflow = kind == "servicewithbuffer" ? node.Inflow : null,
             Outflow = kind == "servicewithbuffer" ? node.Outflow : null,
             Loss = kind == "servicewithbuffer" ? node.Loss : null,
@@ -365,9 +338,9 @@ internal static class SimModelBuilder
         };
     }
 
-    private static List<SimOutput> BuildOutputs(List<TemplateOutput> outputs)
+    private static List<OutputDto> BuildOutputs(List<TemplateOutput> outputs)
     {
-        return outputs.Select(output => new SimOutput
+        return outputs.Select(output => new OutputDto
         {
             Series = output.Series,
             Exclude = output.Exclude == null ? null : new List<string>(output.Exclude),
@@ -375,22 +348,22 @@ internal static class SimModelBuilder
         }).ToList();
     }
 
-    private static TemplateRouterInputs? CloneInputs(TemplateRouterInputs? inputs)
+    private static RouterInputsDto? CloneInputs(TemplateRouterInputs? inputs)
     {
         if (inputs is null)
         {
             return null;
         }
 
-        return new TemplateRouterInputs
+        return new RouterInputsDto
         {
             Queue = inputs.Queue
         };
     }
 
-    private static List<TemplateRouterRoute>? CloneRoutes(List<TemplateRouterRoute>? routes)
+    private static List<RouterRouteDto>? CloneRoutes(List<TemplateRouterRoute>? routes)
     {
-        return routes?.Select(route => new TemplateRouterRoute
+        return routes?.Select(route => new RouterRouteDto
         {
             Target = route.Target,
             Classes = route.Classes?.ToArray(),
@@ -398,14 +371,14 @@ internal static class SimModelBuilder
         }).ToList();
     }
 
-    private static TemplateDispatchSchedule? CloneDispatchSchedule(TemplateDispatchSchedule? schedule)
+    private static DispatchScheduleDto? CloneDispatchSchedule(TemplateDispatchSchedule? schedule)
     {
         if (schedule is null)
         {
             return null;
         }
 
-        return new TemplateDispatchSchedule
+        return new DispatchScheduleDto
         {
             Kind = schedule.Kind,
             PeriodBins = schedule.PeriodBins,
@@ -414,7 +387,7 @@ internal static class SimModelBuilder
         };
     }
 
-    private static SimProvenance BuildProvenance(Template template, Dictionary<string, object?> parameterValues, string substitutedYaml)
+    private static ProvenanceDto BuildProvenance(Template template, Dictionary<string, object?> parameterValues, string substitutedYaml)
     {
         var now = DateTimeOffset.UtcNow.ToString("o", CultureInfo.InvariantCulture);
         var generator = ResolveGeneratorIdentifier(template);
@@ -423,25 +396,32 @@ internal static class SimModelBuilder
             ? template.Provenance!.TemplateVersion
             : template.Metadata.Version;
 
-        var parameters = template.Provenance?.Parameters != null && template.Provenance.Parameters.Count > 0
-            ? new Dictionary<string, object?>(template.Provenance.Parameters, StringComparer.Ordinal)
-            : new Dictionary<string, object?>(StringComparer.Ordinal);
-
-        foreach (var kvp in parameterValues)
+        // Per D-m-E24-02-03: Parameters is nullable on ProvenanceDto so empty
+        // sets serialize as YAML omission via OmitNull. Materialize the
+        // dictionary only when we actually have values to record.
+        Dictionary<string, object?>? parameters = null;
+        if (template.Provenance?.Parameters != null && template.Provenance.Parameters.Count > 0)
         {
-            parameters[kvp.Key] = kvp.Value;
+            parameters = new Dictionary<string, object?>(template.Provenance.Parameters, StringComparer.Ordinal);
         }
 
-        return new SimProvenance
+        if (parameterValues.Count > 0)
         {
-            Source = template.Provenance?.Source ?? "flowtime-sim",
+            parameters ??= new Dictionary<string, object?>(StringComparer.Ordinal);
+            foreach (var kvp in parameterValues)
+            {
+                parameters[kvp.Key] = kvp.Value;
+            }
+        }
+
+        return new ProvenanceDto
+        {
             Generator = generator,
             GeneratedAt = template.Provenance?.GeneratedAt ?? now,
             TemplateId = template.Metadata.Id,
             TemplateVersion = templateVersion,
             Mode = template.Provenance?.Mode ?? template.Mode.ToSerializedValue(),
             ModelId = template.Provenance?.ModelId ?? modelId,
-            SchemaVersion = template.SchemaVersion,
             Parameters = parameters
         };
     }
