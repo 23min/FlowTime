@@ -92,6 +92,6 @@
   },
   "remoteEnv": {
     "NODE_OPTIONS": "--dns-result-order=ipv4first",
-    "PATH": "${containerEnv:HOME}/.local/bin:${containerEnv:PATH}"
+    "PATH": "${containerEnv:HOME}/.cargo/bin:${containerEnv:HOME}/.dotnet/tools:${containerEnv:HOME}/.local/bin:${containerEnv:PATH}"
   }
 }
