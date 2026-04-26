@@ -1361,6 +1361,7 @@ nodes:
         value: absorbed
   - id: m-E23-02
     kind: milestone
+    status: in-progress
     confidence: none
     conflicts:
       - field: presence

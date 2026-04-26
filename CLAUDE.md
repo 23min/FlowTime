@@ -206,7 +206,7 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
-**Active focus:** m-E23-02-call-site-migration (next) — switch `POST /v1/run`, Engine CLI, `TimeMachineValidator` tier-1 + four test files from `ModelValidator.Validate` to `ModelSchemaValidator.Validate`; error-phrasing audit; `ModelValidator.cs` left on disk as single-revert safety net. m-E23-01 closed 2026-04-26 (94 rules audited, 16 schema-add edits, 5-arm `oneOf` schema restructure, silent-error fallback, 12 named adjunct methods, 26-test regression catalogue).
+**Active focus:** m-E23-02-call-site-migration — switch `POST /v1/run`, Engine CLI, and `TimeMachineValidator` tier-1 (3 production sites + 4 test files / 28 test calls) from `ModelValidator.Validate` to `ModelSchemaValidator.Validate`; error-phrasing audit; `ModelValidator.cs` left on disk as single-revert safety net (deletion lands in m-E23-03). m-E23-01 closed 2026-04-26 with 94 rules audited, 16 schema-add edits, 5-arm `oneOf` restructure, silent-error fallback, 12 adjunct methods, 26-test regression catalogue.
 
 **Why now:** E-24 closed the type and schema-document embedments; E-23 closes the rule-evaluator embedment so `ModelSchemaValidator` can replace `ModelValidator` without silently dropping any rule. m-E21-07 Validation Surface (Svelte) unblocks once E-23 lands.
 
