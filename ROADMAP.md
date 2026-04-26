@@ -83,18 +83,20 @@ Unified FlowTime's post-substitution model representation. One C# type (`ModelDt
 
 **Unblocks:** E-23 m-E23-02 (call-site migration) and m-E23-03 (`ModelValidator` delete) become byte-trivial mechanical cleanup; m-E21-07 Validation Surface eventually; E-15 Telemetry Ingestion `nodes[].source` forward contract.
 
-## E-23 — Model Validation Consolidation (ready to resume — E-24 closed 2026-04-25)
+## E-23 — Model Validation Consolidation (ready to resume — rescoped 2026-04-26)
 
-**Epic:** `work/epics/E-23-model-validation-consolidation/spec.md` | **Status:** ready-to-resume 2026-04-25 — E-24 Schema Alignment closed (all five milestones landed on `epic/E-24-schema-alignment`). m-E23-02 (call-site migration) and m-E23-03 (`ModelValidator` delete) are now byte-trivial mechanical cleanup — `ModelSchemaValidator`, the schema, Sim's emitter, and the Engine's reader literally share a single unified type definition (`ModelDto` / `ProvenanceDto` in `FlowTime.Contracts`). Reentry needs a status-reconciliation pass on the `milestone/m-E23-01-schema-alignment` branch's stashed input material before m-E23-02 starts (most input has been absorbed by E-24).
+**Epic:** `work/epics/E-23-model-validation-consolidation/spec.md` | **Status:** ready-to-resume 2026-04-25; rescoped 2026-04-26 — E-24 Schema Alignment closed (all five milestones landed on `epic/E-24-schema-alignment`). E-23's spirit reframed: make `model.schema.yaml` the only declarative source of structural truth and `ModelSchemaValidator` the only runtime evaluator — eliminate every "embedded schema" outside the canonical schema (`ModelValidator.cs` hand-rolled rules, parser tolerations, silent emission defaults, post-parse orchestration checks). E-24 fixed type + schema-document embedment; E-23 closes the rule-evaluator embedment.
 
 Mini-epic (3 milestones). Collapses the codebase's two silently-disagreeing model validators to one: `ModelValidator` is **deleted**, `ModelSchemaValidator` is the single schema-driven entry point. Directly enforces the 2026-04-23 Truth Discipline guard *"'API stability' does not mean 'keep old functions around.'"*
 
-**Milestone status post E-24 close:**
-- m-E23-01 Schema Alignment — **largely absorbed by E-24** (`model.schema.yaml` rewritten by m-E24-03; canary committed and now hard-asserts under m-E24-05); needs a status-reconciliation pass on the stashed branch
-- m-E23-02 Call-Site Migration — **ready** (E-24 prerequisite cleared 2026-04-25)
-- m-E23-03 Delete `ModelValidator` — **ready** (waits on m-E23-02)
+**Milestone slate (3 milestones, all ready):**
+- m-E23-01 Rule-Coverage Audit — doc-only audit of every rule embedded in `ModelValidator.cs`, `ModelParser.cs`, `SimModelBuilder.cs`, and post-parse orchestration. Per-rule disposition (schema-covered / schema-add / adjunct / parser-justified / drop); schema additions and `ModelSchemaValidator` adjuncts land where the audit needs them; negative-case canary `RuleCoverageRegressionTests` locks coverage in. **Replaces** the original m-E23-01-schema-alignment milestone — schema-alignment work was absorbed by E-24 m-E24-03/m-E24-05; the unowned piece (`ModelValidator` rule audit) becomes the new m-E23-01 focus. Slug change also avoids collision with E-24's "schema-alignment" slug.
+- m-E23-02 Call-Site Migration — switch `POST /v1/run`, Engine CLI, `TimeMachineValidator` tier-1 + four test files to `ModelSchemaValidator.Validate`; error-phrasing audit; `ModelValidator.cs` left on disk as single-revert safety net.
+- m-E23-03 Delete `ModelValidator` — delete the file; move `ValidationResult` to its own file; assert grep returns zero callers; archive E-23.
 
-**Out of scope (firm):** Sim's `grid.start` emission, Blazor/Svelte UI code, active validation UI (lives in m-E21-07 after E-21 resumes), new validator features.
+**Out of scope (firm):** Sim's emission shape (E-24 territory; E-23 only revisits if the audit shows an unwritten emission rule), Blazor/Svelte UI code, active validation UI (lives in m-E21-07 after E-21 resumes), new validator features, `Template`-layer validation (`TemplateSchemaValidator` stays distinct for pre-substitution authoring templates).
+
+**Stashed input material:** branch `milestone/m-E23-01-schema-alignment` + `stash@{0}` hold pre-pivot m-E23-01 work. Most absorbed by E-24; should be retired when E-23 resumes — the rule audit starts fresh from post-E-24 `main`.
 
 **Dependencies:** E-24 Schema Alignment (cleared 2026-04-25). After E-23 lands, m-E21-07 Validation Surface resumes with a single consolidated validator to render.
 

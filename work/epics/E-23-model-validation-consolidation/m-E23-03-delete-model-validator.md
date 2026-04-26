@@ -24,7 +24,7 @@ Per the 2026-04-23 Truth Discipline guard, retaining an unreferenced entry point
 2. **`ValidationResult` retained.** The `ValidationResult` class (currently defined at the bottom of `ModelValidator.cs`, lines 205–214) is moved to its own file `src/FlowTime.Core/Models/ValidationResult.cs` before the delete — it is shared between `ModelSchemaValidator`, `TimeMachineValidator`, and callers. The move is a pure relocation with no API change.
 3. **Zero `ModelValidator` references.** `grep -rn "ModelValidator\\b" --include="*.cs"` returns zero hits across the whole repository except for comments or commit messages that reference it by name historically. No `using` statement, no method call, no type reference.
 4. **Full test suite green.** `dotnet test FlowTime.sln` passes. `dotnet build FlowTime.sln` has no warnings about missing types (CS0246) and no warnings about unused usings introduced by the delete.
-5. **Survey canary still green.** `TemplateWarningSurveyTests.Survey_Templates_For_Warnings` reports `val-err=0` across all twelve templates at `ValidationTier.Analyse`. (This is m-E23-01's canary, re-run here as the final confirmation.)
+5. **Both canaries still green.** `TemplateWarningSurveyTests.Survey_Templates_For_Warnings` reports `val-err == 0` across all twelve templates at `ValidationTier.Analyse` (E-24 m-E24-05's hard-asserting survey canary), and `RuleCoverageRegressionTests` (m-E23-01's negative-case catalogue) reports green — every rule the audit claimed `ModelSchemaValidator` covers, it still catches after the delete. Both canaries are the final confirmation that nothing depends on `ModelValidator` post-deletion.
 6. **Smoke verification across surfaces.** Manual smoke-run of: (a) `POST /v1/run` with a representative template via the Engine API, (b) the Engine CLI `dotnet run --project src/FlowTime.Cli` against the same template, (c) `POST /v1/validate` via the Time Machine surface, (d) one Blazor page that renders a validated model (e.g., Dashboard), (e) one Svelte page that validates a model indirectly (e.g., `/analysis` sweep configuration). All five behave identically to pre-delete.
 7. **Epic close.** On merge to `main`, the E-23 epic status flips from `in-progress` to `complete` and the epic folder is archived under `work/epics/completed/E-23-model-validation-consolidation/`. `ROADMAP.md`, `work/epics/epic-roadmap.md`, and `CLAUDE.md` Current Work are updated to reflect completion.
 
@@ -49,7 +49,7 @@ Per the 2026-04-23 Truth Discipline guard, retaining an unreferenced entry point
 
 ## Out of Scope
 
-- Any change to `ModelSchemaValidator.cs` — if the delete reveals that `ModelSchemaValidator` is missing something, treat that as an m-E23-01 scope escape.
+- Any change to `ModelSchemaValidator.cs` — if the delete reveals `ModelSchemaValidator` is missing a rule the audit should have caught, treat that as an m-E23-01 scope escape (the negative-case canary should have caught it; if it didn't, the audit was incomplete).
 - Any change to schema, API, CLI, UI, or Sim code.
 - Any refactor of validation beyond the delete — no folding of `TimeMachineValidator.ValidateSchema` into `ModelSchemaValidator`, no introduction of new validation surfaces.
 
