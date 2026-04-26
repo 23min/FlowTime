@@ -1370,6 +1370,7 @@ nodes:
         resolution_hint: add a spec at work/epics/<slug>/, remove the prose reference, or mark status:dropped
   - id: m-E23-03
     kind: milestone
+    status: complete
     confidence: none
     conflicts:
       - field: presence
