@@ -6,8 +6,8 @@ Read and follow:
 2. `.ai/paths.md` — Where artifacts live
 
 Agents: `.ai/agents/` (builder, deployer, planner, reviewer)
-Skills: `.ai/skills/` (architect, devcontainer, doc-gardening, draft-spec, patch, plan-epic, plan-milestones, quality-score, release, review-code, start-milestone, tdd-cycle, workflow-audit, wrap-milestone)
-Templates: `.ai/templates/` (app-legibility, epic-spec, milestone-spec, quality-scorecard, session-log, tracking-doc)
+Skills: `.ai/skills/` (architect, design-contract, devcontainer, doc-garden, doc-lint, draft-spec, patch, plan-epic, plan-milestones, quality-score, release, review-code, start-milestone, tdd-cycle, update-framework, verify-contracts, workflow-audit, workflow-graph, wrap-epic, wrap-milestone)
+Templates: `.ai/templates/` (adr, app-legibility, epic-spec, milestone-spec, quality-scorecard, tracking-doc)
 
 Key rules:
 - Never commit without explicit human approval
