@@ -45,7 +45,19 @@ public static class ModelSchemaValidator
             var evaluation = schemaInstance.Evaluate(node, new EvaluationOptions { OutputFormat = OutputFormat.Hierarchical });
             if (!evaluation.IsValid)
             {
+                var collectedBefore = errors.Count;
                 errors.AddRange(CollectErrors(evaluation));
+                if (errors.Count == collectedBefore)
+                {
+                    // Silent-error fallback (m-E23-01 / D3): JsonEverything keywords like
+                    // `not`, `oneOf`-no-arm-match, and deep `allOf` failures can mark a
+                    // subtree invalid without populating any leaf `Errors` entry. Without
+                    // this fallback the validator returns IsValid==false with an empty
+                    // Errors list, which is the silent-error class D3 found in the canary.
+                    // Synthesize a path-only diagnostic so an invalid evaluation always
+                    // produces at least one human-readable message.
+                    errors.Add(SynthesizePathOnlyError(evaluation));
+                }
             }
 
             errors.AddRange(ValidateClassReferences(node));
@@ -120,6 +132,74 @@ public static class ModelSchemaValidator
             }
         }
     }
+
+    /// <summary>
+    /// Synthesize a path-only diagnostic from an invalid <see cref="EvaluationResults"/>
+    /// when no node in the tree populated a textual error. Picks the deepest invalid node
+    /// (by <see cref="EvaluationResults.EvaluationPath"/> segment count, ties broken by
+    /// <see cref="EvaluationResults.InstanceLocation"/> segment count) so the message
+    /// points at the most specific schema rule that failed. The choice is deterministic:
+    /// repeated calls on the same <see cref="EvaluationResults"/> always return the same
+    /// string. Format: <c>{instance}: schema rule failed at {path}</c>.
+    /// </summary>
+    private static string SynthesizePathOnlyError(EvaluationResults results)
+    {
+        var deepest = WalkForDeepestInvalid(results) ?? results;
+        var instance = deepest.InstanceLocation.ToString();
+        var path = deepest.EvaluationPath.ToString();
+        return $"{instance}: schema rule failed at {path}";
+    }
+
+    /// <summary>
+    /// Recursive descent over <see cref="EvaluationResults.Details"/>. Returns the deepest
+    /// invalid node, where "deepest" is measured by EvaluationPath segment count (with
+    /// InstanceLocation segment count as a stable tiebreaker). Returns <c>null</c> when
+    /// no descendant is invalid; the caller should fall back to the root.
+    /// </summary>
+    private static EvaluationResults? WalkForDeepestInvalid(EvaluationResults results)
+    {
+        EvaluationResults? best = results.IsValid ? null : results;
+        foreach (var detail in results.Details)
+        {
+            var candidate = WalkForDeepestInvalid(detail);
+            if (candidate is null)
+            {
+                continue;
+            }
+            if (best is null || IsDeeperThan(candidate, best))
+            {
+                best = candidate;
+            }
+        }
+        return best;
+    }
+
+    private static bool IsDeeperThan(EvaluationResults a, EvaluationResults b)
+    {
+        var aPath = a.EvaluationPath.Segments.Length;
+        var bPath = b.EvaluationPath.Segments.Length;
+        if (aPath != bPath)
+        {
+            return aPath > bPath;
+        }
+        return a.InstanceLocation.Segments.Length > b.InstanceLocation.Segments.Length;
+    }
+
+    /// <summary>
+    /// Test-only entry point exposing <see cref="CollectErrors(EvaluationResults)"/> for
+    /// the silent-error regression tests in <c>FlowTime.Core.Tests</c>. Visible via
+    /// <c>InternalsVisibleTo("FlowTime.Core.Tests")</c>; not part of the public surface.
+    /// </summary>
+    internal static IEnumerable<string> CollectErrorsForTests(EvaluationResults results)
+        => CollectErrors(results);
+
+    /// <summary>
+    /// Test-only entry point exposing <see cref="SynthesizePathOnlyError(EvaluationResults)"/>
+    /// for the silent-error regression tests in <c>FlowTime.Core.Tests</c>. Visible via
+    /// <c>InternalsVisibleTo("FlowTime.Core.Tests")</c>; not part of the public surface.
+    /// </summary>
+    internal static string SynthesizePathOnlyErrorForTests(EvaluationResults results)
+        => SynthesizePathOnlyError(results);
 
     private static IEnumerable<string> ValidateClassReferences(JsonNode node)
     {

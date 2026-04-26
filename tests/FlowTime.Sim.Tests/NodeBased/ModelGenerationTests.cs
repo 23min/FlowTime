@@ -208,9 +208,9 @@ outputs:
         Assert.NotNull(profiledNode.Values);
         Assert.Equal(12, profiledNode.Values!.Length);
         Assert.NotNull(profiledNode.Metadata);
-        Assert.NotNull(profiledNode.Pmf);
-        Assert.Equal(new[] { 50d, 100d }, profiledNode.Pmf!.Values);
-        Assert.Equal(new[] { 0.4d, 0.6d }, profiledNode.Pmf.Probabilities);
+        // m-E23-01 Fix 2: profiled-pmf nodes emit kind: const without a top-level pmf block.
+        // Source distribution lives in the template; metadata.pmf.expected captures the derived stat.
+        Assert.Null(profiledNode.Pmf);
 
         var expectedMean = 50 * 0.4 + 100 * 0.6;
         var average = profiledNode.Values.Average();
@@ -270,9 +270,8 @@ outputs:
         Assert.Equal("const", profiledNode.Kind);
         Assert.NotNull(profiledNode.Values);
         Assert.Equal(3, profiledNode.Values!.Length);
-        Assert.NotNull(profiledNode.Pmf);
-        Assert.Equal(new[] { 20d, 40d }, profiledNode.Pmf!.Values);
-        Assert.Equal(new[] { 0.5d, 0.5d }, profiledNode.Pmf.Probabilities);
+        // m-E23-01 Fix 2: profiled-pmf nodes emit kind: const without a top-level pmf block.
+        Assert.Null(profiledNode.Pmf);
 
         var expectedMean = 30d;
         var expectedSeries = new[] { expectedMean * 0.5, expectedMean * 1.5, expectedMean * 1.0 };
