@@ -93,7 +93,6 @@ public class ParityTests : IClassFixture<TestWebApplicationFactory>
 
 	private const string routerOverrideModel = """
 schemaVersion: 1
-generator: flowtime-sim
 grid:
   bins: 1
   binSize: 60

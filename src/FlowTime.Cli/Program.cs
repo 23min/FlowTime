@@ -72,8 +72,8 @@ Directory.CreateDirectory(outDir);
 
 var yaml = File.ReadAllText(modelPath);
 
-// Validate schema before parsing
-var validationResult = ModelValidator.Validate(yaml);
+// Validate schema before parsing (m-E23-02: switched to ModelSchemaValidator)
+var validationResult = ModelSchemaValidator.Validate(yaml);
 if (!validationResult.IsValid)
 {
 	Console.Error.WriteLine("Model validation failed:");
