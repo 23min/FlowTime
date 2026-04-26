@@ -1267,17 +1267,42 @@ examples:
 # Notes
 notes:
   validation_rules: |
-    Adjunct semantic validation performed by FlowTime Engine beyond declarative schema:
+    JSON Schema draft-07 cannot express cross-reference, cross-array, or run-mode-conditional
+    rules. `ModelSchemaValidator` runs the following named adjunct methods after JSON-schema
+    evaluation, alongside `ValidateClassReferences` (the prior-art adjunct for class IDs):
 
-    1. Node ID Uniqueness: All node IDs must be unique across the model.
-    2. Const Node Length: `values` array length must equal `grid.bins` exactly.
-    3. PMF Probabilities: Must sum to 1.0 (tolerance ±0.0001).
-    4. Expression References: All node IDs in `expr` strings must exist.
-    5. Dependency Order: No circular dependencies except through SHIFT.
-    6. Output References: All `series` values must reference existing node IDs.
+    1.  `ValidateNodeIdUniqueness`              — All `nodes[].id` unique within `nodes[]`.
+    2.  `ValidateOutputSeriesReferences`        — `outputs[].series` resolves to a node id (or `*`).
+    3.  `ValidateExpressionNodeReferences`      — Every node id referenced inside `expr` resolves to a declared node.
+    4.  `ValidateConstNodeValueCount`           — `const` node `values.length == grid.bins`.
+    5.  `ValidatePmfArrayLengths`               — `pmf.values.length == pmf.probabilities.length`.
+    6.  `ValidatePmfValueUniqueness`            — `pmf.values` contain no duplicates.
+    7.  `ValidatePmfProbabilitySum`             — `pmf.probabilities` sum to 1.0 (±1e-4).
+    8.  `ValidateSelfShiftRequiresInitialCondition`
+                                                — A node with a self-shift expression (e.g. `SHIFT(self, 1)`)
+                                                  requires `topology.initialCondition.queueDepth` for that node.
+    9.  `ValidateTopologySeriesReferences`      — `topology.nodes[].semantics.{arrivals,served,errors,queueDepth,...}`
+                                                  series-id references resolve to declared node ids
+                                                  (after stripping `file:`, `series:`, `@classId` prefixes; `self` allowed).
+    10. `ValidateWipOverflowTarget`             — `wipOverflow` (when not `loss`) references an existing topology node id.
+    11. `ValidateWipOverflowAcyclic`            — WIP-overflow routing graph contains no cycles.
+    12. `ValidateDateTimeFormats`               — `format: date-time` fields (`grid.start`, `provenance.generatedAt`)
+                                                  parse via `DateTime.TryParse(... InvariantCulture, AdjustToUniversal | AssumeUniversal)`.
+                                                  (Draft-07 `format: date-time` is annotation-only and not enforced
+                                                  by JsonEverything.)
 
-    Schema validates structural correctness; `ModelSchemaValidator` runs adjunct
-    semantic checks (e.g. `ValidateClassReferences`).
+    Plus, prior-art:
+        `ValidateClassReferences`               — Every `traffic.arrivals[].classId` (and router `routes[].classes[]`)
+                                                  exists in `classes[]`.
+
+    Mode-specific orchestration check (NOT an adjunct on this validator path):
+        Simulation runs additionally require `grid.start` non-empty AND `topology.nodes` non-empty.
+        Enforced at `RunOrchestrationService.ValidateSimulationModel`. Telemetry-mode runs
+        legitimately need neither, so this rule is mode-conditional and stays at the
+        orchestration layer rather than the schema-validator path.
+
+    Compile-time graph invariant (enforced post-validate):
+        No circular dependencies except through `SHIFT`.
 
   expression_syntax: |
     Supported expression operators and functions:

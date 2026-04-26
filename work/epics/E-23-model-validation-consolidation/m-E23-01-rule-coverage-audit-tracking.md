@@ -1,22 +1,25 @@
 # m-E23-01: Rule-Coverage Audit — Tracking
 
 **Started:** 2026-04-26
-**Completed:** pending
+**Completed:** 2026-04-26
 **Branch:** `milestone/m-E23-01-rule-coverage-audit` (branched from `epic/E-23-model-validation-consolidation` at `9cae437`)
 **Spec:** `work/epics/E-23-model-validation-consolidation/m-E23-01-rule-coverage-audit.md`
-**Commits:** _pending_
+**Commits:**
+- `b3efda0` — feat(validation): close ModelSchemaValidator silent-error blind spot + restructure node-kind clusters (m-E23-01 part 1) — Fix 1 + Fix 2 + schema restructure + AC3
+- `d42f649` — feat(validation): add 12 cross-reference/cross-array adjuncts to ModelSchemaValidator (m-E23-01 AC4)
+- `<this-commit>` — docs(m-E23-01): close audit doc — disposition flips, AC4 work-log, investigation status
 
 ## Acceptance Criteria
 
-- [ ] **AC1: Full embedment inventory.** Machine-reviewable table enumerating every rule encoded in (a) `ModelValidator.cs`, (b) `ModelParser.cs`, (c) `SimModelBuilder.cs`, (d) `RunOrchestrationService.cs` + `GraphService.cs`. Each entry: file:line range, rule in plain English, current `model.schema.yaml` expression form (if any).
-- [ ] **AC2: Per-rule disposition.** Every rule classified as exactly one of: schema-covered, schema-add, adjunct, parser-justified, drop. Each disposition cited (line numbers / rationale / "no live consumer" note).
-- [ ] **AC3: Schema additions land.** Every `schema-add` rule declared in `docs/schemas/model.schema.yaml` with a `# rule from ModelValidator.cs:N — added m-E23-01` citation comment.
-- [ ] **AC4: Adjunct additions land.** Every `adjunct` rule implemented as a named method on `ModelSchemaValidator` (sibling to `ValidateClassReferences`), invoked from `Validate`, with at least one negative-case unit test.
-- [ ] **AC5: Coverage canary stays green.** `TemplateWarningSurveyTests.Survey_Templates_For_Warnings` continues to report `val-err == 0` across all twelve templates at `ValidationTier.Analyse` after schema/adjunct additions.
-- [ ] **AC6: Negative-case canary.** New `tests/FlowTime.Core.Tests/Schema/RuleCoverageRegressionTests.cs` (or analogous location) feeds a deliberately-invalid model snippet for each non-trivial rule; asserts `ModelSchemaValidator.Validate(...).IsValid == false` plus error-substring containment.
-- [ ] **AC7: No call-site migration in this milestone.** `grep -rn "ModelValidator\.Validate" --include="*.cs"` returns the same call sites at end-of-milestone as at start. `ModelValidator.cs` unchanged.
-- [ ] **AC8: No behaviour regression.** `dotnet test FlowTime.sln` green; UI suites untouched.
-- [ ] **AC9: Audit doc committed.** This tracking doc contains the full embedment table, per-rule disposition, schema-edit / adjunct-edit citations, and the negative-case test catalogue. Reviewable at PR time without running any tool.
+- [x] **AC1: Full embedment inventory.** Machine-reviewable table enumerating every rule encoded in (a) `ModelValidator.cs`, (b) `ModelParser.cs`, (c) `SimModelBuilder.cs`, (d) `RunOrchestrationService.cs` + `GraphService.cs`. Each entry: file:line range, rule in plain English, current `model.schema.yaml` expression form (if any).
+- [x] **AC2: Per-rule disposition.** Every rule classified as exactly one of: schema-covered, schema-add, adjunct, parser-justified, drop. Each disposition cited (line numbers / rationale / "no live consumer" note).
+- [x] **AC3: Schema additions land.** Every `schema-add` rule declared in `docs/schemas/model.schema.yaml` with a `# rule from ModelValidator.cs:N — added m-E23-01` citation comment.
+- [x] **AC4: Adjunct additions land.** Every `adjunct` rule implemented as a named method on `ModelSchemaValidator` (sibling to `ValidateClassReferences`), invoked from `Validate`, with at least one negative-case unit test.
+- [x] **AC5: Coverage canary stays green.** `TemplateWarningSurveyTests.Survey_Templates_For_Warnings` continues to report `val-err == 0` across all twelve templates at `ValidationTier.Analyse` after schema/adjunct additions.
+- [x] **AC6: Negative-case canary.** New `tests/FlowTime.Core.Tests/Schema/RuleCoverageRegressionTests.cs` (or analogous location) feeds a deliberately-invalid model snippet for each non-trivial rule; asserts `ModelSchemaValidator.Validate(...).IsValid == false` plus error-substring containment.
+- [x] **AC7: No call-site migration in this milestone.** `grep -rn "ModelValidator\.Validate" --include="*.cs"` returns the same call sites at end-of-milestone as at start. `ModelValidator.cs` unchanged.
+- [x] **AC8: No behaviour regression.** `dotnet test FlowTime.sln` green; UI suites untouched.
+- [x] **AC9: Audit doc committed.** This tracking doc contains the full embedment table, per-rule disposition, schema-edit / adjunct-edit citations, and the negative-case test catalogue. Reviewable at PR time without running any tool.
 
 ## Decisions made during implementation
 
@@ -99,6 +102,35 @@ Per-row landing summary (file:line citations point at the schema, not at the ori
 - **#94** `topology.edges[].weight.default: 1.0` (~schema:375)
 
 Five originally-tabulated rows dropped per Decisions 1 (#19 binUnit case) and 2 (#3, #4, #10, #20 legacy-field migration messages).
+
+### AC4 — Adjunct method implementations landed (12 adjuncts, +652 lines on `ModelSchemaValidator.cs`)
+
+Applied by builder agent `a6abaa02cb87b8b80` on commit `d42f649`. **+652 lines** on `src/FlowTime.Core/Models/ModelSchemaValidator.cs` + new test file `tests/FlowTime.Core.Tests/Schema/RuleCoverageRegressionTests.cs` (797 lines, 26 tests, all green).
+
+Twelve named static methods sibling to `ValidateClassReferences`, each invoked from `Validate(yaml)` after JSON-schema evaluation, each adding any errors to the running list. Plus shared helpers `CollectNodeIds`, `CollectTopologyInitialIds`, `IsPmfNode`, `TryGetGridBins`, `TryParseIsoDateTime`, and a private `NodeReferenceCollector` AST visitor.
+
+| Adjunct | Tests | Lifted from |
+|---|---:|---|
+| `ValidateNodeIdUniqueness` | 2 | **gap** — schema notes documented as adjunct, no prior enforcer |
+| `ValidateOutputSeriesReferences` | 2 | **gap** — schema notes documented as adjunct |
+| `ValidateExpressionNodeReferences` | 2 | **gap** — uses `ExpressionParser` AST walk via `NodeReferenceCollector` |
+| `ValidateConstNodeValueCount` | 2 | **gap** — schema notes documented as adjunct |
+| `ValidatePmfArrayLengths` | 1 | `ModelParser.cs:420-421` |
+| `ValidatePmfValueUniqueness` | 1 | `ModelParser.cs:431-432` |
+| `ValidatePmfProbabilitySum` | 2 | `Pmf.Pmf` ctor (`Pmf.cs`) — surfaces from validator path; tolerance ±1e-4 per audit table |
+| `ValidateSelfShiftRequiresInitialCondition` | 2 | `ModelParser.cs:307-316` (reuses `ExpressionSemanticValidator`) |
+| `ValidateTopologySeriesReferences` | 4 | **gap** — `SemanticReferenceResolver` only owns syntax. Handles `self`, `file:`, `series:`, `@classId` prefixes. |
+| `ValidateWipOverflowTarget` | 2 | `ModelCompiler.cs:380-384` |
+| `ValidateWipOverflowAcyclic` | 2 | `ModelCompiler.cs:412-420` — path-traversal-from-each-source matching imperative source's shape (single-outbound-edge graph by construction) |
+| `ValidateDateTimeFormats` | 4 | `ModelParser.cs:251-252` — covers `grid.start` and `provenance.generatedAt`; `DateTime.TryParse` with `InvariantCulture` + `AdjustToUniversal | AssumeUniversal` |
+
+**Mode-aware integration choice — option (b).** `ValidateSimulationModel` (audit rows #77 / #80) stays at `RunOrchestrationService.ValidateSimulationModel` rather than lifting into `ModelSchemaValidator`. Rationale: `RunOrchestrationService` already operates on `ModelDto` directly and throws `TemplateValidationException` on failure — a different error shape than `ValidationResult.Errors`. Lifting it would require either adding a mode parameter (every existing caller of `Validate(yaml)` must change, conflicting with AC7's "no call-site migration") or duplicating the rules across both layers (the embedment problem E-23 is supposed to eliminate). Both worse than today. Audit-table dispositions for rows #77 / #80 flipped from "adjunct (mode-aware)" → "**parser-justified (mode-specific)** — orchestration-layer enforcement is the canonical home; not portable to the schema-validator path."
+
+**Imperative checks left in place** per the AC4 constraint — `ModelParser.cs`, `ModelCompiler.cs`, `Pmf.Pmf` ctor unchanged. The adjuncts are additive defence-in-depth; m-E23-02 / m-E23-03 will reconcile duplicates if appropriate.
+
+**Branch-coverage audit:** every reachable conditional branch in the 12 adjunct methods has at least one test exercising it. Defensive branches (entry-null after schema gate, `GetValue<double>` throw, `pmf` null when `IsPmfNode` returned true) are documented as defensive-only and not bespoke-tested — same precedent as `ValidateClassReferences`. Full per-method audit captured in the AC4 builder-agent report (preserved in conversation transcript).
+
+**Verification:** `dotnet build FlowTime.sln` green. `dotnet test FlowTime.sln --filter "FullyQualifiedName~RuleCoverageRegressionTests"` 26/26 green. `dotnet test FlowTime.sln --filter "FullyQualifiedName~Survey_Templates_For_Warnings"` green (no shipped template trips a new adjunct). Full suite **1,846 / 0 / 9** — net **+27** vs. the pre-AC4 baseline of 1,819, with one pre-existing Rust-subprocess flake (`SessionModelEvaluatorIntegrationTests.Dispose_TerminatesSubprocess`) that surfaces in some full-suite runs and passes cleanly in isolation.
 
 ### D3 — Profiled-PMF emission investigation (verdict + two predecessor fixes)
 
@@ -229,10 +261,10 @@ The agent produced row-by-row inventory with file:line, plain-English rule, curr
 
 | # | source file:line | rule | schema? | adjunct? | disposition |
 |---|---|---|---|---|---|
-| 77 | :838-841 | Simulation: `Grid.Start` non-empty | no — schema `start` is optional | no | **adjunct (mode-aware)** — `ValidateSimulationModelHasStart` adjunct invoked only on the simulation path; schema can't condition on run mode |
+| 77 | :838-841 | Simulation: `Grid.Start` non-empty | no — schema `start` is optional | no | **parser-justified (mode-specific)** — orchestration-layer enforcement is the canonical home; schema can't condition on run mode and the validator path correctly does not enforce because telemetry-mode runs legitimately don't need `grid.start`. Disposition flipped from "adjunct (mode-aware)" 2026-04-26 per AC4 mode-aware integration choice (option b). |
 | 78 | :843-846 | Simulation: `Grid.Bins > 0` | yes (schema:48 minimum:1) | no | **schema-covered** (also re-checked here as defence-in-depth) |
 | 79 | :848-851 | Simulation: `Grid.BinSize > 0` | yes (schema:61 minimum:1) | no | **schema-covered** |
-| 80 | :853-856 | Simulation: `Topology.Nodes` non-empty | no — `topology.nodes` has no `minItems` | no | **adjunct (mode-aware)** — same shape as #77; sim-mode-only |
+| 80 | :853-856 | Simulation: `Topology.Nodes` non-empty | no — `topology.nodes` has no `minItems` | no | **parser-justified (mode-specific)** — same shape as #77; orchestration-layer enforcement is the canonical home, since telemetry-mode runs legitimately can have an empty topology. Disposition flipped 2026-04-26 per AC4 mode-aware integration choice (option b). |
 
 ### `ModelCompiler.cs` (post-parse model walk)
 
@@ -290,7 +322,7 @@ That's **11 proposed adjunct methods** beyond the existing `ValidateClassReferen
 2. ⚠️ **Case-sensitivity inconsistency.** Parser uses `ToLowerInvariant()`; schema enums are case-sensitive. Affects `binUnit` (#19), node `kind` (#45), `dispatchSchedule.kind` (#58). After m-E23-02, `Minutes` (capital M) will be rejected. **`@needs-decision-1`.**
 3. ⚠️ **`ModelValidator` legacy field-rejection migration messages will degrade to generic "additional property not allowed"** (#3, #4, #10, #20). Either preserve via `not: { required: [legacyField] }` + `description:` or accept the degradation. **`@needs-decision-2`.**
 4. **Both `ModelValidator` and `ModelSchemaValidator` are wired into production paths today.** From grep: `Program.cs:657` (Engine API), `Cli/Program.cs:76` (CLI), `TimeMachineValidator.cs:50` all call `ModelValidator.Validate`. `ModelSchemaValidator.Validate` is also live (powers the canary). Confirm before m-E23-02 swaps call sites.
-5. **`RunOrchestrationService.ValidateSimulationModel` adds two cross-mode rules (`grid.start` required + `topology.nodes` non-empty for sim).** Disposition: mode-aware adjuncts (rows #77-80). Schema can't condition on run mode.
+5. **`RunOrchestrationService.ValidateSimulationModel` adds two cross-mode rules (`grid.start` required + `topology.nodes` non-empty for sim).** Final disposition (after AC4): **parser-justified (mode-specific)** — orchestration-layer enforcement is the canonical home (rows #77 / #80). Schema can't condition on run mode; lifting into `ModelSchemaValidator` would require a `ValidateForSimulation(yaml)` overload changing every existing caller, conflicting with m-E23-01's "no call-site migration" constraint. Telemetry-mode runs legitimately don't need `grid.start` or a populated topology, so a mode-blind adjunct would over-enforce.
 6. **Topology-node-kind enum.** Compiler accepts `{servicewithbuffer, queue, dlq}` for topology-node `kind`; schema doesn't constrain `topology.nodes[].kind` (just `type: string`). Likely fine — different concept from the `nodes[].kind` enum. Flag-only.
 7. **`ModelService.ConvertToModelDefinition` is the unified-DTO → legacy-internal-type bridge.** Per Truth Discipline ("don't keep both bridge + replacement once replacement is active"), this conversion still exists post-E-24 because `ModelDefinition` (legacy internal shape) hasn't been retired. **Out of scope for m-E23-01.** Flag for m-E23-03 (does deleting `ModelValidator` also let us propagate `ModelDto` all the way through `ModelParser`?).
 8. **`ModelValidator` test coverage** is dense (29 references across 5 test files). Some are negative-case rule tests that match exactly what AC6's `RuleCoverageRegressionTests` wants. Liftable directly if keyed on rule names rather than `ModelValidator` class. **m-E23-02 concern.**
@@ -359,21 +391,21 @@ The audit surfaced **three judgement calls** that affect user-facing behaviour a
 
 ## Investigation status
 
-- [ ] AC1 inventory complete · agent `acea9a0c242948b4d` · 94 rules · cross-repo grep confirms no sibling-repo dependency
-- [ ] AC2 dispositions assigned (first pass) · 3 `@needs-decision-N` rows pending user direction · awaiting decisions before AC3/AC4
-- [ ] Decision 1 (case-sensitivity) — pending
-- [ ] Decision 2 (legacy-field migration messages) — pending
-- [ ] Decision 3 (profiled-PMF emission shape) — pending; small investigation needed first
+- [x] AC1 inventory complete · agent `acea9a0c242948b4d` · 94 rules · cross-repo grep confirms no sibling-repo dependency
+- [x] AC2 dispositions assigned (final) · all `@needs-decision-N` rows resolved · rows #77 / #80 flipped from "adjunct (mode-aware)" → "parser-justified (mode-specific)" per AC4 mode-aware integration choice
+- [x] Decision 1 (case-sensitivity) — resolved as **(a) strict** (2026-04-26)
+- [x] Decision 2 (legacy-field migration messages) — resolved as **(b) accept generic** (2026-04-26)
+- [x] Decision 3 (profiled-PMF emission shape) — resolved as **verdict D** (2026-04-26) — `not`-keyword silent-error blind spot; closed via Fix 1 (validator) + Fix 2 (emitter)
 - [x] AC3 schema-add edits — 16 rows landed on `model.schema.yaml` via builder agent `ad6c54b5022b04385`
 - [x] D3 Fix 2 — emitter cleanup; canary green; full suite green
 - [x] Schema restructure — 5-arm `oneOf` at `nodes[].items`; structurally airtight; smoke-tested green
 - [x] D3 Fix 1 — silent-error fallback in `ModelSchemaValidator.CollectErrors`; +6 regression tests green
-- [ ] AC4 adjunct method implementations (11 proposed) — next step
-- [ ] AC5 canary stays green — verified at every step so far; final check after AC4
-- [ ] AC6 `RuleCoverageRegressionTests` catalogue — partially seeded by Fix 1's regression tests; expand alongside each adjunct
+- [x] AC4 adjunct method implementations — 12 adjuncts via builder agent `a6abaa02cb87b8b80` on commit `d42f649`; 26 negative-case tests green
+- [x] AC5 canary stays green — verified at every step; `Survey_Templates_For_Warnings` `val-err == 0` across all 12 templates post-AC4
+- [x] AC6 `RuleCoverageRegressionTests` catalogue — 26 tests covering the 12 adjuncts (gap-class + lifted-class) plus the 6 silent-error regression tests from Fix 1; schema-covered rules continue to be tested via existing per-feature suites
 - [x] AC7 no call-site migration — `ModelValidator.cs` unchanged; `grep` invariant maintained (3 production call sites + 29 test refs unchanged)
-- [ ] AC8 no behaviour regression — current state: 1,819 passed / 1 fail (pre-existing Rust-subprocess flake; passes in isolation) / 9 skipped — final check after AC4
-- [ ] AC9 audit doc committed — final commit at milestone close
+- [x] AC8 no behaviour regression — final state: **1,846 passed / 0 failed / 9 skipped** (with one pre-existing Rust-subprocess flake that surfaces intermittently in full-suite runs and passes cleanly in isolation; family already documented in this tracking doc)
+- [x] AC9 audit doc committed — this commit
 
 ## Reviewer notes (optional)
 
