@@ -1,7 +1,7 @@
 ---
 id: m-E23-01-rule-coverage-audit
 epic: E-23-model-validation-consolidation
-status: ready
+status: in-progress
 depends_on:
 completed:
 ---

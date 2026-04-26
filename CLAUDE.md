@@ -206,6 +206,12 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
+**Active focus:** m-E23-01-rule-coverage-audit — audit every place model rules are encoded outside the canonical schema; lift each rule into either `model.schema.yaml` or a named `ModelSchemaValidator` adjunct.
+
+**Why now:** E-24 closed the type and schema-document embedments; E-23 closes the rule-evaluator embedment so `ModelSchemaValidator` can replace `ModelValidator` without silently dropping any rule. m-E21-07 Validation Surface (Svelte) unblocks once E-23 lands.
+
+> **Note:** the catalog below is a historical trail kept manually; convention prefers a narrow narrative-only Current Work section. The catalog exceeds the 15-line guideline — slated for trim during a future cleanup pass; not in scope for this milestone.
+
 - **E-17** Interactive What-If Mode — **completed and merged to main (2026-04-12).** Archived to `work/epics/completed/E-17-interactive-what-if-mode/`.
   - 6 milestones. WebSocket bridge → parameter panel → topology heatmap → warnings → edge heatmap → time scrubber. 200 vitest + 26 Playwright E2E.
 - **E-18** Time Machine (`work/epics/E-18-headless-pipeline-and-optimization/spec.md`) — **in-progress** — foundation + analysis layer delivered; Fit + Chunked + SDK carried forward as **E-22**.
