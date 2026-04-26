@@ -1,8 +1,8 @@
 ---
 id: E-23-model-validation-consolidation
-status: ready-to-resume
+status: complete
 depends_on: E-24-schema-alignment
-completed:
+completed: 2026-04-26
 ---
 
 # E-23: Model Validation Consolidation
@@ -109,7 +109,7 @@ Sequencing: rule-coverage audit first (doc-only with schema and adjunct addition
 
 - [m-E23-01-rule-coverage-audit](./m-E23-01-rule-coverage-audit.md) — Audit every embedment of model rules across `ModelValidator.cs`, `ModelParser.cs`, `SimModelBuilder.cs`, and post-parse orchestration. Land schema additions and `ModelSchemaValidator` adjuncts so every rule has a single canonical home. Negative-case canary catalogue locks coverage in. · **completed (2026-04-26 on `milestone/m-E23-01-rule-coverage-audit`)** — 94 rules audited, 16 schema-add edits, 12 adjunct methods (+ silent-error fallback), 26-test regression catalogue, AC1-AC9 closed · depends on: —
 - [m-E23-02-call-site-migration](./m-E23-02-call-site-migration.md) — Switch every production call site and test from `ModelValidator.Validate` to `ModelSchemaValidator.Validate`. Audit error-message phrasing and update test assertions / UI consumers as needed. `ModelValidator.cs` left on disk as a single-revert safety net. · **completed (2026-04-26 on `milestone/m-E23-02-call-site-migration`)** — 3 production sites + 28 test calls migrated; `TimeMachineValidator` redundant-delegation block removed; scope-expansion fixes for `ProvenanceService.StripProvenance` (real production round-trip bug surfaced by the new strict validator) + 2 stale fixtures + 1 documented-future test flip; +16 net new tests (10 strip branch-coverage + 2 integration regression + 4 strip sub-case). Both canaries green. AC1-AC8 closed (AC9 deferred — optional). · depends on: m-E23-01
-- [m-E23-03-delete-model-validator](./m-E23-03-delete-model-validator.md) — Delete `ModelValidator.cs` and any dedicated `ModelValidator`-only test files that survived m-E23-02. Move `ValidationResult` to its own file. Assert `grep` returns zero callers. Archive E-23. · **completed (2026-04-26 on `milestone/m-E23-03-delete-model-validator`)** — `ModelValidator.cs` deleted; `ValidationResult` (14 lines) relocated to `src/FlowTime.Core/Models/ValidationResult.cs` keeping namespace `FlowTime.Core`; AC3 grep clean (7 historical-comment hits, zero live references); both canaries green; full suite **1862 / 0 / 9** — identical to m-E23-02 tip. Epic-folder archive lands on merge to main. · depends on: m-E23-02
+- [m-E23-03-delete-model-validator](./m-E23-03-delete-model-validator.md) — Delete `ModelValidator.cs` and any dedicated `ModelValidator`-only test files that survived m-E23-02. Move `ValidationResult` to its own file. Assert `grep` returns zero callers. Archive E-23. · **completed (2026-04-26 on `milestone/m-E23-03-delete-model-validator`)** — `ModelValidator.cs` deleted; `ValidationResult` (14 lines) relocated to `src/FlowTime.Core/Models/ValidationResult.cs` keeping namespace `FlowTime.Core`; AC3 grep clean (7 historical-comment hits, zero live references); both canaries green; full suite **1862 / 0 / 9** — identical to m-E23-02 tip. Epic-folder archived to `work/epics/completed/E-23-model-validation-consolidation/` on merge to main. · depends on: m-E23-02
 
 ## ADRs
 

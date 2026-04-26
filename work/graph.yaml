@@ -984,8 +984,8 @@ nodes:
         resolution_hint: add a spec at work/epics/<slug>/, remove the prose reference, or mark status:dropped
   - id: E-23
     kind: epic
-    path: work/epics/E-23-model-validation-consolidation
-    status: ready-to-resume
+    path: work/epics/completed/E-23-model-validation-consolidation
+    status: complete
     confidence: low
     status_evidence:
       - source: roadmap-row

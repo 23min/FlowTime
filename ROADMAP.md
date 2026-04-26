@@ -83,9 +83,9 @@ Unified FlowTime's post-substitution model representation. One C# type (`ModelDt
 
 **Unblocks:** E-23 m-E23-02 (call-site migration) and m-E23-03 (`ModelValidator` delete) become byte-trivial mechanical cleanup; m-E21-07 Validation Surface eventually; E-15 Telemetry Ingestion `nodes[].source` forward contract.
 
-## E-23 — Model Validation Consolidation (in-progress — all 3 milestones completed 2026-04-26; epic ready to merge)
+## E-23 — Model Validation Consolidation (completed and merged to main 2026-04-26)
 
-**Epic:** `work/epics/E-23-model-validation-consolidation/spec.md` | **Status:** all 3 milestones completed 2026-04-26 on `epic/E-23-model-validation-consolidation`; ready to merge to `main` and archive. Rescoped 2026-04-26 — E-24 Schema Alignment closed (all five milestones landed on `epic/E-24-schema-alignment`). E-23's spirit reframed: make `model.schema.yaml` the only declarative source of structural truth and `ModelSchemaValidator` the only runtime evaluator — eliminate every "embedded schema" outside the canonical schema (`ModelValidator.cs` hand-rolled rules, parser tolerations, silent emission defaults, post-parse orchestration checks). E-24 fixed type + schema-document embedment; E-23 closed the rule-evaluator embedment.
+**Epic:** `work/epics/completed/E-23-model-validation-consolidation/spec.md` | **Status:** completed and merged to main 2026-04-26; archived. Rescoped 2026-04-26 — E-24 Schema Alignment closed (all five milestones landed on `epic/E-24-schema-alignment`). E-23's spirit reframed: make `model.schema.yaml` the only declarative source of structural truth and `ModelSchemaValidator` the only runtime evaluator — eliminate every "embedded schema" outside the canonical schema (`ModelValidator.cs` hand-rolled rules, parser tolerations, silent emission defaults, post-parse orchestration checks). E-24 fixed type + schema-document embedment; E-23 closed the rule-evaluator embedment. **`ModelSchemaValidator.Validate` is now the single model-YAML validator in the codebase.**
 
 Mini-epic (3 milestones). Collapses the codebase's two silently-disagreeing model validators to one: `ModelValidator` is **deleted**, `ModelSchemaValidator` is the single schema-driven entry point. Directly enforces the 2026-04-23 Truth Discipline guard *"'API stability' does not mean 'keep old functions around.'"*
 
