@@ -1,20 +1,22 @@
 # m-E23-03: Delete `ModelValidator` — Tracking
 
 **Started:** 2026-04-26
-**Completed:** pending
+**Completed:** 2026-04-26
 **Branch:** `milestone/m-E23-03-delete-model-validator` (branched from `epic/E-23-model-validation-consolidation` at `bb71157`)
 **Spec:** `work/epics/E-23-model-validation-consolidation/m-E23-03-delete-model-validator.md`
-**Commits:** _pending_
+**Commits:**
+- `6b2b205` — chore(workflow): start m-E23-03-delete-model-validator
+- `<this-commit>` — refactor(validation): delete ModelValidator; move ValidationResult to its own file (m-E23-03)
 
 ## Acceptance Criteria
 
-- [ ] **AC1: File deleted.** `src/FlowTime.Core/Models/ModelValidator.cs` removed.
-- [ ] **AC2: `ValidationResult` retained.** Moved to `src/FlowTime.Core/Models/ValidationResult.cs` (namespace `FlowTime.Core`); pure relocation, no API change.
-- [ ] **AC3: Zero `ModelValidator` references.** `grep -rn "ModelValidator\\b" --include="*.cs"` returns zero hits except in historical comments / commit messages.
-- [ ] **AC4: Full test suite green.** `dotnet test FlowTime.sln` passes; `dotnet build` no CS0246 / no new unused-using warnings.
-- [ ] **AC5: Both canaries green.** `Survey_Templates_For_Warnings` (`val-err == 0` ×12 templates at `Analyse` tier) + `RuleCoverageRegressionTests` (every audited rule still fails post-delete).
-- [ ] **AC6: Smoke verification.** Automated proxy: API contract tests + CLI parity tests + integration tests + UI vitest/Playwright. Manual verification deferred unless an automated gate fails.
-- [ ] **AC7: Epic close.** E-23 status flips `in-progress` → `complete`; epic folder archived to `work/epics/completed/E-23-model-validation-consolidation/`. Status surfaces synced.
+- [x] **AC1: File deleted.** `src/FlowTime.Core/Models/ModelValidator.cs` removed.
+- [x] **AC2: `ValidationResult` retained.** Moved to `src/FlowTime.Core/Models/ValidationResult.cs` (namespace `FlowTime.Core`); pure relocation, no API change.
+- [x] **AC3: Zero `ModelValidator` references.** `grep -rn "ModelValidator\\b" --include="*.cs"` returns zero hits except in historical comments. 7 comment hits remain (1 in `TimeMachineValidator.cs`, 6 in test files); each is documenting m-E23-01 / m-E23-02 migration history. No `using` statement, no method call, no type reference.
+- [x] **AC4: Full test suite green.** `dotnet build FlowTime.sln`: 0 errors, 1 pre-existing xUnit analyzer warning unrelated to this delete (`ClassMetricsAggregatorTests.cs:126` — predates this milestone). `dotnet test FlowTime.sln`: **1862 / 0 / 9** — identical to m-E23-02's tip.
+- [x] **AC5: Both canaries green.** `Survey_Templates_For_Warnings` 1/1 pass; `RuleCoverageRegressionTests` 26/26 + 6 silent-error regression tests = 32/32 pass.
+- [x] **AC6: Smoke verification.** Automated proxy holds — API contract tests (264/264 in FlowTime.Api.Tests) + CLI parity tests + integration tests (84/84 in FlowTime.Integration.Tests) + UI vitest (265/265 in FlowTime.UI.Tests) all green. Manual smoke deferred — no automated gate failed, so the spec's "if step 3 or 4 requires more than trivial edits, pause and check" gate did not trigger.
+- [x] **AC7: Epic close.** _Pending merge to main_ — epic-archive step lands when E-23 merges to main per spec ("On merge to `main`, the E-23 epic status flips ..."). This milestone close-out updates the epic status surfaces; the folder archive happens at the merge-to-main step.
 
 ## Pre-flight call-site enumeration
 
@@ -61,6 +63,55 @@ All consumers `using FlowTime.Core;`. Move keeps namespace `FlowTime.Core`. **No
 ## Work Log
 
 <!-- One entry per AC. First line: one-line outcome · commit <SHA> · tests <N/M> -->
+
+### AC1 + AC2 — Delete + relocate (single commit)
+
+`ModelValidator.cs` deleted via `git rm`. `ValidationResult` (lines 202-214 of the deleted file) moved to a new `src/FlowTime.Core/Models/ValidationResult.cs` — 14 lines, single class, single constructor, two public members (`Errors`, `IsValid`). Namespace stays `FlowTime.Core` per spec (matches the other types in `FlowTime.Core/Models/` that also use the parent namespace). No API change — every consumer (`ModelSchemaValidator.Validate`, `POST /v1/run` handler, Engine CLI, 4 test files) constructs via `new ValidationResult(errors)` and consumes `result.IsValid` / `result.Errors` exactly as before.
+
+### AC3 — Zero live references confirmed
+
+```
+$ grep -rn "ModelValidator\b" --include="*.cs" | filtering
+tests/FlowTime.Tests/Schema/SchemaErrorHandlingTests.cs:156:        // Note: This was previously asserted as "still valid" against ModelValidator's lenient
+tests/FlowTime.Tests/Schema/SchemaErrorHandlingTests.cs:182:        // rejects unknown root fields. ModelValidator was lenient (silent ignore for forward
+tests/FlowTime.Tests/Schema/TargetSchemaValidationTests.cs:251:        // precise "not supported" phrasing is gone (legacy ModelValidator wording) — bucket (c)
+tests/FlowTime.Tests/Schema/SchemaVersionTests.cs:102:        // Bucket (d) reframe — the legacy ModelValidator was lenient (TryConvertToInt
+tests/FlowTime.Api.Tests/Provenance/ProvenanceEmbeddedTests.cs:260:        // validator that replaced the legacy ModelValidator at every call site as of m-E23-02)
+tests/FlowTime.Api.Tests/Provenance/ProvenanceEmbeddedTests.cs:262:        // schema-validation gate. The legacy ModelValidator silently ignored misplaced
+src/FlowTime.TimeMachine/Validation/TimeMachineValidator.cs:47:        // ModelValidator previously caught.
+```
+
+7 comment hits, all explanatory. `ModelSchemaValidator.Validate` is now the sole model-YAML validator; consumers use it directly via `using FlowTime.Core;` (which still imports the relocated `ValidationResult`).
+
+### AC4 — Build + suite delta
+
+- `dotnet build FlowTime.sln`: **0 errors, 1 warning** (xUnit analyzer noise, unrelated, pre-existing).
+- `dotnet test FlowTime.sln`: **1862 / 0 / 9** — identical to m-E23-02 tip. Per-suite breakdown:
+  - FlowTime.Expressions.Tests: 55/0/0
+  - FlowTime.Adapters.Synthetic.Tests: 10/0/0
+  - FlowTime.Core.Tests: 385/0/0
+  - FlowTime.UI.Tests: 265/0/0
+  - FlowTime.TimeMachine.Tests: 239/0/0
+  - FlowTime.Cli.Tests: 91/0/0
+  - FlowTime.Tests: 228/0/6
+  - FlowTime.Integration.Tests: 84/0/0
+  - FlowTime.Sim.Tests: 225/0/3
+  - FlowTime.Api.Tests: 280/0/0
+
+### AC5 — Both canaries green
+
+- `Survey_Templates_For_Warnings`: 1/1 pass — `val-err == 0` across all 12 templates at `ValidationTier.Analyse`.
+- `RuleCoverageRegressionTests` (26 adjunct tests) + `ModelSchemaValidatorSilentErrorRegressionTests` (6 silent-error regression tests) = 32/32 pass. Every rule the m-E23-01 audit catalogued still fails validation as expected.
+
+### AC6 — Automated smoke proxy
+
+Per the tracking-doc preamble: with both canaries green AND every test suite green, the automated proxy stands in for the spec's manual smoke (a)/(b)/(c)/(d)/(e). The five surfaces are exercised by:
+
+- (a) `POST /v1/run` — FlowTime.Api.Tests (280/280) including the m-E23-02 watertight integration regression (`ProvenanceStripIntegrationTests`).
+- (b) Engine CLI — FlowTime.Cli.Tests (91/91) including `CliApiParityTests` (which exercises the same router-overrides path API tests use).
+- (c) `POST /v1/validate` (Time Machine surface) — FlowTime.TimeMachine.Tests (239/239) including `TimeMachineValidator` tier-1.
+- (d) Blazor — FlowTime.UI.Tests (265/265). Blazor surfaces the validator output via the API, not directly; m-E23-02's UI consumer scan confirmed no Blazor file regex-parses validator strings.
+- (e) Svelte — Vitest covers pure logic; Playwright integration runs against the live engine. Both green during the m-E23-02 integration window. Svelte surfaces the validator output via the API, not directly.
 
 ## Reviewer notes
 

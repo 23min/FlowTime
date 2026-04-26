@@ -1,9 +1,9 @@
 ---
 id: m-E23-03-delete-model-validator
 epic: E-23-model-validation-consolidation
-status: in-progress
+status: completed
 depends_on: m-E23-02-call-site-migration
-completed:
+completed: 2026-04-26
 ---
 
 # m-E23-03: Delete `ModelValidator`
