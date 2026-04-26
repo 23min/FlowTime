@@ -20,12 +20,12 @@ namespace FlowTime.Integration.Tests;
 ///
 /// In-process tests — no live API/server required (uses <see cref="WebApplicationFactory{T}"/>).
 /// </summary>
-public class M_E24_02_Step6_AcceptanceTests : IClassFixture<WebApplicationFactory<Program>>
+public class M_E24_02_Step6_AcceptanceTests : IClassFixture<IsolatedWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> factory;
+    private readonly IsolatedWebApplicationFactory factory;
     private readonly ITestOutputHelper output;
 
-    public M_E24_02_Step6_AcceptanceTests(WebApplicationFactory<Program> factory, ITestOutputHelper output)
+    public M_E24_02_Step6_AcceptanceTests(IsolatedWebApplicationFactory factory, ITestOutputHelper output)
     {
         this.factory = factory;
         this.output = output;
