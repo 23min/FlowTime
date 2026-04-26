@@ -35,7 +35,7 @@ public class SimToEngineWorkflowTests
 
         var engineYaml = await service.GenerateEngineModelAsync(templateId, new Dictionary<string, object>());
 
-        var validation = ModelValidator.Validate(engineYaml);
+        var validation = ModelSchemaValidator.Validate(engineYaml);
         Assert.True(validation.IsValid, $"Generated engine model invalid: {string.Join("; ", validation.Errors)}");
         Assert.Contains("schemaVersion: 1", engineYaml);
 
@@ -117,7 +117,7 @@ public class SimToEngineWorkflowTests
 
         var engineYaml = await service.GenerateEngineModelAsync(templateId, parameters, TemplateMode.Telemetry);
 
-        var validation = ModelValidator.Validate(engineYaml);
+        var validation = ModelSchemaValidator.Validate(engineYaml);
         Assert.True(validation.IsValid, $"Telemetry model invalid: {string.Join("; ", validation.Errors)}");
 
         // m-E24-02 (Q5/A4): top-level `mode:` is dropped from emission. The mode

@@ -1352,7 +1352,7 @@ nodes:
         resolution_hint: add a spec at work/epics/<slug>/, remove the prose reference, or mark status:dropped
   - id: m-E23-01
     kind: milestone
-    status: in-progress
+    status: complete
     confidence: medium
     status_evidence:
       - source: roadmap-row
@@ -1361,6 +1361,7 @@ nodes:
         value: absorbed
   - id: m-E23-02
     kind: milestone
+    status: complete
     confidence: none
     conflicts:
       - field: presence

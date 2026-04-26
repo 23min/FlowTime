@@ -1,9 +1,9 @@
 ---
 id: m-E23-02-call-site-migration
 epic: E-23-model-validation-consolidation
-status: ready
+status: completed
 depends_on: m-E23-01-rule-coverage-audit
-completed:
+completed: 2026-04-26
 ---
 
 # m-E23-02: Call-Site Migration

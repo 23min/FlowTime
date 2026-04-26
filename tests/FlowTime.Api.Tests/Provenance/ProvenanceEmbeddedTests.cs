@@ -256,10 +256,16 @@ public class ProvenanceEmbeddedTests : IClassFixture<TestWebApplicationFactory>
         var response = await client.SendAsync(request);
 
         // Assert
-        // M2.9: Provenance at wrong level is currently ignored (no validation error)
-        // Future: Could add validation to reject malformed provenance placement
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        // Provenance must be at root level, not nested in grid (currently not enforced)
+        // m-E23-02: The "future" arrived. ModelSchemaValidator (the canonical schema-driven
+        // validator that replaced the legacy ModelValidator at every call site as of m-E23-02)
+        // enforces grid.additionalProperties: false, so /grid/provenance is rejected at the
+        // schema-validation gate. The legacy ModelValidator silently ignored misplaced
+        // provenance because it never inspected /grid for unknown keys.
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var errorJson = await response.Content.ReadAsStringAsync();
+        Assert.Contains("provenance", errorJson, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("grid", errorJson, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
