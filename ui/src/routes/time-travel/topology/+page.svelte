@@ -1,23 +1,29 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { flowtime, type RunSummary, type GraphResponse } from '$lib/api/index.js';
+	import { flowtime, type RunSummary, type GraphResponse, type RunIndex } from '$lib/api/index.js';
 	import DagMapView from '$lib/components/dag-map-view.svelte';
+	import HeatmapView from '$lib/components/heatmap-view.svelte';
+	import ViewSwitcher from '$lib/components/view-switcher.svelte';
+	import NodeModeToggle from '$lib/components/node-mode-toggle.svelte';
 	import WorkbenchCard from '$lib/components/workbench-card.svelte';
 	import WorkbenchEdgeCard from '$lib/components/workbench-edge-card.svelte';
 	import MetricSelector from '$lib/components/metric-selector.svelte';
 	import TimelineScrubber from '$lib/components/timeline-scrubber.svelte';
 	import { workbench } from '$lib/stores/workbench.svelte.js';
+	import { viewState } from '$lib/stores/view-state.svelte.js';
 	import {
 		extractNodeMetrics,
 		extractEdgeMetrics,
 		findHighestUtilizationNode,
 	} from '$lib/utils/workbench-metrics.js';
 	import {
-		buildMetricMapForDefFiltered,
 		buildSparklineSeries,
+		buildNormalizedMetricMap,
+		computeMetricDomainFromWindow,
 		discoverClasses,
 		type MetricDef,
 	} from '$lib/utils/metric-defs.js';
+	import { sortHeatmapRows, type SortMode, type HeatmapRowInput } from '$lib/utils/heatmap-sort.js';
 	import { buildEdgeSelector } from '$lib/utils/topology-selectors.js';
 	import { bindEvents } from 'dag-map';
 	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
@@ -30,28 +36,23 @@
 	let runs = $state<RunSummary[]>([]);
 	let selectedRunId = $state<string | undefined>();
 	let graph = $state<GraphResponse | undefined>();
+	let runIndex = $state<RunIndex | undefined>();
 	let loading = $state(false);
 	let error = $state<string | undefined>();
 
-	// Timeline state
-	let binCount = $state(0);
-	let currentBin = $state(0);
-	let playing = $state(false);
-	let playInterval: ReturnType<typeof setInterval> | undefined;
-
-	// Snapshot state (for heatmap + node/edge cards at current bin)
+	// Snapshot state (for node/edge cards at current bin)
 	let stateNodes = $state<Record<string, unknown>[]>([]);
 	let stateEdges = $state<Record<string, unknown>[]>([]);
 
-	// Window state (for sparklines — loaded once per run)
+	// Window state (for sparklines, heatmap, and shared color domain — loaded once per run/mode)
 	let windowNodes = $state<Record<string, unknown>[]>([]);
+	let windowTimestamps = $state<string[] | undefined>();
 
 	// Graph node kinds (for card display)
 	let nodeKinds = $state<Map<string, string>>(new Map());
 
 	// Class filter
 	let availableClasses = $state<string[]>([]);
-	let activeClasses = $state<Set<string>>(new Set());
 
 	// Splitter state
 	let splitRatio = $state(65);
@@ -62,16 +63,39 @@
 	let dagContainer: HTMLDivElement | undefined = $state();
 	let cleanupEvents: (() => void) | undefined;
 
-	// Heatmap metrics, rebuilt when selected metric, snapshot, or class filter changes
-	const currentMetrics = $derived.by<Map<string, NodeMetric> | undefined>(() => {
-		if (stateNodes.length === 0) return undefined;
-		return buildMetricMapForDefFiltered(stateNodes, workbench.selectedMetric, activeClasses);
+	// Playback state (route-local — the scrubber position itself lives in viewState)
+	let playInterval: ReturnType<typeof setInterval> | undefined;
+
+	const views = [
+		{ id: 'topology', label: 'Topology', shortcut: 'Alt+1' },
+		{ id: 'heatmap', label: 'Heatmap', shortcut: 'Alt+2' },
+	];
+
+	// ---- derived metric state ------------------------------------------------------
+	// Shared color-scale domain over the full window (m-E21-06 AC5 + ADR-02). Both
+	// topology and heatmap color from this.
+	const sharedDomain = $derived.by(() => {
+		if (windowNodes.length === 0) return null;
+		return computeMetricDomainFromWindow(
+			windowNodes,
+			workbench.selectedMetric,
+			viewState.activeClasses,
+		);
 	});
 
-	// Sparkline values per node, for selected metric + class filter
+	const currentMetrics = $derived.by<Map<string, NodeMetric> | undefined>(() => {
+		if (stateNodes.length === 0) return undefined;
+		return buildNormalizedMetricMap(
+			stateNodes,
+			workbench.selectedMetric,
+			viewState.activeClasses,
+			sharedDomain,
+		);
+	});
+
 	const sparklineMap = $derived.by<Map<string, number[]>>(() => {
 		if (windowNodes.length === 0) return new Map();
-		return buildSparklineSeries(windowNodes, workbench.selectedMetric, activeClasses);
+		return buildSparklineSeries(windowNodes, workbench.selectedMetric, viewState.activeClasses);
 	});
 
 	// Bind dag-map click events whenever the SVG re-renders
@@ -81,7 +105,18 @@
 			cleanupEvents = bindEvents(dagContainer, {
 				onNodeClick: (nodeId: string) => {
 					const kind = nodeKinds.get(nodeId);
+					const wasPinned = workbench.isPinned(nodeId);
 					workbench.toggle(nodeId, kind);
+					if (!wasPinned) {
+						// Click pinned a new node → mark it as the selected card to match
+						// heatmap semantics (clicking a cell pins + selects). `currentBin`
+						// is the natural bin anchor since topology is a single-bin view.
+						viewState.setSelectedCell(nodeId, viewState.currentBin);
+					} else if (viewState.selectedCell?.nodeId === nodeId) {
+						// Click unpinned the previously-selected node → drop the marker so
+						// no card shows stale selection chrome.
+						viewState.clearSelectedCell();
+					}
 				},
 				onEdgeClick: (from: string, to: string) => {
 					workbench.toggleEdge(from, to);
@@ -104,12 +139,6 @@
 			el.classList.remove('edge-selected');
 		});
 		for (const edge of workbench.pinnedEdges) {
-			// buildEdgeSelector escapes both endpoints via CSS.escape so ids
-			// containing `"`, `\`, `]`, or a leading digit do not produce a
-			// SyntaxError. The try/catch is belt-and-braces: this effect
-			// clears .edge-selected before the loop, so one unhandled throw
-			// would otherwise block all subsequent highlight updates for the
-			// session.
 			const selector = buildEdgeSelector(edge);
 			try {
 				dagContainer.querySelectorAll(selector).forEach((el) => {
@@ -124,21 +153,25 @@
 	const selectedIds = $derived(workbench.selectedIds);
 	const hasPinnedItems = $derived(workbench.pinned.length > 0 || workbench.pinnedEdges.length > 0);
 
-	onMount(async () => {
+	onMount(() => {
 		const stored = localStorage.getItem('ft.topology.split');
 		if (stored) {
 			const v = parseFloat(stored);
 			if (isFinite(v) && v >= 20 && v <= 80) splitRatio = v;
 		}
 
-		const result = await flowtime.listRuns(1, 50);
-		if (result.success && result.value) {
-			runs = result.value.items;
-			if (runs.length > 0) {
-				selectRun(runs[0].runId);
+		(async () => {
+			const result = await flowtime.listRuns(1, 50);
+			if (result.success && result.value) {
+				runs = result.value.items;
+				if (runs.length > 0) {
+					selectRun(runs[0].runId);
+				}
 			}
-		}
-		return () => { if (playInterval) clearInterval(playInterval); };
+		})();
+		return () => {
+			if (playInterval) clearInterval(playInterval);
+		};
 	});
 
 	async function selectRun(runId: string) {
@@ -146,20 +179,19 @@
 		loading = true;
 		error = undefined;
 		graph = undefined;
+		runIndex = undefined;
 		stateNodes = [];
 		stateEdges = [];
 		windowNodes = [];
-		currentBin = 0;
-		binCount = 0;
+		windowTimestamps = undefined;
+		viewState.setCurrentBin(0);
+		viewState.setBinCount(0);
 		availableClasses = [];
-		activeClasses = new Set();
+		viewState.clearClasses();
 		stopPlayback();
 		workbench.clear();
 
-		const [graphResult] = await Promise.all([
-			flowtime.getGraph(runId),
-			flowtime.getRun(runId)
-		]);
+		const [graphResult] = await Promise.all([flowtime.getGraph(runId), flowtime.getRun(runId)]);
 
 		if (graphResult.success && graphResult.value) {
 			graph = graphResult.value;
@@ -176,26 +208,19 @@
 
 		const indexResult = await flowtime.getRunIndex(runId);
 		if (indexResult.success && indexResult.value) {
-			binCount = indexResult.value.grid?.bins ?? 0;
+			runIndex = indexResult.value;
+			viewState.setBinCount(indexResult.value.grid?.bins ?? 0);
 		}
 
 		loading = false;
 
-		if (binCount > 0) {
-			// Fetch window for sparklines (one call for full range)
-			const windowResult = await flowtime.getStateWindow(runId, 0, binCount - 1);
-			if (windowResult.success && windowResult.value) {
-				windowNodes = windowResult.value.nodes as Record<string, unknown>[];
-			}
-
-			// Snapshot for heatmap + cards
+		if (viewState.binCount > 0) {
+			await loadWindow();
 			await loadBin(0);
 
-			// Discover classes (from snapshot data)
 			const classes = discoverClasses(stateNodes);
 			availableClasses = classes;
 
-			// Auto-pin highest utilization node
 			const best = findHighestUtilizationNode(stateNodes);
 			if (best) {
 				workbench.pin(best.id, best.kind);
@@ -203,9 +228,23 @@
 		}
 	}
 
+	async function loadWindow() {
+		if (!selectedRunId || viewState.binCount <= 0) return;
+		const windowResult = await flowtime.getStateWindow(
+			selectedRunId,
+			0,
+			viewState.binCount - 1,
+			viewState.nodeMode,
+		);
+		if (windowResult.success && windowResult.value) {
+			windowNodes = windowResult.value.nodes as Record<string, unknown>[];
+			windowTimestamps = windowResult.value.timestampsUtc;
+		}
+	}
+
 	async function loadBin(bin: number) {
-		if (!selectedRunId || bin < 0 || (binCount > 0 && bin >= binCount)) return;
-		currentBin = bin;
+		if (!selectedRunId || bin < 0 || (viewState.binCount > 0 && bin >= viewState.binCount)) return;
+		viewState.setCurrentBin(bin);
 
 		const stateResult = await flowtime.getState(selectedRunId, bin);
 		if (stateResult.success && stateResult.value) {
@@ -231,35 +270,35 @@
 	}
 
 	function toggleClass(cls: string) {
-		const next = new Set(activeClasses);
-		if (next.has(cls)) {
-			next.delete(cls);
-		} else {
-			next.add(cls);
-		}
-		activeClasses = next;
+		viewState.toggleClass(cls);
 	}
 
-	function prevBin() { if (currentBin > 0) loadBin(currentBin - 1); }
-	function nextBin() { if (currentBin < binCount - 1) loadBin(currentBin + 1); }
+	function prevBin() {
+		if (viewState.currentBin > 0) loadBin(viewState.currentBin - 1);
+	}
+	function nextBin() {
+		if (viewState.currentBin < viewState.binCount - 1) loadBin(viewState.currentBin + 1);
+	}
 
 	function togglePlayback() {
-		if (playing) {
+		if (viewState.playing) {
 			stopPlayback();
 		} else {
-			playing = true;
+			viewState.setPlaying(true);
 			playInterval = setInterval(() => {
-				if (currentBin >= binCount - 1) {
-					currentBin = 0;
-				}
-				loadBin(currentBin + 1);
+				let next = viewState.currentBin + 1;
+				if (next >= viewState.binCount) next = 0;
+				loadBin(next);
 			}, 500);
 		}
 	}
 
 	function stopPlayback() {
-		playing = false;
-		if (playInterval) { clearInterval(playInterval); playInterval = undefined; }
+		viewState.setPlaying(false);
+		if (playInterval) {
+			clearInterval(playInterval);
+			playInterval = undefined;
+		}
 	}
 
 	function startDrag(e: MouseEvent) {
@@ -280,6 +319,71 @@
 			localStorage.setItem('ft.topology.split', String(splitRatio));
 		}
 	}
+
+	// Heatmap side-effects --------------------------------------------------------
+	function onHeatmapPinAndScrub(nodeId: string, bin: number) {
+		stopPlayback();
+		const kind = nodeKinds.get(nodeId);
+		if (!workbench.isPinned(nodeId)) {
+			workbench.pin(nodeId, kind);
+		}
+		if (bin !== viewState.currentBin) {
+			loadBin(bin);
+		}
+	}
+
+	function onHeatmapUnpin(nodeId: string) {
+		unpinAndClearSelection(nodeId);
+	}
+
+	// Unpin a node AND clear the persistent selection marker if it pointed at that
+	// node. Used by every unpin surface (heatmap pin glyph, topology click-to-toggle,
+	// workbench card close button) so selection stays consistent — a stale highlight
+	// on a no-longer-pinned card would be worse than no highlight at all.
+	function unpinAndClearSelection(nodeId: string) {
+		workbench.unpin(nodeId);
+		if (viewState.selectedCell?.nodeId === nodeId) {
+			viewState.clearSelectedCell();
+		}
+	}
+
+	// Node-mode toggle re-fetches the window response (the server-side filter by
+	// node kind lives in /v1/runs/{runId}/state_window). When the user flips
+	// operational ↔ full, we do NOT touch the scrubber position or class filter —
+	// both views simply re-render against the fresh response.
+	async function onNodeModeChange(mode: 'operational' | 'full') {
+		if (mode === viewState.nodeMode) return;
+		viewState.setNodeMode(mode);
+		if (selectedRunId && viewState.binCount > 0) {
+			await loadWindow();
+		}
+	}
+
+	const SORT_MODES: SortMode[] = ['topological', 'id', 'max', 'mean', 'variance'];
+
+	const heatmapGraphEdges = $derived.by(() => {
+		if (!graph) return [] as { from: string; to: string }[];
+		return graph.edges.map((e) => ({ from: e.from, to: e.to }));
+	});
+
+	// Pinned node cards follow the active sort (topological / id / max / mean /
+	// variance) in BOTH heatmap and topology views — sort is a graph-wide preference,
+	// not heatmap-specific. The sort dropdown only surfaces in the heatmap toolbar,
+	// but its effect carries over: pick "topological" in heatmap, switch to topology,
+	// cards stay in topological order. Edge cards are unaffected (no sort equivalent).
+	const sortedPinnedNodes = $derived.by(() => {
+		if (workbench.pinned.length <= 1) return workbench.pinned;
+		const rowInputs: HeatmapRowInput[] = workbench.pinned.map((pin) => ({
+			id: pin.id,
+			series: sparklineMap.get(pin.id) ?? [],
+		}));
+		const sorted = sortHeatmapRows(rowInputs, {
+			mode: viewState.sortMode,
+			edges: heatmapGraphEdges,
+		});
+		const byId = new Map(workbench.pinned.map((p) => [p.id, p]));
+		return sorted.map((r) => byId.get(r.id)).filter((p): p is NonNullable<typeof p> => p !== undefined);
+	});
 </script>
 
 <svelte:window onmousemove={onDrag} onmouseup={stopDrag} />
@@ -288,12 +392,9 @@
 	<title>Topology - FlowTime</title>
 </svelte:head>
 
-<div
-	class="flex h-full flex-col"
-	bind:this={containerEl}
->
+<div class="flex h-full flex-col min-w-0" bind:this={containerEl}>
 	<!-- Toolbar -->
-	<div class="flex items-center gap-2 border-b px-2 py-1">
+	<div class="flex items-center gap-2 border-b px-2 py-1" data-heatmap-toolbar>
 		<span class="text-xs font-semibold text-muted-foreground">Topology</span>
 		{#if runs.length > 0}
 			<select
@@ -319,7 +420,7 @@
 			<div class="flex items-center gap-1">
 				{#each availableClasses as cls (cls)}
 					<button
-						class="rounded px-1.5 py-0.5 text-[10px] transition-colors {activeClasses.has(cls)
+						class="rounded px-1.5 py-0.5 text-[10px] transition-colors {viewState.activeClasses.has(cls)
 							? 'bg-foreground text-background font-medium'
 							: 'bg-muted text-muted-foreground hover:bg-accent'}"
 						onclick={() => toggleClass(cls)}
@@ -327,10 +428,10 @@
 						{cls}
 					</button>
 				{/each}
-				{#if activeClasses.size > 0}
+				{#if viewState.activeClasses.size > 0}
 					<button
 						class="text-[10px] text-muted-foreground hover:text-foreground px-1"
-						onclick={() => (activeClasses = new Set())}
+						onclick={() => viewState.clearClasses()}
 						aria-label="Clear class filter"
 					>
 						clear
@@ -338,7 +439,59 @@
 				{/if}
 			</div>
 		{/if}
+
+		<!-- Node-mode toggle (AC15) -->
+		<div class="mx-1 h-3 w-px bg-border"></div>
+		<NodeModeToggle mode={viewState.nodeMode} onChange={onNodeModeChange} />
+
+		<!-- Heatmap-specific controls: sort + row-stability -->
+		{#if viewState.activeView === 'heatmap'}
+			<div class="mx-1 h-3 w-px bg-border"></div>
+			<span class="text-[10px] text-muted-foreground">Sort:</span>
+			<select
+				class="bg-background border-input rounded border px-1 py-0.5 text-[10px]"
+				value={viewState.sortMode}
+				onchange={(e) => viewState.setSortMode((e.target as HTMLSelectElement).value as SortMode)}
+				data-testid="heatmap-sort-select"
+			>
+				{#each SORT_MODES as m}
+					<option value={m}>{m}</option>
+				{/each}
+			</select>
+			<label class="flex items-center gap-1 text-[10px] text-muted-foreground">
+				<input
+					type="checkbox"
+					class="align-middle"
+					checked={viewState.rowStabilityOn}
+					onchange={(e) =>
+						viewState.setRowStabilityOn((e.target as HTMLInputElement).checked)}
+					data-testid="heatmap-row-stability"
+				/>
+				Keep filtered rows
+			</label>
+			<label class="flex items-center gap-1 text-[10px] text-muted-foreground">
+				<input
+					type="checkbox"
+					class="align-middle"
+					checked={viewState.fitWidth}
+					onchange={(e) => viewState.setFitWidth((e.target as HTMLInputElement).checked)}
+					data-testid="heatmap-fit-width"
+				/>
+				Fit to width
+			</label>
+		{/if}
 	</div>
+
+	<!-- View switcher -->
+	{#if graph}
+		<div class="px-2 pt-1">
+			<ViewSwitcher
+				views={views}
+				active={viewState.activeView}
+				onChange={(id) => viewState.setView(id as 'topology' | 'heatmap')}
+			/>
+		</div>
+	{/if}
 
 	{#if error}
 		<div class="flex items-center gap-2 p-3 text-xs text-destructive">
@@ -348,14 +501,17 @@
 	{:else if loading}
 		<div class="flex-1 bg-muted animate-pulse"></div>
 	{:else if graph}
-		<!-- Timeline scrubber — above the graph like Blazor -->
-		{#if binCount > 0}
+		<!-- Timeline scrubber — above the canvas for both views -->
+		{#if viewState.binCount > 0}
 			<div class="px-2 py-1 border-b">
 				<TimelineScrubber
-					{binCount}
-					{currentBin}
-					{playing}
-					onBinChange={(bin) => { stopPlayback(); loadBin(bin); }}
+					binCount={viewState.binCount}
+					currentBin={viewState.currentBin}
+					playing={viewState.playing}
+					onBinChange={(bin) => {
+						stopPlayback();
+						loadBin(bin);
+					}}
 					onTogglePlay={togglePlayback}
 					onPrev={prevBin}
 					onNext={nextBin}
@@ -363,16 +519,46 @@
 			</div>
 		{/if}
 
-		<!-- Split: DAG + Workbench -->
-		<div class="flex-1 flex flex-col min-h-0">
-			<!-- DAG area -->
-			<div style="height: {splitRatio}%" class="overflow-auto" bind:this={dagContainer}>
-				<DagMapView {graph} metrics={currentMetrics} selected={selectedIds} />
+		<!-- Split: canvas (topology | heatmap) + Workbench -->
+		<div class="flex-1 flex flex-col min-h-0 min-w-0">
+			<!-- Canvas area. `min-w-0` is load-bearing: without it, flex-item intrinsic
+			     sizing lets the SVG's default width (up to binCount * 18 px for wide
+			     runs) grow this div beyond the viewport, defeating both `overflow-auto`
+			     and the heatmap's fit-to-width math. -->
+			<div
+				style="height: {splitRatio}%"
+				class="overflow-auto min-w-0"
+				bind:this={dagContainer}
+			>
+				{#if viewState.activeView === 'topology'}
+					<DagMapView {graph} metrics={currentMetrics} selected={selectedIds} />
+				{:else if viewState.activeView === 'heatmap'}
+					<HeatmapView
+						{windowNodes}
+						timestampsUtc={windowTimestamps}
+						graphEdges={heatmapGraphEdges}
+						metric={workbench.selectedMetric}
+						binCount={viewState.binCount}
+						currentBin={viewState.currentBin}
+						activeClasses={viewState.activeClasses}
+						pinnedIds={viewState.pinnedIds}
+						sortMode={viewState.sortMode}
+						rowStabilityOn={viewState.rowStabilityOn}
+						grid={runIndex?.grid}
+						selectedCell={viewState.selectedCell}
+						fitWidth={viewState.fitWidth}
+						onPinAndScrub={onHeatmapPinAndScrub}
+						onUnpin={onHeatmapUnpin}
+						onCellSelect={(id, bin) => viewState.setSelectedCell(id, bin)}
+					/>
+				{/if}
 			</div>
 
 			<!-- Splitter handle -->
 			<div
-				class="h-1 cursor-row-resize border-y border-border hover:bg-accent flex-shrink-0 {dragging ? 'bg-accent' : ''}"
+				class="h-1 cursor-row-resize border-y border-border hover:bg-accent flex-shrink-0 {dragging
+					? 'bg-accent'
+					: ''}"
 				role="separator"
 				aria-orientation="horizontal"
 				onmousedown={startDrag}
@@ -386,7 +572,7 @@
 					</div>
 				{:else}
 					<div class="flex gap-2 p-2 flex-wrap items-start">
-						{#each workbench.pinned as pin (pin.id)}
+						{#each sortedPinnedNodes as pin (pin.id)}
 							{@const nodeState = getNodeState(pin.id)}
 							<WorkbenchCard
 								nodeId={pin.id}
@@ -394,11 +580,12 @@
 								metrics={nodeState ? extractNodeMetrics(nodeState) : []}
 								sparklineValues={sparklineMap.get(pin.id) ?? []}
 								sparklineLabel={workbench.selectedMetric.label.toLowerCase()}
-								{currentBin}
-								onClose={() => workbench.unpin(pin.id)}
+								currentBin={viewState.currentBin}
+								selected={viewState.selectedCell?.nodeId === pin.id}
+								onClose={() => unpinAndClearSelection(pin.id)}
 							/>
 						{/each}
-						{#each workbench.pinnedEdges as edge (`${edge.from}\u2192${edge.to}`)}
+						{#each workbench.pinnedEdges as edge (`${edge.from}→${edge.to}`)}
 							{@const edgeState = getEdgeState(edge.from, edge.to)}
 							<WorkbenchEdgeCard
 								from={edge.from}

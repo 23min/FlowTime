@@ -651,6 +651,139 @@ Follow-up PR to `23min/ai-workflow`: add `.codex/instructions.md` (or `.codex/`)
 
 ---
 
+## Heatmap view — deferred enhancements (m-E21-06 Q&A, 2026-04-23)
+
+### Why this is a gap
+
+The m-E21-06 Heatmap View design Q&A (14 questions) surfaced several enhancements that are real analytical value but are not required for the first shipping heatmap. Default behavior for the milestone favors paradigm coherence (shared normalization with topology, topological default sort, etc.); these items are alternative modes and secondary analytical tools.
+
+### Deferred items
+
+- **Fixed per-metric color ranges** (Q3-D). Utilization anchored to `[0, 1]`, bounded metrics pinned to their natural domain, etc. Stable across runs (e.g. utilization of 0.5 always looks the same). Requires metric-registry enrichment (per-metric `domain` metadata) and doesn't work for unbounded metrics without convention. Default normalization is shared full-window with 99th-percentile clipping.
+- **Per-row (per-node) color normalization toggle** (Q3-C). Each row normalizes over its own min/max, surfacing "temporal pattern within this node" at the cost of cross-node comparability. Useful secondary mode for "what's the shape of this node's pattern?" — defer until asked.
+- **Current-bin value sort mode** (Q7 extra). Sorts rows by value at the scrubber's current bin; re-sorts when the scrubber moves. Cute but volatile; unclear real analytical use.
+- **Trend / slope sort mode** (Q7 extra). Rank rows by slope of their time series to answer "which nodes are getting worse over time?" Genuinely analytical but adds statistical complexity; defer.
+- **View-registry graduation** (Q13). m-E21-06 ships a typed `<ViewSwitcher>` with views listed inline on the topology page and shared state in a store. When a third layered view lands (decomposition / comparison / flow-balance — currently out-of-scope of E-21) with real asymmetry from topology/heatmap, graduate to a manifest-based registry + `ViewContext` pattern. Premature to build now.
+
+### Immediate implications
+
+- These are UX-enrichment items, not correctness gaps. Shipping m-E21-06 without them is honest: the default behavior is the right default for a first heatmap.
+- If future layered-view milestones surface asymmetry that the inline `<ViewSwitcher>` handles awkwardly, graduate to a registry pattern then — not speculatively.
+
+### Reference
+
+- E-21 m-E21-06 Q&A conversation, 2026-04-23 (in-session, not archived).
+- Source spec: `work/epics/unplanned/ui-analytical-views/spec.md` V1 Heatmap View.
+- E-21 epic spec: `work/epics/E-21-svelte-workbench-and-analysis/spec.md` m-E21-06 row.
+
+---
+
+## Topology DAG has no keyboard nav or ARIA structure (m-E21-06 AC12 homework)
+
+### Why this is a gap
+
+m-E21-06 establishes the accessibility bar for the Svelte workbench: heatmap cells are keyboard-reachable via Tab + arrow keys, carry `role="grid"`/`role="row"`/`role="gridcell"` with `aria-label` containing node id + bin + metric + value, render a visible focus ring, and fire tooltip-on-focus. During the AC12 homework audit the topology DAG area was found to lag that bar:
+
+- DAG SVG is rendered via `{@html renderSVG(...)}` from the dag-map library; nodes have no `tabindex` and cannot be reached by keyboard.
+- No ARIA roles on the SVG container, nodes, or edges — a screen-reader user gets no structure.
+- Node-click is the only input modality.
+- Edge interaction (click-to-pin-edge) has no keyboard equivalent.
+
+Per milestone confirmation #3, this was not retrofitted inside m-E21-06. The heatmap ships at the higher bar; topology remains at the earlier bar.
+
+### Status
+
+Open. Blazor UI's original topology had keyboard + ARIA; Svelte topology regressed here and the regression predates m-E21-06.
+
+### Immediate implications
+
+- Do not ship accessibility audits against the Svelte workbench as "complete" until topology reaches heatmap's bar.
+- When a future milestone (likely m-E21-08 polish) adds pattern encoding / high-contrast tuning, include topology keyboard + ARIA retrofit in the same pass.
+- The dag-map library itself may need to grow tabindex / role options on its rendered nodes; coordinate with the library owners before forking rendering in the topology Svelte component.
+
+---
+
+## Data-viz palette not validated for color-blindness (m-E21-06 AC12 homework)
+
+### Why this is a gap
+
+The `--ft-viz-*` palette introduced in m-E21-02 (teal, pink, coral, blue, green, amber, purple) was chosen for general aesthetic contrast but was not validated against color-blindness simulators. Under ADR-m-E21-06-02 both topology and heatmap now share the same teal → amber → red gradient from `dag-map`'s `colorScales.palette`, so the issue amplifies — users with deuteranopia or protanopia may see low-utilization teal and high-utilization red as the same muted hue.
+
+### Status
+
+Open. Deferred from m-E21-06 per confirmation #3 — pattern-encoding (redundant hatch overlay) and high-contrast tuning land in m-E21-08 polish milestone.
+
+### Immediate implications
+
+- Until polish lands, users with color-vision differences will rely on the `data-value-bucket` attribute semantics (`low` / `mid` / `high`) and on hover tooltips for correctness.
+- When m-E21-08 runs, add a deuteranopia / protanopia / tritanopia simulator pass to the workbench smoke test; pattern-encode heatmap cells when enabled via a user preference toggle.
+
+---
+
+## Bidirectional card ↔ view selection (reverse cross-link)
+
+### Why this is a gap
+
+m-E21-06 Heatmap View ships a **one-way** cross-link: clicking a heatmap cell or a topology node pins the node and sets `viewState.selectedCell`; the matching workbench card's title renders in turquoise (`--ft-highlight`). The reverse path — click a workbench card → the corresponding cell in the heatmap and node in topology light up as the selected item — is not implemented.
+
+Today, clicking a card body does nothing (only the ✕ close button is interactive). That's fine for shipping m-E21-06, but it's the natural other half of the "same model, multiple views" principle the milestone is built on. For long pin-stacks it's common to wonder "where is this node in the graph?" without needing to hover-scan the heatmap or DAG.
+
+### Proposed shape
+
+- **Card body click** → `viewState.setSelectedCell(card.nodeId, viewState.currentBin)`.
+  - Heatmap: the existing `selectedCell`-driven overlay rect automatically appears at (nodeId, currentBin). Zero new code in heatmap.
+  - Topology: dag-map nodes are rendered as SVG via `{@html renderSVG(...)}`. Add a CSS rule `.node-selected { stroke: var(--ft-highlight); stroke-width: 2; }` and a `$effect` that toggles the class by id — same pattern as the existing `.edge-selected` toggle in `ui/src/routes/time-travel/topology/+page.svelte:127–128`.
+- Keep the ✕ close button as the sole unpin surface on the card. Card body click = select only (no toggle / no unpin).
+- Keyboard reachability on the card body for a11y (space / enter → same effect).
+
+### Status
+
+Open, captured 2026-04-24 as a "natural next step" after m-E21-06 card cross-link work.
+
+### Immediate implications
+
+- Bundle into **m-E21-08 Polish** — that milestone already has topology keyboard-nav + ARIA retrofit and color-blind validation queued. Adding the reverse-cross-link while topology SVG is being touched is cheap.
+- Before shipping: decide whether card body click conflicts with any future card interactivity (expand/collapse, drill-in). If so, scope the click to the card title bar rather than the whole body — leaves the body area free for subsequent interactive content.
+- No backend changes needed.
+
+### Reference
+
+- `ui/src/routes/time-travel/topology/+page.svelte:127-128` — existing `.edge-selected` class toggle pattern.
+- `ui/src/lib/stores/view-state.svelte.ts` — `setSelectedCell` / `clearSelectedCell` already in place.
+- `ui/src/lib/components/workbench-card.svelte` — needs a click handler on the card body or title.
+
+---
+
+## Heatmap sliding-window scrubber (Blazor-parity zoom-and-pan)
+
+### Why this is a gap
+
+m-E21-06 Heatmap View ships a **fit-to-width** toggle (`ft.heatmap.fitWidth`, default off) that compresses `CELL_W` to `max(3, min(18, floor(containerWidth / binCount)))` so wide runs (e.g. 288 bins for the multi-tier supply chain model) fit the viewport without horizontal scroll. That solves the overview-first case but sacrifices per-cell fidelity — at 3–5 px per bin, individual tile values are hard to read, tooltip hover is fiddly, and the column-highlight marker shrinks accordingly.
+
+The Blazor UI's scrubber has a **draggable window** affordance — a resizable/pannable range on the scrubber track that selects a subset of bins for inspection. The Svelte timeline scrubber currently only exposes a single-thumb `currentBin`. A Blazor-parity dual-handle "window scrubber" would let users keep the default 18 px cell size at full fidelity while panning across a long run:
+
+- Window size = e.g. 64 bins; drag the window across 288 bins = five screens of detail.
+- Heatmap renders `binCount=64` with `CELL_W=18`, no compression.
+- The scrubber track doubles as a minimap-style summary.
+- `state_window` already accepts `startBin` / `endBin`, so the data plane is ready.
+
+### Status
+
+Open, deferred by user decision 2026-04-24. Fit-to-width is the 80 % solution for overview; the sliding window is the 80 % solution for detail-at-scale. Shipping the window properly needs a dedicated milestone because:
+
+- `TimelineScrubber` needs dual handles (window-start, window-end) plus a window body for drag-to-pan.
+- `currentBin` vs `windowBin` semantics must be nailed down (what does "pin this cell" mean when the user is viewing bins 128–191 but the full-run thumb is at 30?).
+- Heatmap and topology both need to consume the window range from the shared view-state store (new `windowRange` field).
+- Playwright coverage for drag-pan, resize, and keyboard equivalents (PgUp / PgDn to pan).
+
+### Immediate implications
+
+- Until the sliding-window milestone lands, fit-to-width is the only knob for wide runs on the heatmap.
+- Plan for a new E-21 milestone after m-E21-07 Validation and m-E21-08 Polish — or fold into polish if scope allows.
+- When the milestone lands, the Blazor-parity gesture needs to be muscle-memory-compatible for existing users (drag the window body; resize via handles).
+
+---
+
 ## Open Questions
 
 - Should path filters be part of the time-travel API or a separate analysis endpoint?

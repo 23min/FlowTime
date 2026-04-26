@@ -14,6 +14,9 @@
 		sparklineValues?: number[];
 		sparklineLabel?: string;
 		currentBin?: number;
+		/** When true, the title text renders in the turquoise selection color (matches
+		 *  the heatmap cell-selection overlay), tying the card to the selected tile. */
+		selected?: boolean;
 		onClose?: () => void;
 	}
 
@@ -24,6 +27,7 @@
 		sparklineValues = [],
 		sparklineLabel = 'utilization',
 		currentBin,
+		selected = false,
 		onClose,
 	}: Props = $props();
 </script>
@@ -32,7 +36,11 @@
 	<!-- Header -->
 	<div class="flex items-center justify-between gap-1">
 		<div class="flex items-center gap-1 min-w-0">
-			<span class="font-semibold truncate">{nodeId}</span>
+			<span
+				class="font-semibold truncate"
+				style={selected ? 'color: var(--ft-highlight)' : undefined}
+				data-selected={selected ? 'true' : undefined}
+			>{nodeId}</span>
 			{#if kind}
 				<span class="text-muted-foreground text-[10px] shrink-0">{kind}</span>
 			{/if}
