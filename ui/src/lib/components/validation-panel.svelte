@@ -6,16 +6,24 @@
 	 * run. Reads exclusively from the shared `validation` store (AC11 single
 	 * source of truth) — does NOT trigger its own fetch.
 	 *
-	 * Click semantics (AC9):
-	 *   - Node row with a `key` → pin the node + set selectedCell so the
-	 *     workbench card title cross-highlights (mirrors topology-click handler
-	 *     at +page.svelte:106-119).
-	 *   - Edge row with a `key` → pin the corresponding edge via
-	 *     `workbench.pinEdge(...)`. The edge id is parsed against the workbench's
-	 *     `from→to` convention; if the analyser persisted a different format,
-	 *     the click is a no-op (graceful fallback).
+	 * Click semantics (AC9) — implemented by the pure helper
+	 * `handleValidationRowClick` so every branch is vitest-covered without
+	 * booting Svelte's reactive runtime:
+	 *   - Node row → ensure-pinned (idempotent `workbench.pin`) + always set
+	 *     `viewState.setSelectedCell(...)`. Re-clicking the same row is a
+	 *     non-destructive selection-anchor reaffirmation; it never unpins.
+	 *   - Edge row → `workbench.bringEdgeToFront(from, to)` (ensure-pinned +
+	 *     move-to-end), so the cross-link "last-pinned wins" convention focuses
+	 *     on the just-clicked edge regardless of previous pin state. The edge
+	 *     id is parsed against the workbench's `from→to` convention; if the
+	 *     analyser persisted a different format, the click is a no-op.
 	 *   - Row with no identity (`key === null`) → no pin affordance; click is a
 	 *     no-op and the cursor stays default.
+	 *
+	 * The click handler NEVER unpins. The unpin path lives only on the
+	 * workbench card's close button. This guards against a destructive
+	 * re-click regression (the bug that surfaced during smoke-testing
+	 * 2026-04-27 — see tracking-doc Decisions).
 	 *
 	 * Cross-link highlighting (AC10):
 	 *   - Reads `viewState.selectedCell?.nodeId` for node selection.
@@ -37,6 +45,7 @@
 	import { viewState } from '$lib/stores/view-state.svelte.js';
 	import { workbench } from '$lib/stores/workbench.svelte.js';
 	import {
+		handleValidationRowClick,
 		rowId,
 		rowsMatchingSelection,
 		severityChromeToken,
@@ -70,25 +79,16 @@
 	});
 
 	// ---- click semantics (AC9) ---------------------------------------------------
+	// Implementation lives in `handleValidationRowClick` (pure helper) so every
+	// branch is unit-testable. This wrapper only adapts the runtime stores to
+	// the helper's `ValidationRowClickDeps` shape.
 	function onRowClick(row: ValidationRow) {
-		if (row.key === null) return; // no identity → no-op (per AC9)
-		if (row.kind === 'node') {
-			const wasPinned = workbench.isPinned(row.key);
-			workbench.pin(row.key);
-			if (!wasPinned) {
-				viewState.setSelectedCell(row.key, viewState.currentBin);
-			}
-			return;
-		}
-		// Edge row — parse the analyser's edge id against the workbench's
-		// `from→to` convention. If the format doesn't match, no-op rather than
-		// pin a malformed edge.
-		const ARROW = '→';
-		const idx = row.key.indexOf(ARROW);
-		if (idx <= 0 || idx === row.key.length - 1) return;
-		const from = row.key.slice(0, idx);
-		const to = row.key.slice(idx + 1);
-		workbench.pinEdge(from, to);
+		handleValidationRowClick(row, {
+			pin: (id, kind) => workbench.pin(id, kind),
+			bringEdgeToFront: (from, to) => workbench.bringEdgeToFront(from, to),
+			setSelectedCell: (nodeId, bin) => viewState.setSelectedCell(nodeId, bin),
+			currentBin: viewState.currentBin,
+		});
 	}
 
 	// ---- per-row severity chrome -------------------------------------------------

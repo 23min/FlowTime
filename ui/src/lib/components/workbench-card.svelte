@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Sparkline from './sparkline.svelte';
 	import XIcon from '@lucide/svelte/icons/x';
+	import { severityChromeToken } from '$lib/utils/validation-helpers.js';
 
 	interface MetricEntry {
 		label: string;
@@ -17,6 +18,11 @@
 		/** When true, the title text renders in the turquoise selection color (matches
 		 *  the heatmap cell-selection overlay), tying the card to the selected tile. */
 		selected?: boolean;
+		/** When set, a small filled chrome-token dot renders in the title row,
+		 *  signalling the pinned node has at least one validation warning. The
+		 *  dot composes with `selected` — both can render at once. Hidden when
+		 *  undefined. (m-E21-07 workbench-card warning dot follow-up.) */
+		warningSeverity?: 'error' | 'warning' | 'info';
 		onClose?: () => void;
 	}
 
@@ -28,14 +34,34 @@
 		sparklineLabel = 'utilization',
 		currentBin,
 		selected = false,
+		warningSeverity,
 		onClose,
 	}: Props = $props();
+
+	// Severity → chrome token. `severityChromeToken` returns `null` for unknown
+	// literals; the prop type narrows to the known three-literal union, so the
+	// only `null` path here is "prop undefined" (handled by the `{#if}` guard).
+	const warningToken = $derived(
+		warningSeverity ? severityChromeToken(warningSeverity) : null,
+	);
 </script>
 
 <div class="bg-card border rounded p-1.5 text-xs min-w-[160px] max-w-[200px] flex flex-col gap-1">
 	<!-- Header -->
 	<div class="flex items-center justify-between gap-1">
 		<div class="flex items-center gap-1 min-w-0">
+			{#if warningToken}
+				<!-- Warning dot — placed before the title text so it sits inline with
+				     the (optional) turquoise `selected` text colour without overlap.
+				     Same dot density as the validation-panel row chip from `382add5`. -->
+				<span
+					class="inline-block size-1.5 rounded-full shrink-0"
+					style="background: var({warningToken})"
+					data-warning-dot="node"
+					data-warning-severity={warningSeverity}
+					aria-hidden="true"
+				></span>
+			{/if}
 			<span
 				class="font-semibold truncate"
 				style={selected ? 'color: var(--ft-highlight)' : undefined}

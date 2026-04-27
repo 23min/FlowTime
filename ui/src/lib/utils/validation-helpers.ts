@@ -176,6 +176,91 @@ export function maxSeverityForKey(
 }
 
 /**
+ * Look up the severity-max for a node or edge id from the validation store's
+ * `nodeSeverityById` / `edgeSeverityById` map. Returns `undefined` when the id
+ * is absent — used by the workbench card warning-dot affordance to decide
+ * "render dot" vs "render nothing" without leaking the map shape into the
+ * components.
+ *
+ * Centralised so the two card call sites (and any future card consumer) stay
+ * aligned on the "key-missing → no dot" semantics. The store guarantees only
+ * known severities populate the map, so the return type narrows to the
+ * three-literal union plus `undefined`.
+ */
+export function pickWarningSeverity(
+	map: Record<string, 'error' | 'warning' | 'info'>,
+	id: string,
+): 'error' | 'warning' | 'info' | undefined {
+	return map[id];
+}
+
+/**
+ * Dependencies the pure click-handler needs from the runtime stores. Injected
+ * so the helper stays pure and vitest-coverable: every reachable branch of the
+ * click flow can be exercised without booting Svelte's reactive runtime.
+ *
+ * The shape mirrors the methods the validation panel reaches for:
+ *   - `pin(id, kind?)`: ensure-pinned semantics for nodes (idempotent — does
+ *     NOT toggle). Matches `workbench.pin` directly.
+ *   - `bringEdgeToFront(from, to)`: ensure-pinned plus move-to-end for edges,
+ *     so the cross-link "last-pinned wins" convention focuses on the just-
+ *     clicked edge regardless of previous pin state. Matches
+ *     `workbench.bringEdgeToFront`.
+ *   - `setSelectedCell(nodeId, bin)`: selection setter for the workbench-card
+ *     title cross-highlight. Matches `viewState.setSelectedCell`.
+ *   - `currentBin`: the current scrubber bin used as the selection's bin
+ *     anchor. Matches `viewState.currentBin`.
+ */
+export interface ValidationRowClickDeps {
+	pin(id: string, kind?: string): void;
+	bringEdgeToFront(from: string, to: string): void;
+	setSelectedCell(nodeId: string, bin: number): void;
+	currentBin: number;
+}
+
+/**
+ * Pure click-handler for a validation panel row. Encodes the **ensure-pinned +
+ * always-set-selection** semantic the panel needs (re-clicking an already-
+ * pinned warning row must bring focus back to it without unpinning anything).
+ *
+ * Branches:
+ *   - `row.key === null` (warning carries no identity) → no-op.
+ *   - `row.kind === 'node'` → `pin(row.key)` (idempotent ensure-pinned) then
+ *     **always** `setSelectedCell(row.key, currentBin)` so the workbench-card
+ *     title cross-highlight follows the click. Re-clicking the same row is a
+ *     selection-anchor reaffirmation, not a destructive toggle.
+ *   - `row.kind === 'edge'` with malformed key (no arrow, leading arrow, or
+ *     trailing arrow) → no-op (graceful fallback if the analyser persisted a
+ *     non-`from→to` format).
+ *   - `row.kind === 'edge'` with well-formed key → `bringEdgeToFront(from, to)`
+ *     so the cross-link surface focuses on the just-clicked edge regardless of
+ *     whether it was pinned previously.
+ *
+ * The click NEVER unpins: the unpin path is owned by the workbench card's close
+ * button, not the validation panel. This guards against a destructive re-click
+ * regression (the bug that surfaced during smoke-testing 2026-04-27).
+ */
+export function handleValidationRowClick(
+	row: ValidationRow,
+	deps: ValidationRowClickDeps,
+): void {
+	if (row.key === null) return;
+	if (row.kind === 'node') {
+		deps.pin(row.key);
+		deps.setSelectedCell(row.key, deps.currentBin);
+		return;
+	}
+	// Edge row — parse `from→to` per the workbench's edge-key convention. If
+	// the format doesn't match, no-op rather than pin a malformed edge.
+	const ARROW = '→';
+	const idx = row.key.indexOf(ARROW);
+	if (idx <= 0 || idx === row.key.length - 1) return;
+	const from = row.key.slice(0, idx);
+	const to = row.key.slice(idx + 1);
+	deps.bringEdgeToFront(from, to);
+}
+
+/**
  * Selection shape consumed by `rowsMatchingSelection`. Either field may be
  * present; passing both is meaningful in principle (the panel highlights
  * rows that match either identity) but the panel today only supplies one

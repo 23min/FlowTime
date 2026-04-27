@@ -32,7 +32,7 @@
 		nodeIndicatorPosition,
 		parseSvgNumber,
 	} from '$lib/utils/topology-indicators.js';
-	import { severityChromeToken } from '$lib/utils/validation-helpers.js';
+	import { pickWarningSeverity, severityChromeToken } from '$lib/utils/validation-helpers.js';
 	import { bindEvents } from 'dag-map';
 	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
 
@@ -736,6 +736,7 @@
 									sparklineLabel={workbench.selectedMetric.label.toLowerCase()}
 									currentBin={viewState.currentBin}
 									selected={viewState.selectedCell?.nodeId === pin.id}
+									warningSeverity={pickWarningSeverity(validation.nodeSeverityById, pin.id)}
 									onClose={() => unpinAndClearSelection(pin.id)}
 								/>
 							{/each}
@@ -745,6 +746,10 @@
 									from={edge.from}
 									to={edge.to}
 									metrics={edgeState ? extractEdgeMetrics(edgeState) : []}
+									warningSeverity={pickWarningSeverity(
+										validation.edgeSeverityById,
+										`${edge.from}→${edge.to}`,
+									)}
 									onClose={() => workbench.unpinEdge(edge.from, edge.to)}
 								/>
 							{/each}
