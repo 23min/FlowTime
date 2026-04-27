@@ -26,7 +26,13 @@
 		type MetricDef,
 	} from '$lib/utils/metric-defs.js';
 	import { sortHeatmapRows, type SortMode, type HeatmapRowInput } from '$lib/utils/heatmap-sort.js';
-	import { buildEdgeSelector } from '$lib/utils/topology-selectors.js';
+	import { buildEdgeSelector, escapeAttributeValue } from '$lib/utils/topology-selectors.js';
+	import {
+		edgeIndicatorPosition,
+		nodeIndicatorPosition,
+		parseSvgNumber,
+	} from '$lib/utils/topology-indicators.js';
+	import { severityChromeToken } from '$lib/utils/validation-helpers.js';
 	import { bindEvents } from 'dag-map';
 	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
 
@@ -149,6 +155,132 @@
 			} catch (err) {
 				console.warn('topology: edge selector failed', { edge, err });
 			}
+		}
+	});
+
+	// Apply m-E21-07 AC7 / AC8 warning indicators after each topology render.
+	// Reads from `validation.nodeSeverityById` / `validation.edgeSeverityById`
+	// (single source of truth per AC11) and injects sibling SVG circles into
+	// the dag-map-rendered SVG.
+	//
+	// Re-run triggers:
+	//   - validation maps change (different run → different warnings)
+	//   - currentMetrics change (dag-map re-renders the SVG for new metric values)
+	//   - selectedIds change (dag-map re-renders for selection-ring redraw)
+	//   - dagContainer mounts
+	//
+	// Cleanup-then-apply pattern matches the edge-selected effect above; the
+	// SVG_NS guard keeps appended circles in the SVG namespace so they
+	// inherit the surrounding `<svg>` coordinate system.
+	$effect(() => {
+		void validation.nodeSeverityById; // track dependency
+		void validation.edgeSeverityById; // track dependency
+		void currentMetrics; // SVG re-renders on metric change — re-apply
+		void selectedIds; // SVG re-renders on selection change — re-apply
+		void viewState.activeView; // dag-map remounts when switching topology ↔ heatmap
+		if (!dagContainer) return;
+		// When the active view is heatmap, the dag-map SVG is unmounted —
+		// querySelectorAll just no-ops below, but we may as well skip cleanly.
+		if (viewState.activeView !== 'topology') return;
+
+		// Cleanup any indicators from a prior pass — the effect owns them
+		// exclusively (data-warning-indicator attribute is the seam).
+		dagContainer
+			.querySelectorAll('[data-warning-indicator]')
+			.forEach((el) => el.remove());
+
+		const SVG_NS = 'http://www.w3.org/2000/svg';
+
+		// --- Node indicators (AC7) ----------------------------------------------
+		for (const [nodeId, severity] of Object.entries(validation.nodeSeverityById)) {
+			const token = severityChromeToken(severity);
+			if (token === null) continue; // unknown severity → no chrome treatment
+			const groupSelector = `[data-node-id="${escapeAttributeValue(nodeId)}"]`;
+			let group: Element | null;
+			try {
+				group = dagContainer.querySelector(groupSelector);
+			} catch (err) {
+				console.warn('topology: node indicator selector failed', { nodeId, err });
+				continue;
+			}
+			if (!group) continue;
+			// The dag-map render emits an inner `<circle data-id="...">` carrying
+			// cx/cy/r — the canonical node geometry. Grab it directly so the
+			// indicator follows whatever the layout chose for this node (depth /
+			// interchange / scale variants all live on this circle).
+			const innerCircle = group.querySelector(
+				`circle[data-id="${escapeAttributeValue(nodeId)}"]`,
+			);
+			if (!innerCircle) continue;
+			const cx = parseSvgNumber(innerCircle.getAttribute('cx'));
+			const cy = parseSvgNumber(innerCircle.getAttribute('cy'));
+			const r = parseSvgNumber(innerCircle.getAttribute('r'));
+			if (cx === null || cy === null || r === null) continue;
+			const dot = nodeIndicatorPosition({ cx, cy, r });
+			const el = document.createElementNS(SVG_NS, 'circle');
+			el.setAttribute('cx', dot.cx.toFixed(2));
+			el.setAttribute('cy', dot.cy.toFixed(2));
+			el.setAttribute('r', dot.r.toFixed(2));
+			el.setAttribute('fill', `var(${token})`);
+			el.setAttribute('stroke', 'var(--background)');
+			el.setAttribute('stroke-width', '0.5');
+			el.setAttribute('pointer-events', 'none');
+			el.setAttribute('data-warning-indicator', 'node');
+			el.setAttribute('data-warning-node-id', nodeId);
+			el.setAttribute('data-warning-severity', severity);
+			group.appendChild(el);
+		}
+
+		// --- Edge indicators (AC8) ----------------------------------------------
+		// edgeWarnings keys are opaque (RunWarning.EdgeIds is whatever the
+		// analyser persisted) — we parse against the workbench `from→to`
+		// convention. If the format doesn't match, skip (no-op fallback,
+		// matches the validation panel's edge-row click semantics).
+		const ARROW = '→'; // → (matches dag-map's edgeIndex key format)
+		for (const [edgeId, severity] of Object.entries(validation.edgeSeverityById)) {
+			const token = severityChromeToken(severity);
+			if (token === null) continue;
+			const idx = edgeId.indexOf(ARROW);
+			if (idx <= 0 || idx === edgeId.length - 1) continue;
+			const from = edgeId.slice(0, idx);
+			const to = edgeId.slice(idx + 1);
+			const selector = buildEdgeSelector({ from, to });
+			let path: SVGPathElement | null;
+			try {
+				path = dagContainer.querySelector(selector) as SVGPathElement | null;
+			} catch (err) {
+				console.warn('topology: edge indicator selector failed', { edgeId, err });
+				continue;
+			}
+			if (!path) continue;
+			// getTotalLength / getPointAtLength are only available on
+			// SVGGeometryElement — feature-detect rather than assume.
+			if (
+				typeof path.getTotalLength !== 'function' ||
+				typeof path.getPointAtLength !== 'function'
+			) {
+				continue;
+			}
+			const totalLength = path.getTotalLength();
+			if (!Number.isFinite(totalLength) || totalLength <= 0) continue;
+			const mid = path.getPointAtLength(totalLength / 2);
+			const dot = edgeIndicatorPosition({ x: mid.x, y: mid.y });
+			const el = document.createElementNS(SVG_NS, 'circle');
+			el.setAttribute('cx', dot.cx.toFixed(2));
+			el.setAttribute('cy', dot.cy.toFixed(2));
+			el.setAttribute('r', dot.r.toFixed(2));
+			el.setAttribute('fill', `var(${token})`);
+			el.setAttribute('stroke', 'var(--background)');
+			el.setAttribute('stroke-width', '0.75');
+			el.setAttribute('pointer-events', 'none');
+			el.setAttribute('data-warning-indicator', 'edge');
+			el.setAttribute('data-warning-edge-id', edgeId);
+			el.setAttribute('data-warning-severity', severity);
+			// Append to the path's parent <svg> so the dot is on top and not
+			// constrained by the path element itself (paths cannot have child
+			// SVG nodes).
+			const svgRoot = path.ownerSVGElement;
+			if (svgRoot) svgRoot.appendChild(el);
 		}
 	});
 
