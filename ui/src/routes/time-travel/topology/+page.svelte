@@ -41,6 +41,17 @@
 		label?: string;
 	}
 
+	function formatRunOption(run: RunSummary): string {
+		const title = run.templateTitle ?? run.templateId ?? run.runId;
+		const tail = run.runId.includes('_') ? run.runId.slice(run.runId.lastIndexOf('_') + 1) : run.runId;
+		const ts = run.createdUtc ? new Date(run.createdUtc) : null;
+		const time = ts && !isNaN(ts.getTime())
+			? `${String(ts.getMonth() + 1).padStart(2, '0')}-${String(ts.getDate()).padStart(2, '0')} ${String(ts.getHours()).padStart(2, '0')}:${String(ts.getMinutes()).padStart(2, '0')}`
+			: '';
+		const warn = run.warningCount > 0 ? ` ⚠ ${run.warningCount}` : '';
+		return time ? `${title} · ${time} · ${tail}${warn}` : `${title} · ${tail}${warn}`;
+	}
+
 	let runs = $state<RunSummary[]>([]);
 	let selectedRunId = $state<string | undefined>();
 	let graph = $state<GraphResponse | undefined>();
@@ -543,7 +554,7 @@
 				onchange={(e) => selectRun((e.target as HTMLSelectElement).value)}
 			>
 				{#each runs as run}
-					<option value={run.runId}>{run.templateTitle ?? run.runId}</option>
+					<option value={run.runId}>{formatRunOption(run)}</option>
 				{/each}
 			</select>
 		{/if}
