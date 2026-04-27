@@ -65,6 +65,20 @@
 	/* Chrome accent — current-bin / current-selection highlight. Brighter and more
 	   saturated than --ft-viz-teal so the highlight reads as chrome, not data. */
 	--ft-highlight: hsl(178 75% 40%);
+
+	/* Chrome severity tokens — m-E21-07 AC12.
+	   Designed to read as chrome signals (warning/error/info) rather than compete
+	   with the data-viz palette. Distinct from --ft-pin (red) and --ft-viz-amber
+	   (selected-edge stroke).
+	   --ft-warn — amber/orange family, more saturated than --ft-viz-amber so the
+	   chrome reads as a warning rather than a data hue.
+	   --ft-err — deep red, distinct from --ft-pin (which is brighter / more
+	   pink-leaning); read as error severity, not pin status.
+	   --ft-info — blue family; distinct from --ft-viz-blue (which is darker / more
+	   muted on light bg) so the info chrome stays separable. */
+	--ft-warn: hsl(35 95% 45%);
+	--ft-err: hsl(0 75% 45%);
+	--ft-info: hsl(210 80% 50%);
 }
 
 .dark {
@@ -113,6 +127,14 @@
 
 	/* Chrome accent — current-bin / current-selection highlight (dark mode). */
 	--ft-highlight: hsl(178 75% 55%);
+
+	/* Chrome severity tokens — m-E21-07 AC12 (dark mode).
+	   Lighter and more saturated than light-mode equivalents so they read against
+	   the near-black chrome. Same separation rules as light mode — distinct from
+	   --ft-pin and --ft-viz-amber. */
+	--ft-warn: hsl(35 90% 60%);
+	--ft-err: hsl(0 70% 62%);
+	--ft-info: hsl(210 80% 65%);
 }
 
 @theme inline {

@@ -11,6 +11,8 @@
 	import TimelineScrubber from '$lib/components/timeline-scrubber.svelte';
 	import { workbench } from '$lib/stores/workbench.svelte.js';
 	import { viewState } from '$lib/stores/view-state.svelte.js';
+	import { validation } from '$lib/stores/validation.svelte.js';
+	import ValidationPanel from '$lib/components/validation-panel.svelte';
 	import {
 		extractNodeMetrics,
 		extractEdgeMetrics,
@@ -190,6 +192,7 @@
 		viewState.clearClasses();
 		stopPlayback();
 		workbench.clear();
+		validation.setResponse(null);
 
 		const [graphResult] = await Promise.all([flowtime.getGraph(runId), flowtime.getRun(runId)]);
 
@@ -239,6 +242,11 @@
 		if (windowResult.success && windowResult.value) {
 			windowNodes = windowResult.value.nodes as Record<string, unknown>[];
 			windowTimestamps = windowResult.value.timestampsUtc;
+			// Push the same response into the validation store (AC11 single source
+			// of truth). The store derives the row list + per-node + per-edge
+			// severity-max maps from `warnings[]` and `edgeWarnings`; the panel and
+			// the topology AC7 / AC8 indicators (next chunk) read from it.
+			validation.setResponse(windowResult.value);
 		}
 	}
 
@@ -564,38 +572,53 @@
 				onmousedown={startDrag}
 			></div>
 
-			<!-- Workbench panel -->
-			<div style="height: {100 - splitRatio}%" class="overflow-auto bg-background">
-				{#if !hasPinnedItems}
-					<div class="flex h-full items-center justify-center text-muted-foreground text-xs">
-						Click a node or edge to inspect
-					</div>
-				{:else}
-					<div class="flex gap-2 p-2 flex-wrap items-start">
-						{#each sortedPinnedNodes as pin (pin.id)}
-							{@const nodeState = getNodeState(pin.id)}
-							<WorkbenchCard
-								nodeId={pin.id}
-								kind={pin.kind}
-								metrics={nodeState ? extractNodeMetrics(nodeState) : []}
-								sparklineValues={sparklineMap.get(pin.id) ?? []}
-								sparklineLabel={workbench.selectedMetric.label.toLowerCase()}
-								currentBin={viewState.currentBin}
-								selected={viewState.selectedCell?.nodeId === pin.id}
-								onClose={() => unpinAndClearSelection(pin.id)}
-							/>
-						{/each}
-						{#each workbench.pinnedEdges as edge (`${edge.from}→${edge.to}`)}
-							{@const edgeState = getEdgeState(edge.from, edge.to)}
-							<WorkbenchEdgeCard
-								from={edge.from}
-								to={edge.to}
-								metrics={edgeState ? extractEdgeMetrics(edgeState) : []}
-								onClose={() => workbench.unpinEdge(edge.from, edge.to)}
-							/>
-						{/each}
+			<!-- Workbench panel — two-column layout (m-E21-07 AC2 / AC3):
+			     Left column: ValidationPanel. Width is driven by validation.state —
+			     `issues` → 300 px (per confirmation 1, not user-resizable);
+			     `empty` (post-load, zero warnings) → zero width via display:none so
+			     the pinned-card region reclaims the full panel width.
+			     Right column: existing pinned-card flex row. -->
+			<div style="height: {100 - splitRatio}%" class="overflow-hidden bg-background flex min-h-0 min-w-0">
+				{#if validation.state === 'issues' || (loading && selectedRunId !== undefined)}
+					<div
+						class="border-r border-border shrink-0 overflow-hidden"
+						style="width: 300px"
+					>
+						<ValidationPanel loading={loading} />
 					</div>
 				{/if}
+				<div class="flex-1 min-w-0 overflow-auto">
+					{#if !hasPinnedItems}
+						<div class="flex h-full items-center justify-center text-muted-foreground text-xs">
+							Click a node or edge to inspect
+						</div>
+					{:else}
+						<div class="flex gap-2 p-2 flex-wrap items-start">
+							{#each sortedPinnedNodes as pin (pin.id)}
+								{@const nodeState = getNodeState(pin.id)}
+								<WorkbenchCard
+									nodeId={pin.id}
+									kind={pin.kind}
+									metrics={nodeState ? extractNodeMetrics(nodeState) : []}
+									sparklineValues={sparklineMap.get(pin.id) ?? []}
+									sparklineLabel={workbench.selectedMetric.label.toLowerCase()}
+									currentBin={viewState.currentBin}
+									selected={viewState.selectedCell?.nodeId === pin.id}
+									onClose={() => unpinAndClearSelection(pin.id)}
+								/>
+							{/each}
+							{#each workbench.pinnedEdges as edge (`${edge.from}→${edge.to}`)}
+								{@const edgeState = getEdgeState(edge.from, edge.to)}
+								<WorkbenchEdgeCard
+									from={edge.from}
+									to={edge.to}
+									metrics={edgeState ? extractEdgeMetrics(edgeState) : []}
+									onClose={() => workbench.unpinEdge(edge.from, edge.to)}
+								/>
+							{/each}
+						</div>
+					{/if}
+				</div>
 			</div>
 		</div>
 	{:else if runs.length === 0}
