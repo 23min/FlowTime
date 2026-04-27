@@ -100,9 +100,9 @@ Mini-epic (3 milestones). Collapses the codebase's two silently-disagreeing mode
 
 **Dependencies:** E-24 Schema Alignment (cleared 2026-04-25). After E-23 lands, m-E21-07 Validation Surface resumes with a single consolidated validator to render.
 
-## E-21 — Svelte Workbench & Analysis Surfaces (resumed 2026-04-26)
+## E-21 — Svelte Workbench & Analysis Surfaces (active — m-E21-07 in-progress 2026-04-27)
 
-**Epic:** `work/epics/E-21-svelte-workbench-and-analysis/spec.md` | **Status:** resumed 2026-04-26 (branch `epic/E-21-svelte-workbench-and-analysis`) — paused 2026-04-23 to run E-24 then E-23; both closed. m-E21-06 Heatmap View merged into the epic branch 2026-04-26 (backfill of the missing wrap-time merge); main caught up onto the epic branch in the same pass. Reentry point: m-E21-07 Validation Surface — consumes the consolidated `ModelSchemaValidator` E-23 delivers.
+**Epic:** `work/epics/E-21-svelte-workbench-and-analysis/spec.md` | **Status:** active — m-E21-07 Validation Surface in-progress on `milestone/m-E21-07-validation-surface` (started 2026-04-27). Epic branch `epic/E-21-svelte-workbench-and-analysis` resumed 2026-04-26 after E-24 then E-23 closed; m-E21-06 Heatmap View merged into the epic branch 2026-04-26 (backfill of the missing wrap-time merge); main caught up onto the epic branch in the same pass. m-E21-07 consumes the consolidated `ModelSchemaValidator` E-23 delivers.
 
 Transform the Svelte UI from a Blazor-parallel clone into the primary platform for expert flow analysis and Time Machine surfaces. Workbench paradigm: topology as navigation + click-to-pin inspection panel; `/analysis` route with tabbed Time Machine surfaces (sweep, sensitivity, goal-seek, optimize); heatmap view; validation surface; compact density with calm chrome + vivid data-viz palette.
 

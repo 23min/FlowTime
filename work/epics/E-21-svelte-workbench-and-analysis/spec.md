@@ -157,7 +157,7 @@ The token architecture must make major theme changes easy:
 | m-E21-04-goal-seek | Goal Seek Surface | Goal-seek panel, shared convergence chart + result card, `trace` on `/v1/goal-seek` and `/v1/optimize` (per D-2026-04-21-034) | **complete** (2026-04-22) |
 | m-E21-05-optimize | Optimize Surface | N-param Nelder-Mead surface reusing shared convergence chart + result card from m-E21-04; per-param range table | **complete** (2026-04-22) |
 | m-E21-06-heatmap-view | Heatmap View | Nodes-x-bins grid, row sorting, click-to-jump, view switcher (topology/heatmap), shared full-window color scale, shared node-mode toggle | **complete** (2026-04-24) |
-| m-E21-07-validation-surface | Validation Surface & Model Health | Tiered validation display, warning badges on topology, warning list in workbench | not started |
+| m-E21-07-validation-surface | Validation Surface (Svelte) | Consume `state_window` warnings (already arriving), warnings panel as left column inside the workbench panel, topology node + edge warning indicators, bidirectional cross-link via shared view-state store | **in-progress** (started 2026-04-27) |
 | m-E21-08-polish | Visual Polish & Dark Mode QA | Transitions, elevation audit, dark mode audit, loading skeletons, accessibility | not started |
 
 ## ADRs

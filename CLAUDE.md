@@ -206,9 +206,11 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
-**Active focus:** E-21 Svelte Workbench & Analysis Surfaces — **resumed (2026-04-26)** with `epic/E-21-svelte-workbench-and-analysis` caught up to main and m-E21-06 Heatmap View merged in. Reentry milestone is **m-E21-07 Validation Surface (Svelte)** which consumes the now-consolidated `ModelSchemaValidator`.
+**Active focus:** **m-E21-07 Validation Surface (Svelte)** — started 2026-04-27 on `milestone/m-E21-07-validation-surface` (branched from `epic/E-21-svelte-workbench-and-analysis`). Consumer-side type widening + new UI surface only — no backend work; warnings already arrive on `state_window`. Validation panel renders as a left column inside the existing workbench panel at `/time-travel/topology`; topology nodes + edges gain warning indicators; bidirectional cross-link via the shared view-state store; new chrome tokens `--ft-warn` / `--ft-err` (and optional `--ft-info`).
 
-**Why now:** E-23 Model Validation Consolidation completed and merged to main (2026-04-26). All three embedments closed: type (E-24), schema document (E-24), rule evaluator (E-23). `ModelSchemaValidator.Validate` is now the single model-YAML validator in the codebase. `ModelValidator.cs` deleted; `ValidationResult` relocated to its own file. Both canaries green; full suite 1862 / 0 / 9.
+**Why now:** E-23 Model Validation Consolidation merged to main 2026-04-26 — `ModelSchemaValidator.Validate` is the single validator and `TimeMachineValidator` writes tier-3 warnings into run artifacts. m-E21-06 Heatmap View merged into the epic branch 2026-04-26 (backfill of the missing wrap-time merge); the shared view-state store, workbench-card cross-link convention, and `--ft-pin` / `--ft-highlight` chrome-token precedent are the seams this milestone composes against.
+
+**Open question (pre-AC1):** start-milestone confirmations on (1) collapsed/expanded panel widths + resize behaviour, (2) topology edge indicator visual treatment, (3) severity-indicator style (dot vs glyph vs word), (4) Playwright "warnings present" fixture mechanism, (5) whether to ship `--ft-info` this milestone — surfaced separately, captured in tracking doc Design Notes once answered.
 
 > **Note:** the catalog below is a historical trail kept manually; convention prefers a narrow narrative-only Current Work section. The catalog exceeds the 15-line guideline — slated for trim during a future cleanup pass; not in scope for this milestone.
 

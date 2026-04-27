@@ -1312,6 +1312,7 @@ nodes:
         value: completed
   - id: m-E21-07
     kind: milestone
+    status: in-progress
     confidence: none
     conflicts:
       - field: presence
