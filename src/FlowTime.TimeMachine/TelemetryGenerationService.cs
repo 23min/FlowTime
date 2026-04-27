@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using FlowTime.Contracts.Storage;
 using FlowTime.Core.TimeTravel;
 using FlowTime.TimeMachine.Artifacts;
 using FlowTime.TimeMachine.Models;
@@ -54,7 +55,16 @@ public sealed class TelemetryGenerationService
             throw new ArgumentNullException(nameof(output));
         }
 
-        var runDirectory = Path.Combine(runsRoot, runId);
+        string runDirectory;
+        try
+        {
+            runDirectory = RunPathResolver.GetSafeRunDirectory(runsRoot, runId);
+        }
+        catch (ArgumentException)
+        {
+            throw new DirectoryNotFoundException($"Run directory for '{runId}' was not found.");
+        }
+
         if (!Directory.Exists(runDirectory))
         {
             throw new DirectoryNotFoundException($"Run directory '{runDirectory}' was not found.");
