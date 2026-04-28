@@ -582,6 +582,14 @@ test.describe('Validation surface — m-E21-07', () => {
 		await page.getByRole('tab', { name: /Heatmap/ }).click();
 		await expect(page.getByTestId('heatmap-grid')).toBeVisible({ timeout: 5000 });
 
+		// m-E21-08 AC9 — explicit absence assertion. The topology indicator
+		// effect early-returns when `viewState.activeView !== 'topology'`
+		// (`+page.svelte:197`). On heatmap, no `[data-warning-indicator]`
+		// elements should be present anywhere in the document. Tightens the
+		// contract guard the m-E21-07 wrap audit identified as covered
+		// indirectly.
+		await expect(page.locator('[data-warning-indicator]')).toHaveCount(0);
+
 		// Panel persists — same warning rows visible (panel is in the workbench
 		// region which is shared across views).
 		await expect(page.getByTestId('validation-panel')).toBeVisible();

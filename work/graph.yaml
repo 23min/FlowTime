@@ -1321,12 +1321,13 @@ nodes:
         resolution_hint: add a spec at work/epics/<slug>/, remove the prose reference, or mark status:dropped
   - id: m-E21-08
     kind: milestone
-    confidence: none
-    conflicts:
-      - field: presence
-        winner: ""
-        reason: id referenced in prose but no spec, folder, or frontmatter
-        resolution_hint: add a spec at work/epics/<slug>/, remove the prose reference, or mark status:dropped
+    status: complete
+    confidence: medium
+    status_evidence:
+      - source: spec-frontmatter
+        file: work/epics/E-21-svelte-workbench-and-analysis/m-E21-08-polish.md
+        line: 6
+        value: complete
   - id: m-E22-01
     kind: milestone
     confidence: none

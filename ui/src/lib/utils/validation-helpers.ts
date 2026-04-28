@@ -240,6 +240,13 @@ export interface ValidationRowClickDeps {
 	pin(id: string, kind?: string): void;
 	bringEdgeToFront(from: string, to: string): void;
 	setSelectedCell(nodeId: string, bin: number): void;
+	/**
+	 * m-E21-08 AC3 — symmetric edge-side setter. Mirrors `setSelectedCell` for
+	 * edges: every edge-row click reaffirms the selection so the topology
+	 * `.edge-selected` chrome and the edge-card `selected` prop track the
+	 * just-clicked edge. Matches `viewState.setSelectedEdge`.
+	 */
+	setSelectedEdge(from: string, to: string): void;
 	currentBin: number;
 }
 
@@ -283,6 +290,10 @@ export function handleValidationRowClick(
 	const from = row.key.slice(0, idx);
 	const to = row.key.slice(idx + 1);
 	deps.bringEdgeToFront(from, to);
+	// m-E21-08 AC3 — also set the symmetric edge selection so the topology
+	// `.edge-selected` chrome and the edge-card `selected` prop highlight
+	// the just-clicked edge.
+	deps.setSelectedEdge(from, to);
 }
 
 /**

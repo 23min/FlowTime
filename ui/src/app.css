@@ -80,6 +80,13 @@
 	--ft-err: hsl(0 75% 45%);
 	--ft-info: hsl(210 80% 50%);
 
+	/* Chrome accent — keyboard focus ring (m-E21-08 AC1).
+	   Distinct from --ft-pin / --ft-highlight / --ft-warn / --ft-err so the
+	   focus indicator never collides with a selection or severity signal.
+	   System-blue family, slightly cooler than --ft-info so the focus ring
+	   reads as a chrome affordance, not as info-severity content. */
+	--ft-focus: hsl(212 90% 50%);
+
 	/* Severity row/card backgrounds — light mode. Very low-saturation tinted
 	   washes so a severity-keyed row reads as chrome without competing with
 	   the data-viz palette. The fill is tied to the same hue family as the
@@ -143,6 +150,10 @@
 	--ft-warn: hsl(35 90% 60%);
 	--ft-err: hsl(0 70% 62%);
 	--ft-info: hsl(210 80% 65%);
+
+	/* Chrome accent — keyboard focus ring (m-E21-08 AC1, dark mode).
+	   Lighter than light-mode equivalent so it reads against near-black chrome. */
+	--ft-focus: hsl(212 95% 65%);
 
 	/* Severity row/card backgrounds — dark mode. The dark chrome absorbs flat
 	   colour fills heavily; using transparent here lets the existing border

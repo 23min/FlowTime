@@ -62,15 +62,14 @@
 	}
 	let { loading = false }: Props = $props();
 
-	// ---- selection set for cross-link highlighting (AC10) -----------------------
+	// ---- selection set for cross-link highlighting (AC10 + m-E21-08 AC3) --------
 	const selection = $derived.by<ValidationSelection | null>(() => {
 		const nodeSel = viewState.selectedCell?.nodeId;
-		// Last-pinned edge wins for the cross-link surface — mirrors workbench's
-		// "most recently interacted" semantics. If no edge is pinned, the
-		// edgeId field stays unset and the cross-link only fires on node selection.
-		const edges = workbench.pinnedEdges;
-		const edgeSel =
-			edges.length > 0 ? `${edges[edges.length - 1].from}→${edges[edges.length - 1].to}` : undefined;
+		// m-E21-08 AC3 — single-edge selection from the shared store, symmetric
+		// with selectedCell. Replaces the m-E21-07 "last-pinned-edge wins"
+		// derivation so a pinned-but-not-selected edge no longer highlights.
+		const edge = viewState.selectedEdge;
+		const edgeSel = edge ? `${edge.from}→${edge.to}` : undefined;
 		if (nodeSel === undefined && edgeSel === undefined) return null;
 		return { nodeId: nodeSel, edgeId: edgeSel };
 	});
@@ -88,6 +87,7 @@
 			pin: (id, kind) => workbench.pin(id, kind),
 			bringEdgeToFront: (from, to) => workbench.bringEdgeToFront(from, to),
 			setSelectedCell: (nodeId, bin) => viewState.setSelectedCell(nodeId, bin),
+			setSelectedEdge: (from, to) => viewState.setSelectedEdge(from, to),
 			currentBin: viewState.currentBin,
 		});
 	}
@@ -154,7 +154,7 @@
 								class="text-[10px] font-mono text-muted-foreground truncate"
 								title={row.key}
 							>
-								{#if row.kind === 'node'}{row.key}{:else}{row.key}{/if}
+								{row.key}
 							</span>
 						{/if}
 						{#if typeof row.startBin === 'number' && typeof row.endBin === 'number'}
