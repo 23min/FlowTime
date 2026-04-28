@@ -124,6 +124,51 @@ describe('WorkbenchStore (edges)', () => {
 		expect(keys.has('c\u2192d')).toBe(true);
 		expect(keys.size).toBe(2);
 	});
+
+	/**
+	 * `bringEdgeToFront` was added 2026-04-27 to fix a re-click regression in
+	 * the validation panel \u2014 clicking an already-pinned edge row needs to
+	 * promote it to last-pinned so the cross-link "last-pinned wins"
+	 * convention focuses on the just-clicked edge. Distinct from `pinEdge`
+	 * (idempotent append-if-absent) and `toggleEdge` (true toggle).
+	 */
+	it('bringEdgeToFront appends when edge is absent', () => {
+		workbench.bringEdgeToFront('a', 'b');
+		expect(workbench.pinnedEdges).toEqual([{ from: 'a', to: 'b' }]);
+	});
+
+	it('bringEdgeToFront moves an already-pinned edge to the end of the array', () => {
+		workbench.pinEdge('a', 'b');
+		workbench.pinEdge('c', 'd');
+		workbench.pinEdge('e', 'f');
+		workbench.bringEdgeToFront('a', 'b');
+		// (c,d) and (e,f) keep their relative order; (a,b) is moved last.
+		expect(
+			workbench.pinnedEdges.map((e) => `${e.from}\u2192${e.to}`),
+		).toEqual(['c\u2192d', 'e\u2192f', 'a\u2192b']);
+	});
+
+	it('bringEdgeToFront keeps the array length when promoting an existing edge', () => {
+		workbench.pinEdge('a', 'b');
+		workbench.pinEdge('c', 'd');
+		workbench.bringEdgeToFront('a', 'b');
+		expect(workbench.pinnedEdges).toHaveLength(2);
+	});
+
+	it('bringEdgeToFront on a single-pinned edge is effectively idempotent (still last)', () => {
+		workbench.pinEdge('a', 'b');
+		workbench.bringEdgeToFront('a', 'b');
+		expect(workbench.pinnedEdges).toEqual([{ from: 'a', to: 'b' }]);
+	});
+
+	it('bringEdgeToFront distinguishes direction \u2014 (a,b) and (b,a) are different keys', () => {
+		workbench.pinEdge('a', 'b');
+		workbench.bringEdgeToFront('b', 'a');
+		expect(workbench.pinnedEdges).toEqual([
+			{ from: 'a', to: 'b' },
+			{ from: 'b', to: 'a' },
+		]);
+	});
 });
 
 describe('WorkbenchStore (metric + clear)', () => {

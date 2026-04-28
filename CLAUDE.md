@@ -206,9 +206,9 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
-**Active focus:** E-21 Svelte Workbench & Analysis Surfaces — **resumed (2026-04-26)** with `epic/E-21-svelte-workbench-and-analysis` caught up to main and m-E21-06 Heatmap View merged in. Reentry milestone is **m-E21-07 Validation Surface (Svelte)** which consumes the now-consolidated `ModelSchemaValidator`.
+**Active focus:** **m-E21-08 Polish (Svelte)** — next on the E-21 epic. m-E21-07 Validation Surface complete (2026-04-28); workbench validation panel, topology node + edge warning indicators, workbench-card warning surfaces, bidirectional cross-link via the shared view-state store, and the chrome-token trio (`--ft-warn` / `--ft-err` / `--ft-info`) all landed on `milestone/m-E21-07-validation-surface`. 897 ui-vitest passing across the suite; 9/9 Playwright in `svelte-validation.spec.ts`.
 
-**Why now:** E-23 Model Validation Consolidation completed and merged to main (2026-04-26). All three embedments closed: type (E-24), schema document (E-24), rule evaluator (E-23). `ModelSchemaValidator.Validate` is now the single model-YAML validator in the codebase. `ModelValidator.cs` deleted; `ValidationResult` relocated to its own file. Both canaries green; full suite 1862 / 0 / 9.
+**Why now:** m-E21-07 was the last functional milestone in E-21. m-E21-08 Polish is the visual-polish + dark-mode-QA pass that closes the epic — transitions, elevation audit, dark-mode audit, loading skeletons, accessibility. Everything underneath (workbench, analysis tabs, heatmap, validation surface) is complete and stable; the polish pass is the final gate before E-21 wraps and merges to main.
 
 > **Note:** the catalog below is a historical trail kept manually; convention prefers a narrow narrative-only Current Work section. The catalog exceeds the 15-line guideline — slated for trim during a future cleanup pass; not in scope for this milestone.
 

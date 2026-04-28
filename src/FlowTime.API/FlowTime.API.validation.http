@@ -1,0 +1,102 @@
+@host = http://localhost:8081
+
+# Manual verification recipe for m-E21-07 Validation Surface (Svelte).
+#
+# All twelve shipped templates produce zero analyse-tier warnings (val-err == 0
+# canary), so the validation surface needs a deliberately-broken model to
+# render anything visible. The YAML below triggers the
+# `edge_behavior_violation_lag` analyser branch (any topology edge with lag > 0
+# fires it, regardless of series shape).
+#
+# Same fixture used by tests/ui/specs/svelte-validation.spec.ts spec #2.
+#
+# Workflow:
+#   1. (Optional but recommended) restart the API in test-runs mode so the
+#      run does not pollute data/runs/:
+#        FLOWTIME_DATA_DIR=/workspaces/flowtime-vnext/data/test-runs \
+#        dotnet run --project src/FlowTime.API
+#   2. Send request 1 to create the run; capture {{runId}}.
+#   3. Send request 2 to confirm warnings + edgeWarnings on the wire.
+#   4. Open http://localhost:5173/time-travel/topology (Svelte dev) and
+#      pick the new run from the dropdown.
+#
+# Expected on the UI:
+#   - Validation panel (left of workbench) expands to ~300 px and shows a
+#     `warning`-severity row "edge_behavior_violation_lag" attributed to
+#     SourceNode (plus a row per missing-series info-warning).
+#   - Topology: SourceNode shows an amber dot at the NE shoulder.
+#   - Topology: the source_to_target edge shows an amber dot at its midpoint
+#     (edge stroke unmodified — composes with the selected-edge highlight).
+#   - Click any warning row → SourceNode card pins, title cross-highlights,
+#     card title shows the same amber dot.
+#   - Click the SourceNode in the topology → the matching warning row
+#     in the panel highlights; non-matching rows fade.
+
+### 1. Create a run that produces a tier-3 lag warning
+# @name createLagRun
+POST {{host}}/v1/run
+Content-Type: text/plain
+
+schemaVersion: 1
+
+grid:
+  bins: 4
+  binSize: 15
+  binUnit: minutes
+  start: 2025-01-01T00:00:00Z
+
+topology:
+  nodes:
+    - id: SourceNode
+      kind: service
+      semantics:
+        arrivals: source_arrivals
+        served: source_served
+    - id: TargetNode
+      kind: service
+      semantics:
+        arrivals: target_arrivals
+        served: target_served
+  edges:
+    - id: source_to_target
+      from: SourceNode:out
+      to: TargetNode:in
+      measure: served
+      lag: 2
+
+nodes:
+  - id: source_arrivals
+    kind: const
+    values: [10, 10, 10, 10]
+  - id: source_served
+    kind: const
+    values: [10, 10, 10, 10]
+  - id: target_arrivals
+    kind: const
+    values: [10, 10, 10, 10]
+  - id: target_served
+    kind: const
+    values: [10, 10, 10, 10]
+
+###
+# Response shape:
+# 200 OK
+# {
+#   "runId": "run_<timestamp>_<short>",
+#   ...
+# }
+
+### 2. Inspect the state_window response — warnings + edgeWarnings
+# Confirms the wire DTO Svelte deserializes is exactly what the AC1 type
+# widening declares: warnings[] with severity/startBin/endBin/signal, and a
+# parallel edgeWarnings: { "<edgeId>": StateWarning[] } map.
+GET {{host}}/v1/runs/{{createLagRun.response.body.$.runId}}/state_window?startBin=0&endBin=3
+Accept: application/json
+
+### 3. List recent runs (the new one should be at the top)
+GET {{host}}/v1/runs?page=1&pageSize=10
+Accept: application/json
+
+### 4. Cleanup — rebuild registry from disk after manually deleting test runs
+# Use this after `rm -rf data/runs/run_<id>` to keep the registry consistent.
+POST {{host}}/v1/artifacts/index

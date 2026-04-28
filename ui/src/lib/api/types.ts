@@ -69,8 +69,11 @@ export interface StateMetadata {
 export interface StateWarning {
 	code: string;
 	message: string;
+	severity: string;
 	nodeId?: string;
-	bins?: number[];
+	startBin?: number;
+	endBin?: number;
+	signal?: string;
 }
 
 export interface RunDetail {
@@ -247,4 +250,5 @@ export interface StateWindowResponse {
 	nodes: Record<string, unknown>[];
 	edges: Record<string, unknown>[];
 	warnings: StateWarning[];
+	edgeWarnings: Record<string, StateWarning[]>;
 }

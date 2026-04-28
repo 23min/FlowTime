@@ -53,6 +53,26 @@ class WorkbenchStore {
 		}
 	}
 
+	/**
+	 * Ensure the edge is pinned AND ordered last in `pinnedEdges`. If the edge
+	 * is already pinned, it is moved to the end of the array; if absent, it is
+	 * appended. Used by callers (e.g. the validation panel's edge-row click)
+	 * that need the cross-link "last-pinned wins" convention to focus on the
+	 * just-clicked edge regardless of whether it was pinned previously.
+	 *
+	 * Atomic \u2014 performs a single `pinnedEdges` reassignment so consumers see
+	 * exactly one reactivity tick. Distinct from `pinEdge` (idempotent append-
+	 * if-absent) and `toggleEdge` (true toggle); kept as a separate method so
+	 * existing callers of those two surfaces are unchanged.
+	 */
+	bringEdgeToFront(from: string, to: string) {
+		const key = `${from}\u2192${to}`;
+		const filtered = this.pinnedEdges.filter(
+			(e) => `${e.from}\u2192${e.to}` !== key,
+		);
+		this.pinnedEdges = [...filtered, { from, to }];
+	}
+
 	unpinEdge(from: string, to: string) {
 		this.pinnedEdges = this.pinnedEdges.filter(
 			(e) => !(e.from === from && e.to === to)
