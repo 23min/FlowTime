@@ -206,9 +206,9 @@ If code, decisions.md, and an architecture doc disagree, do not choose arbitrari
 ## Current Work
 <!-- Updated by start-milestone and wrap-milestone skills. Do not edit in sync.sh. -->
 
-**Active focus:** **m-E21-08 Polish (Svelte)** — next on the E-21 epic. m-E21-07 Validation Surface complete (2026-04-28); workbench validation panel, topology node + edge warning indicators, workbench-card warning surfaces, bidirectional cross-link via the shared view-state store, and the chrome-token trio (`--ft-warn` / `--ft-err` / `--ft-info`) all landed on `milestone/m-E21-07-validation-surface`. 897 ui-vitest passing across the suite; 9/9 Playwright in `svelte-validation.spec.ts`.
+**Active focus:** **E-21 epic wrap.** All 8 milestones complete; m-E21-08 Polish completed 2026-04-28 on `milestone/m-E21-08-polish`. Polish delivered topology keyboard + ARIA retrofit (a11y bar parity with heatmap), full bidirectional cross-link (node `.node-selected` stroke + new `selectedEdge` field on view-state with `.edge-pinned` rename + new `.edge-selected` chrome), dark-mode audit, loading skeletons on `/time-travel/topology` + `/analysis` tabs, transitions rule + 160 ms cross-fades, elevation audit (zero remediation; chrome already canonical), validation-panel cosmetic collapse, heatmap-side absence assertion. New chrome token `--ft-focus`. Color-blind validation + pattern encoding deferred per user decision 2026-04-28.
 
-**Why now:** m-E21-07 was the last functional milestone in E-21. m-E21-08 Polish is the visual-polish + dark-mode-QA pass that closes the epic — transitions, elevation audit, dark-mode audit, loading skeletons, accessibility. Everything underneath (workbench, analysis tabs, heatmap, validation surface) is complete and stable; the polish pass is the final gate before E-21 wraps and merges to main.
+**Why now:** m-E21-08 was the final E-21 milestone. Next: merge `milestone/m-E21-08-polish` → epic branch → main; archive epic to `work/epics/completed/E-21-svelte-workbench-and-analysis/`.
 
 > **Note:** the catalog below is a historical trail kept manually; convention prefers a narrow narrative-only Current Work section. The catalog exceeds the 15-line guideline — slated for trim during a future cleanup pass; not in scope for this milestone.
 

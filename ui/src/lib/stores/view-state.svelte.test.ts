@@ -316,6 +316,55 @@ describe('ViewStateStore — selectedCell', () => {
 	});
 });
 
+describe('ViewStateStore — selectedEdge (m-E21-08 AC3)', () => {
+	let store: ViewStateStore;
+	beforeEach(() => {
+		workbench.clear();
+		store = new ViewStateStore({ storage: makeStorageStub() });
+	});
+
+	it('defaults to null', () => {
+		expect(store.selectedEdge).toBeNull();
+	});
+
+	it('setSelectedEdge records the from/to pair', () => {
+		store.setSelectedEdge('A', 'B');
+		expect(store.selectedEdge).toEqual({ from: 'A', to: 'B' });
+	});
+
+	it('setSelectedEdge replaces the prior selection', () => {
+		store.setSelectedEdge('A', 'B');
+		store.setSelectedEdge('C', 'D');
+		expect(store.selectedEdge).toEqual({ from: 'C', to: 'D' });
+	});
+
+	it('clearSelectedEdge resets to null', () => {
+		store.setSelectedEdge('A', 'B');
+		store.clearSelectedEdge();
+		expect(store.selectedEdge).toBeNull();
+	});
+
+	it('clearSelectedEdge on an already-empty selection is a no-op', () => {
+		store.clearSelectedEdge();
+		expect(store.selectedEdge).toBeNull();
+	});
+
+	it('setSelectedEdge with the same pair is idempotent', () => {
+		store.setSelectedEdge('A', 'B');
+		store.setSelectedEdge('A', 'B');
+		expect(store.selectedEdge).toEqual({ from: 'A', to: 'B' });
+	});
+
+	it('selectedEdge is independent of pinnedEdges (selection without pinning)', () => {
+		// AC3 contract: a selected edge is not necessarily pinned, and a pinned
+		// edge is not necessarily selected. The store records both states
+		// independently.
+		store.setSelectedEdge('A', 'B');
+		expect(store.selectedEdge).toEqual({ from: 'A', to: 'B' });
+		expect(store.pinnedEdges).toHaveLength(0);
+	});
+});
+
 describe('ViewStateStore — rowStabilityOn persistence', () => {
 	let storage: Storage;
 

@@ -408,10 +408,12 @@ describe('handleValidationRowClick — re-click bug fix (2026-04-27)', () => {
 		pinCalls: { id: string; kind: string | undefined }[];
 		bringEdgeCalls: { from: string; to: string }[];
 		setSelectedCellCalls: { nodeId: string; bin: number }[];
+		setSelectedEdgeCalls: { from: string; to: string }[];
 	} {
 		const pinCalls: { id: string; kind: string | undefined }[] = [];
 		const bringEdgeCalls: { from: string; to: string }[] = [];
 		const setSelectedCellCalls: { nodeId: string; bin: number }[] = [];
+		const setSelectedEdgeCalls: { from: string; to: string }[] = [];
 		return {
 			currentBin: initialBin,
 			pin(id, kind) {
@@ -423,9 +425,13 @@ describe('handleValidationRowClick — re-click bug fix (2026-04-27)', () => {
 			setSelectedCell(nodeId, bin) {
 				setSelectedCellCalls.push({ nodeId, bin });
 			},
+			setSelectedEdge(from, to) {
+				setSelectedEdgeCalls.push({ from, to });
+			},
 			pinCalls,
 			bringEdgeCalls,
 			setSelectedCellCalls,
+			setSelectedEdgeCalls,
 		};
 	}
 
@@ -502,10 +508,11 @@ describe('handleValidationRowClick — re-click bug fix (2026-04-27)', () => {
 
 	// ---- edge row branches ---------------------------------------------------
 
-	it('edge row with well-formed key calls bringEdgeToFront only (no pin, no selection set)', () => {
+	it('edge row with well-formed key calls bringEdgeToFront AND setSelectedEdge (m-E21-08 AC3)', () => {
 		const deps = makeDepsRecorder();
 		handleValidationRowClick(edgeRow('A→B'), deps);
 		expect(deps.bringEdgeCalls).toEqual([{ from: 'A', to: 'B' }]);
+		expect(deps.setSelectedEdgeCalls).toEqual([{ from: 'A', to: 'B' }]);
 		expect(deps.pinCalls).toEqual([]);
 		expect(deps.setSelectedCellCalls).toEqual([]);
 	});
@@ -522,6 +529,13 @@ describe('handleValidationRowClick — re-click bug fix (2026-04-27)', () => {
 		handleValidationRowClick(edgeRow('C→D'), deps);
 		handleValidationRowClick(edgeRow('A→B'), deps);
 		expect(deps.bringEdgeCalls).toEqual([
+			{ from: 'A', to: 'B' },
+			{ from: 'C', to: 'D' },
+			{ from: 'A', to: 'B' },
+		]);
+		// setSelectedEdge fires every time too — mirrors setSelectedCell-on-every-click
+		// for nodes (m-E21-08 AC3 symmetry).
+		expect(deps.setSelectedEdgeCalls).toEqual([
 			{ from: 'A', to: 'B' },
 			{ from: 'C', to: 'D' },
 			{ from: 'A', to: 'B' },

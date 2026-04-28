@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import { flowtime, type RunSummary } from '$lib/api/index.js';
 	import Chart from '$lib/components/chart.svelte';
 	import SensitivityBarChart from '$lib/components/sensitivity-bar-chart.svelte';
 	import ConvergenceChart from '$lib/components/convergence-chart.svelte';
 	import AnalysisResultCard from '$lib/components/analysis-result-card.svelte';
+	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { intervalMarkerGeometry } from '$lib/components/interval-bar-geometry.js';
 	import {
 		discoverConstParams,
@@ -914,8 +916,25 @@
 						{/if}
 
 						<!-- Results -->
-						{#if sweepResponse}
-							<div class="flex flex-col gap-2 border rounded p-2 bg-card">
+						{#if sweepRunning && !sweepResponse}
+							<!-- m-E21-08 AC5 — sweep compute skeleton. Replaces the empty
+							     gap between hitting Run and the result arriving.
+							     m-E21-08 AC6 — 160 ms cross-fade ties skeleton → result. -->
+							<div
+								class="flex flex-col gap-2 border rounded p-2 bg-card"
+								data-testid="sweep-skeleton"
+								transition:fade={{ duration: 160 }}
+							>
+								<Skeleton class="h-5 w-32" />
+								<Skeleton class="h-40 w-full" />
+								<Skeleton class="h-12 w-full" />
+							</div>
+						{:else if sweepResponse}
+							<div
+								class="flex flex-col gap-2 border rounded p-2 bg-card"
+								data-testid="sweep-result"
+								transition:fade={{ duration: 160 }}
+							>
 								<div class="flex items-center gap-2">
 									<span class="text-xs font-semibold">Chart:</span>
 									<select
@@ -1055,7 +1074,18 @@
 							</div>
 						{/if}
 
-						{#if sensResponse}
+						{#if sensRunning && !sensResponse}
+							<!-- m-E21-08 AC5 — sensitivity compute skeleton.
+							     m-E21-08 AC6 — 160 ms cross-fade. -->
+							<div
+								class="flex flex-col gap-2 border rounded p-2 bg-card"
+								data-testid="sensitivity-skeleton"
+								transition:fade={{ duration: 160 }}
+							>
+								<Skeleton class="h-5 w-40" />
+								<Skeleton class="h-32 w-full" />
+							</div>
+						{:else if sensResponse}
 							{@const metricId = sensResponse.metricSeriesId}
 							{@const sortedPoints = [...sensResponse.points].sort((a, b) => {
 								const aFin = isFinite(a.gradient);
@@ -1065,7 +1095,11 @@
 								if (!aFin && !bFin) return 0;
 								return Math.abs(b.gradient) - Math.abs(a.gradient);
 							})}
-							<div class="flex flex-col gap-2 border rounded p-2 bg-card">
+							<div
+								class="flex flex-col gap-2 border rounded p-2 bg-card"
+								data-testid="sensitivity-result"
+								transition:fade={{ duration: 160 }}
+							>
 								<div class="flex flex-col gap-0.5">
 									<div class="text-xs font-semibold">
 										∂ <span class="font-mono">{metricId}</span> / ∂ param
@@ -1285,7 +1319,19 @@
 							</div>
 						{/if}
 
-						{#if goalSeekResponse}
+						{#if goalSeekRunning && !goalSeekResponse}
+							<!-- m-E21-08 AC5 — goal-seek compute skeleton.
+							     m-E21-08 AC6 — 160 ms cross-fade. -->
+							<div
+								class="flex flex-col gap-2 border rounded p-2 bg-card"
+								data-testid="goal-seek-skeleton"
+								transition:fade={{ duration: 160 }}
+							>
+								<Skeleton class="h-5 w-36" />
+								<Skeleton class="h-32 w-full" />
+								<Skeleton class="h-16 w-full" />
+							</div>
+						{:else if goalSeekResponse}
 							{@const resp = goalSeekResponse}
 							{@const gbadge = goalSeekNotBracketed
 								? 'target not reachable'
@@ -1293,6 +1339,7 @@
 									? 'converged'
 									: 'did not converge'}
 							{@const gtone = resp.converged ? 'teal' : 'amber'}
+							<div data-testid="goal-seek-result" transition:fade={{ duration: 160 }}>
 							<AnalysisResultCard
 								title="Goal Seek result"
 								badge={gbadge}
@@ -1403,6 +1450,7 @@
 									</div>
 								</div>
 							{/if}
+							</div>
 						{/if}
 					</div>
 				{/if}
@@ -1628,11 +1676,24 @@
 							</div>
 						{/if}
 
-						{#if optimizeResponse}
+						{#if optimizeRunning && !optimizeResponse}
+							<!-- m-E21-08 AC5 — optimize compute skeleton.
+							     m-E21-08 AC6 — 160 ms cross-fade. -->
+							<div
+								class="flex flex-col gap-2 border rounded p-2 bg-card"
+								data-testid="optimize-skeleton"
+								transition:fade={{ duration: 160 }}
+							>
+								<Skeleton class="h-5 w-32" />
+								<Skeleton class="h-32 w-full" />
+								<Skeleton class="h-20 w-full" />
+							</div>
+						{:else if optimizeResponse}
 							{@const resp = optimizeResponse}
 							{@const obadge = resp.converged ? 'converged' : 'did not converge'}
 							{@const otone = resp.converged ? 'teal' : 'amber'}
 							{@const verb = optimizeSubmittedDirection === 'maximize' ? 'maximizing' : 'minimizing'}
+							<div data-testid="optimize-result" transition:fade={{ duration: 160 }}>
 							<AnalysisResultCard
 								title="Optimize result"
 								badge={obadge}
@@ -1754,6 +1815,7 @@
 									width={520}
 									height={180}
 								/>
+							</div>
 							</div>
 						{/if}
 					{/if}

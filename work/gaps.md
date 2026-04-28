@@ -942,6 +942,156 @@ Prototype spike:
 
 ---
 
+## `transportation-basic` regressed: `edge_flow_mismatch_incoming` × 3 after E-24 unification
+
+### Why this is a gap
+
+Running the `transportation-basic` template (titled "Transportation Network with Hub Queue") today (2026-04-28) emits **three** analyser warnings of code `edge_flow_mismatch_incoming` (severity `warning`):
+
+```
+Arrivals do not match sum of incoming edge flows. Edges: queue_to_airport.   (LineAirport,    Δ ≈ 1.89)
+Arrivals do not match sum of incoming edge flows. Edges: queue_to_downtown.  (LineDowntown,   Δ ≈ 9.46)
+Arrivals do not match sum of incoming edge flows. Edges: queue_to_industrial.(LineIndustrial, Δ ≈ 7.57)
+```
+
+The analyser is asserting the conservation invariant `arrivals[t] == sum(incoming_edges_after_lag[t])` at the three downstream service nodes (`LineAirport`, `LineDowntown`, `LineIndustrial`) fed by the central hub queue. The mismatch values are **not** floating-point noise — they're 1.89, 9.46, 7.57 in absolute units. Real semantic divergence.
+
+Comparing run artifacts on disk for the **same template** under **default parameters**:
+
+| Run | Date | Warning count | `edge_flow_mismatch_incoming` |
+|---|---|---|---|
+| `run_20260424T124735Z_25e2fe28` | 2026-04-24 | 0 | 0 |
+| `run_20260424T124839Z_ef75aea3` | 2026-04-24 | 0 | 0 |
+| `run_20260424T142044Z_f6d43b90` | 2026-04-24 | 0 | 0 |
+| `run_20260424T150244Z_b2f4c995` | 2026-04-24 | 0 | 0 |
+| `run_20260428T165413Z_6ed5974e` | 2026-04-28 | 3 | 3 |
+
+Four prior runs of the same template emitted **zero** warnings. Today's run emits **three**.
+
+### What did NOT change in the regression window
+
+- `git log -- src/FlowTime.Core/Analysis/InvariantAnalyzer.cs` — last commit is `044d2bc` (E-16-03 era, pre-window). Conservation logic untouched. The mismatch tolerance is unchanged.
+- `git log -- templates/transportation-basic.yaml` — last commit `a06ed88` (M-06.01 era). Template YAML and default parameters unchanged.
+
+### What DID change in the regression window
+
+Between 2026-04-24 (last clean runs) and 2026-04-28 (offending run), **E-24 Schema Alignment** merged to main on 2026-04-25 (D-2026-04-25-038). Relevant commits in `src/FlowTime.Core/`:
+
+- `131dd35` — m-E24-02 step 1: `ProvenanceDto`, `OutputDto` cleanup, YamlDotNet 17.0.1
+- `5a2a31d` — post-m-E24-02 cleanup: delete `ProvenanceEmbedder`, rename `GridDefinition.StartTimeUtc` → `Start`, drop `Template Legacy*` aliases
+- `a7c984f` — m-E24-04: `ParseScalar` honors ScalarStyle; quote type-ambiguous strings on emit
+- `b3efda0` — m-E23-01 part 1: close `ModelSchemaValidator` silent-error blind spot + restructure node-kind clusters
+- `d42f649` — m-E23-01 AC4: 12 cross-reference/cross-array adjuncts on `ModelSchemaValidator`
+- `4fe8d45` — m-E23-03: delete `ModelValidator`; relocate `ValidationResult`
+
+The shape of the model passing Sim → Engine changed. The pre-E-24 runs' `spec.yaml` carries `generator: flowtime-sim`, `topology:` block, `classes: []` (the legacy `SimModelArtifact` shape). The post-E-24 run's `spec.yaml` is the unified `ModelDto` form — no `topology:` block, single-level `values:`. Same source template, same parameters, materially different compiled-graph shape.
+
+### Likely cause (hypothesis — needs Engine-team confirmation)
+
+E-24's model unification changed how the queue-and-route flow compiles into the runtime DAG. The conservation invariant now fails at the three downstream service nodes by a small but non-trivial margin. Specific suspect: how the central queue's outgoing edges, lag, and the downstream `arrivals` series wire together post-unification — the unified shape may emit a slightly different routing semantic for `serviceWithBuffer` → service hop than the pre-unification pipeline did.
+
+Alternative benign reading: the analyser is correctly detecting a real model property that was always present but didn't fire pre-unification because the lag handling or edge volume computation produced an exactly-canceling difference. In that case the "regression" is actually the analyser working *better* post-unification, not worse. The 1.89 / 9.46 / 7.57 magnitudes lean against this — they're at non-trivial scale.
+
+### Status
+
+**Open.** Needs Engine-team investigation. Likely outcomes:
+1. Real bug in the unified-model compilation path (queue + routing + lag interplay). Fix is engine-side; templates stay.
+2. Real model issue in `transportation-basic` that was masked pre-E-24 and is correctly surfaced now. Fix is template-side; engine stays.
+3. Tolerance / semantic mismatch in the analyser's conservation check (e.g. lag application boundary). Fix is analyser-side.
+
+Discriminating between (1), (2), (3) requires comparing the **compiled DAG** (not the source template) pre-E-24 vs post-E-24 — the spec.yaml diff already shows the model shape diverged; the engine-side compilation surely diverged too.
+
+### Why the build-time canary did not catch this
+
+`tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs::Survey_Templates_For_Warnings` (E-24 m-E24-05) hard-asserts **`val-err == 0`** across all twelve shipped templates. `edge_flow_mismatch_incoming` has severity `warning`, not error — so it never fails the canary. The canary collects val-warn counts as diagnostic output but does not assert on them. **A val-warn delta of +3 on `transportation-basic` slipped through silently.**
+
+This is a known weakness of the canary: it gates on validator errors only, not on analyser warnings. See sibling gap entry below for the broader testing-rigor argument.
+
+### Reference
+
+- Offending run (today): `data/runs/run_20260428T165413Z_6ed5974e/run.json` — three `edge_flow_mismatch_incoming` items in `warnings[]`.
+- Clean baseline (pre-E-24): `data/runs/run_20260424T150244Z_b2f4c995/run.json` — empty `warnings[]`.
+- Analyser source: `src/FlowTime.Core/Analysis/InvariantAnalyzer.cs:323-335` (incoming-edge conservation check) and `:330` (warning message).
+- Template: `templates/transportation-basic.yaml`.
+- Canary: `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs`.
+
+### Immediate implications
+
+- Plan an Engine-side investigation milestone — likely a small "E-24 follow-up" or new E-25 micro-milestone — before further analyser/engine work that depends on the conservation invariant being clean across all shipped templates.
+- Treat any new appearances of `edge_flow_mismatch_incoming` (or `_outgoing`) on previously-clean templates as a regression signal until this is resolved.
+- Do NOT delete the offending run artifact (`run_20260428T165413Z_6ed5974e`) — it is the reproduction case.
+- m-E21 / m-E22 work can proceed in parallel; this regression is engine-side and does not block consumer-surface work.
+
+---
+
+## Tests are too weak: surveyed-output-only canaries cannot detect drift; need deterministic golden-output assertions
+
+### Why this is a gap
+
+The `transportation-basic` regression above (`edge_flow_mismatch_incoming` × 3 after E-24 unification) was caught **by accident**: only because four prior run artifacts from 2026-04-24 happened to still be on disk for byte-comparison against today's run. **If those runs had been pruned, the regression would have been invisible to the test suite** — the build-time canary `Survey_Templates_For_Warnings` would still have reported `val-err == 0` and passed.
+
+This exposes a structural weakness in the testing rigor:
+
+1. **The canary asserts existence-of-error-class, not output-equivalence.** It says "no template produces a validator error". It does NOT say "this template produces this specific output for this specific parameter set." A regression that shifts the output without producing a validator error slips through.
+2. **The canary gates on `val-err == 0` only.** Analyser warnings, run-time warnings, and per-bin numeric output drift are all unscored. A model could go from "12 warnings" to "0 warnings" or vice-versa, and from "arrivals=10.0" to "arrivals=10.5", and the canary would not budge.
+3. **No golden-output fixtures.** The repo has 12 shipped templates that are surveyed-but-not-asserted-against. There is no fixture that says "for `transportation-basic` with `splitAirport=0.4`, `splitIndustrial=0.3`, `hubRetryRate=0.2`, the `arrivals[Router]` series at bin 12 is exactly X.XX, and the warning set is exactly {Y, Z}."
+
+The user-stated intent is correct: **tests need to create models for which the test deterministically knows what the output should be, and compare against that.** Today's tests largely don't do that for the engine-template integration surface.
+
+### What "stronger" looks like
+
+A golden-output canary for each shipped template, with:
+
+- A pinned parameter set (chosen for both numeric-stability and analytical-coverage — including some that should produce known warnings, some that should be clean).
+- A pinned expected output bundle: per-series per-bin numeric values (or a tight tolerance), full warning set with codes + message + nodeId + edgeIds + severity, run manifest fields.
+- A byte-identical (or tight-tolerance numeric) assertion. A drift fails the build with a clear diff showing which series at which bin moved by how much, and which warnings appeared / disappeared.
+- Forward-only regeneration when a deliberate engine change shifts numeric output: a `--regenerate` mode the engineer runs after a sanctioned change, producing a reviewable diff that becomes the new pinned expected output. (Pattern matches `dotnet test --update-snapshots` style.)
+
+This is the standard "approval testing" / "golden master" pattern. The `Survey_Templates_For_Warnings` canary is the lightweight version of this; it needs to be promoted to the strict version.
+
+### Where the bar is already set higher (precedents in this repo)
+
+- `tests/FlowTime.Adapters.Synthetic.Tests/FileSeriesReaderTests.cs` and similar — assert exact CSV byte content against pinned fixtures.
+- `tests/FlowTime.Sim.Tests/Templates/RouterTemplateRegressionTests.cs`, `TransitNodeTemplateTests.cs`, `EvaluationIntegrityTemplateTests.cs` — assert specific structural properties per template.
+- m-E21-07 AC1 real-bytes fixture (`FLOWTIME_E2E_TEST_RUNS=1`) — pinned wire-format round-trip on `state_window` warnings.
+
+These cover narrow surfaces. They do NOT cover the **end-to-end** "render template at default params → run engine → byte-compare full output bundle" loop that would have caught the regression above.
+
+### Status
+
+**Open.** Worth planning into a near-term milestone. Strongly suggest scoping into an explicit testing-rigor milestone before further engine evolution (E-22 Time Machine: Model Fit + Chunked Evaluation, E-15 Telemetry Ingestion, future Cloud Deployment work). Each of those will introduce more compilation paths, more analytical surfaces, more places where silent drift can hide.
+
+### Proposed shape (for milestone planning)
+
+**Milestone scope (rough; needs proper planning):**
+
+1. **Pick a representative parameter set per template.** Default params are usually fine but some templates may need explicit "happy path" + "deliberately-broken" pairs to lock both the clean-output and the warning-emission paths.
+2. **Generate the expected output bundle** by running the engine **once** at a sanctioned point in time (post-E-24, post-E-23, post-E-21 wrap is a reasonable baseline). Capture: full per-series per-bin numeric table (or tight-tolerance representation), full warning set, manifest summary fields.
+3. **Pin the expected bundles** under `tests/fixtures/golden-templates/<template-id>/` with documentation of the parameter set + capture date + capture commit hash.
+4. **Write the test:** parameterized over the 12 templates, each runs the engine and byte-compares (or tolerance-compares numeric series) against the pinned bundle.
+5. **Add a `--regenerate` mode** for sanctioned-change workflow: after a deliberate engine change shifts output, the engineer regenerates the bundles and the diff becomes the PR review artifact.
+6. **Make the canary fail on val-warn delta**, not just val-err. Even before the full golden pinning lands, a per-template `val-warn` count delta gate would have caught today's regression: 0→3 on `transportation-basic` would have failed the build.
+
+**Out of scope (deliberately):**
+
+- Floating-point exact equality across platforms. Tolerance-based numeric comparison is fine and is what every other comparable engine canary uses.
+- Pinning intermediate compilation-IR. The pinned artifact is the **observable engine output** (series + warnings), not the intermediate compiled DAG. The IR can change freely as long as the output stays equivalent.
+
+### Reference
+
+- Today's regression case: `data/runs/run_20260428T165413Z_6ed5974e` vs `data/runs/run_20260424T150244Z_b2f4c995` (same template, default params, divergent warning counts).
+- Existing canary: `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs::Survey_Templates_For_Warnings`.
+- Pattern precedents in this repo: see "Where the bar is already set higher" above.
+- User-stated intent (this conversation, 2026-04-28): "Tests need to create models for which the test deterministically know what the output should be and compare against that."
+
+### Immediate implications
+
+- Do **not** delete the per-template run artifacts in `data/runs/` until a golden-output canary is in place — they are the only reproduction surface for retroactive drift detection.
+- Treat any new analyser-warning regression on a previously-clean template as a **hard regression** until the canary is strict enough to catch it automatically.
+- Plan this milestone into the near-term sequence — preferably before E-22 (Model Fit) starts, since model-fit work will compare engine output against telemetry and silently-drifting output would corrupt fit results without warning.
+
+---
+
 ## Open Questions
 
 - Should path filters be part of the time-travel API or a separate analysis endpoint?

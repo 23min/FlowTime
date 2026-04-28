@@ -36,6 +36,18 @@ export interface SelectedCell {
 	bin: number;
 }
 
+/**
+ * m-E21-08 AC3 — single-edge selection. Independent of `pinnedEdges`: a pinned
+ * edge is not necessarily selected; a selected edge is not necessarily pinned.
+ * Both can be true at once. Drives the topology `.edge-selected` chrome
+ * (single edge, --ft-highlight stroke), the edge-card `selected` prop, and
+ * the validation-panel cross-link symmetry with `selectedCell`.
+ */
+export interface SelectedEdge {
+	from: string;
+	to: string;
+}
+
 export const VIEW_STATE_KEYS = {
 	rowStability: 'ft.heatmap.rowStability',
 	nodeMode: 'ft.view.nodeMode',
@@ -96,6 +108,7 @@ export class ViewStateStore {
 	nodeMode = $state<NodeMode>('operational');
 	fitWidth = $state<boolean>(false);
 	selectedCell = $state<SelectedCell | null>(null);
+	selectedEdge = $state<SelectedEdge | null>(null);
 
 	readonly #storage: Storage | undefined;
 
@@ -186,6 +199,15 @@ export class ViewStateStore {
 
 	clearSelectedCell() {
 		this.selectedCell = null;
+	}
+
+	// ---- edge selection (m-E21-08 AC3) ----
+	setSelectedEdge(from: string, to: string) {
+		this.selectedEdge = { from, to };
+	}
+
+	clearSelectedEdge() {
+		this.selectedEdge = null;
 	}
 
 	// ---- row-stability toggle (persisted) ----

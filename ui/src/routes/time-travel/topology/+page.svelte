@@ -35,6 +35,8 @@
 		triangleIndicatorPoints,
 	} from '$lib/utils/topology-indicators.js';
 	import { pickWarningSeverity, severityChromeToken } from '$lib/utils/validation-helpers.js';
+	import { buildNodeAriaLabel, buildEdgeAriaLabel } from '$lib/utils/topology-a11y.js';
+	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { bindEvents } from 'dag-map';
 	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
 
@@ -59,6 +61,10 @@
 	let graph = $state<GraphResponse | undefined>();
 	let runIndex = $state<RunIndex | undefined>();
 	let loading = $state(false);
+	// m-E21-08 AC5 — true while flowtime.getStateWindow(...) is in flight (after
+	// the run-load phase resolves). Drives the canvas + workbench skeleton so
+	// the surface no longer flickers from empty → populated mid-fetch.
+	let loadingWindow = $state(false);
 	let error = $state<string | undefined>();
 
 	// Snapshot state (for node/edge cards at current bin)
@@ -140,7 +146,21 @@
 					}
 				},
 				onEdgeClick: (from: string, to: string) => {
+					// m-E21-08 AC3 — pin AND select. Match the node-click symmetry:
+					// clicking an edge pins it to the workbench, sets it as the selected
+					// edge for the chrome cross-link, and toggles off both states when
+					// clicking an already-selected pinned edge.
+					const key = `${from}→${to}`;
+					const wasPinned = workbench.selectedEdgeKeys.has(key);
 					workbench.toggleEdge(from, to);
+					if (!wasPinned) {
+						viewState.setSelectedEdge(from, to);
+					} else if (
+						viewState.selectedEdge?.from === from &&
+						viewState.selectedEdge?.to === to
+					) {
+						viewState.clearSelectedEdge();
+					}
 				},
 			});
 		}
@@ -152,22 +172,90 @@
 		};
 	});
 
-	// Apply edge selection highlighting via CSS after each render
+	// Apply edge-pinned highlighting via CSS after each render. Drives the
+	// amber stroke on every pinned edge. m-E21-08 AC3 renamed this from
+	// .edge-selected → .edge-pinned so selection can have its own single-edge
+	// chrome (see the .edge-selected effect below).
 	$effect(() => {
 		void workbench.selectedEdgeKeys; // track dependency
 		if (!dagContainer) return;
-		dagContainer.querySelectorAll('.edge-selected').forEach((el) => {
-			el.classList.remove('edge-selected');
+		dagContainer.querySelectorAll('.edge-pinned').forEach((el) => {
+			el.classList.remove('edge-pinned');
 		});
 		for (const edge of workbench.pinnedEdges) {
 			const selector = buildEdgeSelector(edge);
 			try {
 				dagContainer.querySelectorAll(selector).forEach((el) => {
-					el.classList.add('edge-selected');
+					el.classList.add('edge-pinned');
 				});
 			} catch (err) {
-				console.warn('topology: edge selector failed', { edge, err });
+				console.warn('topology: edge-pinned selector failed', { edge, err });
 			}
+		}
+	});
+
+	// m-E21-08 AC3 — single-edge selection chrome. Driven by viewState.selectedEdge,
+	// independent of pinned state. An edge can be both pinned (amber stroke) and
+	// selected (turquoise stroke at heavier weight); .edge-selected is defined
+	// after .edge-pinned in the <style> block so the selection treatment wins by
+	// source order.
+	$effect(() => {
+		void viewState.selectedEdge;
+		void currentMetrics;
+		void selectedIds;
+		void viewState.activeView;
+		if (!dagContainer) return;
+		if (viewState.activeView !== 'topology') return;
+
+		dagContainer.querySelectorAll('.edge-selected').forEach((el) => {
+			el.classList.remove('edge-selected');
+		});
+
+		const sel = viewState.selectedEdge;
+		if (!sel) return;
+		const selector = buildEdgeSelector(sel);
+		try {
+			dagContainer.querySelectorAll(selector).forEach((el) => {
+				el.classList.add('edge-selected');
+			});
+		} catch (err) {
+			console.warn('topology: edge-selected selector failed', { sel, err });
+		}
+	});
+
+	// m-E21-08 AC2 — topology .node-selected stroke rule. Closes the m-E21-06
+	// asymmetric one-way cross-link for nodes: when viewState.selectedCell
+	// names a node (set by topology-click, card-click, heatmap-cell-click,
+	// or validation-row-click), the matching dag-map node group renders a
+	// turquoise --ft-highlight stroke. Mirrors the .edge-selected effect
+	// pattern above; cleanup-then-apply, attribute-escape on the selector.
+	//
+	// Re-run triggers:
+	//   - viewState.selectedCell changes (different node selected, or cleared)
+	//   - currentMetrics / selectedIds — dag-map re-renders the SVG; class lost
+	//   - viewState.activeView — skip on heatmap (SVG unmounted)
+	//   - dagContainer mounts
+	$effect(() => {
+		void viewState.selectedCell?.nodeId;
+		void currentMetrics;
+		void selectedIds;
+		void viewState.activeView;
+		if (!dagContainer) return;
+		if (viewState.activeView !== 'topology') return;
+
+		dagContainer.querySelectorAll('.node-selected').forEach((el) => {
+			el.classList.remove('node-selected');
+		});
+
+		const sel = viewState.selectedCell?.nodeId;
+		if (!sel) return;
+		try {
+			const group = dagContainer.querySelector(
+				`[data-node-id="${escapeAttributeValue(sel)}"]`,
+			);
+			group?.classList.add('node-selected');
+		} catch (err) {
+			console.warn('topology: node-selected selector failed', { sel, err });
 		}
 	});
 
@@ -305,6 +393,106 @@
 		}
 	});
 
+	// m-E21-08 AC1 — topology keyboard + ARIA retrofit.
+	//
+	// Walk the dag-map-rendered SVG after each render and apply tabindex /
+	// role / aria-label to nodes and edges so the topology surface reaches
+	// the heatmap's a11y bar (Tab + arrow + Enter; screen-reader structure;
+	// visible focus ring).
+	//
+	// Re-run triggers mirror the warning-indicator effect above:
+	//   - currentMetrics — value text in node aria-labels updates per metric
+	//   - selectedIds — dag-map re-renders the SVG; attributes lost
+	//   - viewState.activeView — skip when not topology
+	//   - dagContainer — mount
+	$effect(() => {
+		void currentMetrics;
+		void selectedIds;
+		void viewState.activeView;
+		if (!dagContainer) return;
+		if (viewState.activeView !== 'topology') return;
+
+		const metricLabel = workbench.selectedMetric.label;
+
+		// --- Nodes ---------------------------------------------------------------
+		dagContainer.querySelectorAll('[data-node-id]').forEach((el) => {
+			const group = el as SVGGElement;
+			const nodeId = group.getAttribute('data-node-id');
+			if (!nodeId) return;
+			const className = group.getAttribute('data-node-cls');
+			const metric = currentMetrics?.get(nodeId);
+			group.setAttribute('tabindex', '0');
+			group.setAttribute('role', 'button');
+			group.setAttribute(
+				'aria-label',
+				buildNodeAriaLabel({
+					nodeId,
+					className,
+					metricLabel,
+					metricValue: metric?.value,
+				}),
+			);
+		});
+
+		// --- Edges (visible layer only) -----------------------------------------
+		// data-edge-hit="true" elements are the invisible hit-area layer; skip
+		// them so the user has one focusable target per edge, not two.
+		dagContainer.querySelectorAll('[data-edge-from]:not([data-edge-hit])').forEach((el) => {
+			const path = el as SVGPathElement;
+			const from = path.getAttribute('data-edge-from');
+			const to = path.getAttribute('data-edge-to');
+			if (!from || !to) return;
+			path.setAttribute('tabindex', '0');
+			path.setAttribute('role', 'button');
+			path.setAttribute('aria-label', buildEdgeAriaLabel({ from, to }));
+		});
+	});
+
+	// m-E21-08 AC1 — keyboard activation handler (Enter / Space) for nodes
+	// and edges. Mirrors the click handlers wired via `bindEvents` so the
+	// keyboard contract matches the mouse contract exactly.
+	function onTopologyKeydown(e: KeyboardEvent) {
+		if (e.key !== 'Enter' && e.key !== ' ') return;
+		const target = e.target as Element | null;
+		if (!target) return;
+
+		const nodeGroup = target.closest('[data-node-id]') as Element | null;
+		if (nodeGroup) {
+			const nodeId = nodeGroup.getAttribute('data-node-id');
+			if (!nodeId) return;
+			e.preventDefault();
+			const kind = nodeKinds.get(nodeId);
+			const wasPinned = workbench.isPinned(nodeId);
+			workbench.toggle(nodeId, kind);
+			if (!wasPinned) {
+				viewState.setSelectedCell(nodeId, viewState.currentBin);
+			} else if (viewState.selectedCell?.nodeId === nodeId) {
+				viewState.clearSelectedCell();
+			}
+			return;
+		}
+
+		const edgePath = target.closest('[data-edge-from]:not([data-edge-hit])') as Element | null;
+		if (edgePath) {
+			const from = edgePath.getAttribute('data-edge-from');
+			const to = edgePath.getAttribute('data-edge-to');
+			if (!from || !to) return;
+			e.preventDefault();
+			// Same pin + select symmetry as the mouse handler (AC3).
+			const key = `${from}→${to}`;
+			const wasPinned = workbench.selectedEdgeKeys.has(key);
+			workbench.toggleEdge(from, to);
+			if (!wasPinned) {
+				viewState.setSelectedEdge(from, to);
+			} else if (
+				viewState.selectedEdge?.from === from &&
+				viewState.selectedEdge?.to === to
+			) {
+				viewState.clearSelectedEdge();
+			}
+		}
+	}
+
 	const selectedIds = $derived(workbench.selectedIds);
 	const hasPinnedItems = $derived(workbench.pinned.length > 0 || workbench.pinnedEdges.length > 0);
 
@@ -386,6 +574,7 @@
 
 	async function loadWindow() {
 		if (!selectedRunId || viewState.binCount <= 0) return;
+		loadingWindow = true;
 		const windowResult = await flowtime.getStateWindow(
 			selectedRunId,
 			0,
@@ -409,6 +598,7 @@
 			// edge warnings but indicators silently skipped due to key mismatch).
 			validation.setResponse(windowResult.value, graph?.edges);
 		}
+		loadingWindow = false;
 	}
 
 	async function loadBin(bin: number) {
@@ -513,6 +703,19 @@
 		workbench.unpin(nodeId);
 		if (viewState.selectedCell?.nodeId === nodeId) {
 			viewState.clearSelectedCell();
+		}
+	}
+
+	// m-E21-08 AC3 — symmetric helper for edges. Same contract as the node
+	// helper: when the user closes an edge card and that edge was the
+	// currently-selected edge, drop the selection so chrome stays consistent.
+	function unpinEdgeAndClearSelection(from: string, to: string) {
+		workbench.unpinEdge(from, to);
+		if (
+			viewState.selectedEdge?.from === from &&
+			viewState.selectedEdge?.to === to
+		) {
+			viewState.clearSelectedEdge();
 		}
 	}
 
@@ -668,7 +871,19 @@
 			<span>{error}</span>
 		</div>
 	{:else if loading}
-		<div class="flex-1 bg-muted animate-pulse"></div>
+		<!-- Run-load placeholder. A uniform muted pulse — NOT a structured
+		     skeleton — because the eventual content includes a timeline-scrubber
+		     strip above the canvas (renders inside `{:else if graph}` once
+		     `binCount > 0`), and faking its position with placeholder bars
+		     causes a visible layout jump when graph arrives.
+		     m-E21-08 AC5 — uniform pulse, no transition. The 160 ms cross-fade
+		     I tried in AC6 caused the leaving skeleton to overlap the entering
+		     real content in a way that read as a flickering frame; instant
+		     state-change is the right behaviour for the topology run-load. -->
+		<div
+			class="flex-1 bg-muted animate-pulse"
+			data-testid="topology-skeleton"
+		></div>
 	{:else if graph}
 		<!-- Timeline scrubber — above the canvas for both views -->
 		{#if viewState.binCount > 0}
@@ -693,11 +908,35 @@
 			<!-- Canvas area. `min-w-0` is load-bearing: without it, flex-item intrinsic
 			     sizing lets the SVG's default width (up to binCount * 18 px for wide
 			     runs) grow this div beyond the viewport, defeating both `overflow-auto`
-			     and the heatmap's fit-to-width math. -->
+			     and the heatmap's fit-to-width math.
+
+			     m-E21-08 AC5 — when the state_window request is in flight on the
+			     initial load (no prior windowNodes to keep visible), render a
+			     skeleton in the canvas region instead of an empty SVG / heatmap so
+			     the empty→populated flicker is replaced with a placeholder shape. -->
+			{#if loadingWindow && windowNodes.length === 0}
+				<!-- Geometry matches the dag-container `<div>` below exactly so
+				     skeleton → real-content swap is a stroke replacement, not a
+				     layout shift. No transition: a 160 ms fade leaves the
+				     skeleton lingering past when real content is ready, which
+				     reads as a flickering frame. Instant swap is right here. -->
+				<div
+					style="height: {splitRatio}%"
+					class="overflow-hidden min-w-0"
+					data-testid="topology-canvas-skeleton"
+				>
+					<Skeleton class="w-full h-full rounded-none" />
+				</div>
+			{:else}
 			<div
 				style="height: {splitRatio}%"
 				class="overflow-auto min-w-0"
 				bind:this={dagContainer}
+				role={viewState.activeView === 'topology' ? 'application' : undefined}
+				aria-label={viewState.activeView === 'topology'
+					? 'Topology graph — Tab to focus a node or edge, Enter or Space to pin'
+					: undefined}
+				onkeydown={onTopologyKeydown}
 			>
 				{#if viewState.activeView === 'topology'}
 					<DagMapView {graph} metrics={currentMetrics} selected={selectedIds} />
@@ -722,6 +961,7 @@
 					/>
 				{/if}
 			</div>
+			{/if}
 
 			<!-- Splitter handle -->
 			<div
@@ -791,9 +1031,12 @@
 											validation.edgeSeverityById,
 											`${edge.from}→${edge.to}`,
 										)}
-										selected={edgeIdx === workbench.pinnedEdges.length - 1}
-										onSelect={() => workbench.bringEdgeToFront(edge.from, edge.to)}
-										onClose={() => workbench.unpinEdge(edge.from, edge.to)}
+										selected={
+											viewState.selectedEdge?.from === edge.from &&
+											viewState.selectedEdge?.to === edge.to
+										}
+										onSelect={() => viewState.setSelectedEdge(edge.from, edge.to)}
+										onClose={() => unpinEdgeAndClearSelection(edge.from, edge.to)}
 									/>
 								</div>
 							{/each}
@@ -810,9 +1053,51 @@
 </div>
 
 <style>
-	:global(.edge-selected) {
+	/* m-E21-08 AC3 — pinned-edge chrome. Renamed from `.edge-selected`. Every
+	   edge pinned to the workbench renders this amber stroke. The single-edge
+	   `selected` chrome (turquoise, below) composes on top via source-order
+	   specificity — both classes can apply to the same path simultaneously. */
+	:global(.edge-pinned) {
 		stroke: var(--ft-viz-amber) !important;
 		stroke-width: 3 !important;
 		opacity: 1 !important;
+	}
+
+	/* m-E21-08 AC3 — selected-edge chrome. Single edge whose from/to matches
+	   viewState.selectedEdge. Distinct from `.edge-pinned` (amber, every pinned
+	   edge): `.edge-selected` reads as "this is my current focus edge", matches
+	   the m-E21-08 AC2 .node-selected --ft-highlight convention so node and
+	   edge selection chrome share a single hue family. Defined AFTER
+	   .edge-pinned so a pinned-and-selected edge renders the turquoise stroke. */
+	:global(.edge-selected) {
+		stroke: var(--ft-highlight) !important;
+		stroke-width: 4 !important;
+		opacity: 1 !important;
+	}
+
+	/* m-E21-08 AC2 — node selection stroke rule. Recolors the OUTER pin-status
+	   ring only (`.dag-map-selected` per `lib/dag-map/src/render.js:296`) — the
+	   inner `[data-id]` circle carries the data-encoded metric stroke (the
+	   orange the user is reading meaning from), and must be left untouched.
+	   Semantics: outer ring is gray when a card exists for the node, turquoise
+	   when that card is the currently-selected one. The inner circle's stroke
+	   is the data signal and has no chrome overlay. */
+	:global(.node-selected .dag-map-selected) {
+		stroke: var(--ft-highlight) !important;
+	}
+
+	/* m-E21-08 AC1 — keyboard focus ring on topology nodes and edges.
+	   Chrome-token (--ft-focus), distinct from --ft-pin / --ft-highlight /
+	   --ft-warn / --ft-err. The 2px outline + 2px offset reads as a focus
+	   affordance against both light- and dark-mode chrome and stays visually
+	   separate from the pin glyph and the m-E21-07 warning indicators. */
+	:global([data-node-id]:focus),
+	:global([data-edge-from]:not([data-edge-hit]):focus) {
+		outline: 2px solid var(--ft-focus);
+		outline-offset: 2px;
+	}
+	:global([data-node-id]:focus:not(:focus-visible)),
+	:global([data-edge-from]:not([data-edge-hit]):focus:not(:focus-visible)) {
+		outline: none;
 	}
 </style>

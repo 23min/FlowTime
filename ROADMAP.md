@@ -100,9 +100,9 @@ Mini-epic (3 milestones). Collapses the codebase's two silently-disagreeing mode
 
 **Dependencies:** E-24 Schema Alignment (cleared 2026-04-25). After E-23 lands, m-E21-07 Validation Surface resumes with a single consolidated validator to render.
 
-## E-21 — Svelte Workbench & Analysis Surfaces (active — m-E21-07 complete 2026-04-28; m-E21-08 Polish next)
+## E-21 — Svelte Workbench & Analysis Surfaces (all milestones complete — ready for epic wrap)
 
-**Epic:** `work/epics/E-21-svelte-workbench-and-analysis/spec.md` | **Status:** active — m-E21-07 Validation Surface complete (2026-04-28); m-E21-08 Polish next. Epic branch `epic/E-21-svelte-workbench-and-analysis` resumed 2026-04-26 after E-24 then E-23 closed; m-E21-06 Heatmap View merged into the epic branch 2026-04-26 (backfill of the missing wrap-time merge); main caught up onto the epic branch in the same pass. m-E21-07 consumed the consolidated `ModelSchemaValidator` E-23 delivers.
+**Epic:** `work/epics/E-21-svelte-workbench-and-analysis/spec.md` | **Status:** all 8 milestones complete (m-E21-08 Polish completed 2026-04-28). Ready for epic wrap and merge to main.
 
 Transform the Svelte UI from a Blazor-parallel clone into the primary platform for expert flow analysis and Time Machine surfaces. Workbench paradigm: topology as navigation + click-to-pin inspection panel; `/analysis` route with tabbed Time Machine surfaces (sweep, sensitivity, goal-seek, optimize); heatmap view; validation surface; compact density with calm chrome + vivid data-viz palette.
 
@@ -118,7 +118,9 @@ Transform the Svelte UI from a Blazor-parallel clone into the primary platform f
 
 - m-E21-07: Validation Surface (Svelte) — consumer-side type widening on `state_window` warnings; validation panel as left column inside workbench panel; topology node + edge warning indicators; workbench-card warning surfaces; bidirectional cross-link via shared view-state store; Playwright real-bytes fixture (`FLOWTIME_E2E_TEST_RUNS=1` + sandboxed `data/test-runs/`) covering the AC1 wire-format round-trip, mocked specs covering UI-behaviour edge cases. New chrome tokens `--ft-warn` / `--ft-err` / `--ft-info`. Zero backend work. 897 ui-vitest passing across the suite; 9/9 Playwright in `svelte-validation.spec.ts`; svelte-check 413/2 baseline unchanged (completed 2026-04-28)
 
-**Remaining:** m-E21-08 Polish.
+- m-E21-08: Visual Polish & Dark Mode QA — topology keyboard + ARIA retrofit (a11y bar parity with heatmap), full bidirectional cross-link (node `.node-selected` stroke + new `selectedEdge` field on view-state with `.edge-pinned` rename + new `.edge-selected` chrome), dark-mode audit (zero token-resolution gaps), loading skeletons on `/time-travel/topology` + `/analysis` tabs, transitions rule documented + 160 ms cross-fades, elevation token audit (zero remediation; chrome already canonical), validation-panel cosmetic collapse, heatmap-side absence assertion. 919 ui-vitest (+22 from baseline); svelte-check 413/2 unchanged; 6 new Playwright specs. New chrome token `--ft-focus`. Color-blind validation + pattern encoding deferred to a follow-up by user decision 2026-04-28 (completed 2026-04-28)
+
+**Remaining:** none. E-21 ready for epic wrap.
 
 ## E-19 — Surface Alignment & Compatibility Cleanup (completed)
 

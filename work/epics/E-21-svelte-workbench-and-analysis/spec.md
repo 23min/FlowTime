@@ -158,7 +158,7 @@ The token architecture must make major theme changes easy:
 | m-E21-05-optimize | Optimize Surface | N-param Nelder-Mead surface reusing shared convergence chart + result card from m-E21-04; per-param range table | **complete** (2026-04-22) |
 | m-E21-06-heatmap-view | Heatmap View | Nodes-x-bins grid, row sorting, click-to-jump, view switcher (topology/heatmap), shared full-window color scale, shared node-mode toggle | **complete** (2026-04-24) |
 | m-E21-07-validation-surface | Validation Surface (Svelte) | Consumer-side type widening on `state_window` warnings; validation panel as left column inside workbench panel; topology node + edge warning indicators; workbench-card warning surfaces; bidirectional cross-link via shared view-state store; Playwright real-bytes fixture for AC1 round-trip. No backend work. | **complete** (2026-04-28) |
-| m-E21-08-polish | Visual Polish & Dark Mode QA | Transitions, elevation audit, dark mode audit, loading skeletons, accessibility | not started |
+| m-E21-08-polish | Visual Polish & Dark Mode QA | Topology keyboard + ARIA retrofit, full bidirectional cross-link (node + edge), dark mode audit, loading skeletons, transitions rule, elevation normalization | **complete** (2026-04-28) |
 
 ## ADRs
 
