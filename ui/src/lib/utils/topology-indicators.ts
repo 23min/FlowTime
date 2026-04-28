@@ -93,6 +93,29 @@ export function edgeIndicatorPosition(midpoint: {
 }
 
 /**
+ * Build the `points` string for an SVG `<polygon>` rendering an upward-
+ * pointing equilateral warning triangle centered at `(cx, cy)` with
+ * circumradius `r`. The result is consumed directly by `polygon.setAttribute(
+ * 'points', ...)`.
+ *
+ * Vertex math: top vertex on the y-axis at distance `r`; the two base
+ * vertices form an equilateral triangle with the top, placed below the
+ * center. `sin(60°) ≈ 0.866`, `cos(60°) = 0.5`.
+ *
+ * Why a triangle (not a circle) for the edge indicator: the universal
+ * warning glyph reads sharply at small sizes thanks to its angular
+ * silhouette; on a thin SVG path a small filled circle was barely
+ * distinguishable from the path itself.
+ */
+export function triangleIndicatorPoints(geometry: IndicatorPosition): string {
+	const { cx, cy, r } = geometry;
+	const halfWidth = r * 0.866;
+	const baseY = cy + r * 0.5;
+	const topY = cy - r;
+	return `${cx.toFixed(2)},${topY.toFixed(2)} ${(cx - halfWidth).toFixed(2)},${baseY.toFixed(2)} ${(cx + halfWidth).toFixed(2)},${baseY.toFixed(2)}`;
+}
+
+/**
  * Parse a numeric SVG attribute. Returns `null` when the attribute is
  * missing, blank, or not a finite number — the consuming effect skips the
  * indicator for that node rather than risk an `NaN` coordinate that would

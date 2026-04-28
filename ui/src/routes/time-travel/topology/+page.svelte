@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { flip } from 'svelte/animate';
+	import { fade } from 'svelte/transition';
 	import { flowtime, type RunSummary, type GraphResponse, type RunIndex } from '$lib/api/index.js';
 	import DagMapView from '$lib/components/dag-map-view.svelte';
 	import HeatmapView from '$lib/components/heatmap-view.svelte';
@@ -28,9 +30,9 @@
 	import { sortHeatmapRows, type SortMode, type HeatmapRowInput } from '$lib/utils/heatmap-sort.js';
 	import { buildEdgeSelector, escapeAttributeValue } from '$lib/utils/topology-selectors.js';
 	import {
-		edgeIndicatorPosition,
 		nodeIndicatorPosition,
 		parseSvgNumber,
+		triangleIndicatorPoints,
 	} from '$lib/utils/topology-indicators.js';
 	import { pickWarningSeverity, severityChromeToken } from '$lib/utils/validation-helpers.js';
 	import { bindEvents } from 'dag-map';
@@ -228,10 +230,14 @@
 			const r = parseSvgNumber(innerCircle.getAttribute('r'));
 			if (cx === null || cy === null || r === null) continue;
 			const dot = nodeIndicatorPosition({ cx, cy, r });
+			// Position (NE shoulder) stays proportional via the helper, but the
+			// dot radius is fixed at 3 user-space units so the indicator reads
+			// at the same size as the workbench-card severity dot
+			// (Tailwind `size-1.5` = 6 px diameter).
 			const el = document.createElementNS(SVG_NS, 'circle');
 			el.setAttribute('cx', dot.cx.toFixed(2));
 			el.setAttribute('cy', dot.cy.toFixed(2));
-			el.setAttribute('r', dot.r.toFixed(2));
+			el.setAttribute('r', '3');
 			el.setAttribute('fill', `var(${token})`);
 			el.setAttribute('stroke', 'var(--background)');
 			el.setAttribute('stroke-width', '0.5');
@@ -243,10 +249,12 @@
 		}
 
 		// --- Edge indicators (AC8) ----------------------------------------------
-		// edgeWarnings keys are opaque (RunWarning.EdgeIds is whatever the
-		// analyser persisted) — we parse against the workbench `from→to`
-		// convention. If the format doesn't match, skip (no-op fallback,
-		// matches the validation panel's edge-row click semantics).
+		// edgeWarnings keys arrive pre-translated to the workbench `from→to`
+		// convention via `validation.setResponse(value, graph.edges)` in
+		// loadWindow(). Raw analyser ids that don't match a graph edge fall
+		// through unmapped and silently skip the arrow-split below — same
+		// graceful fallback as before, just rare in practice (smoke-test fix
+		// 2026-04-27).
 		const ARROW = '→'; // → (matches dag-map's edgeIndex key format)
 		for (const [edgeId, severity] of Object.entries(validation.edgeSeverityById)) {
 			const token = severityChromeToken(severity);
@@ -275,21 +283,23 @@
 			const totalLength = path.getTotalLength();
 			if (!Number.isFinite(totalLength) || totalLength <= 0) continue;
 			const mid = path.getPointAtLength(totalLength / 2);
-			const dot = edgeIndicatorPosition({ x: mid.x, y: mid.y });
-			const el = document.createElementNS(SVG_NS, 'circle');
-			el.setAttribute('cx', dot.cx.toFixed(2));
-			el.setAttribute('cy', dot.cy.toFixed(2));
-			el.setAttribute('r', dot.r.toFixed(2));
+			// Enlarge from the helper's default r=3 dot — the warning triangle
+			// reads better at a slightly larger size against the dag-map's
+			// edge stroke.
+			const triangle = { cx: mid.x, cy: mid.y, r: 6 };
+			const el = document.createElementNS(SVG_NS, 'polygon');
+			el.setAttribute('points', triangleIndicatorPoints(triangle));
 			el.setAttribute('fill', `var(${token})`);
 			el.setAttribute('stroke', 'var(--background)');
-			el.setAttribute('stroke-width', '0.75');
+			el.setAttribute('stroke-width', '1');
+			el.setAttribute('stroke-linejoin', 'round');
 			el.setAttribute('pointer-events', 'none');
 			el.setAttribute('data-warning-indicator', 'edge');
 			el.setAttribute('data-warning-edge-id', edgeId);
 			el.setAttribute('data-warning-severity', severity);
-			// Append to the path's parent <svg> so the dot is on top and not
-			// constrained by the path element itself (paths cannot have child
-			// SVG nodes).
+			// Append to the path's parent <svg> so the triangle is on top and
+			// not constrained by the path element itself (paths cannot have
+			// child SVG nodes).
 			const svgRoot = path.ownerSVGElement;
 			if (svgRoot) svgRoot.appendChild(el);
 		}
@@ -389,7 +399,15 @@
 			// of truth). The store derives the row list + per-node + per-edge
 			// severity-max maps from `warnings[]` and `edgeWarnings`; the panel and
 			// the topology AC7 / AC8 indicators (next chunk) read from it.
-			validation.setResponse(windowResult.value);
+			//
+			// `graph?.edges` is passed so the store can translate raw `edgeWarnings`
+			// keys (analyser ids like `source_to_target`) into the workbench
+			// `${from}→${to}` convention used by the panel, topology indicators,
+			// and the workbench-edge-card lookup. By the time loadWindow() runs,
+			// selectRun() has already awaited the graph fetch so `graph` is set
+			// (smoke-test fix 2026-04-27 — bug surfaced when real-bytes lag run had
+			// edge warnings but indicators silently skipped due to key mismatch).
+			validation.setResponse(windowResult.value, graph?.edges);
 		}
 	}
 
@@ -739,30 +757,45 @@
 						<div class="flex gap-2 p-2 flex-wrap items-start">
 							{#each sortedPinnedNodes as pin (pin.id)}
 								{@const nodeState = getNodeState(pin.id)}
-								<WorkbenchCard
-									nodeId={pin.id}
-									kind={pin.kind}
-									metrics={nodeState ? extractNodeMetrics(nodeState) : []}
-									sparklineValues={sparklineMap.get(pin.id) ?? []}
-									sparklineLabel={workbench.selectedMetric.label.toLowerCase()}
-									currentBin={viewState.currentBin}
-									selected={viewState.selectedCell?.nodeId === pin.id}
-									warningSeverity={pickWarningSeverity(validation.nodeSeverityById, pin.id)}
-									onClose={() => unpinAndClearSelection(pin.id)}
-								/>
+								<div
+									animate:flip={{ duration: 220 }}
+									in:fade={{ duration: 160 }}
+									out:fade={{ duration: 120 }}
+								>
+									<WorkbenchCard
+										nodeId={pin.id}
+										kind={pin.kind}
+										metrics={nodeState ? extractNodeMetrics(nodeState) : []}
+										sparklineValues={sparklineMap.get(pin.id) ?? []}
+										sparklineLabel={workbench.selectedMetric.label.toLowerCase()}
+										currentBin={viewState.currentBin}
+										selected={viewState.selectedCell?.nodeId === pin.id}
+										warningSeverity={pickWarningSeverity(validation.nodeSeverityById, pin.id)}
+										onSelect={() => viewState.setSelectedCell(pin.id, viewState.currentBin)}
+										onClose={() => unpinAndClearSelection(pin.id)}
+									/>
+								</div>
 							{/each}
-							{#each workbench.pinnedEdges as edge (`${edge.from}→${edge.to}`)}
+							{#each workbench.pinnedEdges as edge, edgeIdx (`${edge.from}→${edge.to}`)}
 								{@const edgeState = getEdgeState(edge.from, edge.to)}
-								<WorkbenchEdgeCard
-									from={edge.from}
-									to={edge.to}
-									metrics={edgeState ? extractEdgeMetrics(edgeState) : []}
-									warningSeverity={pickWarningSeverity(
-										validation.edgeSeverityById,
-										`${edge.from}→${edge.to}`,
-									)}
-									onClose={() => workbench.unpinEdge(edge.from, edge.to)}
-								/>
+								<div
+									animate:flip={{ duration: 220 }}
+									in:fade={{ duration: 160 }}
+									out:fade={{ duration: 120 }}
+								>
+									<WorkbenchEdgeCard
+										from={edge.from}
+										to={edge.to}
+										metrics={edgeState ? extractEdgeMetrics(edgeState) : []}
+										warningSeverity={pickWarningSeverity(
+											validation.edgeSeverityById,
+											`${edge.from}→${edge.to}`,
+										)}
+										selected={edgeIdx === workbench.pinnedEdges.length - 1}
+										onSelect={() => workbench.bringEdgeToFront(edge.from, edge.to)}
+										onClose={() => workbench.unpinEdge(edge.from, edge.to)}
+									/>
+								</div>
 							{/each}
 						</div>
 					{/if}

@@ -148,6 +148,31 @@ export function severityChromeToken(
 }
 
 /**
+ * Severity → background chrome token. Mirrors `severityChromeToken` but
+ * resolves to the tinted-row backgrounds defined in `app.css`
+ * (`--ft-warn-bg` / `--ft-err-bg` / `--ft-info-bg`). Light-mode tokens are
+ * very-low-saturation washes; dark-mode tokens are `transparent` so the
+ * existing chrome carries the signal without an opaque fill.
+ *
+ * Returns `null` for unknown severities — consumers handle this with the
+ * same `undefined`-fallback pattern as `severityChromeToken`.
+ */
+export function severityRowBackground(
+	severity: string,
+): '--ft-warn-bg' | '--ft-err-bg' | '--ft-info-bg' | null {
+	switch (severity) {
+		case 'error':
+			return '--ft-err-bg';
+		case 'warning':
+			return '--ft-warn-bg';
+		case 'info':
+			return '--ft-info-bg';
+		default:
+			return null;
+	}
+}
+
+/**
  * Reduce a bag of warnings to the most-severe known severity. Used to drive
  * the per-node and per-edge severity-max indicator chrome (AC7 / AC8) — when
  * multiple warnings target the same node or edge, the most severe wins.

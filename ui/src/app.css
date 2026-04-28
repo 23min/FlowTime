@@ -79,6 +79,14 @@
 	--ft-warn: hsl(35 95% 45%);
 	--ft-err: hsl(0 75% 45%);
 	--ft-info: hsl(210 80% 50%);
+
+	/* Severity row/card backgrounds — light mode. Very low-saturation tinted
+	   washes so a severity-keyed row reads as chrome without competing with
+	   the data-viz palette. The fill is tied to the same hue family as the
+	   severity stroke / dot so the surface coheres at a glance. */
+	--ft-warn-bg: hsl(35 95% 95%);
+	--ft-err-bg: hsl(0 75% 96%);
+	--ft-info-bg: hsl(210 80% 96%);
 }
 
 .dark {
@@ -135,6 +143,14 @@
 	--ft-warn: hsl(35 90% 60%);
 	--ft-err: hsl(0 70% 62%);
 	--ft-info: hsl(210 80% 65%);
+
+	/* Severity row/card backgrounds — dark mode. The dark chrome absorbs flat
+	   colour fills heavily; using transparent here lets the existing border
+	   colour carry the severity signal without bloating the surface. If a
+	   tinted fill is wanted later, lift the alpha to ~12% of the hue. */
+	--ft-warn-bg: transparent;
+	--ft-err-bg: transparent;
+	--ft-info-bg: transparent;
 }
 
 @theme inline {

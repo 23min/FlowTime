@@ -7,6 +7,7 @@ import {
 	rowId,
 	rowsMatchingSelection,
 	severityChromeToken,
+	severityRowBackground,
 	sortValidationItems,
 	type ValidationRow,
 	type ValidationRowClickDeps,
@@ -175,6 +176,28 @@ describe('severityChromeToken — AC7 / AC8 / AC12 / Suite 4', () => {
 		// never arrive, but the helper falls through to the default branch
 		// rather than crashing if it does.
 		expect(severityChromeToken('')).toBeNull();
+	});
+});
+
+describe('severityRowBackground — light-mode row tinting follow-up', () => {
+	it('maps severity "error" to --ft-err-bg', () => {
+		expect(severityRowBackground('error')).toBe('--ft-err-bg');
+	});
+
+	it('maps severity "warning" to --ft-warn-bg', () => {
+		expect(severityRowBackground('warning')).toBe('--ft-warn-bg');
+	});
+
+	it('maps severity "info" to --ft-info-bg', () => {
+		expect(severityRowBackground('info')).toBe('--ft-info-bg');
+	});
+
+	it('returns null for an unknown severity (default chrome — no background tint)', () => {
+		expect(severityRowBackground('mystery')).toBeNull();
+	});
+
+	it('returns null for the empty string', () => {
+		expect(severityRowBackground('')).toBeNull();
 	});
 });
 

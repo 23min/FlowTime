@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Sparkline from './sparkline.svelte';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { severityChromeToken } from '$lib/utils/validation-helpers.js';
+	import { severityChromeToken, severityRowBackground } from '$lib/utils/validation-helpers.js';
 
 	interface MetricEntry {
 		label: string;
@@ -23,6 +23,12 @@
 		 *  dot composes with `selected` — both can render at once. Hidden when
 		 *  undefined. (m-E21-07 workbench-card warning dot follow-up.) */
 		warningSeverity?: 'error' | 'warning' | 'info';
+		/** Click handler for the card body — fires when the user clicks anywhere
+		 *  on the card except the close button (which stops propagation). The
+		 *  parent wires this to the same selection convention as topology-node
+		 *  and validation-row clicks (`viewState.setSelectedCell(...)`), so
+		 *  every selection surface stays symmetric. */
+		onSelect?: () => void;
 		onClose?: () => void;
 	}
 
@@ -35,8 +41,17 @@
 		currentBin,
 		selected = false,
 		warningSeverity,
+		onSelect,
 		onClose,
 	}: Props = $props();
+
+	function onCardKeydown(e: KeyboardEvent) {
+		if (!onSelect) return;
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			onSelect();
+		}
+	}
 
 	// Severity → chrome token. `severityChromeToken` returns `null` for unknown
 	// literals; the prop type narrows to the known three-literal union, so the
@@ -44,9 +59,25 @@
 	const warningToken = $derived(
 		warningSeverity ? severityChromeToken(warningSeverity) : null,
 	);
+	const warningBg = $derived(
+		warningSeverity ? severityRowBackground(warningSeverity) : null,
+	);
 </script>
 
-<div class="bg-card border rounded p-1.5 text-xs min-w-[160px] max-w-[200px] flex flex-col gap-1">
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<div
+	class="border rounded p-1.5 text-xs min-w-[160px] max-w-[200px] flex flex-col gap-1"
+	class:bg-card={!warningBg}
+	class:cursor-pointer={!!onSelect}
+	style={[
+		warningBg ? `background: var(${warningBg})` : null,
+		selected ? 'border-color: var(--ft-highlight)' : null,
+	].filter(Boolean).join('; ') || undefined}
+	role={onSelect ? 'button' : undefined}
+	tabindex={onSelect ? 0 : undefined}
+	onclick={onSelect}
+	onkeydown={onCardKeydown}
+>
 	<!-- Header -->
 	<div class="flex items-center justify-between gap-1">
 		<div class="flex items-center gap-1 min-w-0">
@@ -73,7 +104,7 @@
 		</div>
 		{#if onClose}
 			<button
-				onclick={onClose}
+				onclick={(e) => { e.stopPropagation(); onClose?.(); }}
 				class="text-muted-foreground hover:text-foreground shrink-0 p-0.5 -m-0.5 rounded"
 				aria-label="Unpin {nodeId}"
 			>
@@ -82,17 +113,7 @@
 		{/if}
 	</div>
 
-	<!-- Metrics -->
-	{#if metrics.length > 0}
-		<div class="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px]">
-			{#each metrics as m}
-				<span class="text-muted-foreground truncate">{m.label}</span>
-				<span class="text-right font-mono tabular-nums">{m.value}</span>
-			{/each}
-		</div>
-	{/if}
-
-	<!-- Sparkline -->
+	<!-- Sparkline (above properties for visual primacy) -->
 	{#if sparklineValues.length > 1}
 		<div class="relative mt-0.5">
 			<div class="text-[9px] text-muted-foreground mb-0.5">{sparklineLabel}</div>
@@ -111,6 +132,16 @@
 					</svg>
 				{/if}
 			</div>
+		</div>
+	{/if}
+
+	<!-- Metrics -->
+	{#if metrics.length > 0}
+		<div class="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px]">
+			{#each metrics as m}
+				<span class="text-muted-foreground truncate">{m.label}</span>
+				<span class="text-right font-mono tabular-nums">{m.value}</span>
+			{/each}
 		</div>
 	{/if}
 </div>

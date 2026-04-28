@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
 	deriveValidationData,
 	ValidationStore,
 	type DerivedValidation,
+	type EdgeMetadata,
 } from './validation.svelte.js';
 import { rowId } from '$lib/utils/validation-helpers.js';
 import type { StateWindowResponse, StateWarning } from '$lib/api/types.js';
@@ -304,6 +305,220 @@ describe('deriveValidationData — severity-max maps', () => {
 		]);
 		const d = deriveValidationData(response);
 		expect(d.nodeSeverityById['n1']).toBe('warning');
+	});
+});
+
+describe('deriveValidationData — edge-key translation (smoke-test fix 2026-04-27)', () => {
+	// Regression coverage for the bug surfaced during real-bytes manual smoke
+	// testing: backend `BuildEdgeWarnings` keys `edgeWarnings` by the analyser's
+	// persisted edge id (e.g. `"source_to_target"` for the lag YAML), but the
+	// topology, panel, and edge-card all expect the workbench's `${from}→${to}`
+	// convention. The store now accepts an optional `edges` arg and translates
+	// raw keys to the unified form before deriving rows + the severity-max map.
+
+	it('translates raw analyser-id edge keys to from→to using the graph edge metadata', () => {
+		const response = makeResponse(
+			[],
+			{
+				source_to_target: [
+					w('warning', { code: 'edge_behavior_violation_lag', message: 'lag' }),
+				],
+			},
+		);
+		const edges: EdgeMetadata[] = [
+			{ id: 'source_to_target', from: 'SourceNode', to: 'TargetNode' },
+		];
+		const d = deriveValidationData(response, edges);
+
+		// Translated key appears in the severity map.
+		expect(d.edgeSeverityById['SourceNode→TargetNode']).toBe('warning');
+		expect(d.edgeSeverityById['source_to_target']).toBeUndefined();
+
+		// Row carries the translated key — downstream cross-link / row-match
+		// reasoning all see the unified form.
+		expect(d.rows).toHaveLength(1);
+		expect(d.rows[0].kind).toBe('edge');
+		expect(d.rows[0].key).toBe('SourceNode→TargetNode');
+	});
+
+	it('strips :port suffixes from edge endpoints to match the dag-map data-edge-from / data-edge-to convention', () => {
+		// Regression coverage for the second-order smoke-test bug: the live
+		// graph response carries port-suffixed identifiers (`SourceNode:out` /
+		// `TargetNode:in`) but the dag-map renders `data-edge-from="SourceNode"`
+		// (no port). The translator must strip the `:port` suffix when building
+		// the from→to target so the topology indicator selector resolves the
+		// correct path element. Mirrors `StateQueryService.ExtractNodeReference`.
+		const response = makeResponse(
+			[],
+			{
+				source_to_target: [
+					w('warning', { code: 'edge_behavior_violation_lag', message: 'lag' }),
+				],
+			},
+		);
+		const edges: EdgeMetadata[] = [
+			{ id: 'source_to_target', from: 'SourceNode:out', to: 'TargetNode:in' },
+		];
+		const d = deriveValidationData(response, edges);
+
+		expect(d.edgeSeverityById['SourceNode→TargetNode']).toBe('warning');
+		expect(d.edgeSeverityById['SourceNode:out→TargetNode:in']).toBeUndefined();
+		expect(d.rows[0].key).toBe('SourceNode→TargetNode');
+	});
+
+	it('preserves keys that are already in from→to form when graph metadata exists (mocked-spec compat)', () => {
+		// The mocked Playwright specs build hand-rolled edgeWarnings keyed by
+		// `${from}→${to}` directly. With graph metadata available, the
+		// translator must recognise the already-translated form and pass it
+		// through unchanged (no fall-through warn, no key drift).
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		try {
+			const response = makeResponse(
+				[],
+				{
+					'SourceNode→TargetNode': [
+						w('warning', { code: 'edge_flow_mismatch_outgoing', message: 'm' }),
+					],
+				},
+			);
+			const edges: EdgeMetadata[] = [
+				{ id: 'source_to_target', from: 'SourceNode', to: 'TargetNode' },
+			];
+			const d = deriveValidationData(response, edges);
+			expect(d.edgeSeverityById['SourceNode→TargetNode']).toBe('warning');
+			expect(d.rows[0].key).toBe('SourceNode→TargetNode');
+			// No warn — the key matched the from→to side of the map.
+			expect(warnSpy).not.toHaveBeenCalled();
+		} finally {
+			warnSpy.mockRestore();
+		}
+	});
+
+	it('falls back to the raw key + logs a warn when an unmapped edge id arrives', () => {
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		try {
+			const response = makeResponse(
+				[],
+				{
+					ghost_edge_id: [w('warning', { code: 'c', message: 'm' })],
+				},
+			);
+			const edges: EdgeMetadata[] = [
+				{ id: 'real_edge', from: 'A', to: 'B' },
+			];
+			const d = deriveValidationData(response, edges);
+			// Raw key preserved → downstream consumers see the unmapped key the
+			// same way they did before the translation patch (graceful skip in
+			// the topology effect, raw display in the panel row).
+			expect(d.edgeSeverityById['ghost_edge_id']).toBe('warning');
+			expect(d.rows[0].key).toBe('ghost_edge_id');
+			// Debug-aid warn fired once.
+			expect(warnSpy).toHaveBeenCalledTimes(1);
+			expect(warnSpy.mock.calls[0][0]).toContain('unmapped edge key');
+		} finally {
+			warnSpy.mockRestore();
+		}
+	});
+
+	it('preserves raw keys verbatim when edges param is omitted (legacy / mocked-test back-compat)', () => {
+		// Existing mocked specs and tests don't pass graph metadata; the store
+		// must behave identically to the pre-patch single-arg form.
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		try {
+			const response = makeResponse(
+				[],
+				{
+					'a→b': [w('warning', { code: 'c', message: 'm' })],
+				},
+			);
+			const d = deriveValidationData(response);
+			expect(d.edgeSeverityById['a→b']).toBe('warning');
+			expect(d.rows[0].key).toBe('a→b');
+			expect(warnSpy).not.toHaveBeenCalled();
+		} finally {
+			warnSpy.mockRestore();
+		}
+	});
+
+	it('treats an empty edges array the same as omitted (identity passthrough)', () => {
+		const response = makeResponse(
+			[],
+			{ raw_id: [w('warning')] },
+		);
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		try {
+			const d = deriveValidationData(response, []);
+			expect(d.edgeSeverityById['raw_id']).toBe('warning');
+			expect(warnSpy).not.toHaveBeenCalled();
+		} finally {
+			warnSpy.mockRestore();
+		}
+	});
+
+	it('treats a null edges arg the same as omitted (identity passthrough)', () => {
+		const response = makeResponse(
+			[],
+			{ raw_id: [w('warning')] },
+		);
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		try {
+			const d = deriveValidationData(response, null);
+			expect(d.edgeSeverityById['raw_id']).toBe('warning');
+			expect(warnSpy).not.toHaveBeenCalled();
+		} finally {
+			warnSpy.mockRestore();
+		}
+	});
+
+	it('handles edge metadata without an id (only from/to populated) — no analyser-id key registered, from→to still recognised', () => {
+		// Graph edges may not all carry an `id` field (it's optional in the
+		// type). The map should still register the from→to side so the
+		// already-translated path keeps working.
+		const response = makeResponse(
+			[],
+			{ 'X→Y': [w('warning')] },
+		);
+		const edges: EdgeMetadata[] = [{ from: 'X', to: 'Y' }];
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		try {
+			const d = deriveValidationData(response, edges);
+			expect(d.edgeSeverityById['X→Y']).toBe('warning');
+			expect(warnSpy).not.toHaveBeenCalled();
+		} finally {
+			warnSpy.mockRestore();
+		}
+	});
+
+	it('translates ValidationStore.setResponse(response, edges) keys end-to-end via the rune wrapper', () => {
+		const store = new ValidationStore();
+		store.setResponse(
+			makeResponse(
+				[],
+				{ source_to_target: [w('warning', { code: 'lag', message: 'lag msg' })] },
+			),
+			[{ id: 'source_to_target', from: 'SourceNode', to: 'TargetNode' }],
+		);
+		expect(store.edgeSeverityById['SourceNode→TargetNode']).toBe('warning');
+		expect(store.rows[0].key).toBe('SourceNode→TargetNode');
+	});
+
+	it('omitting edges from setResponse on a follow-up call resets translation (graph clears with the run)', () => {
+		const store = new ValidationStore();
+		store.setResponse(
+			makeResponse([], { source_to_target: [w('warning')] }),
+			[{ id: 'source_to_target', from: 'A', to: 'B' }],
+		);
+		expect(store.edgeSeverityById['A→B']).toBe('warning');
+		// New run begins → setResponse(null) (legacy reset path). No edges arg.
+		store.setResponse(null);
+		expect(store.edgeSeverityById).toEqual({});
+		// Next response arrives without graph metadata (legacy / mocked path) —
+		// keys must be raw again.
+		store.setResponse(
+			makeResponse([], { source_to_target: [w('warning')] }),
+		);
+		expect(store.edgeSeverityById['source_to_target']).toBe('warning');
+		expect(store.edgeSeverityById['A→B']).toBeUndefined();
 	});
 });
 

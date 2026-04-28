@@ -49,6 +49,7 @@
 		rowId,
 		rowsMatchingSelection,
 		severityChromeToken,
+		severityRowBackground,
 		type ValidationRow,
 		type ValidationSelection,
 	} from '$lib/utils/validation-helpers.js';
@@ -119,12 +120,17 @@
 				{@const isClickable = row.key !== null}
 				{@const dim = matchingIds.size > 0 && !isMatch}
 				{@const token = severityChromeToken(row.severity)}
+				{@const bgToken = severityRowBackground(row.severity)}
+				{@const rowStyle = [
+					bgToken ? `background: var(${bgToken})` : null,
+					isMatch ? 'border-color: var(--ft-highlight)' : null,
+				].filter(Boolean).join('; ')}
 				<button
 					type="button"
 					class="text-left rounded border px-1.5 py-1 flex flex-col gap-0.5 transition-opacity {isClickable
 						? 'hover:bg-accent cursor-pointer'
 						: 'cursor-default'} {dim ? 'opacity-50' : ''}"
-					style={isMatch ? 'border-color: var(--ft-highlight)' : undefined}
+					style={rowStyle || undefined}
 					onclick={() => onRowClick(row)}
 					disabled={!isClickable}
 					data-testid="validation-row"

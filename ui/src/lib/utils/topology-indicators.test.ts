@@ -3,6 +3,7 @@ import {
 	edgeIndicatorPosition,
 	nodeIndicatorPosition,
 	parseSvgNumber,
+	triangleIndicatorPoints,
 } from './topology-indicators.js';
 
 describe('nodeIndicatorPosition', () => {
@@ -66,6 +67,48 @@ describe('edgeIndicatorPosition', () => {
 		const result = edgeIndicatorPosition({ x: -10, y: -20 });
 		expect(result.cx).toBe(-10);
 		expect(result.cy).toBe(-20);
+	});
+});
+
+describe('triangleIndicatorPoints', () => {
+	it('produces an upward-pointing equilateral triangle around the centroid', () => {
+		// Triangle at origin, r = 10. Top vertex at (0, -10); base vertices at
+		// (±10*sin(60°), 10*cos(60°)) = (±8.66, 5).
+		const points = triangleIndicatorPoints({ cx: 0, cy: 0, r: 10 });
+		const parsed = points.split(' ').map((pair) => pair.split(',').map(Number));
+		expect(parsed).toHaveLength(3);
+		const [top, left, right] = parsed;
+		expect(top[0]).toBeCloseTo(0, 1);
+		expect(top[1]).toBeCloseTo(-10, 1);
+		expect(left[0]).toBeCloseTo(-8.66, 1);
+		expect(left[1]).toBeCloseTo(5, 1);
+		expect(right[0]).toBeCloseTo(8.66, 1);
+		expect(right[1]).toBeCloseTo(5, 1);
+	});
+
+	it('translates the triangle to the supplied (cx, cy)', () => {
+		const points = triangleIndicatorPoints({ cx: 100, cy: 200, r: 6 });
+		const parsed = points.split(' ').map((pair) => pair.split(',').map(Number));
+		const [top, left, right] = parsed;
+		// Top vertex sits at (cx, cy - r); base vertices at
+		// (cx ± r*sin(60°), cy + r*cos(60°)).
+		expect(top[0]).toBeCloseTo(100, 1);
+		expect(top[1]).toBeCloseTo(194, 1);
+		expect(left[0]).toBeCloseTo(94.8, 1);
+		expect(left[1]).toBeCloseTo(203, 1);
+		expect(right[0]).toBeCloseTo(105.2, 1);
+		expect(right[1]).toBeCloseTo(203, 1);
+	});
+
+	it('rounds each coordinate to two decimals so the points string stays compact', () => {
+		// r=1 with sin(60°)≈0.866 produces coordinates that need rounding.
+		const points = triangleIndicatorPoints({ cx: 0, cy: 0, r: 1 });
+		// Each coordinate matches /^-?\d+\.\d{2}$/ — exactly two decimal places.
+		for (const pair of points.split(' ')) {
+			for (const coord of pair.split(',')) {
+				expect(coord).toMatch(/^-?\d+\.\d{2}$/);
+			}
+		}
 	});
 });
 

@@ -288,6 +288,24 @@ test.describe('Validation surface — m-E21-07', () => {
 		// Severity chip carries "warning" literal (the lag warning defaults to
 		// "warning" per InvariantAnalyzer.cs:99).
 		await expect(rows.first()).toContainText(/warning/i);
+
+		// Edge indicator regression (smoke-test fix 2026-04-27). The lag YAML
+		// produces both a node-attributed warning AND an entry in
+		// `edgeWarnings` keyed by the analyser's edge id (`source_to_target`).
+		// Pre-fix, the topology effect skipped these keys silently because they
+		// don't carry `→`. Post-fix, the validation store translates raw keys
+		// to the workbench `${from}→${to}` convention via `graph.edges`, so the
+		// indicator must render. Tighten the spec: at least one edge indicator
+		// must be present, and its severity must be `warning` (per the lag
+		// branch's default severity in InvariantAnalyzer.cs).
+		const edgeIndicators = page.locator('[data-warning-indicator="edge"]');
+		await expect(edgeIndicators.first()).toBeVisible({ timeout: 5000 });
+		const edgeIndicatorCount = await edgeIndicators.count();
+		expect(edgeIndicatorCount).toBeGreaterThanOrEqual(1);
+		await expect(edgeIndicators.first()).toHaveAttribute(
+			'data-warning-severity',
+			'warning',
+		);
 	});
 
 	// AC14 spec #3 — mocked
