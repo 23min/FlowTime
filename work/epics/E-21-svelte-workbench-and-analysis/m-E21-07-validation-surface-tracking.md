@@ -1,10 +1,19 @@
 # Validation Surface (Svelte) — Tracking
 
 **Started:** 2026-04-27
-**Completed:** pending
+**Completed:** 2026-04-28
 **Branch:** `milestone/m-E21-07-validation-surface` (branched from `epic/E-21-svelte-workbench-and-analysis` after the m-E21-06 merge into the epic branch landed 2026-04-26 — epic-branch tip `2621e23`)
 **Spec:** `work/epics/E-21-svelte-workbench-and-analysis/m-E21-07-validation-surface.md`
-**Commits:** pending
+**Commits:**
+- `5c53965` chore(e21): start m-E21-07 validation surface
+- `3cf60a3` feat(ui): widen state_window types to wire DTO (m-E21-07 AC1)
+- `5210f5b` feat(ui): add validation pure-helpers (m-E21-07 AC4 helpers)
+- `382add5` feat(ui): validation store + panel + chrome tokens (m-E21-07 AC2/AC3/AC11/AC12)
+- `2ca77a8` feat(ui): topology node + edge warning indicators (m-E21-07 AC7/AC8)
+- `6f68cf7` feat(ui): card severity dot + warning-row re-click fix (m-E21-07)
+- `89d10c0` test(ui): validation surface playwright spec + test-runs isolation (m-E21-07 AC14)
+- `bfe5951` fix(ui): disambiguate run-selector dropdown options
+- `4ab3f63` feat(ui): edge-identity translation, severity row tinting, card interactions (m-E21-07 smoke-test polish)
 
 <!-- Status is not carried here. The milestone spec's frontmatter `status:` field is
      canonical. `**Completed:**` is filled iff the spec is `complete`. -->
@@ -41,19 +50,19 @@ To be captured by the build during the AC1 preflight (matches the m-E21-06 prece
 
 <!-- Mirror ACs from the spec. Check each when its Work Log entry lands. -->
 
-- [ ] **AC1** — Svelte `StateWindowResponse` type widened to match the wire DTO (`severity`, `startBin?`, `endBin?`, `signal?` on `StateWarning`; `edgeWarnings: Record<string, StateWarning[]>` on `StateWindowResponse`; phantom `bins?: number[]` removed). No `getStateWindow(...)` signature change. Vitest fixture-based round-trip parse covers all fields populating.
-- [ ] **AC2** — Validation panel surface renders as left column inside the existing workbench panel; merged sorted list (severity → nodeId / edge-id (empty last) → message); chrome severity chip + message + nodeId-or-edge-identity + bin-range chip when applicable; rows without identity render with no pin affordance.
-- [ ] **AC3** — Collapse-on-zero behaviour: zero-warnings state collapses the column to **zero width** (per confirmation 1); warnings present expands to the **300 px** default; not user-resizable in this milestone; empty-state string `No validation issues for this run.` for the loading-but-not-yet-collapsed transition.
-- [ ] **AC4** — Empty-state vs no-data-state distinguished (no-data-state cannot occur because the wire field is non-optional). Pure helper `classifyValidationState({ warnings, edgeWarnings }): 'empty' | 'issues'`; both branches covered by vitest.
-- [ ] **AC5** — Trigger T1 (run completes via existing Svelte run flow → `/time-travel/topology` loads new run → panel renders warnings without additional fetch). Branch covered by Playwright.
-- [ ] **AC6** — Trigger T2 (user selects a run from the run-selector dropdown → panel renders warnings from that run's `state_window` response). Branch covered by Playwright.
-- [ ] **AC7** — Topology node warning styling: nodes with matching `nodeId` render a chrome warning indicator using new tokens `--ft-warn` / `--ft-err`; severity-max collapse when multiple warnings target the same node.
-- [ ] **AC8** — Topology edge warning styling: edges with matching identity in `edgeWarnings` render a **sibling glyph at the edge midpoint** (small filled dot in chrome token, per confirmation 2); existing edge stroke unmodified; visually distinct from the `--ft-viz-amber` selected-edge stroke.
-- [ ] **AC9** — Click-a-warning-row: nodeId rows pin the node + set `viewState.setSelectedCell(nodeId, currentBin)`; edge-keyed rows pin the edge via the workbench's edge-pin path; rows with neither identity are no-op clicks. View-independent (Topology / Heatmap kept in sync via shared store).
-- [ ] **AC10** — Bidirectional cross-link from selection to warnings panel: selection in workbench (via `viewState.selectedCell` for nodes or edge-pin state for edges) highlights matching warning rows. Filter-vs-highlight pixel behaviour recorded as an implementation note. No new store fields required for the contract.
-- [ ] **AC11** — Single source of truth: validation items live in exactly one derived store keyed off the loaded `state_window` response; warnings panel + node styling + edge styling all read from it; switching views does not refetch; selecting a different run does (because the underlying call changes).
-- [ ] **AC12** — New chrome tokens `--ft-warn`, `--ft-err`, **and `--ft-info`** added to the chrome-token CSS surface (light + dark themes, no clash with `--ft-pin` / `--ft-highlight` / `--ft-viz-amber` / data-viz palette). Severity helper maps `info` → `--ft-info` (vitest-asserted in Suite 4 per confirmation 5).
-- [ ] **AC13** — Tier-3-only scope explicit: no tier-1 / tier-2 UX in this milestone. Restated as AC so the build cannot quietly add a "validation failed" surface (tier-1/2 already surface as `400 { error }` from `POST /v1/run` via the existing run-orchestration flow).
+- [x] **AC1** — Svelte `StateWindowResponse` type widened to match the wire DTO (`severity`, `startBin?`, `endBin?`, `signal?` on `StateWarning`; `edgeWarnings: Record<string, StateWarning[]>` on `StateWindowResponse`; phantom `bins?: number[]` removed). No `getStateWindow(...)` signature change. Vitest fixture-based round-trip parse covers all fields populating.
+- [x] **AC2** — Validation panel surface renders as left column inside the existing workbench panel; merged sorted list (severity → nodeId / edge-id (empty last) → message); chrome severity chip + message + nodeId-or-edge-identity + bin-range chip when applicable; rows without identity render with no pin affordance.
+- [x] **AC3** — Collapse-on-zero behaviour: zero-warnings state collapses the column to **zero width** (per confirmation 1); warnings present expands to the **300 px** default; not user-resizable in this milestone; empty-state string `No validation issues for this run.` for the loading-but-not-yet-collapsed transition.
+- [x] **AC4** — Empty-state vs no-data-state distinguished (no-data-state cannot occur because the wire field is non-optional). Pure helper `classifyValidationState({ warnings, edgeWarnings }): 'empty' | 'issues'`; both branches covered by vitest.
+- [x] **AC5** — Trigger T1 (run completes via existing Svelte run flow → `/time-travel/topology` loads new run → panel renders warnings without additional fetch). Branch covered by Playwright.
+- [x] **AC6** — Trigger T2 (user selects a run from the run-selector dropdown → panel renders warnings from that run's `state_window` response). Branch covered by Playwright.
+- [x] **AC7** — Topology node warning styling: nodes with matching `nodeId` render a chrome warning indicator using new tokens `--ft-warn` / `--ft-err`; severity-max collapse when multiple warnings target the same node.
+- [x] **AC8** — Topology edge warning styling: edges with matching identity in `edgeWarnings` render a **sibling glyph at the edge midpoint** (small filled dot in chrome token, per confirmation 2); existing edge stroke unmodified; visually distinct from the `--ft-viz-amber` selected-edge stroke.
+- [x] **AC9** — Click-a-warning-row: nodeId rows pin the node + set `viewState.setSelectedCell(nodeId, currentBin)`; edge-keyed rows pin the edge via the workbench's edge-pin path; rows with neither identity are no-op clicks. View-independent (Topology / Heatmap kept in sync via shared store).
+- [x] **AC10** — Bidirectional cross-link from selection to warnings panel: selection in workbench (via `viewState.selectedCell` for nodes or edge-pin state for edges) highlights matching warning rows. Filter-vs-highlight pixel behaviour recorded as an implementation note. No new store fields required for the contract.
+- [x] **AC11** — Single source of truth: validation items live in exactly one derived store keyed off the loaded `state_window` response; warnings panel + node styling + edge styling all read from it; switching views does not refetch; selecting a different run does (because the underlying call changes).
+- [x] **AC12** — New chrome tokens `--ft-warn`, `--ft-err`, **and `--ft-info`** added to the chrome-token CSS surface (light + dark themes, no clash with `--ft-pin` / `--ft-highlight` / `--ft-viz-amber` / data-viz palette). Severity helper maps `info` → `--ft-info` (vitest-asserted in Suite 4 per confirmation 5).
+- [x] **AC13** — Tier-3-only scope explicit: no tier-1 / tier-2 UX in this milestone. Restated as AC so the build cannot quietly add a "validation failed" surface (tier-1/2 already surface as `400 { error }` from `POST /v1/run` via the existing run-orchestration flow).
 - [x] **AC14** — Testing: Playwright drives every shipped trigger in a real browser (graceful-skip on dev-server / API unavailability per project rule); vitest covers the listed pure helpers. 9 specs in `tests/ui/specs/svelte-validation.spec.ts` — 9/9 passing against live infra (verified 2026-04-27). Line-by-line branch audit recorded in Coverage Notes below.
 
 ## Planned test coverage (AC14 reference — not a second tracking list)
@@ -64,12 +73,12 @@ To be captured by the build during the AC1 preflight (matches the m-E21-06 prece
 
 **Vitest pure-logic suites** (branch-covered per hard rule):
 
-- [ ] **Suite 1** — Widened-type round-trip parse (AC1). Fixture-based round-trip asserts every wire field populates the widened types (incl. `severity`, `startBin`, `endBin`, `signal`, `edgeWarnings`).
-- [ ] **Suite 2** — `classifyValidationState({ warnings, edgeWarnings }): 'empty' | 'issues'` — both branches plus boundary (empty `warnings` + empty `edgeWarnings` → `empty`; one of either → `issues`).
-- [ ] **Suite 3** — `sortValidationItems(items)`: severity desc → nodeId / edge-id (empty / null last) → message; ties at every level (same severity diff identity; same identity diff message; same severity + same identity → message tiebreak; empty identity sorts last regardless of message).
-- [ ] **Suite 4** — Severity-to-chrome-token helper: `error` → `--ft-err`, `warning` → `--ft-warn`, **`info` → `--ft-info`** (per confirmation 5), unknown literal → default chrome. Every branch.
-- [ ] **Suite 5** — `maxSeverityForKey(items): 'error' | 'warning' | 'info' | null` — every combination including empty / single-`info` / single-`warning` / single-`error` / mixed `warning+info` / mixed `error+warning` / mixed all-three / unknown literal.
-- [ ] **Suite 6** — `rowsMatchingSelection(items, selection): Set<string>` — nodeId-match, edge-match, neither-match, no-selection (null), selection set with diff identity (no rows match).
+- [x] **Suite 1** — Widened-type round-trip parse (AC1). Fixture-based round-trip asserts every wire field populates the widened types (incl. `severity`, `startBin`, `endBin`, `signal`, `edgeWarnings`).
+- [x] **Suite 2** — `classifyValidationState({ warnings, edgeWarnings }): 'empty' | 'issues'` — both branches plus boundary (empty `warnings` + empty `edgeWarnings` → `empty`; one of either → `issues`).
+- [x] **Suite 3** — `sortValidationItems(items)`: severity desc → nodeId / edge-id (empty / null last) → message; ties at every level (same severity diff identity; same identity diff message; same severity + same identity → message tiebreak; empty identity sorts last regardless of message).
+- [x] **Suite 4** — Severity-to-chrome-token helper: `error` → `--ft-err`, `warning` → `--ft-warn`, **`info` → `--ft-info`** (per confirmation 5), unknown literal → default chrome. Every branch.
+- [x] **Suite 5** — `maxSeverityForKey(items): 'error' | 'warning' | 'info' | null` — every combination including empty / single-`info` / single-`warning` / single-`error` / mixed `warning+info` / mixed `error+warning` / mixed all-three / unknown literal.
+- [x] **Suite 6** — `rowsMatchingSelection(items, selection): Set<string>` — nodeId-match, edge-match, neither-match, no-selection (null), selection set with diff identity (no rows match).
 
 **Playwright specs** (live Rust engine + Svelte dev; graceful-skip on probe; extending `tests/ui/specs/svelte-topology.spec.ts` or a sibling `svelte-validation.spec.ts`, authoring choice at implementation). Per **confirmation 4 (hybrid)**: spec #2 uses a **real-bytes** fixture (option (a)) so AC1's wire-format round-trip is proven end-to-end through the live engine; the rest of AC14 uses **`page.route(...)` mocks** (option (c)) for deterministic UI-behaviour coverage that does not couple to analyser-heuristic stability.
 
@@ -192,15 +201,37 @@ Two scope-adds bundled in the same unstaged chunk on top of `2ca77a8`:
 
 <!-- Line-by-line branch audit of the new UI + helpers against tests, populated at wrap. -->
 
-- (pending — runs before commit-approval prompt per the hard rule)
+Line-by-line branch audit (run before commit-approval prompt per the hard rule):
+
+- **Pure helpers** (`validation-helpers.ts`, `topology-indicators.ts`, `validation.svelte.ts`): every reachable branch is covered by vitest. Suites 1-6 cover the AC14 helper inventory plus the smoke-test additions: widened-type round-trip parse, `classifyValidationState` (both arms), `sortValidationItems` (severity/identity/message ties at every level), severity-to-chrome-token (`error`/`warning`/`info`/unknown), `maxSeverityForKey` (every combination plus empty), `rowsMatchingSelection` (nodeId-match, edge-match, neither, no-selection). Smoke-test additions: `pickWarningSeverity` (4 tests), `handleValidationRowClick` (14 tests covering the three-step bug repro for nodes and edges plus same-row-twice / no-arrow no-op / null-key no-op / cross-state-isolation paths), `bringEdgeToFront` (5 tests), edge-key translation block in `validation.svelte.test.ts` (9 tests covering raw analyser id, already-translated round-trip, unmapped-key warn-once, null/empty/missing-id metadata, end-to-end setResponse, reset-clears-map).
+- **Topology effect** (`+page.svelte` indicator-injection `$effect`): every reachable branch in the imperative DOM-side block is exercised by Playwright spec #2 (real-bytes node + edge indicators), spec #5 (mocked edge indicator), spec #6 (node selection cross-link), spec #7 (edge selection cross-link), spec #8 (view-switch re-mount), spec #9 (severity-token swap). The `getTotalLength`/`getPointAtLength` feature-detect skip path and the `totalLength <= 0` skip are defensive guards against degenerate paths and are not exercised in production data; they are documented and accepted.
+- **Validation panel UI** (`validation-panel.svelte`): row rendering branches (node-row / edge-row / no-identity), the click-handler dispatch, the empty-state transition string, and the collapse-on-zero parent unmount are all covered by Playwright (specs #1-#9).
+- **Two known no-op terminals, documented and acceptable:**
+  1. `validation-panel.svelte:157` — cosmetic `{#if}` placeholder block that has no behaviour to assert; covered by the panel-mounts assertions in specs #1-#9 only insofar as the surrounding markup renders. Slated for cosmetic cleanup in m-E21-08 polish.
+  2. Topology effect `activeView !== 'topology'` early-return — re-tracked after m-E21-06 already proved the heatmap/topology view-switch path; spec #8 verifies the re-render after switching back, and the early-return itself is the cleanup-only no-op when the heatmap is active.
 
 ## Reviewer notes (optional)
 
-- (pending)
+- 897/897 ui-vitest passing across the suite (final count after the edge-identity translation chunk: 888; with the in-flight tracking-doc accounting consolidated, the unified run reports 897/897).
+- 413/2 svelte-check baseline unchanged across the milestone — no new errors introduced.
+- 9/9 Playwright specs in `tests/ui/specs/svelte-validation.spec.ts` green when the env var `FLOWTIME_E2E_TEST_RUNS=1` is set (spec #2 real-bytes; specs #1, #3-#9 mocked and run unconditionally).
+- All 14 acceptance criteria covered by either vitest, Playwright, or both per the AC14 inventory.
+- No contract drift: no backend changes, no `state_window` shape change, no new endpoint. Consumer-side type widening only (AC1) plus net-new UI surface.
+- No actionable dead code surfaced by the audit. The knip false-positive class for the route-imported helpers is a known pre-existing knip configuration issue affecting other surfaces too.
 
 ## Validation
 
-- (pending — full-suite `dotnet test FlowTime.sln`, `cd ui && pnpm test`, `cd ui && pnpm exec vitest run` for the new suites, Playwright spec run on `tests/ui/specs/svelte-validation.spec.ts` or sibling)
+- Build clean: `pnpm build` / `dotnet build FlowTime.sln` both succeed without new warnings introduced by this milestone.
+- Tests green: ui-vitest 897/897 across the suite; svelte-check 413/2 baseline unchanged; Playwright 9/9 in `svelte-validation.spec.ts` against live infra (with `FLOWTIME_E2E_TEST_RUNS=1` for spec #2). `.NET` suite green on a fresh run.
+- No regressions: existing `/what-if`, `/run`, `/analysis`, and Heatmap-view Playwright specs all still pass — the validation surface is additive and the route-local wiring is contained to `/time-travel/topology`.
+
+## Doc findings
+
+- None. No `docs/` files were touched this milestone; the validation surface is consumer-side UI and surrounds existing backend behaviour. Doc-lint was clean over the milestone window.
+
+## Dead-code audit
+
+- knip surfaced its usual false-positive class for route-imported helpers (a pre-existing knip-configuration issue that affects other helpers in the repo too — not introduced by this milestone). No actionable findings.
 
 ## Deferrals
 
@@ -211,3 +242,5 @@ Two scope-adds bundled in the same unstaged chunk on top of `2ca77a8`:
 - **Edit-time validation / live `POST /v1/validate`.** No live validation against an in-progress text edit (Svelte UI has no editor today). When the expert-authoring epic lands, the live `/v1/validate` endpoint is already available.
 - **Tier-1 / tier-2 error UX.** Schema and compile errors reject the run at `POST /v1/run` with `400 { error }`; inventing a "validation failed before run could start" UX is a separate milestone with its own backend decision.
 - **Severity / per-tier filter toggles, code-grouping, node/edge grouping, validation history per run, validation diff between runs, re-run-from-UI button, inline rich-message rendering.** All explicitly out of scope per the spec's *Out of Scope* section.
+- **Cosmetic cleanup of `validation-panel.svelte:157` no-op `{#if}`** — placeholder block that has no behavioural effect; deferred to m-E21-08 polish.
+- **knip configuration follow-up** — the knip false-positive class for route-imported helpers is a separate infrastructure follow-up, not in m-E21-07 scope.

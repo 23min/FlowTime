@@ -100,9 +100,9 @@ Mini-epic (3 milestones). Collapses the codebase's two silently-disagreeing mode
 
 **Dependencies:** E-24 Schema Alignment (cleared 2026-04-25). After E-23 lands, m-E21-07 Validation Surface resumes with a single consolidated validator to render.
 
-## E-21 — Svelte Workbench & Analysis Surfaces (active — m-E21-07 in-progress 2026-04-27)
+## E-21 — Svelte Workbench & Analysis Surfaces (active — m-E21-07 complete 2026-04-28; m-E21-08 Polish next)
 
-**Epic:** `work/epics/E-21-svelte-workbench-and-analysis/spec.md` | **Status:** active — m-E21-07 Validation Surface in-progress on `milestone/m-E21-07-validation-surface` (started 2026-04-27). Epic branch `epic/E-21-svelte-workbench-and-analysis` resumed 2026-04-26 after E-24 then E-23 closed; m-E21-06 Heatmap View merged into the epic branch 2026-04-26 (backfill of the missing wrap-time merge); main caught up onto the epic branch in the same pass. m-E21-07 consumes the consolidated `ModelSchemaValidator` E-23 delivers.
+**Epic:** `work/epics/E-21-svelte-workbench-and-analysis/spec.md` | **Status:** active — m-E21-07 Validation Surface complete (2026-04-28); m-E21-08 Polish next. Epic branch `epic/E-21-svelte-workbench-and-analysis` resumed 2026-04-26 after E-24 then E-23 closed; m-E21-06 Heatmap View merged into the epic branch 2026-04-26 (backfill of the missing wrap-time merge); main caught up onto the epic branch in the same pass. m-E21-07 consumed the consolidated `ModelSchemaValidator` E-23 delivers.
 
 Transform the Svelte UI from a Blazor-parallel clone into the primary platform for expert flow analysis and Time Machine surfaces. Workbench paradigm: topology as navigation + click-to-pin inspection panel; `/analysis` route with tabbed Time Machine surfaces (sweep, sensitivity, goal-seek, optimize); heatmap view; validation surface; compact density with calm chrome + vivid data-viz palette.
 
@@ -116,7 +116,9 @@ Transform the Svelte UI from a Blazor-parallel clone into the primary platform f
 - m-E21-05: Optimize Surface — live `/v1/optimize` wired to the `/analysis` Optimize tab, N-param Nelder-Mead under bounds, per-param result table with range bars, new `flowtime.optimize(...)` client, sibling `optimize-helpers.ts` module (completed 2026-04-22)
 - m-E21-06: Heatmap View — nodes-x-bins grid as sibling of topology under `/time-travel/topology`, typed `<ViewSwitcher>` (inline views, no registry per ADR-m-E21-06-01), shared view-state store, shared full-window 99p-clipped color-scale normalization (topology straight-swaps from per-bin per ADR-m-E21-06-02), shared-toolbar `[ Operational | Full ]` node-mode toggle reaching Blazor parity. 15/15 ACs; 770 ui-vitest (+269) across 32 suites; 16 Playwright specs on `svelte-heatmap.spec.ts`; zero backend work (completed 2026-04-24)
 
-**Remaining:** m-E21-07 Validation Surface, m-E21-08 Polish.
+- m-E21-07: Validation Surface (Svelte) — consumer-side type widening on `state_window` warnings; validation panel as left column inside workbench panel; topology node + edge warning indicators; workbench-card warning surfaces; bidirectional cross-link via shared view-state store; Playwright real-bytes fixture (`FLOWTIME_E2E_TEST_RUNS=1` + sandboxed `data/test-runs/`) covering the AC1 wire-format round-trip, mocked specs covering UI-behaviour edge cases. New chrome tokens `--ft-warn` / `--ft-err` / `--ft-info`. Zero backend work. 897 ui-vitest passing across the suite; 9/9 Playwright in `svelte-validation.spec.ts`; svelte-check 413/2 baseline unchanged (completed 2026-04-28)
+
+**Remaining:** m-E21-08 Polish.
 
 ## E-19 — Surface Alignment & Compatibility Cleanup (completed)
 
