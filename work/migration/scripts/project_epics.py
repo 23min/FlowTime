@@ -37,7 +37,12 @@ SKIP_LOG_PATH = REPO_ROOT / "work/migration/manifests/skip-log.md"
 ID_MAP_PATH = REPO_ROOT / "work/migration/manifests/id-map.csv"
 
 # Epics to project, in manifest order. Milestones are auto-discovered per epic.
-SCOPE_EPICS = ["E-13", "E-14", "E-15", "E-18", "E-22"]
+# Active-dir set (Pass A–C):  E-13, E-14, E-15, E-18, E-22
+# Completed-id'd generic (Pass D): E-16, E-17, E-19, E-20, E-21, E-23, E-24
+SCOPE_EPICS = [
+    "E-13", "E-14", "E-15", "E-18", "E-22",
+    "E-16", "E-17", "E-19", "E-20", "E-21", "E-23", "E-24",
+]
 
 V1_TO_V3_EPIC_STATUS = {
     "planning": "proposed",
@@ -90,12 +95,22 @@ class MilestoneEntity:
 # ----- shared -----------------------------------------------------------------
 
 def find_epic_dir(epic_id: str) -> Path:
-    matches = sorted(p for p in EPICS_DIR.glob(f"{epic_id}-*") if p.is_dir())
-    if not matches:
+    """Locate epic dir under work/epics/ or work/epics/completed/."""
+    candidates: list[Path] = []
+    for root in (EPICS_DIR, EPICS_DIR / "completed"):
+        if not root.exists():
+            continue
+        candidates.extend(p for p in root.glob(f"{epic_id}-*") if p.is_dir())
+    if not candidates:
         raise FileNotFoundError(f"no dir matching {epic_id}-* under {EPICS_DIR}")
-    if len(matches) > 1:
-        raise ValueError(f"multiple dirs match {epic_id}-*: {matches}")
-    return matches[0]
+    if len(candidates) > 1:
+        raise ValueError(f"multiple dirs match {epic_id}-*: {candidates}")
+    return candidates[0]
+
+
+def is_completed_dir(epic_dir: Path) -> bool:
+    """True if the epic lives under work/epics/completed/."""
+    return (EPICS_DIR / "completed") in epic_dir.parents
 
 
 def strip_frontmatter_prose(text: str, prose_keys: tuple[str, ...]) -> str:
@@ -124,26 +139,69 @@ def strip_frontmatter_prose(text: str, prose_keys: tuple[str, ...]) -> str:
 
 # ----- epics ------------------------------------------------------------------
 
+def strip_yaml_frontmatter(text: str) -> tuple[str, dict[str, str]]:
+    """If text starts with a `---` YAML-frontmatter block, return (rest, kv_dict).
+
+    Otherwise return (text, {}). Only handles flat scalar fields — adequate for
+    our migration sources.
+    """
+    if not (text.startswith("---\n") or text.startswith("---\r\n")):
+        return text, {}
+    # Find closing fence
+    body_start = 4 if text.startswith("---\n") else 5
+    end = re.search(r"^---\s*$", text[body_start:], re.MULTILINE)
+    if not end:
+        return text, {}
+    block = text[body_start : body_start + end.start()]
+    rest = text[body_start + end.end():].lstrip("\n")
+    fm: dict[str, str] = {}
+    for line in block.splitlines():
+        if ":" in line and not line.startswith(" "):
+            k, _, v = line.partition(":")
+            fm[k.strip()] = v.strip()
+    return rest, fm
+
+
 def parse_epic_spec(epic_id: str, spec_path: Path, findings: list[str]) -> EpicEntity:
     text = spec_path.read_text(encoding="utf-8")
+    text, yaml_fm = strip_yaml_frontmatter(text)
+
     lines = text.splitlines()
     if not lines or not lines[0].startswith("# "):
         raise ValueError(f"{epic_id}: spec missing H1 title")
     raw_title = lines[0][2:].strip()
     title = re.sub(r"^Epic:\s*", "", raw_title)
-    title = re.sub(rf"^{epic_id}\s+", "", title)
+    title = re.sub(rf"^{epic_id}:?\s+", "", title)
 
     id_match = re.search(r"^\*\*ID:\*\*\s*(\S+)\s*$", text, re.MULTILINE)
-    if not id_match:
-        raise ValueError(f"{epic_id}: spec missing **ID:** line")
-    if id_match.group(1) != epic_id:
-        raise ValueError(f"{epic_id}: **ID:** says {id_match.group(1)!r}; expected {epic_id!r}")
+    if id_match:
+        if id_match.group(1) != epic_id:
+            raise ValueError(
+                f"{epic_id}: **ID:** says {id_match.group(1)!r}; expected {epic_id!r}"
+            )
+    elif "id" in yaml_fm:
+        # YAML id may be E-NN or E-NN-slug; both acceptable as long as prefix matches
+        if not yaml_fm["id"].startswith(epic_id):
+            raise ValueError(
+                f"{epic_id}: YAML `id: {yaml_fm['id']}` doesn't match expected prefix {epic_id!r}"
+            )
+    else:
+        raise ValueError(
+            f"{epic_id}: spec has no **ID:** line and no YAML frontmatter `id` field"
+        )
 
+    completed = is_completed_dir(spec_path.parent)
     status_match = re.search(
         r"^\*\*Status:\*\*\s*(\S+)(?:\s*\((.+?)\))?", text, re.MULTILINE
     )
     qualifier: str | None = None
-    if status_match:
+
+    if completed:
+        # Dir-location wins for terminal state. Force `done` regardless of source.
+        v3_status = "done"
+        if status_match:
+            qualifier = status_match.group(2)  # preserve parenthesized note if any
+    elif status_match:
         v1_status = status_match.group(1).lower()
         qualifier = status_match.group(2)
         if v1_status not in V1_TO_V3_EPIC_STATUS:
@@ -191,23 +249,44 @@ def parse_milestone_spec(
 ) -> tuple[str, str, str, list[str], str]:
     """Return (old_id, title, v3_status, depends_on_old_ids, body)."""
     text = spec_path.read_text(encoding="utf-8")
+    text, yaml_fm = strip_yaml_frontmatter(text)
     lines = text.splitlines()
     if not lines or not lines[0].startswith("# "):
         raise ValueError(f"{spec_path.name}: spec missing H1 title")
     h1 = lines[0][2:].strip()
 
     # Variant A: prose **ID:** line. Variant B: id embedded in H1 (`m-EXX-NN — Title`).
+    # Some sources put the full slug after **ID:** (e.g. `m-E16-01-compiled-semantic-references`);
+    # normalize to canonical `m-EXX-NN` via MILESTONE_OLD_ID_RE.
     old_id: str | None = None
     title: str | None = None
     id_match = re.search(r"^\*\*ID:\*\*\s*(\S+)\s*$", text, re.MULTILINE)
     if id_match:
-        old_id = id_match.group(1)
-        title = re.sub(r"^Milestone:\s*", "", h1)
-    else:
-        m = re.match(r"^(m-E\d+-\d+)\s*[—-]\s*(.+)$", h1)
+        captured = id_match.group(1)
+        m = MILESTONE_OLD_ID_RE.match(captured)
         if not m:
             raise ValueError(
-                f"{spec_path.name}: cannot derive id — no **ID:** line and H1 doesn't match `m-EXX-NN — Title`"
+                f"{spec_path.name}: **ID:** value {captured!r} doesn't begin with `m-EXX-NN`"
+            )
+        old_id = m.group(0)
+        title = re.sub(r"^Milestone:\s*", "", h1)
+    elif "id" in yaml_fm:
+        # YAML frontmatter carries the id; trust that and use H1 as title.
+        m = MILESTONE_OLD_ID_RE.match(yaml_fm["id"])
+        if not m:
+            raise ValueError(
+                f"{spec_path.name}: YAML `id: {yaml_fm['id']}` doesn't begin with `m-EXX-NN`"
+            )
+        old_id = m.group(0)
+        # H1 may still embed the id (`# m-EXX-NN: Title`) or be just the title.
+        h1_strip = re.match(r"^m-E\d+-\d+\s*[:—-]\s*(.+)$", h1)
+        title = h1_strip.group(1).strip() if h1_strip else h1
+    else:
+        m = re.match(r"^(m-E\d+-\d+)\s*[:—-]\s*(.+)$", h1)
+        if not m:
+            raise ValueError(
+                f"{spec_path.name}: cannot derive id — no **ID:** line, no YAML `id` field, "
+                f"and H1 doesn't match `m-EXX-NN [:—-] Title`"
             )
         old_id = m.group(1)
         title = m.group(2).strip()
@@ -220,20 +299,28 @@ def parse_milestone_spec(
             f"under `{expected_parent}`'s dir; trusting dir-derived parent."
         )
 
-    # Status — first whitespace token, lowercase, mapped
-    status_match = re.search(r"^\*\*Status:\*\*\s*(\S+)", text, re.MULTILINE)
-    if status_match:
-        v1 = status_match.group(1).lower()
-        if v1 not in V1_TO_V3_MILESTONE_STATUS:
-            raise ValueError(
-                f"{old_id}: unmapped milestone status {v1!r} — add to V1_TO_V3_MILESTONE_STATUS"
-            )
-        v3_status = V1_TO_V3_MILESTONE_STATUS[v1]
+    # Dir-location override: milestones inside a completed/ epic dir → done.
+    # Otherwise pull status from prose **Status:** line, then YAML frontmatter, else default.
+    if is_completed_dir(spec_path.parent):
+        v3_status = "done"
     else:
-        v3_status = "draft"
-        findings.append(
-            f"- **{old_id}**: no `**Status:**` line; defaulted to `draft`."
-        )
+        status_match = re.search(r"^\*\*Status:\*\*\s*(\S+)", text, re.MULTILINE)
+        v1: str | None = None
+        if status_match:
+            v1 = status_match.group(1).lower()
+        elif "status" in yaml_fm:
+            v1 = yaml_fm["status"].split()[0].lower() if yaml_fm["status"] else None
+        if v1:
+            if v1 not in V1_TO_V3_MILESTONE_STATUS:
+                raise ValueError(
+                    f"{old_id}: unmapped milestone status {v1!r} — add to V1_TO_V3_MILESTONE_STATUS"
+                )
+            v3_status = V1_TO_V3_MILESTONE_STATUS[v1]
+        else:
+            v3_status = "draft"
+            findings.append(
+                f"- **{old_id}**: no `**Status:**` line and no YAML `status:`; defaulted to `draft`."
+            )
 
     # Depends on — only milestone targets are projectable; epic targets dropped
     depends_on_old: list[str] = []
