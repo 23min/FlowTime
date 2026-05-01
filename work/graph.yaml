@@ -809,13 +809,24 @@ nodes:
         value: paused
   - id: E-12
     kind: epic
-    path: work/epics/E-12-dependency-constraints
+    path: work/epics/completed/E-12-dependency-constraints
+    status: complete
+    confidence: medium
+    status_evidence:
+      - source: spec-frontmatter
+        file: work/epics/completed/E-12-dependency-constraints/spec.md
+        line: 3
+        value: complete
+  - id: ai-assisted-authoring
+    kind: epic
+    path: work/epics/unplanned/ai-assisted-authoring
+    status: planning
     confidence: low
-    conflicts:
-      - field: status
-        winner: ""
-        reason: no status claim found in spec frontmatter, body, or ROADMAP row
-        resolution_hint: add `status:` to the spec frontmatter
+    status_evidence:
+      - source: spec-frontmatter
+        file: work/epics/unplanned/ai-assisted-authoring/spec.md
+        line: 3
+        value: planning
   - id: E-13
     kind: epic
     path: work/epics/E-13-path-analysis

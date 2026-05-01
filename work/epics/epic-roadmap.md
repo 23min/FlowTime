@@ -120,12 +120,12 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 
 These depend on the analytical primitives from Phase 3 (except Telemetry Ingestion which is independent). dag-map enhancements are scoped within consuming milestones, not as a separate epic.
 
-#### E-12 — Dependency Constraints & Shared Resources
+#### E-12 — Dependency Constraints & Shared Resources (completed)
 
-- **Folder:** `work/epics/E-12-dependency-constraints/`
-- **Goal:** Model downstream dependencies as resource constraints with visible bottlenecks and coupling.
-- **Status:** M-10.01 and M-10.02 complete (Option A + B foundations). M-10.03 (MCP enforcement) deferred until runtime constraint enforcement (`p3d`) is in place. See `work/gaps.md`.
-- **Depends on:** `p3d` (ConstraintAllocator wired into evaluation pipeline)
+- **Folder:** `work/epics/completed/E-12-dependency-constraints/`
+- **Status:** Complete (2026-05-01). M-10.01 (Option A — dependency-as-node) and M-10.02 (Option B — dependency-as-constraint) delivered the engine semantics. M-10.03 (MCP Pattern Enforcement) was dropped from the epic and absorbed into the new draft `ai-assisted-authoring` unplanned epic, alongside the original M-10.03 Plans 3–5 (resource pooling, compiler expansion, feedback loops).
+- **Goal (delivered):** Model downstream dependencies as resource constraints with visible bottlenecks and coupling.
+- **Successor for the deferred AI-side scope:** `work/epics/unplanned/ai-assisted-authoring/spec.md`.
 
 #### E-13 — Path Analysis & Subgraph Queries
 
@@ -244,6 +244,19 @@ Svelte UI becomes the platform for these new interaction models.
 - **Folder:** `work/epics/ui-question-driven/`
 - **Goal:** Structured query panel where users ask analytical questions ("Where is the bottleneck?", "Why is cycle time high?") and get computed, provenanced answers. Foundation for future DSL and LLM integration.
 - **Depends on:** UI Workbench epic, UI Analytical Views epic, post-E-16 fact surfaces, and the relevant resumed E-10 primitives.
+
+## External Authoring Surfaces (unnumbered until sequenced)
+
+These epics target authoring callers **outside** the FlowTime UI — agent harnesses, scripted authoring pipelines, the MCP server consumed by external tools (Claude included). Per direction recorded 2026-05-01, no AI-assist surface is anticipated inside the FlowTime UI itself; these epics live on the server boundary.
+
+#### AI-Assisted Authoring (MCP Server-Side Pattern Enforcement)
+
+- **Folder:** `work/epics/unplanned/ai-assisted-authoring/`
+- **Status:** planning (created 2026-05-01)
+- **Goal:** Harden the MCP server so external authoring callers asking FlowTime to produce a model receive canonical, pattern-enforced, deterministic output. Refusal-with-rationale for unsupported patterns; canonical helpers for Option A and Option B dependency representations.
+- **Origin:** absorbs M-10.03 (originally in E-12) plus Plans 3–5 (resource pooling, compiler expansion, feedback loops).
+- **Depends on:** E-12 (complete) for engine semantics; MCP modeling foundation (`work/epics/completed/ai/`, M-08.01–05, complete). E-15 Telemetry Ingestion is a soft dependency for Plans 3–5 only; the M-10.03 core can ship without it.
+- **Sibling surfaces (different scope):** `work/epics/unplanned/expert-authoring-surface/spec.md` (human textual authoring via CodeMirror — UI-side); `work/epics/ui-question-driven/` (analytical queries — UI-side, LLM is future motivation not authoring).
 
 ## Mid-Term / Aspirational Epics (unnumbered until sequenced)
 
