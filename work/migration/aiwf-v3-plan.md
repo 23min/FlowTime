@@ -313,19 +313,39 @@ Coverage gaps and mitigations:
 
 ### Phase 5 — teardown and cutover
 
-- [ ] Port repo-private skills (`dead-code-audit`, `devcontainer`, `ui-debug`) to `.claude/skills/<name>/SKILL.md`; commit
-- [ ] Move `.ai-repo/recipes/dead-code-*.md` under `.claude/skills/dead-code-audit/recipes/`
-- [ ] Fold `.ai-repo/rules/project.md` content into `CLAUDE.md`
-- [ ] Delete `.ai/` submodule (`.gitmodules` edit + `git rm`)
-- [ ] Delete `.ai-repo/` (entire directory)
-- [ ] Delete generated `.github/skills/` adapter files (if any)
-- [ ] Delete generated `.claude/skills/wf-*/` (v1 generated copies; replaced by plugin install)
-- [ ] Delete `.claude/agents/*.md` (replaced by `aiwf-extensions` plugin agents)
-- [ ] Update `CLAUDE.md`: replace v1 framework references with v3; rewrite "Resolved Artifact Layout" section against `aiwf.yaml`; rewrite "Agent Routing" against plugin agents; remove "Framework Sources" v1 table
-- [ ] Update `.claude/settings.json`: remove or replace the v1-path SessionStart hooks (`.ai/tools/scratch-audit.sh`, `.ai-repo/bin/wf-graph`) — either delete the hook entries entirely or substitute v3 equivalents (e.g. `aiwf doctor --quiet` on session start) if useful
-- [ ] Update `CLAUDE.md` Current Work to reference new milestone ids
-- [ ] Update memory files: `feedback_audit_mute_archived.md` rewrites to target `aiwf check` rather than `wf-workflow-audit`
-- [ ] Run `aiwf doctor`, `aiwf check`, `aiwf doctor --self-check` — all green
+Q&A settled (5 questions): A→B→C ordering with 4 commits; memory files load-bearing edits inline + incidental defer; CLAUDE.md surgical edits + automated id-rewrite for Current Work; remove SessionStart hooks entirely; keep migration scratch in place.
+
+**Group A — non-destructive prep (commit `98deaa2`):**
+- [x] CLAUDE.md surgical rewrite — replaced v1 references with v3-aware sections (header, agent routing → plugin agents, repo layout, removed Framework Sources)
+- [x] CLAUDE.md Current Work — id-rewrite via id-map.csv using `rewrite_claude_md.py` helper (m-E18-13 → M-010, D-2026-04-15-032 → D-045, etc.)
+- [x] .claude/settings.json — removed SessionStart hooks pointing at v1 paths
+
+**Group B step 1 — port repo-private skills + cleanup generated v1 content (commit `a9d453a`):**
+- [x] Port `dead-code-audit` skill from `.ai/skills/dead-code-audit.md` → `.claude/skills/dead-code-audit/SKILL.md` + 3 recipes under `recipes/` subdir; sed-rewrite recipe-path references to new home
+- [x] Stage existing repo-private dirs `.claude/skills/devcontainer/` and `.claude/skills/ui-debug/` (now trackable after gitignore update)
+- [x] .gitignore: drop wholesale `.claude/skills/` ignore; keep `.claude/skills/aiwf-*/` ignore (owned by `aiwf init`/`aiwf update`)
+- [x] Delete (gitignored, disk-only): 21× `.claude/skills/wf-*/` dirs, 4× `.claude/agents/*.md`, `.github/skills/` tree
+- [x] Delete (tracked): 3× `work/agent-history/*.md`, `work/decisions.md` (398 lines), `work/gaps.md` (1140 lines)
+
+**Group B step 2 — delete v1 epic dirs (commit `d0127ee`):**
+- [x] Delete 6 v1 active-dir epics (E-11/13/14/15/18/22 with v1 slugs) — duplicates of imported v3 entities at title-derived slugs
+- [x] Delete 9 v1 completed-dir epics under `work/epics/completed/E-NN-*/` — v3 imports landed at `work/epics/E-NN-<title-slug>/` regardless of status (aiwf's flat-dir convention)
+- [x] Delete `work/epics/epic-roadmap.md` (replaced by `aiwf render roadmap` → ROADMAP.md)
+- [x] Keep `work/epics/unplanned/` (13 historical exploration dirs)
+- [x] 149 files deleted; aiwf check still 0 errors / 4 unchanged warnings
+
+**Group C — framework teardown (commit `b80d4c3`):**
+- [x] Delete `.ai/` git submodule: edit `.gitmodules` (drop `[submodule ".ai"]` block); `git submodule deinit -f .ai`; `git rm -f .ai`; `rm -rf .git/modules/.ai`
+- [x] Delete `.ai-repo/` (entire dir; 11 tracked files + the gitignored `.framework-sync-sha`)
+- [x] Residual cleanup: deleted `.github/copilot-instructions.md` and `.claude/rules/ai-framework.md` (gitignored, no git op); removed `statusLine` block from `.claude/settings.json` (statusline.sh also v1-generated and gone); pruned stale gitignore entries for v1 sync.sh outputs
+
+**Memory file edits (Phase 5 deferred per Q2 — done opportunistically):**
+- [ ] `feedback_archive_completed_epics.md` — load-bearing rule shifts (aiwf flips status to done; doesn't move dir to completed/). Inline edit pending.
+- [ ] `feedback_audit_mute_archived.md` — rule rewrites to target `aiwf check` rather than `wf-workflow-audit`. Inline edit pending.
+
+**Verification:**
+- [x] `aiwf doctor` — all green
+- [x] `aiwf check` — 0 errors, 4 unchanged informational warnings (gap-resolved-has-resolver)
 - [ ] Open PR `migration/aiwf-v3` → `main`, request review, merge
 
 ### Phase 6 — post-merge
@@ -372,3 +392,4 @@ Append-only record of dry-run iterations, decisions taken mid-flight, and findin
 - 2026-05-01 — phase 2 — Pass G landed. Body-text rewrite via id-map (settled Q&A: targeted, inline, skip-code-blocks). `rewrite_body_text` segments fenced and inline code as placeholders, substitutes old ids → new ids on remaining prose with `(?<![\w-]){escaped}(?:-[a-z0-9-]+)?(?![\w-])` regex (matches both bare id and full-slug forms; collapses both to bare new id). Substitutions applied in length-DESC order. Verified: every old m-EXX-NN and D-YYYY-MM-DD-NNN occurrence in body prose now points to its new M-NNN/D-NNN. `aiwf import --dry-run`: 166 plans, 0 errors, exit 0. **Phase 2 (projector) complete — manifest is import-ready.**
 - 2026-05-01 — phase 3 — pre-process source. (1) 17 non-id'd `work/epics/completed/` dirs relocated to `work/archived-epics/` via `git mv` (preserves history); `completed/` now contains only 9 E-NN dirs. (2) E-13 source spec gets `**Status:** proposed`; E-11 source spec gets `**Status:** paused`. (3) m-E18-01 epic-target dep accepted-as-projected (aiwf invariant; body retains prose). Re-projection: 166 entities unchanged, skip-log shrunk to 1 real + 22 noise findings, `aiwf import --dry-run` exit 0. **Phase 3 complete.**
 - 2026-05-01 — phase 4 — **CUTOVER LANDED.** v1↔v3 coexistence verified pre-import (`aiwf check` saw zero v1 entities — silently ignored due to id-format mismatch). Real `aiwf import` produced atomic commit `40840ad` with `aiwf-verb: import`/`aiwf-actor: human/peter` trailers; 166 entity files written. `aiwf init` produced commit `13b203f` (config + skills cache + STATUS.md from pre-commit hook). `aiwf doctor` all green; `aiwf check` 0 errors / 4 informational warnings (gap-resolved-has-resolver on G-015/27/28/29). `aiwf render roadmap` + `aiwf status` produce correct project views. Claude Code picks up the 8 materialized `aiwf-*` skills live. **Phase 4 complete; Phase 5 (v1 teardown) is next.**
+- 2026-05-01 — phase 5 — **v1 teardown landed.** Five Q&A settlements (group ordering A→B→C; memory files: load-bearing edits inline + incidental defer; CLAUDE.md surgical edits + id-map rewrite; remove SessionStart hooks; keep migration scratch). Four commits: (A) CLAUDE.md + settings.json v3-aware (commit `98deaa2`); (B1) port repo-private skills + delete v1 generated content (`a9d453a`); (B2) delete 149 v1 epic-dir files (`d0127ee`); (C) remove `.ai/` submodule + `.ai-repo/` + stale gitignore entries (`b80d4c3`). Final state: `aiwf doctor` green, `aiwf check` 0 errors / 4 unchanged informational warnings. Branch ready for `migration/aiwf-v3 → main` PR.
