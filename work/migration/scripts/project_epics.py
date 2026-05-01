@@ -39,9 +39,11 @@ ID_MAP_PATH = REPO_ROOT / "work/migration/manifests/id-map.csv"
 # Epics to project, in manifest order. Milestones are auto-discovered per epic.
 # Active-dir set (Pass A–C):  E-13, E-14, E-15, E-18, E-22
 # Completed-id'd generic (Pass D): E-16, E-17, E-19, E-20, E-21, E-23, E-24
+# Outliers (Pass E): E-10 (m-ec-pN), E-11 (m-svui-NN), E-12 (M-10.NN)
 SCOPE_EPICS = [
     "E-13", "E-14", "E-15", "E-18", "E-22",
     "E-16", "E-17", "E-19", "E-20", "E-21", "E-23", "E-24",
+    "E-10", "E-11", "E-12",
 ]
 
 V1_TO_V3_EPIC_STATUS = {
@@ -224,22 +226,39 @@ def parse_epic_spec(epic_id: str, spec_path: Path, findings: list[str]) -> EpicE
 
 # ----- milestones -------------------------------------------------------------
 
-MILESTONE_SPEC_RE = re.compile(r"^m-E\d+-\d+-[a-z0-9-]+\.md$")
+# Old-id patterns across all migration sources. Order: longest/most-specific first
+# so alternation in MILESTONE_OLD_ID_RE matches greedily-correctly.
+_MILESTONE_ID_PATTERNS = [
+    r"M-10\.\d+",            # E-12 outlier (capitalized + dotted)
+    r"m-ec-p\d+[a-z]?\d?",   # E-10 outlier (phase-numbered)
+    r"m-svui-\d+",           # E-11 outlier (svelte-ui)
+    r"m-E\d+-\d+",           # generic m-EXX-NN
+]
+MILESTONE_OLD_ID_RE = re.compile("|".join(f"(?:{p})" for p in _MILESTONE_ID_PATTERNS))
+MILESTONE_SPEC_RE = re.compile(
+    r"^(?:" + "|".join(_MILESTONE_ID_PATTERNS) + r")-[a-zA-Z0-9.-]+\.md$"
+)
 
 
 def discover_milestone_specs(epic_dir: Path) -> list[Path]:
-    """Return milestone spec files (excluding tracking/log siblings)."""
+    """Return milestone spec files (excluding tracking/log/review siblings)."""
+    excluded_suffixes = ("-tracking", "-log", "-review")
     return sorted(
         p
         for p in epic_dir.iterdir()
         if p.is_file()
         and MILESTONE_SPEC_RE.match(p.name)
-        and "-tracking" not in p.name
-        and "-log" not in p.name
+        and not any(suffix in p.name for suffix in excluded_suffixes)
     )
 
 
-MILESTONE_OLD_ID_RE = re.compile(r"m-E\d+-\d+")
+def derive_title_from_h1(h1: str) -> str:
+    """Strip a leading `Milestone:` and any embedded milestone-id prefix from an H1
+    line, returning the title."""
+    h = re.sub(r"^Milestone:\s*", "", h1)
+    sep_re = re.compile(rf"^(?:{'|'.join(_MILESTONE_ID_PATTERNS)})\S*\s*[:—-]\s+(.+)$")
+    m = sep_re.match(h)
+    return m.group(1).strip() if m else h
 
 
 def parse_milestone_spec(
@@ -275,18 +294,20 @@ def parse_milestone_spec(
         m = MILESTONE_OLD_ID_RE.match(yaml_fm["id"])
         if not m:
             raise ValueError(
-                f"{spec_path.name}: YAML `id: {yaml_fm['id']}` doesn't begin with `m-EXX-NN`"
+                f"{spec_path.name}: YAML `id: {yaml_fm['id']}` doesn't begin with a known milestone-id pattern"
             )
         old_id = m.group(0)
-        # H1 may still embed the id (`# m-EXX-NN: Title`) or be just the title.
-        h1_strip = re.match(r"^m-E\d+-\d+\s*[:—-]\s*(.+)$", h1)
-        title = h1_strip.group(1).strip() if h1_strip else h1
+        title = derive_title_from_h1(h1)
     else:
-        m = re.match(r"^(m-E\d+-\d+)\s*[:—-]\s*(.+)$", h1)
+        h1_stripped = re.sub(r"^Milestone:\s*", "", h1)
+        h1_full_re = re.compile(
+            rf"^({'|'.join(_MILESTONE_ID_PATTERNS)})\S*\s*[:—-]\s+(.+)$"
+        )
+        m = h1_full_re.match(h1_stripped)
         if not m:
             raise ValueError(
                 f"{spec_path.name}: cannot derive id — no **ID:** line, no YAML `id` field, "
-                f"and H1 doesn't match `m-EXX-NN [:—-] Title`"
+                f"and H1 doesn't match `<milestone-id>[-slug] [:—-] Title`"
             )
         old_id = m.group(1)
         title = m.group(2).strip()
@@ -362,9 +383,9 @@ def allocate_milestone_ids(
 
     id_map: dict[str, str] = {}
     counter = 1
+    filename_id_re = re.compile(rf"^({'|'.join(_MILESTONE_ID_PATTERNS)})-")
     for ep, path in sorted_pairs:
-        # extract old_id from filename
-        m = re.match(r"^(m-E\d+-\d+)-", path.name)
+        m = filename_id_re.match(path.name)
         if not m:
             continue
         old_id = m.group(1)

@@ -1,7 +1,7 @@
 version: 1
 commit:
   mode: single
-  message: 'import(spike): 12 epics + 53 milestones'
+  message: 'import(spike): 15 epics + 65 milestones'
 entities:
   - kind: epic
     id: E-13
@@ -1965,6 +1965,547 @@ entities:
       - **E-23 resume:** `ModelSchemaValidator` and the unified type agree by construction once E-24 closes. m-E23-02 call-site migration becomes a mechanical `sed`-scale change; m-E23-03 `ModelValidator` delete becomes a one-file removal with its dedicated tests.
       - **m-E21-07 Validation Surface (E-21):** consumes the single consolidated `ModelSchemaValidator` once both E-24 and E-23 close.
       - **E-15 Telemetry Ingestion:** starts from a ratified `nodes[].source` forward contract (m-E24-01's decision) rather than inheriting a forward-declared placeholder with no consumer.
+  - kind: epic
+    id: E-10
+    frontmatter:
+      title: Engine Correctness & Analytical Primitives
+      status: done
+    body: |
+      ## Goal
+
+      Fix known correctness bugs, harden engineering quality, and build the analytical primitives layer that enables downstream epics (Path Analysis, Anomaly Detection, Scenario Overlays, UI Analytical Views) to deliver their full value.
+
+      ## Context
+
+      The March 2026 engine deep review (`docs/architecture/reviews/engine-deep-review-2026-03.md`) found:
+      - 3 P0 correctness bugs (shared series mutation, missing capacity dependency, dispatch-unaware invariant analyzer)
+      - Engineering debt (duplicate topo-sort, inconsistent NaN policy, PCG modulo bias, no convergence guard)
+      - Documentation drift (6 undocumented expression functions, overstated constraint claims)
+      - A missing **analytical layer** — FlowTime can answer "how much flow?" but not "where is the bottleneck?", "what is flow efficiency?", or "what if we set a WIP limit?"
+
+      The existing near-term epics (Path Analysis, UI Analytical Views, Anomaly Detection, Scenario Overlays) implicitly depend on these analytical capabilities. Without them, those epics can only work with raw throughput/queue data.
+
+      ## Scope
+
+      ### In Scope
+
+      **Phase 0 — Correctness (P0 bugs)**
+      1. Fix BUG-1: Clone outflow series before dispatch mutation
+      2. Fix BUG-2: Include CapacitySeriesId in ServiceWithBufferNode.Inputs
+      3. Fix BUG-3: Make InvariantAnalyzer.ValidateQueue dispatch-aware
+      4. Regression tests for all three bugs
+      5. End-to-end determinism test (same template + seed = bitwise-identical artifacts)
+
+      **Phase 1 — Engineering Foundation**
+      1. Cache topological order in Graph constructor
+      2. Precompute Topology adjacency lists
+      3. Define and enforce NaN/Infinity/div-by-zero policy (all 8 locations)
+      4. Resolve Series immutability (remove public setter, add Clone())
+      5. Fix PCG32.NextInt modulo bias
+      6. Add router convergence guard (max-iteration limit)
+      7. Add expression function tests (MOD, FLOOR, CEIL, ROUND, STEP, PULSE)
+      8. Remove #pragma warning disable, Console.WriteLine; type Parallelism properly
+
+      **Phase 2 — Documentation Honesty** (parallel with Phase 1)
+      1. Update expression-language-design.md with all 11 functions
+      2. Update expression-extensions-roadmap.md (6 candidates → shipped)
+      3. Downgrade constraint claims to "foundations laid"
+      4. Clarify time-travel scope as "artifact query"
+      5. Label catalog architecture doc as aspirational/draft
+      6. Locate/create model.schema.yaml
+      7. Standardize JSON Schema meta-version
+
+      **Phase 3 — Analytical Primitives**
+      1. Bottleneck identification: cross-node utilization comparison, WIP accumulation, system constraint flagging
+      2. Cycle time decomposition: per-ServiceWithBuffer queueTime + processingTime, flow efficiency
+      3. Analytical projection hardening bridge: move the current state-query analytical capability/computation surface into Core, stabilize snapshot/window outputs, and hand the remaining formula-first purification work to E-16
+      4. WIP limit modeling: optional wipLimit on ServiceWithBufferNode (block arrivals or divert to loss)
+      5. Variability preservation: preserve Cv alongside E[X] when compiling PMFs (Kingman's approximation)
+      6. Wire ConstraintAllocator into evaluation pipeline: declared constraints actually cap served per bin
+      7. Starvation/blocking detection helpers: flag bins with queue=0 but capacity>0, or arrivals=0 but upstream queue>0
+
+      ### Out of Scope
+
+      - New epics (Path Analysis, Anomaly Detection, etc.) — this epic provides their foundation
+      - UI changes
+      - MCP changes (M-10.03 deferred to gaps.md)
+
+      ## Constraints
+
+      - Phase 0 must complete before any other work
+      - Phase 1 and Phase 2 can run in parallel
+      - Phase 3 depends on Phase 1 (especially Series immutability fix for WIP limits)
+      - Remaining Phase 3 expansion resumes after E-16 completion in the order `p3d` -> `p3c` -> `p3b`
+      - All changes must maintain determinism — the end-to-end determinism test gates everything
+
+      ## Success Criteria
+
+      - [ ] Zero known correctness bugs
+      - [ ] End-to-end determinism test passes
+      - [ ] Documentation matches code — no overstated claims
+      - [ ] FlowTime can answer: "Where is the bottleneck?", "What is flow efficiency?", "What if we set a WIP limit?", "How variable is this stage?"
+      - [ ] Existing test suite green, no regressions
+
+      ## Risks & Open Questions
+
+      | Risk / Question | Impact | Mitigation |
+      |----------------|--------|------------|
+      | Series immutability change may break callers | High | BUG-1 fix provides the test; audit all Series.Values usage |
+      | WIP limit semantics (block vs divert) need design | Medium | Start with simplest option (divert to loss), iterate |
+      | ConstraintAllocator may need redesign for eval pipeline | Medium | `p3d` scope accounts for this |
+
+      ## Milestones
+
+      | ID | Title | Status |
+      |----|-------|--------|
+      | m-ec-p0 | Phase 0: Correctness bugs + determinism test | complete |
+      | m-ec-p1 | Phase 1: Engineering foundation | complete |
+      | m-ec-p2 | Phase 2: Documentation honesty | complete |
+      | m-ec-p3a | Phase 3a: Cycle time & flow efficiency | complete |
+      | m-ec-p3a1 | Phase 3a.1: Analytical projection hardening | complete |
+      | m-ec-p3b | Phase 3b: WIP limits | complete |
+      | m-ec-p3c | Phase 3c: Variability (Cv + Kingman) | complete |
+      | m-ec-p3d | Phase 3d: Constraint enforcement | complete |
+
+      **Architecture gate:** `m-ec-p3a1` is the bridge milestone that moved the current analytical capability/computation surface into Core. E-16 owned the remaining formula-first purification work exposed by that review, and with E-16 complete Phase 3 resumes with `p3d` -> `p3c` -> `p3b`.
+
+      ## References
+
+      - `docs/architecture/reviews/engine-deep-review-2026-03.md` — Full deep review
+      - `docs/architecture/reviews/engine-review-findings.md` — Initial review findings
+      - `docs/architecture/reviews/review-sequenced-plan-2026-03.md` — Sequenced plan (historical rationale)
+      - `work/gaps.md` — Deferred M-10.03 (depends on runtime constraint enforcement in `p3d`)
+  - kind: epic
+    id: E-11
+    frontmatter:
+      title: Svelte UI — Parallel Frontend Track
+      status: proposed
+    body: |
+      ## Goal
+
+      Build a SvelteKit + shadcn-svelte application in parallel with the Blazor WebAssembly frontend, delivering a polished, modern UI for demos and future evaluation while keeping the existing .NET backend APIs untouched.
+
+      ## Context
+
+      The current Blazor UI (FlowTime.UI) is functionally complete but visually rough:
+      - 213+ `!important` CSS overrides fighting MudBlazor's styling
+      - Inconsistent spacing, typography, and elevation — no design system discipline
+      - 2,830 lines in a single `app.css` with ad-hoc values
+      - Hard-coded colors mixed with theme variables; fragile dark mode
+
+      The UI was generated iteratively with AI assistance and has accumulated CSS debt that makes incremental fixes risky — previous attempts to "fix spacing" caused cascading regressions. A visual-layer rewrite is safer than patchwork.
+
+      **Why Svelte:** After evaluating MudBlazor v9, Fluent UI Blazor, Radzen, Blazor Blueprint, and Tailwind-for-Blazor, the Svelte + shadcn-svelte stack was chosen for:
+      - shadcn-svelte provides the polished, modern aesthetic needed for impressive demos
+      - Svelte's compiler approach eliminates framework runtime overhead — ideal for the topology visualization (canvas + SVG)
+      - The timeline (HTML/SVG) maps naturally to Svelte's reactive SVG bindings
+      - The existing `topologyCanvas.js` (2,000+ LOC) can be reused directly — no IJSRuntime bridge needed
+      - Full access to the JS/TS component ecosystem (Tailwind, Radix-like primitives via Bits UI)
+      - The Blazor UI is already a standalone API client with no project references to the backend — clean parallel-surface addition without backend refactoring
+
+      **Design direction:** Left sidebar navigation (similar to Claude, ChatGPT, Azure Portal) with modern spacing, shadows, and transitions. Not the "MudBlazor default look" — a clean, enterprise-grade aesthetic via shadcn-svelte's design tokens and Tailwind.
+
+      Svelte is a parallel UI track, not a committed Blazor retirement plan. `FlowTime.UI` remains supported for debugging, operational use, and as a plan-B surface, so shared Engine/Sim contract changes must keep both UIs current.
+
+      ## Scope
+
+      ### In Scope
+
+      - SvelteKit application in `ui/` directory (alongside existing `src/FlowTime.UI/`)
+      - Layout shell: collapsible left sidebar, top bar with breadcrumbs/actions, theme toggle
+      - Time-Travel Topology page: timeline (SVG), canvas visualization, inspector, feature bar, overlays
+      - Time-Travel Dashboard: SLA metrics per node
+      - Time-Travel Artifacts: run list, detail view, file viewer
+      - Run Orchestration: model execution page
+      - Home page and Health page
+      - TypeScript API clients for FlowTime API (:8080) and FlowTime Sim API (:8090)
+      - Dark/light theme with system preference detection
+      - Reuse of existing JS: `topologyCanvas.js`, `horizonChart.js`, `theme.js` (adapted)
+      - DevContainer integration (port 5173 forwarding, dev scripts)
+
+      ### Out of Scope
+
+      - Template Studio (TemplateRunner, gallery, dynamic forms) — deferred
+      - Learning Center (8 educational pages) — deferred
+      - ApiDemo page, Simulate page — deferred
+      - dag-map topology renderer — deferred (WIP in lib/dag-map, integrate last)
+      - Backend API changes — zero changes to FlowTime.API or FlowTime.Sim.Service
+      - Blazor UI removal or functional strip-down — `FlowTime.UI` remains a supported parallel surface and must stay aligned with current Engine/Sim behavior
+      - Mobile/responsive layout — desktop-first, responsive is a follow-up
+
+      ## Constraints
+
+      - .NET 9 backend APIs are the source of truth — Svelte UI is a pure consumer
+      - Must work in the existing devcontainer (Node 20 already available)
+      - Canvas JS (`topologyCanvas.js`) reuse is mandatory — no rewrite of the rendering engine
+      - shadcn-svelte + Tailwind CSS v4 as the styling foundation
+      - TypeScript required (no plain JS)
+      - The Blazor UI must remain functional and reasonably current throughout — no breaking the existing app or allowing shared contract drift
+
+      ## Success Criteria
+
+      - [ ] Svelte UI renders the topology page with timeline, canvas, inspector, and feature bar at feature parity with Blazor
+      - [ ] Dark/light theme works correctly across all pages
+      - [ ] All API integrations work against the existing FlowTime API and Sim API
+      - [ ] Demo workflow is smooth: navigate to artifacts, select a run, view topology, scrub timeline, inspect nodes
+      - [ ] Visual quality is a clear step up from the Blazor UI — clean spacing, consistent elevation, smooth transitions
+      - [ ] Lighthouse performance score >= 90 on the topology page
+      - [ ] No changes required to any backend project
+      - [ ] Shared Engine/Sim contract changes needed for Svelte do not leave Blazor behind on supported workflows
+
+      ## Risks & Open Questions
+
+      | Risk / Question | Impact | Mitigation |
+      |----------------|--------|------------|
+      | topologyCanvas.js integration complexity — canvas callbacks, viewport state | High | M3 is dedicated to this; spike early if needed |
+      | shadcn-svelte component gaps (missing something MudBlazor had) | Med | Bits UI primitives allow building custom components; Tailwind fills gaps |
+      | Svelte 5 runes learning curve | Med | Start with simple pages (M1-M2) before tackling complex state (M3) |
+      | Two UIs running in parallel increases cognitive overhead | Low | Clear folder separation (`ui/` vs `src/FlowTime.UI/`); Blazor UI is frozen, not actively developed |
+      | dag-map integration timing unclear | Low | Explicitly deferred; topology canvas works standalone |
+
+      ## Milestones
+
+      | ID | Title | Summary | Status |
+      |----|-------|---------|--------|
+      | m-svui-01-scaffold | Project scaffold & shell | SvelteKit + shadcn-svelte + Tailwind + layout shell with sidebar | **done** |
+      | m-svui-02-api-and-pages | API layer & simple pages | TypeScript API clients, stores, Home, Health, Artifacts pages | **done** |
+      | m-svui-03-topology | Topology via dag-map | dag-map SVG rendering with dark/light theme, run selector | **done** |
+      | m-svui-04-timeline | Timeline & playback | SVG timeline, bin scrubbing, dag-map heatmap mode for metric overlays | **done** |
+      | m-svui-05-inspector | Inspector & feature bar | Node inspector with sparklines, feature bar overlay settings, legend | not started |
+      | m-svui-06-run-orchestration | Run orchestration | Card-based template selection, bundle reuse, domain icons | not started |
+      | m-svui-07-dashboard | Dashboard & class views | SLA dashboard, class selector, per-node metric panels | not started |
+      | m-svui-08-polish | Visual polish & dark mode QA | Transitions, consistent elevation, dark mode audit, accessibility pass | not started |
+
+      ## ADRs
+
+      - ADR-SVUI-01: Chose SvelteKit + shadcn-svelte over Blazor Blueprint, Fluent UI Blazor, and Tailwind-for-Blazor. Rationale: demo-quality visuals, Svelte's SVG/canvas strengths, escape from Blazor component library limitations. See conversation context.
+      - ADR-SVUI-02: ~~Reuse existing canvas JS~~ **Superseded.** Use dag-map library for topology rendering instead of topologyCanvas.js. dag-map is our own library with a general-purpose flow visualization roadmap (heatmap, variant explorer, Sankey). topologyCanvas.js stays in Blazor only. Extending dag-map keeps features reusable for non-FlowTime consumers.
+      - ADR-SVUI-03: `ui/` at repo root (not inside `src/`) to keep clear separation from the .NET solution structure. The devcontainer already has Node 20.
+      - ADR-SVUI-04: Use pnpm (not npm) for `ui/` — aligns with shadcn-svelte conventions, already installed in devcontainer.
+      - ADR-SVUI-05: Manual shadcn-svelte init (CLI is interactive-only in non-TTY). Created components.json + utils.ts manually, components added via `yes | pnpm dlx shadcn-svelte add`.
+      - ADR-SVUI-06: Pinned bits-ui to 2.15.0 — v2.16.4 has broken dist/types.js exports (missing attributes.js, pin-input references).
+
+      ## Milestone Details
+
+      ### M1 — Project Scaffold & Shell (m-svui-01-scaffold)
+      **Goal:** Standing SvelteKit app with sidebar layout and theme toggle.
+
+      Deliverables:
+      - SvelteKit project in `ui/` with TypeScript, Tailwind v4, shadcn-svelte initialized
+      - Root layout with collapsible left sidebar (nav groups: Time Travel, Tools)
+      - Top bar with breadcrumb area and theme toggle (dark/light/system)
+      - Empty route stubs for all in-scope pages
+      - DevContainer: port 5173 forwarded, `npm run dev` works
+      - Design tokens defined: spacing scale (4/8/12/16/24/32/48px), elevation levels, transition durations
+
+      Acceptance criteria:
+      - `npm run dev` serves the app at localhost:5173
+      - Sidebar collapses/expands with smooth transition
+      - Theme toggle persists to localStorage and respects system preference
+      - All route stubs render without errors
+
+      **Estimated effort:** 1 week
+
+      ### M2 — API Layer & Simple Pages (m-svui-02-api-and-pages)
+      **Goal:** Data flows from APIs to UI. Simple pages are functional.
+
+      Deliverables:
+      - TypeScript API client modules (`lib/api/flowtime.ts`, `lib/api/sim.ts`)
+      - Shared types generated from or aligned with existing API contracts
+      - Svelte stores for: run list, selected run, health status, theme, feature flags
+      - Home page with navigation panels
+      - Health page showing both API statuses (green/red indicators)
+      - Artifacts list page with run cards, filtering, selection
+      - Artifact detail page with metadata display
+      - File viewer for artifact contents
+
+      Acceptance criteria:
+      - Health page shows live status from both APIs (or graceful error when API is down)
+      - Artifacts list loads and displays runs from the API
+      - Selecting a run navigates to detail view
+      - API error states show user-friendly messages
+
+      **Estimated effort:** 1.5-2 weeks
+
+      ### M3 — Topology via dag-map (m-svui-03-topology)
+      **Goal:** Topology page renders run graph using the dag-map library.
+
+      Deliverables:
+      - `DagMapView.svelte` component wrapping dag-map's `dagMap()` function
+      - Graph API integration: fetch `/v1/runs/{id}/graph`, strip port-qualified edge IDs
+      - Dark/light theme-reactive rendering (transparent paper, shadcn-matched colors)
+      - Run selector dropdown on topology page
+      - API types for graph, state snapshot, state window (foundation for M4)
+
+      Acceptance criteria:
+      - Selecting a run renders its topology as a dag-map SVG
+      - Dark/light theme toggle updates the graph colors
+      - All route stubs still render without errors
+
+      **Completed:** 2026-03-30
+
+      ### M4 — Timeline & Playback (m-svui-04-timeline)
+      **Goal:** Scrub through time bins with full playback controls.
+
+      **Dependency:** dag-map heatmap mode (per-node/edge metric coloring). Must be implemented in dag-map first — see dag-map ROADMAP.md "Heatmap mode" vision item.
+
+      Deliverables:
+      - dag-map heatmap mode: `metrics: Map<nodeId, { value, label }>` + color gradient
+      - `Timeline.svelte` component with SVG track, tick marks, labels
+      - Range input for bin scrubbing with pointer indicator
+      - Playback controls: play/pause, next/previous bin, loop toggle
+      - Speed selector chips (0.5x, 1x, 2x, 4x)
+      - Focus metric chips (Arrivals, SLA, Utilization, etc.)
+      - Bin change fetches state from API, maps metrics to dag-map heatmap
+
+      Acceptance criteria:
+      - Dragging the timeline scrubs through bins and updates node colors via dag-map heatmap
+      - Play button auto-advances bins at the selected speed
+      - Loop wraps around at the end
+      - Changing focus metric updates the color overlay
+
+      **Estimated effort:** 2-3 weeks (includes dag-map heatmap mode)
+
+      ### M5 — Inspector & Feature Bar (m-svui-05-inspector)
+      **Goal:** Node inspection and overlay configuration.
+
+      Deliverables:
+      - `Inspector.svelte` — slide-in panel showing selected node details
+      - Sparkline charts (reuse horizonChart.js or rebuild in SVG)
+      - Metric blocks with provenance tooltips
+      - Constraint badges and warning indicators
+      - Dependency list for selected node
+      - `FeatureBar.svelte` — collapsible left panel with overlay settings
+      - Metric selection, color basis, edge quality filters
+      - Class visibility toggles
+      - Color scale configuration
+      - Legend overlay component
+
+      Acceptance criteria:
+      - Clicking a node opens the inspector with its metrics
+      - Sparklines show metric history for the selected node
+      - Feature bar toggles control what the canvas displays
+      - Changing color basis updates canvas overlay in real-time
+      - Inspector can be pinned open or dismissed
+
+      **Estimated effort:** 1.5-2 weeks
+
+      ### M6 — Run Orchestration (m-svui-06-run-orchestration)
+      **Goal:** Card-based template selection with rich metadata and bundle reuse options.
+
+      Deliverables:
+      - Card grid for template selection: name, domain icon, version, short description
+      - Search/filter bar for the card grid
+      - Selected card expands to show: full description, bundle reuse toggle, RNG seed
+      - Bundle reuse options: Reuse (default) / Regenerate / Fresh run
+      - Run execution with state tracking (pending → running → complete)
+      - Preview/dry-run mode ("Preview" button, clearer than "Plan Model")
+      - Raw parameters field hidden (too debug-oriented) — accessible via "Advanced" expandable section if needed
+      - Domain icons: inferred from template category or metadata
+
+      Acceptance criteria:
+      - Templates render as cards with description and domain icon
+      - Search filters cards by name/description
+      - Selecting a card shows run options (reuse mode, seed)
+      - Can execute a model and see results when complete
+      - Loading, error, and empty states handled gracefully
+      - No raw JSON parameter field visible by default
+
+      ### M7 — Dashboard & Class Views (m-svui-07-dashboard)
+      **Goal:** SLA dashboard and class-based metric views.
+
+      Deliverables:
+      - Dashboard page with per-node SLA indicators
+      - Class selector component (multi-select filter)
+      - Per-node metric summary panels
+      - Class-filtered topology view
+
+      Acceptance criteria:
+      - Dashboard shows SLA status for all nodes in a run
+      - Class filter correctly hides/shows nodes
+      - Metric panels update with class selection
+      - Loading and error states are handled gracefully
+
+      ### M8 — Visual Polish & Dark Mode QA (m-svui-08-polish)
+      **Goal:** Demo-ready visual quality.
+
+      Deliverables:
+      - Consistent transitions on all interactive elements (150ms/300ms standard)
+      - Elevation system audit: panels, overlays, modals at correct shadow levels
+      - Dark mode full audit: every page, every component, every overlay
+      - Focus-visible states on all interactive elements
+      - Loading skeletons for data-heavy pages
+      - Empty state illustrations/messages
+      - Final spacing audit against the design token scale
+
+      Acceptance criteria:
+      - Dark mode has no visual glitches on any in-scope page
+      - All interactive elements have visible hover and focus states
+      - No jarring layout shifts on page load
+      - Sidebar collapse/expand is smooth
+      - A non-technical stakeholder finds the demo workflow visually polished
+
+      **Estimated effort:** 1 week
+  - kind: epic
+    id: E-12
+    frontmatter:
+      title: Dependency Constraints & Shared Resources
+      status: done
+    body: |
+      **Completed:** 2026-05-01
+
+      > Closure note (2026-05-01): M-10.01 + M-10.02 delivered the Option A (dependency-as-node) and Option B (dependency-as-constraint) representations. M-10.03 (MCP Pattern Enforcement) was dropped from this epic and absorbed into the new draft `ai-assisted-authoring` unplanned epic at `work/epics/unplanned/ai-assisted-authoring/spec.md` along with the original M-10.03 Plans 3–5 (resource pooling, compiler expansion, feedback loops). E-12 ships with both representations functional; AI-driven authoring hardening is the successor scope and lives outside the FlowTime UI surface (MCP-server-side, consumed by external authoring callers).
+
+      ## Goal
+
+      Model downstream dependencies (databases, caches, external APIs, shared services) as **constraints** that can limit throughput and introduce hidden backlog/latency. Preserve FlowTime’s minimal basis (arrivals/served/queue depth) while making coupling and bottlenecks visible.
+
+      ## Problem Statement
+
+      Real systems fail or degrade because of **shared dependencies**:
+      - A DB saturates and multiple services slow down together.
+      - A downstream API throttles and creates hidden backlog upstream.
+      - Latency rises even when local service capacity is available.
+
+      Without dependency modeling, FlowTime can explain *what* slowed down but not *why*.
+
+      ## Principles
+
+      - **Effects over mechanisms:** Model observable constraints rather than internal implementation details.
+      - **Effective capacity:** Capture limiting factors (dependency capacity) even when internal queues are not directly observable.
+      - **Earned complexity:** Start with minimal signals; add inference only when needed.
+      - **Make wrongness visible:** Derived/inferred signals must be labeled and warnings surfaced.
+      - **Minimal basis, explicit mechanisms:** Arrivals/served/queue depth show *where* pressure accumulates; explicit mechanism models explain *why* it accumulates (e.g., retries, throttling, batching).
+
+      ## Core Concept
+
+      A dependency is represented as a **resource constraint** that consumes load and emits completions.
+
+      Two compatible representations:
+
+      ### Option A — Dependency as a Node (M-10.01)
+      Model the dependency as a node in the graph with arrivals/served:
+
+      ```
+      Service A -> Dependency DB -> Service A -> Next Hop
+      ```
+
+      - Works well for shared dependencies.
+      - Increases graph complexity; best with grouping/overlay UI.
+      - **M-10.01 MVP contract:** dependency nodes require `arrivals` + `served` (optional `errors`), no queue, no capacity, no retry semantics.
+      - **Option A canonical pattern (enforced):**
+        - Dependency node represents **external call outcomes** only (arrivals/served/errors).
+        - Upstream retry pressure is represented on **effort edges** and caller attempts.
+        - Flow latency can propagate across effort edges **only when flow volume is present**.
+        - Dependency latency is modeled explicitly (if needed) via its own processing-time series.
+
+      ### Option B — Dependency as a Constraint on a Service (M-10.02)
+      Attach dependency constraints to a service node:
+
+      - Service capacity is limited by dependency capacity.
+      - Fewer nodes; simpler UI.
+      - Still supports shared constraints via a shared resource object.
+      - **Allocation rule (M-10.02):** proportional to demand per bin across all constrained nodes.
+      - **No retries or latency inflation in Option B:** constraint series are informational only; they do not introduce retry loops or extra queue semantics.
+      - Constraints are **not** flow nodes. They are resources that cap served throughput.
+
+      Both options can coexist; the engine should support both.
+
+      ## MCP Pattern Helpers (Option A)
+
+      To avoid ambiguous modeling, MCP should expose **pattern helpers** that emit the canonical Option A structure:
+
+      ```
+      CreateDependencyNodeSeries(
+        callerNode: "ProducerB",
+        dependencyNode: "DependencyDb",
+        callDurationMs: 180000,
+        errorSeriesId: "dependency_errors",
+        retryKernel: [0.6, 0.3, 0.1]   // optional, to derive retry pressure
+      )
+      ```
+
+      This helper must:
+      - create the dependency node and effort edge
+      - derive caller attempts and processing time inflation
+      - keep the model acyclic
+      - tag derived series as `origin: derived`
+
+      If callers want more advanced behavior (shared allocation, feedback loops), that is **out of scope** for Option A and should be deferred to future milestones.
+
+      ## Signal Model (Minimal Basis)
+
+      Dependencies still use the minimal basis:
+
+      - **Arrivals:** calls started to the dependency.
+      - **Served:** calls completed successfully.
+      - **Latency:** optional, used as a saturation indicator.
+      - **Errors/Throttles:** optional, used as a constraint signal.
+
+      Queue depth is typically inferred or marked as unknown.
+
+      ## Option B Constraint Registry (Attached Constraints)
+
+      Option B introduces a **constraint registry** in the model:
+
+      ```
+      topology:
+        constraints:
+          - id: db_main
+            semantics:
+              arrivals: db_main_arrivals
+              served: db_main_served
+              errors: db_main_errors
+        nodes:
+          - id: ProducerB
+            kind: service
+            constraints: [db_main]
+      ```
+
+      Constraints are **series-backed resources** with their own arrivals/served/errors/latency series.
+      The engine allocates capacity per bin across constrained nodes and marks **constraint-limited** status
+      when allocation < demand.
+
+      ## Inference Levels (Incremental)
+
+      **Level 0:** No dependency nodes. Service throughput only.  
+      **Level 1:** Dependency node with arrivals/served derived from telemetry.  
+      **Level 2:** Shared dependency with allocation across upstream services.  
+      **Level 3 (optional):** Latency-based inference of hidden backlog pressure.
+
+      ## Edge Semantics (Dependency Load)
+
+      Dependencies rely on explicit **edge semantics**:
+
+      - **Throughput edges**: successful flow to downstream services.
+      - **Effort edges**: attempt load to dependencies.
+
+      This epic depends on the edge semantics contract (M-07.04) so that dependency load is explicit and validated.
+
+      ## MVP Warnings (M-10.01)
+
+      - `missing_dependency_arrivals`: dependency arrivals were not provided.
+      - `missing_dependency_served`: dependency served was not provided.
+
+      These are emitted as **info** warnings and indicate that dependency load/utilization cannot be computed.
+
+      ## UI Expectations
+
+      - Dependencies should be visually distinct (resource layer or node type).
+      - Service inspectors should show whether the service is **dependency-limited**.
+      - Shared dependencies should show capacity allocation or proportional load.
+      - Option B should render a **constraint chip** (e.g., `C | db_main`) and constraint series in the inspector.
+      - Constraint chips convey whether the node is limited in the current bin (visual state + tooltip).
+
+      ## Telemetry Compatibility
+
+      Telemetry ingestion should map observed dependency calls into arrivals/served for dependency nodes or effort edges. Where signals are inferred, provenance must mark `origin: derived` and expose warnings.
+
+      ## Success Criteria (Epic-Level)
+
+      - Shared dependencies can be represented without breaking the minimal basis.
+      - Dependency load and coupling are visible in the topology and API.
+      - Inference is explicit and warnings make uncertainty visible.
   - kind: milestone
     id: M-001
     frontmatter:
@@ -8999,3 +9540,761 @@ entities:
       - E-23 spec: `work/epics/E-23-model-validation-consolidation/spec.md` — status flip target
       - CLAUDE.md Current Work section
       - Prior milestone tracking docs (m-E24-01 through m-E24-04)
+  - kind: milestone
+    id: M-054
+    frontmatter:
+      title: Engineering Foundation (Phase 1)
+      status: done
+      parent: E-10
+    body: |
+      ## Goal
+
+      Harden engineering quality across the FlowTime engine: cache topological order, define and enforce the NaN/Infinity/division-by-zero policy, make Series fully immutable, fix PCG32 modulo bias, and clean up code quality issues.
+
+      ## Acceptance Criteria
+
+      - [x] AC-1: Cache topological order in Graph constructor (compute once, reuse on every Evaluate call)
+      - [x] AC-2: Precompute Topology adjacency lists (eliminate O(V*E) scan in topo sort)
+      - [x] AC-3: NaN/Infinity/div-by-zero policy document (`docs/architecture/nan-policy.md`) covering all division sites
+      - [x] AC-4: NaN policy tests — Tier 1 (return 0.0), Tier 2 (return null), Tier 3 (NaN sentinel), exception (PMF throws)
+      - [x] AC-5: Expression edge-case tests — MOD, FLOOR, CEIL, ROUND, STEP with NaN inputs
+      - [x] AC-6: Series immutability — remove public indexer setter, constructor clones input array, ToArray returns copy
+      - [x] AC-7: PCG32 rejection sampling — fix modulo bias in NextInt(max) for non-power-of-two bounds
+      - [x] AC-8: Replace Console.WriteLine with ILogger in engine code
+      - [x] AC-9: Narrow #pragma warning disable to specific warning codes (no blanket suppression)
+      - [x] AC-10: End-to-end determinism gate — existing determinism test still passes after all changes
+
+      ## Out of Scope
+
+      - Router convergence guard (max-iteration limit) — deferred; needs design for backpressure semantics
+      - Parallelism typing (replace `double` parallelism with typed Parallelism struct) — deferred; broad refactor
+      - CUE (model schema language) — Phase 2 scope
+      - Documentation honesty (expression docs, constraint claims) — Phase 2 scope
+      - Analytical primitives (bottleneck, cycle time, WIP limits) — Phase 3 scope
+
+      ## Dependencies
+
+      - Phase 0 (correctness bugs) must be complete — merged to `epic/engine-correctness`
+  - kind: milestone
+    id: M-055
+    frontmatter:
+      title: Phase 2 — Documentation Honesty
+      status: done
+      parent: E-10
+    body: |
+      ## Goal
+
+      Align documentation with code reality: document all shipped expression functions, correct overclaimed constraint capabilities, archive obsolete design docs, and standardize schema versions.
+
+      ## Context
+
+      The March 2026 engine deep review found documentation drift: 6 undocumented expression functions, overstated constraint claims ("shipped" when the allocator has zero callers), and inconsistent schema meta-versions. Phase 0 and Phase 1 fixed the code; Phase 2 fixes the docs.
+
+      ## Acceptance Criteria
+
+      1. **AC-1: Expression language design doc updated.** `docs/architecture/expression-language-design.md` documents all 11 implemented functions: SHIFT, CONV, MIN, MAX, CLAMP, MOD, FLOOR, CEIL, ROUND, STEP, PULSE. Each function has signature, description, and example. The 6 newly documented functions (MOD, FLOOR, CEIL, ROUND, STEP, PULSE) match the implementations in `ExprNode.cs`.
+
+      2. **AC-2: Expression extensions roadmap updated.** `docs/architecture/expression-extensions-roadmap.md` moves MOD, FLOOR, CEIL, ROUND, STEP, PULSE from "candidate/aspirational" to "shipped." Status language reflects reality.
+
+      3. **AC-3: Constraint claims downgraded.** Three docs corrected:
+         - `docs/reference/engine-capabilities.md` — constraint description notes that `ConstraintAllocator` exists but is not called during evaluation; constraints are declared but not enforced at runtime.
+         - `docs/flowtime-charter.md` — "Dependency constraints" under shipped foundations qualified with "foundations laid, enforcement pending."
+         - `docs/flowtime-engine-charter.md` — same qualification.
+
+      4. **AC-4: Catalog architecture archived.** `docs/architecture/catalog-architecture.md` moved to `docs/archive/catalog-architecture.md`. No new doc created — the catalog concept is dormant.
+
+      5. **AC-5: JSON Schema meta-versions standardized.** All schema files in `docs/schemas/` use `https://json-schema.org/draft-07/schema#`. The `template.schema.json` (currently draft/2020-12) is changed to draft-07. Any `http://` URIs are updated to `https://`.
+
+      ## Technical Notes
+
+      - No code changes — all documentation and schema metadata only.
+      - Charters are actively referenced from many docs (modeling.md, whitepaper, concepts, milestone guides). They must be corrected in place, not archived.
+      - The `model.schema.yaml` already exists (927 lines) — no action needed (originally scoped but already complete).
+      - "Time-travel" scope clarification dropped — `engine-capabilities.md` already describes it correctly as artifact querying. The branding is fine.
+
+      ## Out of Scope
+
+      - Rewriting charters from scratch — just correct the overclaimed sections.
+      - Creating new architecture docs.
+      - Code changes to ConstraintAllocator (that's Phase 3).
+      - Model schema creation (already exists).
+
+      ## Dependencies
+
+      - Phase 0 complete ✅
+      - Phase 1 complete ✅
+  - kind: milestone
+    id: M-056
+    frontmatter:
+      title: Phase 3a — Cycle Time & Flow Efficiency
+      status: done
+      parent: E-10
+    body: |
+      ## Goal
+
+      Move cycle time computation from the API layer to engine Core, add flow efficiency as a derived metric, and make both available per-class. This answers: "What is the cycle time at this stage?" and "How much of it is queue time vs processing time?"
+
+      ## Context
+
+      FlowTime already computes `flowLatencyMs` in `StateQueryService.cs` (API layer) by combining queue latency and service time. But this computation lives outside the engine core, making it unavailable to analyzers, the future DSL, and other consumers. The building blocks exist — `queueDepth`, `served`, `processingTimeMsSum`, `servedCount` — they just need to be composed in Core.
+
+      For synthetic models (no telemetry), `processingTimeMsSum` is unavailable. Cycle time degrades gracefully to queue time only.
+
+      ## Acceptance Criteria
+
+      1. **AC-1: Cycle time decomposition in Core.** A new `CycleTimeComputer` in `FlowTime.Core/Metrics/` computes per-bin:
+         - `queueTimeMs` = `(queueDepth / served) * binMs` (null when served <= 0)
+         - `serviceTimeMs` = `processingTimeMsSum / servedCount` (null when unavailable)
+         - `cycleTimeMs` = `queueTimeMs + serviceTimeMs` (or just `queueTimeMs` when service time unavailable)
+         - Follows the three-tier NaN policy (Tier 2: null for unavailable metrics).
+
+      2. **AC-2: Per-class cycle time.** Cycle time decomposition works with per-class `byClass` data. Each class gets its own `queueTimeMs`, `serviceTimeMs`, `cycleTimeMs` when class-level series are available.
+
+      3. **AC-3: Flow efficiency metric.** `flowEfficiency = serviceTimeMs / cycleTimeMs` per bin per node. Ranges 0 (all queue time) to 1 (no queue time). Null when `cycleTimeMs` is zero, undefined, or `serviceTimeMs` unavailable. Added to `CycleTimeComputer`.
+
+      4. **AC-4: Tests and gate.** Unit tests for `CycleTimeComputer` covering: normal case, zero served (null), missing processingTimeMsSum (graceful), per-class, flow efficiency. Build green; no new test failures introduced. Pre-existing failures unrelated to this milestone (e.g., schema meta-resolution) are excluded from the gate.
+
+      5. **AC-5: Steady-state validation warning.** When computing cycle time over a window, check whether arrival and departure rates are stable enough for Little's Law to be meaningful:
+         - Compare average arrival rate in the first half of the window to the second half.
+         - If the rates diverge beyond a configurable tolerance (default: 25%), emit a warning annotation on the node: `"littles-law-non-stationary"`.
+         - This is a diagnostic signal, not a gate — cycle time is still computed, but flagged as potentially unreliable.
+         - Rationale: Little's Law (which underpins `queueTimeMs = Q/λ × binMs`) assumes steady state. Without this check, point estimates silently mislead during transients, ramp-ups, or drain-downs.
+
+      ## Technical Notes
+
+      - `CycleTimeComputer` should be a static class like `LatencyComputer` and `UtilizationComputer`.
+      - `binMs` = `binSize * timeUnitToMs(binUnit)` — needs the grid's bin duration in milliseconds.
+      - `queueTimeMs` is equivalent to `latencyMinutes * 60000` but computed directly in ms for consistency with `serviceTimeMs`.
+      - The existing `StateQueryService` flow latency logic (lines 2633-2789) should delegate to the new Core computer.
+
+      ## Out of Scope
+
+      - Moving the full `StateQueryService` flow latency propagation algorithm to Core (that's graph-level, not per-node).
+      - Cycle time distributions (FlowTime is bin-based, not event-based).
+      - Post-review analytical projection hardening discovered during verification (logicalType parity, honest metadata, finite-value safety, contract/DTO symmetry, and AC-5 applicability) — tracked in `m-ec-p3a1`.
+
+      ## Dependencies
+
+      - Phase 1 complete ✅
+  - kind: milestone
+    id: M-057
+    frontmatter:
+      title: Phase 3a.1 — Analytical Projection Hardening
+      status: done
+      parent: E-10
+    body: |
+      ## Goal
+
+      Establish the first correct boundary move for analytical state metrics: Core owns the current analytical capability resolution and derived metric computation used by `/state` and `/state_window`, while the remaining formula-first purification work is explicitly handed to E-16.
+
+      ## Context
+
+      Phase 3a introduced the right analytical primitives: `CycleTimeComputer` computes `queueTimeMs`, `serviceTimeMs`, `cycleTimeMs`, and `flowEfficiency` as pure math in Core. But the **capability decision** — "does this node have queue semantics? service semantics? both?" — still lived in `StateQueryService`, duplicated across snapshot building, window building, metadata emission, stationarity warnings, per-class conversion, and flow-latency composition.
+
+      This milestone fixed that first-order boundary problem by moving the current analytical capability/computation surface into Core and wiring state projection to consume it. During the follow-on architecture pressure test, we decided not to keep expanding p3a1 into the full cleanup epic. Full purification now belongs to E-16.
+
+      That means p3a1 is the bridge milestone, not the final deletion milestone. It delivers the current analytical computation move, finite-value safety, logicalType parity for the current state surfaces, and DTO parity. Compiled semantic references, runtime analytical descriptors, class-truth separation, and client heuristic deletion are owned by E-16.
+
+      ## Acceptance Criteria
+
+      1. **AC-1: Current analytical capabilities resolved in Core.** Core provides an `AnalyticalCapabilities` concept (record, type, or equivalent) that captures what the current state endpoints can compute analytically: queue semantics (Little's Law queue time, latency), service semantics (service time), cycle-time decomposition (queue + service → cycle time, flow efficiency), and stationarity-warning eligibility.
+
+      2. **AC-2: Core computes the current analytical derived metrics for state projection.** Core provides a computation surface that takes capabilities and raw data (for a single bin or a windowed range) and produces the analytical values used by `/state` and `/state_window`: `queueTimeMs`, `serviceTimeMs`, `cycleTimeMs`, `flowEfficiency`, and `latencyMinutes`. This covers both node-level and current per-class breakdowns.
+
+      3. **AC-3: Finite-value safety and metadata honesty for the current analytical payload.** The Core computation guarantees that NaN or Infinity inputs or intermediate results never produce non-null NaN/Infinity outputs. Analytical derived values follow the Phase 1 Tier 2 null policy, and `seriesMetadata` only advertises analytical keys that are actually emitted in the payload.
+
+      4. **AC-4: Stationarity warning policy is explicit in the runtime path.** `littles-law-non-stationary` uses one named runtime configuration source for tolerance, and it is emitted only when `queueTimeMs` is actually present for the window being projected.
+
+      5. **AC-5: Current DTO parity is complete for analytical class fields.** The current state API and Blazor time-travel DTO surfaces expose analytical by-class fields end-to-end so consumers can ingest the projected values without local reconstruction.
+
+      6. **AC-6: Remaining purification work is explicitly handed off to E-16.** Typed semantic references, runtime analytical descriptors, class-truth separation, public analytical contract redesign, client heuristic deletion, and final semantic-parser removal are out of scope for `m-ec-p3a1` and owned by E-16.
+
+      7. **AC-7: Tests and gate.** `dotnet build` and `dotnet test --nologo` are green for the wrapped milestone state.
+
+      ## Technical Notes
+
+      - `AnalyticalCapabilities` remains the bridge abstraction for the current state surfaces. E-16 will replace string-derived inputs with compiled runtime facts.
+      - `flowLatencyMs` graph propagation stays in the adapter for this milestone. p3a1 only moves the per-node analytical base values it consumes into Core.
+      - Existing non-analytical derived metrics (`utilization`, `throughputRatio`, `retryTax`, `color`) remain in the adapter.
+      - Semantic string parsing and logicalType reconstruction that still exist for runtime behavior are tolerated only as bridge behavior. E-16 owns deleting them.
+      - This milestone is allowed to update approved snapshots and fixtures to reflect corrected analytical outputs.
+
+      ## Out of Scope
+
+      - Typed semantic references in the compiled/runtime model
+      - Runtime analytical descriptors on compiled nodes
+      - Class-truth boundary cleanup / wildcard fallback separation
+      - Public analytical contract redesign and client heuristic deletion
+      - Final semantic-parser deletion from API and UI layers
+      - New analytical primitives (WIP limits, variability, constraint enforcement, bottleneck ranking)
+
+      ## Dependencies
+
+      - Phase 1 complete ✅
+      - Phase 3a implementation exists and is the input to this hardening pass
+      - E-16 follows immediately after wrap and before Phase 3 continues with p3b/p3c/p3d
+
+      ## References
+
+      - `work/epics/E-10-engine-correctness-and-analytics/m-ec-p3a-review.md`
+      - `work/epics/E-10-engine-correctness-and-analytics/m-ec-p3a-review-codex.md`
+      - `work/epics/E-10-engine-correctness-and-analytics/m-ec-p3a-cycle-time.md`
+      - `docs/architecture/nan-policy.md`
+      - `work/epics/E-16-formula-first-core-purification/spec.md`
+  - kind: milestone
+    id: M-058
+    frontmatter:
+      title: Phase 3b — WIP Limits
+      status: done
+      parent: E-10
+    body: |
+      ## Goal
+
+      Add WIP limit modeling to ServiceWithBufferNode so FlowTime can answer: "What happens if we set a WIP limit?" Overflow is configurable — items can be lost, routed to a DLQ, or handled by any downstream node. Also document and test the existing SHIFT-based backpressure pattern.
+
+      ## Context
+
+      Currently, ServiceWithBufferNode queues grow unbounded: `Q[t] = max(0, Q[t-1] + inflow - outflow - loss)`. In real systems, queues have limits — a Kanban board has a WIP cap, a message queue has a max depth, a connection pool has a size limit. When the limit is hit, excess work is either dropped (loss), diverted (DLQ/overflow route), or upstream is throttled (backpressure).
+
+      FlowTime already supports:
+      - `loss` series on ServiceWithBufferNode (items removed from system)
+      - SHIFT-based backpressure via expressions (t-1 feedback, documented in retry-modeling.md)
+
+      What's missing: automatic WIP limit enforcement with configurable overflow routing.
+
+      ## Acceptance Criteria
+
+      1. **AC-1: WIP limit on ServiceWithBufferNode.** Optional `wipLimit` field (scalar or series reference for time-varying limits). When `Q[t] > wipLimit[t]`:
+         ```
+         overflow[t] = Q[t] - wipLimit[t]
+         Q[t] = wipLimit[t]
+         ```
+         The overflow amount is tracked as a series.
+
+      2. **AC-2: WIP overflow routing.** Optional `wipOverflow` field on the node definition:
+         - If omitted or `"loss"`: overflow is added to the loss series (items disappear).
+         - If a node ID: the compiler wires the overflow as inflow to the target node.
+         - Cascading: the target can itself have a `wipLimit` and overflow to another target.
+         - The compiler validates no cycles are created by overflow wiring.
+
+      3. **AC-3: Model schema updated.** `model.schema.yaml` and `NodeDefinition` support `wipLimit` (number or string series reference) and `wipOverflow` (string node ID or `"loss"`). Template schema updated if applicable.
+
+      4. **AC-4: Backpressure pattern documented and tested.** A doc at `docs/architecture/backpressure-pattern.md` describes the SHIFT-based backpressure approach as a first-class modeling pattern. An integration test demonstrates upstream throttling via t-1 queue feedback.
+
+      5. **AC-5: Tests and gate.** Tests cover: WIP clamping (queue capped at limit), overflow to loss (default), overflow to DLQ node, cascading overflow, time-varying wipLimit (series), backpressure via SHIFT. Full test suite green. Determinism test updated.
+
+      ## Technical Notes
+
+      - **Overflow series architecture:** `ServiceWithBufferNode` returns queue depth (one series per INode contract). The overflow series needs a separate mechanism:
+        - **Option A:** Compiler generates a companion `ConstSeriesNode` wired to the overflow data. ServiceWithBufferNode stores overflow in a shared context (e.g., `Dictionary<NodeId, double[]>` passed through evaluation).
+        - **Option B:** New `IMultiOutputNode` interface that returns a dictionary of series.
+        - Decision during implementation — Option A avoids interface changes.
+      - **`wipLimit` resolution:** Follows the same pattern as `Parallelism` — can be a literal number or a series reference resolved by `SemanticLoader`.
+      - **Backpressure vs WIP limits:** WIP limits are "push with overflow" (engine-enforced). Backpressure is "pull with throttling" (model-expressed via SHIFT). Both are valid; document when to use each.
+
+      ## Out of Scope
+
+      - Backpressure as an automatic engine feature (already expressible via SHIFT).
+      - WIP limit recommendations (DSL epic).
+      - UI for configuring WIP limits.
+
+      ## Dependencies
+
+      - Phase 1 complete ✅ (Series immutability)
+  - kind: milestone
+    id: M-059
+    frontmatter:
+      title: Phase 3c — Variability Preservation (Cv + Kingman)
+      status: done
+      parent: E-10
+    body: |
+      ## Goal
+
+      Preserve the coefficient of variation (Cv) when compiling PMFs, and use it to compute Kingman's approximation for predicted queue waiting time. This answers: "How variable is this stage?" and "What does queueing theory predict about queue behavior here?"
+
+      ## Context
+
+      FlowTime uses PMFs (probability mass functions) to model stochastic arrivals and service times. The `PmfCompiler` reduces each PMF to a series of expected values `E[X]` — the distribution shape is discarded. This loses the **coefficient of variation** (`Cv = σ/μ`), which is arguably the most important parameter in queueing theory.
+
+      **Why Cv matters:** Kingman's formula shows that queue waiting time depends on BOTH utilization AND variability:
+      ```
+      E[Wq] ≈ (ρ/(1-ρ)) × ((Ca² + Cs²)/2) × E[S]
+      ```
+      Two nodes at identical utilization can have wildly different queue behavior if their variability differs. A node at 85% utilization with bursty arrivals (Cv=1.5) behaves worse than one at 95% with steady arrivals (Cv=0.3).
+
+      FlowTime is domain-agnostic and must support stochastic models across any domain. Variability preservation is essential for meaningful flow analysis.
+
+      ## Acceptance Criteria
+
+      1. **AC-1: Cv computed from two sources.**
+         - **PMF compilation:** When `PmfCompiler` compiles a PMF to a series, compute alongside `E[X]`:
+           - `σ` (standard deviation) from the PMF distribution
+           - `Cv = σ / μ` (coefficient of variation, where μ = E[X])
+           - Store Cv per bin in a companion structure. When μ = 0, Cv = 0 (no variation around zero).
+         - **Observed series statistics:** For non-PMF series (telemetry replay, constants, expressions), compute sample Cv from the series values over a configurable sliding window (default: full series). `σ_sample = std(values[window])`, `μ_sample = mean(values[window])`, `Cv = σ_sample / μ_sample`. Constant series produce Cv = 0 by construction. This enables Kingman's approximation for telemetry-driven models, not only synthetic/PMF models.
+
+      2. **AC-2: Cv accessible in evaluation context.** The Cv data is stored alongside the compiled series values so downstream analysis (Kingman, future DSL) can access it. A `CvMetadata` record or similar wraps `{ CoefficientOfVariation: double[], Source: Pmf | Observed | Constant }`. The source tag distinguishes PMF-derived Cv (exact, per-bin from distribution shape) from observed Cv (sample statistic, approximate) and constant Cv (zero by definition).
+
+      3. **AC-3: Kingman's approximation per node.** For ServiceWithBuffer nodes where Cv data is available for both arrivals and service, compute per-bin:
+         ```
+         E[Wq] ≈ (ρ/(1-ρ)) × ((Ca² + Cs²)/2) × E[S]
+         ```
+         Where:
+         - ρ = utilization (served/capacity)
+         - Ca = Cv of arrivals series
+         - Cs = Cv of service series
+         - E[S] = mean service time (serviceTimeMs)
+         
+         Exposed as `kingmanPredictedWaitMs` in state responses. Null when any input is unavailable or ρ >= 1.0 (formula diverges).
+
+      4. **AC-4: Tests and gate.** Tests cover: Cv computation from known PMFs (Cv=0 for deterministic, Cv=1 for exponential), Cv computation from observed series (known sample statistics), Cv source tagging (Pmf vs Observed vs Constant), Kingman approximation with known inputs (both PMF and observed Cv), graceful null when inputs missing, ρ >= 1.0 returns null. Full test suite green.
+
+      ## Technical Notes
+
+      - **Cv from PMF:** For a discrete PMF `{(v₁, p₁), (v₂, p₂), ...}`:
+        - `μ = Σ(vᵢ × pᵢ)`
+        - `σ² = Σ(pᵢ × (vᵢ - μ)²)`
+        - `Cv = σ / μ`
+      - **Per-bin Cv:** Each bin may have a different PMF (or the same PMF sampled differently). Cv is computed per-bin from the PMF used for that bin.
+      - **Constant/expression nodes:** Cv = 0 by construction (deterministic).
+      - **Telemetry-driven nodes:** Cv computed from observed series as sample statistics. This is essential for crystal ball / predictive projection use cases where telemetry replay is the primary input. See `docs/notes/predictive-systems-and-uncertainty.md` for the design rationale — without observed Cv, Kingman's formula produces zero-variance predictions for all real-data models.
+      - **Kingman divergence:** When ρ ≥ 1.0, the formula produces infinity (queue grows unbounded). Return null with a warning rather than infinity.
+      - **Kingman as diagnostic, not prediction:** The formula assumes steady-state M/G/1 queueing. Real systems are transient. Kingman's value is as a **diagnostic** — "queueing theory predicts this node should have X ms wait time; actual is Y ms; the delta suggests the model may be missing something."
+
+      ## Out of Scope
+
+      - Variability-based bottleneck ranking (DSL epic).
+      - Multi-server Kingman (M/G/c) — start with single-server approximation.
+      - Preserving the full PMF distribution shape (only Cv is preserved).
+
+      ## Dependencies
+
+      - Phase 1 complete ✅
+      - Phase 3a helpful (cycle time provides serviceTimeMs for Kingman) but not strictly required
+  - kind: milestone
+    id: M-060
+    frontmatter:
+      title: Phase 3d — Constraint Enforcement
+      status: done
+      parent: E-10
+    body: |
+      ## Goal
+
+      Wire `ConstraintAllocator` into `Graph.Evaluate` so declared constraints actually cap served throughput per bin. This makes constraints real — models that declare shared resource constraints will see them enforced during evaluation, not silently ignored.
+
+      ## Context
+
+      `ConstraintAllocator` has existed since M-10.01 with correct proportional allocation logic:
+      - If total demand ≤ capacity: each node gets its full demand
+      - If total demand > capacity: each node gets `capacity × (its_demand / total_demand)`
+
+      But it has **zero callers in the evaluation pipeline**. It's only used in `StateQueryService` as a view-time filter. The March 2026 deep review flagged this as a design contradiction. Phase 2 downgraded the documentation to "foundations laid, enforcement pending." Phase 3d makes it real.
+
+      No backward compatibility is needed — existing model results are throwaway.
+
+      ## Acceptance Criteria
+
+      1. **AC-1: Constraint allocation during evaluation.** After all nodes in the DAG have been evaluated, apply constraint allocation per bin:
+         - For each constraint, collect the unconstrained `served[t]` for all assigned nodes.
+         - If total demand exceeds constraint `capacity[t]`, allocate proportionally via `ConstraintAllocator.AllocateProportional`.
+         - Cap each node's `served[t]` to its allocation.
+         - Store the allocation results in the evaluation context for downstream consumption (state/state_window).
+
+      2. **AC-2: Downstream propagation.** Capped `served` values propagate correctly through the DAG. Nodes that depend on a constrained node's output see the constrained (reduced) values, not the unconstrained originals. This may require a re-evaluation pass for downstream nodes after constraints are applied.
+
+      3. **AC-3: Constraint metadata in evaluation results.** The evaluation result includes per-constraint, per-node, per-bin allocation data so `StateQueryService` can expose constraint status (limited/unlimited) without recomputing.
+
+      4. **AC-4: Tests and gate.** Tests cover: single constraint with two nodes (proportional split), unconstrained case (demand ≤ capacity, no capping), constraint with zero capacity (all nodes get zero), downstream propagation (constrained served affects downstream queue), multiple constraints on different node groups. Full test suite green. Determinism test updated.
+
+      ## Technical Notes
+
+      - **Evaluation order:** Constraints are cross-node — they span multiple nodes in the DAG. The natural approach:
+        1. Evaluate all nodes in topological order (unconstrained).
+        2. Apply constraints: cap `served` for constrained nodes.
+        3. Re-evaluate downstream nodes that depend on constrained outputs.
+        
+        Step 3 is necessary for correctness — if a ServiceWithBufferNode's `served` (outflow) is capped, its queue depth changes, which affects downstream nodes.
+
+      - **Alternative:** Integrate constraints into the evaluation loop. When evaluating a node, check if it has a constraint. If so, defer final `served` until all nodes in the constraint group are evaluated, then allocate. This avoids re-evaluation but complicates the topological traversal.
+
+      - **Constraint data model:** Constraints are defined in `model.Topology.Constraints` with assigned node IDs and a capacity series. `ConstraintAllocator` takes `Dictionary<string, double>` (demands) and `double` (capacity) per bin — already the right interface.
+
+      - **`StateQueryService` simplification:** Once constraints are enforced at evaluation time, `StateQueryService` no longer needs to apply them at view-time. The allocation results from evaluation can be passed through directly.
+
+      ## Out of Scope
+
+      - New constraint types (only proportional allocation — existing algorithm).
+      - Constraint-aware bottleneck analysis (DSL epic).
+      - Constraint recommendation ("you should set capacity to X") — future work.
+      - MCP constraint patterns (deferred M-10.03 in gaps.md).
+
+      ## Dependencies
+
+      - Phase 1 complete ✅ (Series immutability)
+      - Phase 3b helpful (WIP limits + constraints interact: a constrained node's overflow could hit a WIP limit) but not strictly required
+  - kind: milestone
+    id: M-061
+    frontmatter:
+      title: Project Scaffold & Shell
+      status: done
+      parent: E-11
+    body: |
+      ## Goal
+
+      Standing SvelteKit app with sidebar layout and theme toggle.
+
+      ## Acceptance Criteria
+
+      - [x] `pnpm dev` serves the app at localhost:5173
+      - [x] Sidebar collapses/expands with smooth transition
+      - [x] Theme toggle persists to localStorage and respects system preference
+      - [x] All route stubs render without errors
+
+      ## Deliverables
+
+      - [x] SvelteKit project in `ui/` with TypeScript, Tailwind v4, shadcn-svelte
+      - [x] Root layout with collapsible left sidebar (Time Travel, Tools nav groups)
+      - [x] Top bar with breadcrumb area and theme toggle
+      - [x] Empty route stubs for all in-scope pages
+      - [x] DevContainer: port 5173 forwarded
+      - [x] Design tokens defined (spacing, elevation, transitions)
+  - kind: milestone
+    id: M-062
+    frontmatter:
+      title: Run Orchestration
+      status: in_progress
+      parent: E-11
+    body: |
+      ## Goal
+
+      Add card-based template selection, run configuration, and model execution to the Svelte UI at `/run`.
+
+      ## Context
+
+      M1-M4 delivered the SvelteKit scaffold, API clients, topology rendering with dag-map, and timeline with heatmap scrubbing. The `/run` route is currently a stub. The Sim API already exposes template listing (`GET /api/v1/templates`), template detail with parameters (`GET /api/v1/templates/{id}`), and run orchestration (`POST /api/v1/orchestration/runs`) including dry-run preview. The Engine API lists completed runs (`GET /v1/runs`). This milestone wires the Svelte UI to those endpoints.
+
+      ## Acceptance Criteria
+
+      1. Templates render as cards in a responsive grid with title, description, domain icon, and version badge
+      2. Search input filters cards by name/description in real-time
+      3. Selecting a card fetches template detail and shows a configuration panel with: bundle reuse mode (Reuse/Regenerate/Fresh), RNG seed input, and collapsible "Advanced Parameters" section
+      4. Can execute a model run and see results (run ID, metadata, warnings, navigation links) when complete
+      5. Preview/dry-run mode shows the execution plan without creating a run
+      6. Loading, error, and empty states handled gracefully (skeletons, error cards, empty message)
+      7. No raw JSON parameter field visible by default (hidden in Advanced section)
+
+      ## Technical Notes
+
+      - Single page with state phases (selecting → configuring → running → success/error/preview), not sub-routes
+      - `POST /api/v1/orchestration/runs` is synchronous — blocks until complete, no polling needed
+      - Bundle reuse mapping: Reuse → `deterministicRunId:true, overwrite:false`; Regenerate → `deterministicRunId:true, overwrite:true`; Fresh → `deterministicRunId:false`
+      - Mode is inferred: telemetry when template has `captureKey`, simulation otherwise — shown as a read-only badge/indicator on the config panel (not a user choice, but visible)
+      - Domain icons: map template category/tags/title keywords to Lucide icons via utility function
+      - shadcn-svelte components needed: badge, collapsible, radio-group, alert
+      - Follow existing patterns: `$state`/`$derived` runes, `onMount` for data fetch, Card/Button/Input from shadcn-svelte
+
+      ## Out of Scope
+
+      - Template parameter validation beyond basic type coercion
+      - Run history / run comparison
+      - Polling or WebSocket for long-running runs (API is synchronous)
+      - Template creation or editing
+      - Mobile/responsive layout optimization
+
+      ## Dependencies
+
+      - M1 (scaffold), M2 (API layer), M4 (timeline — established API client patterns)
+      - Sim API running at port 8090 with templates available
+  - kind: milestone
+    id: M-063
+    frontmatter:
+      title: Dependency Constraints Foundations
+      status: done
+      parent: E-12
+    body: |
+      ## Goal
+
+      Introduce a first, minimal dependency-constraint model that allows FlowTime to represent downstream/shared resources **as explicit DAG nodes** without breaking the arrivals/served/queue basis. The engine must expose dependency load and coupling in API outputs, with explicit provenance and warnings for inferred signals.
+
+      ## Problem Statement
+
+      FlowTime currently models node throughput and queue depth but cannot explain bottlenecks caused by shared downstream dependencies (DBs, caches, APIs). This milestone establishes a baseline representation so dependencies can be modeled as constraints, and consumers can observe coupling and saturation without client-side derivation.
+
+      ## Scope
+
+      ### In Scope
+      - **Option A only:** Add a dependency node kind and connect it explicitly in the DAG.
+      - Preserve the arrivals/served basis for dependency nodes.
+      - Expose dependency load in `/state` and `/state_window` with explicit provenance metadata.
+      - Surface warnings for inferred or missing dependency signals.
+      - Provide a reference template and a golden test fixture that exercises dependency constraints.
+
+      ### Out of Scope
+      - **Option B (constraint attached to service nodes)** — deferred to M-10.02.
+      - Full shared-capacity allocation algorithms.
+      - Latency-based inference of hidden backlog (Level 3 per epic doc).
+      - UI overlays beyond existing topology panels.
+      - Telemetry ingestion changes (handled by the Telemetry Ingestion epic).
+
+      ## Proposed Model (MVP)
+
+      Support **Option A (Dependency as Node)** with explicit edges:
+
+      - A dependency is a node type (`dependency`) with arrivals and served series.
+      - Upstream services connect to the dependency using **effort edges** (attempt load).
+      - Dependency node emits served to the upstream service or downstream hop via **throughput edges**.
+
+      This keeps edge semantics explicit and leverages existing edge metrics.
+
+      ### Retry / Backpressure Guidance (Non‑Looping)
+
+      To keep the graph acyclic while still modeling dependency failures:
+
+      - **Retry load** should be modeled as a derived attempts series (e.g., `CONV(dependency_errors, kernel)`).
+      - **Backpressure** should be represented by inflating service time or reducing effective capacity on the caller:
+        - Example: `processingTimeMsSum = base_time_ms * (served + retry_attempts)`.
+      - **Explicit feedback loops are out of scope** for this milestone (DAG constraint).
+
+      ### Future Compatibility
+
+      - Option B (dependency as constraint) is defined in M-10.02 and builds on the same series/edge semantics.
+      - Derived/inferred signals must be labeled `origin: derived` and surfaced with warnings.
+
+      ## Deliverables
+
+      ### Engine / Contracts
+      - Add a `dependency` node kind (or equivalent logical type) with expected series: `arrivals`, `served`, optional `errors`.
+      - Ensure edge series metadata (attemptsVolume, failuresVolume, retryRate) applies cleanly to dependency edges.
+      - Extend `seriesMetadata` to include dependency-specific series with `origin` and `aggregation`.
+
+      ### API / Schema
+      - `/state` and `/state_window` include dependency node series and metadata.
+      - Warnings for missing dependency series are emitted consistently (e.g., `missing_dependency_arrivals`).
+
+      ### Tests
+      - Golden fixtures for dependency nodes in `/state` and `/state_window`.
+      - Contract tests asserting provenance (`origin`) and aggregation for dependency series.
+      - Warning tests covering missing dependency inputs.
+
+      ### Documentation
+      - Update `work/epics/dependency-constraints/spec.md` with MVP scope and constraints.
+      - Add a short usage note in `docs/reference/engine-capabilities.md`.
+
+      ## Decisions Needed
+
+      1. **Node representation:** confirm that the MVP should implement Option A (dependency as node) only.
+      2. **Naming:** choose the node kind string (`dependency` vs `resource`).
+      3. **Series semantics:** confirm which series are mandatory vs optional (arrivals/served/errors).
+
+      ## Risks
+
+      - Overloading edge semantics for dependency load could blur effort vs throughput if not clearly labeled.
+      - Tests and documentation must clearly communicate inferred vs explicit signals.
+
+      ## Test Plan (Must Follow TDD)
+
+      1. Add failing golden test for dependency node in `/state_window` (with metadata).
+      2. Add failing golden test for dependency node in `/state` (single bin).
+      3. Add failing warning test for missing dependency arrivals/served.
+      4. Implement engine + schema updates.
+      5. Update goldens and documentation.
+
+      ## Acceptance Criteria
+
+      - Dependency nodes appear in `/state` and `/state_window` with correct series and metadata.
+      - Edge semantics for dependency load are explicit and validated.
+      - Missing dependency signals emit warnings and are visible to consumers.
+      - Tests pass; no UI changes required.
+  - kind: milestone
+    id: M-064
+    frontmatter:
+      title: Dependency Constraints (Attached to Services)
+      status: done
+      parent: E-12
+    body: |
+      ## Goal
+
+      Add **Option B** dependency constraints: allow services to declare dependency constraints without inserting explicit dependency nodes in the graph. This keeps the topology simple while preserving coupling and bottleneck visibility in the engine outputs.
+
+      ## Problem Statement
+
+      Option A (explicit dependency nodes) is correct but can clutter large graphs. Most telemetry systems (e.g., Azure App Insights) model dependencies **as relationships on a service** rather than explicit nodes in a DAG. We need a first-class constraint model that preserves the arrivals/served basis and exposes shared bottlenecks without graph inflation.
+
+      ## Scope
+
+      ### In Scope
+      - Allow service nodes (`service`, `serviceWithBuffer`, `router`) to declare **dependency constraints**.
+      - Represent constraints in `/state` and `/state_window` outputs with explicit metadata and warnings.
+      - Support **shared dependencies** via a named constraint resource that multiple services can reference.
+      - Provide a minimal allocation rule (documented and deterministic) for shared constraints.
+      - Minimal UI exposure so Option B can be validated during this milestone.
+      - A dedicated Option B template that exercises both full-feature and fallback behavior paths.
+
+      ### Out of Scope
+      - UI re-layout or new visual layers (reuse existing inspectors).
+      - Latency-based backlog inference (beyond explicit signals).
+      - Telemetry ingestion transformations (handled by Telemetry Ingestion epic).
+
+      ## Proposed Model (Option B)
+
+      ### Constraint Declaration
+      - Services can list dependency constraints, e.g.:
+        - `constraints: [db_main, cache_redis]`
+      - Each constraint has its own arrivals/served signals (from telemetry or derived). Optional signals include `errors` and `latency`.
+      - Missing constraint signals must emit warnings with explicit provenance.
+
+      ### Engine Semantics
+      - Effective service capacity is limited by:
+        - service capacity
+        - dependency constraint capacity
+      - Constraints may also **inflate service time** when retry load is modeled (deterministic rule).
+      - When constraints are shared, capacity is allocated using a deterministic rule (e.g., proportional to demand or observed served).
+      - Constraints must **not** re‑inject arrivals (no feedback loops in M‑10.02).
+
+      ### Output Contract
+      - `/state` and `/state_window` include per-node:
+        - `constraints` block with dependency IDs and per-bin constraint metrics (arrivals/served, optional errors/latency).
+        - `constraintStatus` indicating if the node was dependency-limited in the bin.
+      - Series metadata must flag derived vs explicit sources (`origin` + `aggregation`).
+
+      ### UI Exposure (Permanent)
+      - Add a Constraints section in the inspector for nodes with attached constraints.
+      - Show per-constraint arrivals/served/errors (if present) and a constraint-limited indicator.
+      - No new visual layers; reuse existing inspector styling.
+
+      ## Deliverables
+
+      ### Engine / Contracts
+      - Add constraint metadata to node contract (JSON + C# models).
+      - Add constraint evaluation logic in the engine for supported node kinds.
+
+      ### API / Schema
+      - Extend `time-travel-state` schema with `constraints` on nodes.
+      - Ensure `seriesMetadata` for constraint series is provided.
+
+      ### Tests
+      - Golden fixtures for dependency constraints on service nodes.
+      - Contract tests for constraint metadata and warnings.
+      - Deterministic allocation test for shared dependencies.
+
+      ### Documentation
+      - Update `work/epics/dependency-constraints/spec.md` with Option B semantics.
+      - Add notes to `docs/reference/engine-capabilities.md` for constraint-limited nodes.
+      - Document the Option B template and validation expectations in `templates/README.md`.
+
+      ## Decisions Needed
+
+      1. **Allocation rule:** choose a deterministic default (recommend proportional to demand) so tests are stable.
+      2. **Constraint schema:** nested block vs referenced external resource.
+      3. **Supported node kinds:** confirm scope (`service`, `serviceWithBuffer`, `router`).
+
+      ## Test Plan (Must Follow TDD)
+
+      1. Add failing golden test for `/state_window` with dependency constraints attached to a service.
+      2. Add failing test for shared dependency allocation.
+      3. Add warning test for missing constraint signals.
+      4. Implement engine support and update schema/contracts.
+      5. Update goldens and documentation.
+      6. Validate Option B in UI using the dedicated template.
+
+      ## Acceptance Criteria
+
+      - Services can declare dependency constraints without explicit dependency nodes.
+      - `/state` and `/state_window` expose constraint metrics and limitation status.
+      - Shared dependency allocation is deterministic and documented.
+      - Warnings surface missing constraint inputs with provenance metadata.
+  - kind: milestone
+    id: M-065
+    frontmatter:
+      title: MCP Dependency Pattern Enforcement
+      status: done
+      parent: E-12
+    body: |
+      > This milestone was deferred from E-12 wrap and absorbed into the new draft `ai-assisted-authoring` unplanned epic. The MCP-server-side pattern-enforcement scope captured here is the seed of that epic; Plans 3–5 (resource pooling, compiler expansion, feedback loops) referenced as out-of-scope below also move with it. AI-assisted authoring is being treated as a server-side surface consumed by external authoring callers (Claude as a tool, future agent harnesses, scripted authoring pipelines), not a FlowTime-UI feature.
+
+      ## Goal
+
+      Enforce the **dependency pattern matrix** in the MCP server so MCP-assisted modeling emits only supported dependency patterns (Option A or Option B) and blocks unsupported behaviors (Plans 3–5) with clear guidance.
+
+      ## Problem Statement
+
+      MCP modeling currently allows users (or agents) to describe dependencies in many ways, which risks producing ambiguous or incorrect models. We need MCP to enforce **canonical patterns** that match engine capabilities, and to refuse unsupported features (e.g., feedback loops, dependency retries) with actionable alternatives.
+
+      ## Scope
+
+      ### In Scope
+      - Add a **dependency pattern selector** in MCP modeling that:
+        - maps user intent to Option A or Option B,
+        - refuses unsupported patterns with a clear explanation,
+        - emits only canonical helper output.
+      - Harden MCP validation so engine **info warnings** about dependency contracts become **hard errors** during MCP model generation.
+      - Add tests verifying:
+        - correct pattern selection,
+        - rejection of unsupported behaviors,
+        - deterministic helper output.
+
+      ### Out of Scope
+      - Implementing Plans 3–5 (resource pooling, compiler expansion, feedback loops).
+      - Changes to engine behavior or flow latency logic.
+
+      ## Requirements
+
+      ### Dependency Pattern Matrix
+      MCP must implement the matrix documented in `work/epics/completed/ai/mcp-modeling.md`:
+
+      | User intent | MCP pattern | Supported now |
+      | --- | --- | --- |
+      | Dependency in series | Option A helper | ✅ |
+      | Dependency as constraint | Option B helper | ✅ |
+      | Dependency retries/feedback loops | Plan 4/5 | ❌ |
+
+      ### Canonical Output Contracts
+      - **Option A helper**
+        - Dependency node with arrivals/served/errors
+        - Effort edge with attempts volume
+        - Upstream retry pressure derived (no cycles)
+        - Derived series tagged with `origin: derived`
+      - **Option B helper**
+        - Constraint registry + node references
+        - Deterministic allocation rule (as in M‑10.02)
+        - No retry modeling
+
+      ### Validation
+      MCP must treat the following engine warnings as **hard errors** for model generation:
+      - `missing_dependency_arrivals`
+      - `missing_dependency_served`
+      - `dependency_missing_effort_edges`
+      - `dependency_retry_pressure_missing`
+
+      ## Deliverables
+
+      ### MCP Server
+      - Implement dependency pattern selection logic.
+      - Enforce strict validation mapping for dependency warnings.
+      - Provide clear error messaging with suggested alternatives.
+
+      ### Tests
+      - Unit tests for pattern selection outcomes.
+      - Validation tests that convert dependency warnings into MCP errors.
+      - Golden/fixture tests for helper output (Option A/Option B).
+
+      ### Documentation
+      - Update MCP modeling docs to reference enforcement behavior (already documented in `work/epics/completed/ai/mcp-modeling.md`).
+      - Add release note for M‑10.03.
+
+      ## Test Plan (TDD)
+
+      1. Add failing tests for:
+         - Option A selection (dependency in series)
+         - Option B selection (dependency as constraint)
+         - Rejection for “dependency retries” or “feedback loop” intents
+      2. Add failing test that engine dependency warnings are surfaced as MCP errors
+      3. Implement selection + validation enforcement
+      4. Update docs and release notes
+
+      ## Acceptance Criteria
+
+      - MCP emits only Option A or Option B dependency patterns.
+      - Unsupported dependency behaviors are rejected with actionable guidance.
+      - Dependency warnings are treated as hard errors in MCP modeling workflows.
+      - Tests confirm deterministic output and rejection behavior.

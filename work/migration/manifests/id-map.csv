@@ -1,4 +1,7 @@
 old_id,new_id,kind
+M-10.01,M-063,milestone
+M-10.02,M-064,milestone
+M-10.03,M-065,milestone
 m-E16-01,M-012,milestone
 m-E16-02,M-013,milestone
 m-E16-03,M-014,milestone
@@ -52,3 +55,12 @@ m-E24-02,M-050,milestone
 m-E24-03,M-051,milestone
 m-E24-04,M-052,milestone
 m-E24-05,M-053,milestone
+m-ec-p1,M-054,milestone
+m-ec-p2,M-055,milestone
+m-ec-p3a,M-056,milestone
+m-ec-p3a1,M-057,milestone
+m-ec-p3b,M-058,milestone
+m-ec-p3c,M-059,milestone
+m-ec-p3d,M-060,milestone
+m-svui-01,M-061,milestone
+m-svui-06,M-062,milestone
