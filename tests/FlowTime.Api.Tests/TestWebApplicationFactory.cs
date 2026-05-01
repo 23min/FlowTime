@@ -36,6 +36,13 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseSetting("ArtifactRegistry:AutoAddEnabled", "false");
         builder.UseSetting("Storage:Backend", "filesystem");
         builder.UseSetting("Storage:Root", Path.Combine(testDataDirectory, "storage"));
+        // Pin RustEngine off by default so tests are independent of appsettings.json, which
+        // dev environments flip to `true` for UI work. Subclasses that set RustEngine:Enabled
+        // before calling base (e.g. EngineEnabledFactory) retain their explicit choice.
+        if (string.IsNullOrEmpty(builder.GetSetting("RustEngine:Enabled")))
+        {
+            builder.UseSetting("RustEngine:Enabled", "false");
+        }
 
         base.ConfigureWebHost(builder);
     }

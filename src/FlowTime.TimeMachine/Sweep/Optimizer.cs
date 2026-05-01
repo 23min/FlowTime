@@ -34,6 +34,10 @@ public sealed class Optimizer
         // Sign: internally always minimize. Maximize → negate metric.
         double sign = spec.Objective == OptimizeObjective.Minimize ? 1.0 : -1.0;
 
+        // Trace buffer — bounded by 1 (pre-loop) + MaxIterations (per-iteration) entries
+        // per D-2026-04-21-034. Pre-size to the upper bound to avoid List growth.
+        var trace = new List<OptimizeTracePoint>(capacity: spec.MaxIterations + 1);
+
         // ── Build initial simplex (N+1 vertices) ──────────────────────────
         // v[0] = midpoint of all search ranges
         // v[i] = v[0] perturbed +5% of range in dimension i-1
@@ -67,9 +71,14 @@ public sealed class Optimizer
         // ── Sort ──────────────────────────────────────────────────────────
         Sort(simplex, fValues, metricMeans);
 
+        // Record the post-pre-loop-sort best vertex as iteration: 0.
+        // metricMeans[0] is unsigned (see EvaluateAsync) so maximize runs still
+        // report unsigned metricMean here.
+        trace.Add(MakeTracePoint(0, simplex[0], paramIds, metricMeans[0]));
+
         // ── Pre-loop convergence check (0 iterations) ─────────────────────
         if (fValues[n] - fValues[0] < spec.Tolerance)
-            return MakeResult(simplex[0], paramIds, metricMeans[0], converged: true, iterations: 0);
+            return MakeResult(simplex[0], paramIds, metricMeans[0], converged: true, iterations: 0, trace);
 
         // ── Nelder-Mead loop ──────────────────────────────────────────────
         for (var iteration = 1; iteration <= spec.MaxIterations; iteration++)
@@ -140,15 +149,18 @@ public sealed class Optimizer
 
             Sort(simplex, fValues, metricMeans);
 
+            // Record the post-iteration-sort best vertex as iteration: 1..N.
+            trace.Add(MakeTracePoint(iteration, simplex[0], paramIds, metricMeans[0]));
+
             if (fValues[n] - fValues[0] < spec.Tolerance)
-                return MakeResult(simplex[0], paramIds, metricMeans[0], converged: true, iterations: iteration);
+                return MakeResult(simplex[0], paramIds, metricMeans[0], converged: true, iterations: iteration, trace);
 
             if (iteration == spec.MaxIterations)
-                return MakeResult(simplex[0], paramIds, metricMeans[0], converged: false, iterations: iteration);
+                return MakeResult(simplex[0], paramIds, metricMeans[0], converged: false, iterations: iteration, trace);
         }
 
         // Unreachable — MaxIterations >= 1 enforced by spec
-        return MakeResult(simplex[0], paramIds, metricMeans[0], converged: false, iterations: spec.MaxIterations);
+        return MakeResult(simplex[0], paramIds, metricMeans[0], converged: false, iterations: spec.MaxIterations, trace);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
@@ -254,12 +266,30 @@ public sealed class Optimizer
         metricMeans[idx] = m;
     }
 
+    /// <summary>
+    /// Snapshot a best vertex into an <see cref="OptimizeTracePoint"/>. <paramref name="metricMean"/>
+    /// must be the <b>unsigned</b> user-space metric (not the internal sign-flipped f-value).
+    /// </summary>
+    private static OptimizeTracePoint MakeTracePoint(
+        int iteration,
+        double[] vertex,
+        IReadOnlyList<string> paramIds,
+        double metricMean)
+    {
+        var paramValues = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        for (var d = 0; d < paramIds.Count; d++)
+            paramValues[paramIds[d]] = vertex[d];
+
+        return new OptimizeTracePoint(iteration, paramValues, metricMean);
+    }
+
     private static OptimizeResult MakeResult(
         double[] bestVertex,
         IReadOnlyList<string> paramIds,
         double metricMean,
         bool converged,
-        int iterations)
+        int iterations,
+        List<OptimizeTracePoint> trace)
     {
         var paramValues = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
         for (var d = 0; d < paramIds.Count; d++)
@@ -271,6 +301,7 @@ public sealed class Optimizer
             AchievedMetricMean = metricMean,
             Converged = converged,
             Iterations = iterations,
+            Trace = trace,
         };
     }
 }

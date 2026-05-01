@@ -30,6 +30,7 @@
 	} from '$lib/api/warnings.js';
 	import Chart from '$lib/components/chart.svelte';
 	import DagMapView from '$lib/components/dag-map-view.svelte';
+	import TimelineScrubber from '$lib/components/timeline-scrubber.svelte';
 	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
 	import AlertTriangleIcon from '@lucide/svelte/icons/alert-triangle';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
@@ -190,18 +191,24 @@
 				if (!warnEl) continue;
 
 				const wr = warnEl.getBoundingClientRect();
-				// End: left edge of the warning group row, vertically centred
-				const wx = wr.left - cr.left + 2;
+				// End: a few pixels before the warning text starts (left of text, not overlapping)
+				const wx = wr.left - cr.left - 12;
 				const wy = wr.top + wr.height / 2 - cr.top;
 
-				const dy = wy - ny;
-				const dx = wx - nx;
-
-				// Cubic bezier: drop straight from node, then sweep left/right to entry
+				// Down → left → down path with rounded corners
+				// Mid-Y: halfway between node and warning entry
+				const midY = ny + (wy - ny) * 0.45;
+				const r = Math.min(6, Math.abs(wx - nx) * 0.3, Math.abs(wy - ny) * 0.15);
+				const goLeft = wx < nx;
 				const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 				path.setAttribute(
 					'd',
-					`M ${nx} ${ny} C ${nx} ${ny + dy * 0.55}, ${wx - Math.abs(dx) * 0.15} ${wy}, ${wx} ${wy}`,
+					`M ${nx} ${ny}` +
+					` L ${nx} ${midY - r}` +
+					` Q ${nx} ${midY}, ${nx + (goLeft ? -r : r)} ${midY}` +
+					` L ${wx + (goLeft ? r : -r)} ${midY}` +
+					` Q ${wx} ${midY}, ${wx} ${midY + r}` +
+					` L ${wx} ${wy}`,
 				);
 				path.setAttribute('stroke', '#f59e0b');
 				path.setAttribute('stroke-width', '1.5');
@@ -222,7 +229,13 @@
 	});
 
 	// Grouped chart series: for each base series, collect its per-class children.
-	const PER_CLASS_COLORS = ['#16a34a', '#ea580c', '#9333ea', '#dc2626', '#0891b2'];
+	const PER_CLASS_COLORS = [
+		'var(--ft-viz-green)',
+		'var(--ft-viz-coral)',
+		'var(--ft-viz-purple)',
+		'var(--ft-viz-pink)',
+		'var(--ft-viz-amber)',
+	];
 
 	interface ChartGroup {
 		baseName: string;
@@ -255,7 +268,7 @@
 			const all: { name: string; values: number[] }[] = [];
 
 			if (data.base) {
-				chartSeries.push({ name: baseName, values: data.base, color: '#2563eb' });
+				chartSeries.push({ name: baseName, values: data.base, color: 'var(--ft-viz-teal)' });
 				all.push({ name: baseName, values: data.base });
 			}
 
@@ -353,11 +366,11 @@
 		</div>
 		{#if lastElapsedUs !== null}
 			<div
-				class="rounded-lg border bg-green-50 px-3 py-1.5 text-xs"
+				class="rounded border bg-muted px-3 py-1.5 text-xs"
 				data-testid="latency-badge"
 			>
-				<div class="text-green-700">Last eval</div>
-				<div class="font-mono text-lg font-bold text-green-900">
+				<div class="text-muted-foreground">Last eval</div>
+				<div class="font-mono text-lg font-bold text-foreground">
 					<span data-testid="latency-us">{lastElapsedUs}</span> µs
 				</div>
 			</div>
@@ -366,11 +379,11 @@
 
 	<!-- Error banner -->
 	{#if error}
-		<div class="flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm">
-			<AlertCircleIcon class="mt-0.5 size-4 text-red-600" />
+		<div class="flex items-start gap-2 rounded border border-destructive/50 bg-destructive/10 p-3 text-sm">
+			<AlertCircleIcon class="mt-0.5 size-4 text-destructive" />
 			<div class="flex-1">
-				<div class="font-medium text-red-800">Error</div>
-				<div class="mt-1 text-red-700">{error}</div>
+				<div class="font-medium text-destructive">Error</div>
+				<div class="mt-1 text-destructive/80">{error}</div>
 			</div>
 		</div>
 	{/if}
@@ -383,15 +396,15 @@
 
 			<!-- Model picker (compact vertical list) -->
 			<div class="rounded-lg border p-3" data-testid="model-picker">
-				<div class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+				<div class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
 					Model
 				</div>
 				<div class="space-y-0.5">
 					{#each EXAMPLE_MODELS as model}
 						<button
 							class="w-full rounded px-2 py-1.5 text-left text-sm transition-colors {selectedModel.id === model.id
-								? 'bg-blue-50 font-medium text-blue-700'
-								: 'hover:bg-gray-50'}"
+								? 'bg-accent font-medium text-accent-foreground'
+								: 'hover:bg-accent/50'}"
 							onclick={() => selectModel(model)}
 							title={model.description}
 							data-testid="model-button-{model.id}"
@@ -404,7 +417,7 @@
 
 			<!-- Param panel (only when ready) -->
 			{#if compileStatus === 'compiling'}
-				<div class="flex items-center gap-2 px-1 text-sm text-gray-500">
+				<div class="flex items-center gap-2 px-1 text-sm text-muted-foreground">
 					<Loader2Icon class="size-4 animate-spin" />
 					<span>Compiling…</span>
 				</div>
@@ -413,7 +426,7 @@
 					<div class="mb-3 flex items-center justify-between">
 						<div class="text-sm font-semibold">Parameters</div>
 						<button
-							class="flex items-center gap-1 rounded border px-2 py-1 text-xs hover:bg-gray-50 disabled:opacity-50"
+							class="flex items-center gap-1 rounded border px-2 py-1 text-xs hover:bg-accent disabled:opacity-50"
 							onclick={resetDefaults}
 							disabled={evalInFlight}
 							data-testid="reset-button"
@@ -435,7 +448,7 @@
 									<div class="flex items-center justify-between gap-2">
 										<label for="p-{param.id}" class="text-sm font-medium">{param.id}</label>
 										<span
-											class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[10px] text-gray-600"
+											class="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
 										>
 											{kindLabel(param.kind)}
 										</span>
@@ -464,7 +477,7 @@
 												value={overrides[param.id] ?? config.initial}
 												oninput={(e) =>
 													onInputChange(param.id, parseFloat((e.target as HTMLInputElement).value))}
-												class="w-20 rounded border px-2 py-1 text-sm"
+												class="w-20 rounded border bg-background px-2 py-1 text-sm"
 												data-testid="input-{param.id}"
 											/>
 										</div>
@@ -474,7 +487,7 @@
 									{:else}
 										<!-- Vector: read-only display -->
 										<div
-											class="rounded bg-gray-50 p-2 font-mono text-xs"
+											class="rounded bg-muted p-2 font-mono text-xs"
 											data-testid="vector-{param.id}"
 										>
 											{formatSeries(config.values)}
@@ -491,7 +504,7 @@
 
 		<!-- RIGHT CONTENT: topology + time + charts -->
 		{#if compileStatus === 'compiling'}
-			<div class="flex flex-1 items-center justify-center text-sm text-gray-500">
+			<div class="flex flex-1 items-center justify-center text-sm text-muted-foreground">
 				<Loader2Icon class="mr-2 size-4 animate-spin" />
 				Compiling model…
 			</div>
@@ -507,10 +520,10 @@
 								<!-- Warning count badge in header — zero layout impact -->
 								{#if bannerTitle !== null}
 									<div
-										class="flex items-center gap-1 text-xs text-amber-700"
+										class="flex items-center gap-1 text-xs text-amber-500"
 										data-testid="warnings-banner"
 									>
-										<AlertTriangleIcon class="size-3 text-amber-600" />
+										<AlertTriangleIcon class="size-3 text-amber-500" />
 										<span data-testid="warnings-banner-title">{bannerTitle}</span>
 									</div>
 								{/if}
@@ -537,7 +550,7 @@
 							<!-- Warnings: absolutely positioned at bottom — zero layout shift -->
 							{#if warningGroups.length > 0}
 								<div
-									class="absolute inset-x-0 bottom-0 border-t border-amber-200 bg-amber-50/95 px-3 py-2 backdrop-blur-sm"
+									class="absolute inset-x-0 bottom-0 border-t border-amber-500/30 bg-amber-500/10 pl-8 pr-3 py-2 backdrop-blur-sm"
 									data-testid="warnings-panel"
 								>
 									<div class="space-y-0.5">
@@ -546,17 +559,17 @@
 												class="flex flex-wrap items-baseline gap-x-2 text-[11px]"
 												data-testid="warning-group-{group.nodeId}"
 											>
-												<span class="font-mono font-semibold text-amber-900"
+												<span class="font-mono font-semibold text-amber-500"
 													>{group.nodeId}</span
 												>
 												{#each group.warnings as w (w.code + w.bins.join(','))}
 													<span
 														data-testid="warning-row-{group.nodeId}-{w.code}"
 													>
-														<span class="font-mono font-medium text-amber-800">{w.code}</span>
-														<span class="text-amber-700"> — {w.message}</span>
+														<span class="font-mono font-medium text-amber-400">{w.code}</span>
+														<span class="text-foreground/70"> — {w.message}</span>
 														{#if w.bins.length > 0}
-															<span class="text-amber-500">
+															<span class="text-muted-foreground">
 																({w.bins.length} bin{w.bins.length === 1 ? '' : 's'})
 															</span>
 														{/if}
@@ -572,27 +585,25 @@
 
 					<!-- Time scrubber (m-E17-06) — only when model has > 1 bin -->
 					{#if bins > 1}
-						<div class="rounded-lg border px-4 py-3" data-testid="time-scrubber-panel">
-							<div class="flex items-center gap-3">
-								<div class="text-sm font-semibold">Time</div>
-								<input
-									type="range"
-									min="0"
-									max={bins - 1}
-									step="1"
-									value={selectedBin ?? 0}
-									oninput={(e) =>
-										(selectedBin = parseInt((e.target as HTMLInputElement).value))}
-									class="flex-1"
-									data-testid="bin-scrubber"
-								/>
-								<div class="text-muted-foreground w-14 text-right font-mono text-[11px]">
+						<div class="rounded-lg border px-3 py-2" data-testid="time-scrubber-panel">
+							<div class="flex items-center gap-2">
+								<div class="text-xs font-semibold shrink-0">Time</div>
+								<div class="flex-1 min-w-0">
+									<TimelineScrubber
+										binCount={bins}
+										currentBin={selectedBin ?? 0}
+										onBinChange={(b) => (selectedBin = b)}
+										pointerHidden={selectedBin === null}
+										trackTestId="bin-scrubber"
+									/>
+								</div>
+								<div class="text-muted-foreground w-14 text-right font-mono text-[11px] shrink-0">
 									{selectedBin !== null ? `Bin ${selectedBin}` : 'Mean'}
 								</div>
 								<button
-									class="rounded border px-2 py-1 text-xs {selectedBin === null
-										? 'border-blue-400 bg-blue-50'
-										: 'hover:bg-gray-50'}"
+									class="rounded border px-2 py-1 text-xs shrink-0 {selectedBin === null
+										? 'border-primary bg-accent'
+										: 'hover:bg-accent/50'}"
 									onclick={() => (selectedBin = null)}
 									data-testid="bin-mean-toggle"
 								>Mean</button>
@@ -687,7 +698,7 @@
 
 	@keyframes warning-label-pulse {
 		0%, 100% {
-			fill: #92400e;
+			fill: #d97706;
 			filter: none;
 		}
 		50% {

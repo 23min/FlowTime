@@ -23,4 +23,12 @@ public sealed class GoalSeekResult
 
     /// <summary>Number of bisection steps taken (not counting the two boundary evaluations).</summary>
     public required int Iterations { get; init; }
+
+    /// <summary>
+    /// Ordered trace of the search, per D-2026-04-21-034.
+    /// Two <c>iteration: 0</c> entries for the boundary evaluations followed by one
+    /// entry per bisection step with the post-step bracket. See
+    /// <see cref="GoalSeekTracePoint"/> for per-entry semantics.
+    /// </summary>
+    public IReadOnlyList<GoalSeekTracePoint> Trace { get; init; } = Array.Empty<GoalSeekTracePoint>();
 }

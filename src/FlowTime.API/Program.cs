@@ -1087,6 +1087,36 @@ v1.MapGet("/runs/{runId}/index", async (string runId, ILogger<Program> logger) =
     }
 });
 
+// Return the run's compiled model.yaml so clients (e.g., Svelte /analysis surfaces)
+// can introspect const-node parameters without a separate artifact fetch.
+v1.MapGet("/runs/{runId}/model", async (string runId, ILogger<Program> logger) =>
+{
+    try
+    {
+        var artifactsDirectory = Program.GetArtifactsDirectory(builder.Configuration);
+        var runPath = Path.Combine(artifactsDirectory, runId);
+
+        if (!Directory.Exists(runPath))
+        {
+            return Results.NotFound(new { error = $"Run {runId} not found" });
+        }
+
+        var modelPath = Path.Combine(runPath, "model", "model.yaml");
+        if (!File.Exists(modelPath))
+        {
+            return Results.NotFound(new { error = $"model.yaml not found for run '{runId}'" });
+        }
+
+        var content = await File.ReadAllTextAsync(modelPath);
+        return Results.Text(content, "text/yaml");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Failed to read model.yaml for run {RunId}", runId);
+        return Results.Problem($"Failed to read model: {ex.Message}");
+    }
+});
+
 v1.MapGet("/runs/{runId}/series/{seriesId}", async (string runId, string seriesId, ILogger<Program> logger) =>
 {
     try

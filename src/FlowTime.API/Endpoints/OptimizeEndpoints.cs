@@ -90,7 +90,8 @@ internal static class OptimizeEndpoints
             result.ParamValues,
             result.AchievedMetricMean,
             result.Converged,
-            result.Iterations));
+            result.Iterations,
+            result.Trace));
     }
 }
 
@@ -109,4 +110,5 @@ internal sealed record OptimizeResponse(
     IReadOnlyDictionary<string, double> ParamValues,
     double AchievedMetricMean,
     bool Converged,
-    int Iterations);
+    int Iterations,
+    IReadOnlyList<OptimizeTracePoint> Trace);

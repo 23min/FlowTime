@@ -1,4 +1,4 @@
-import { get, getText } from './client.js';
+import { get, getText, post } from './client.js';
 import type {
 	Artifact,
 	ArtifactListResponse,
@@ -92,10 +92,103 @@ export const flowtime = {
 		return get<RunIndex>(`${API}/runs/${encodeURIComponent(runId)}/index`);
 	},
 
-	/** Get state window (range of bins) */
-	async getStateWindow(runId: string, startBin: number, endBin: number) {
-		return get<StateWindowResponse>(
-			`${API}/runs/${encodeURIComponent(runId)}/state_window?startBin=${startBin}&endBin=${endBin}`
-		);
+	/** Get the compiled model YAML for a run */
+	async getRunModel(runId: string) {
+		return getText(`${API}/runs/${encodeURIComponent(runId)}/model`);
+	},
+
+	/**
+	 * Get state window (range of bins).
+	 *
+	 * `mode` (m-E21-06 AC15) toggles which node kinds the API returns:
+	 *   - `'operational'` (default on the server) hides `expr`/`const`/`pmf` computed nodes.
+	 *   - `'full'` exposes them so the heatmap and topology can render computed rows.
+	 *
+	 * Omitting the parameter keeps the URL byte-compatible with pre-milestone call sites.
+	 */
+	async getStateWindow(
+		runId: string,
+		startBin: number,
+		endBin: number,
+		mode?: 'operational' | 'full'
+	) {
+		let url = `${API}/runs/${encodeURIComponent(runId)}/state_window?startBin=${startBin}&endBin=${endBin}`;
+		if (mode !== undefined) url += `&mode=${mode}`;
+		return get<StateWindowResponse>(url);
+	},
+
+	/** Parameter sweep — POST /v1/sweep */
+	async sweep(body: {
+		yaml: string;
+		paramId: string;
+		values: number[];
+		captureSeriesIds?: string[];
+	}) {
+		return post<{
+			paramId: string;
+			points: { paramValue: number; series: Record<string, number[]> }[];
+		}>(`${API}/sweep`, body);
+	},
+
+	/** Sensitivity analysis — POST /v1/sensitivity */
+	async sensitivity(body: {
+		yaml: string;
+		paramIds: string[];
+		metricSeriesId: string;
+		perturbation?: number;
+	}) {
+		return post<{
+			metricSeriesId: string;
+			points: { paramId: string; baseValue: number; gradient: number }[];
+		}>(`${API}/sensitivity`, body);
+	},
+
+	/** Goal seek — POST /v1/goal-seek */
+	async goalSeek(body: {
+		yaml: string;
+		paramId: string;
+		metricSeriesId: string;
+		target: number;
+		searchLo: number;
+		searchHi: number;
+		tolerance?: number;
+		maxIterations?: number;
+	}) {
+		return post<{
+			paramValue: number;
+			achievedMetricMean: number;
+			converged: boolean;
+			iterations: number;
+			trace: {
+				iteration: number;
+				paramValue: number;
+				metricMean: number;
+				searchLo: number;
+				searchHi: number;
+			}[];
+		}>(`${API}/goal-seek`, body);
+	},
+
+	/** Optimize — POST /v1/optimize (N-param Nelder-Mead under bounds) */
+	async optimize(body: {
+		yaml: string;
+		paramIds: string[];
+		metricSeriesId: string;
+		objective: 'minimize' | 'maximize';
+		searchRanges: Record<string, { lo: number; hi: number }>;
+		tolerance?: number;
+		maxIterations?: number;
+	}) {
+		return post<{
+			paramValues: Record<string, number>;
+			achievedMetricMean: number;
+			converged: boolean;
+			iterations: number;
+			trace: {
+				iteration: number;
+				paramValues: Record<string, number>;
+				metricMean: number;
+			}[];
+		}>(`${API}/optimize`, body);
 	}
 };

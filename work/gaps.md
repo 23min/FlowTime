@@ -596,6 +596,277 @@ Not scheduled. No owner milestone. Tracked here pending planning.
 
 ---
 
+## Sim-generated model shape vs. Rust engine compiler expectations
+
+### Why this is a gap
+
+Discovered 2026-04-17 while wiring the Svelte `/analysis` surface
+(m-E21-03 sweep + sensitivity) against real runs. The Rust engine's
+compiler (`engine/core/src/compiler.rs`) has a hard split between
+**top-level `nodes:`** (only `const`/`expr`/`pmf`/`router` accepted)
+and **`topology.nodes:`** (where `queue`/`service`/`servicewithbuffer`/
+`dlq` belong).
+
+Sim-generated models (Supply Chain Multi-Tier Classes, Warehouse Picker
+Wave Dispatch, and similar templates) emit service/queue/
+servicewithbuffer nodes at the top level of `nodes:` instead. The Rust
+engine rejects them at compile time:
+
+- `Unsupported node kind 'servicewithbuffer' on node 'intake_queue'`
+- `Router node 'ReturnsRouter' requires router field` (shape mismatch
+  when routing is expressed via edge weights rather than a node field)
+
+As a result, **no existing Sim-generated run compiles in the Rust
+engine session**, which means the full `/v1/sweep`, `/v1/sensitivity`,
+`/v1/goal-seek`, and `/v1/optimize` surfaces cannot be exercised
+against real runs until the shape mismatch is closed.
+
+### Current mitigation
+
+- `/analysis` route has a **Run / Sample** source toggle. Sample mode
+  ships bundled, Rust-compatible minimal models (`simple-queue`,
+  `two-stage-pipeline` at `ui/src/lib/utils/sample-models.ts`) so the
+  analysis flow can be demoed without a real run.
+- Sweep/sensitivity API endpoints now return the engine's compile
+  error as a structured 400 (rather than a 500 developer page), so
+  the UI surfaces an actionable message.
+
+### Resolution path
+
+Two non-exclusive options:
+
+1. **Shape-normalizing transform in Sim or a pre-compile step**:
+   translate `kind: servicewithbuffer` / `kind: service` /
+   `kind: queue` at the top-level into `topology.nodes` entries before
+   handing the YAML to the Rust engine. Routing weights on edges could
+   similarly be translated into router-node form.
+2. **Widen the Rust engine compiler** to accept the Sim-generated
+   shape directly (promote top-level service/queue nodes into the
+   topology layer inside `compiler.rs`).
+
+Option 1 keeps the Rust engine's compile contract strict; option 2
+reduces friction but blurs the boundary that E-16/E-20 established.
+Decision belongs to the engine epic owner — not in E-21 scope.
+
+### Immediate implications
+
+- Do not assume Sim-generated runs work with `/v1/sweep`,
+  `/v1/sensitivity`, or downstream analysis APIs. Sample-model mode
+  is the working path for demos until this gap is closed.
+- Telemetry Loop & Parity (prerequisite for fitting) will hit the
+  same issue — parity testing requires the Rust engine to be able
+  to evaluate the models Sim produces.
+
+### Reference
+
+- `engine/core/src/compiler.rs` lines 637-670 (top-level node kind
+  dispatch), lines 1163-1190 (topology-node kind handling)
+- `work/epics/E-21-svelte-workbench-and-analysis/m-E21-03-sweep-sensitivity.md`
+- `ui/src/lib/utils/sample-models.ts` (bundled Rust-compatible fixtures)
+
+---
+
+## Ultrareview findings on `epic/E-21-svelte-workbench-and-analysis` (2026-04-20)
+
+### Why this is a gap
+
+The `/ultrareview` sweep against `main` for the E-21 epic branch surfaced four low-severity issues — one pre-existing path-traversal pattern in the Engine API and three nit-level UX/correctness defects on the new `/analysis` and topology surfaces. None block the milestone wrap; all are worth tracking so they do not decay into tolerated coexistence.
+
+### Findings
+
+1. **Path-traversal pattern on `GET /v1/runs/{runId}/model` (pre-existing class).**
+   `src/FlowTime.API/Program.cs:1090-1117` passes `runId` straight to `Path.Combine(artifactsDirectory, runId)` with no validation. A `runId` of `..` resolves `runPath` outside the artifacts root; if a `model/model.yaml` happens to exist there, it is served as `text/yaml`. Bounded by ASP.NET's single-segment route constraint (no embedded `/`) and the fixed `model/model.yaml` suffix, but the defensive check is still missing. Same shape on sibling endpoints: lines 1071, 1126, 1188, 1224. Fix: extract a shared `GetRunDirectorySafe(artifactsDirectory, runId)` helper (regex allow-list on `runId`, or `Path.GetFullPath` + `StartsWith(artifactsDirectory)` canonicalisation) and apply to all call sites in one pass.
+
+2. **`selectedSampleId` not persisted on `/analysis`.**
+   `ui/src/routes/analysis/+page.svelte:229-255` persists `ft.analysis.tab`, `ft.analysis.source`, and `ft.analysis.infoHidden` to `localStorage` but not the chosen sample id. On reload with `sourceMode='sample'`, `selectedSampleId` resets to `SAMPLE_MODELS[0].id` and `onMount` silently loads that instead of the user's last choice. Fix: add `localStorage.setItem('ft.analysis.sample', id)` inside `loadSampleModel` and a matching read in `onMount`, with a `SAMPLE_MODELS.some(...)` guard against removed samples.
+
+3. **Sweep silently truncated to 200 points with only generic `> 50` warning.**
+   `ui/src/lib/utils/analysis-helpers.ts:58-79` caps `generateRange` output at `maxPoints=200` but the `/analysis` Sweep tab only emits `⚠ large sweep (> 50 points)`. A user entering `from=0/to=1000/step=1` (expecting 1001 points) sees `200 points` with the generic warning; 801 values are dropped with no distinct truncation signal. Fix: detect `out.length === maxPoints && (to - from)/step + 1 > maxPoints` and surface a dedicated `truncated — first 200 of N` indicator, or extend `generateRange` to return `{ values, truncated, requestedCount }`.
+
+4. **Unescaped node ids in topology edge-highlight CSS selector.**
+   `ui/src/routes/time-travel/topology/+page.svelte:108-120` interpolates `edge.from`/`edge.to` directly into a CSS attribute selector. A node id containing `"`, `\`, or `]` makes `querySelectorAll` throw `SyntaxError`; because the effect clears `.edge-selected` before the loop, one bad id both unselects existing edges and blocks all future highlight updates for the session. Fix: wrap interpolations with `CSS.escape()`, or wrap `querySelectorAll` in `try/catch` with a `console.warn` fallback.
+
+### Status
+
+Not scheduled. Candidate owners:
+
+- Finding 1 → E-19 follow-up or a standalone patch alongside the deferred `POST /v1/run`/`POST /v1/graph` retirement; should close the whole class (all 5 call sites), not patch a single endpoint.
+- Findings 2–4 → m-E21-07 polish milestone, or a patch on the epic branch before epic wrap if priorities permit.
+
+### Immediate implications
+
+- Do not add new `Path.Combine(artifactsDirectory, {userInput})` call sites without the shared safe helper.
+- Do not add new `localStorage`-backed UI state on `/analysis` without mirroring the sample-id persistence gap — persist all three axes together (tab, source, sample).
+- Do not interpolate graph ids into CSS selectors elsewhere; prefer `CSS.escape` as the default for any new DAG-map handlers.
+- Do not raise the `generateRange` cap above 200 without also fixing the truncation signal — a higher cap without a clearer indicator makes the silent-drop cliff worse, not better.
+
+### Reference
+
+- Remote review task id `rtdmj8ob8` (2026-04-20)
+- `src/FlowTime.API/Program.cs:1071,1090,1126,1188,1224`
+- `ui/src/routes/analysis/+page.svelte:172-199,229-266,601-605`
+- `ui/src/lib/utils/analysis-helpers.ts:58-79`
+- `ui/src/routes/time-travel/topology/+page.svelte:108-120`
+
+---
+
+## `.codex/` missing from framework adapter-ignore list (2026-04-20)
+
+### Why this is a gap
+
+The `.ai/sync.sh` refactor merged in `23min/ai-workflow#5` formalised the track-vs-ignore convention (CLAUDE.md tracked; all other adapters gitignored) and made `sync.sh` reconcile `.gitignore` on every run. The `ADAPTER_ENTRIES` array in `sync.sh` covers `.github/copilot-instructions.md`, `.github/skills/`, `.claude/agents/`, `.claude/skills/`, and `.claude/rules/ai-framework.md` — but **not `.codex/instructions.md`**, which is equally a generated adapter.
+
+`flowtime-vnext` handled this locally by appending `.codex/` to its own `.gitignore` and running `git rm --cached .codex/instructions.md`. Works for this repo, but any other consumer of the framework would need to replicate the same manual step.
+
+### Resolution path
+
+Follow-up PR to `23min/ai-workflow`: add `.codex/instructions.md` (or `.codex/`) to `ADAPTER_ENTRIES` in `sync.sh`, update the corresponding test assertions in `tests/test-sync.sh`, and add a MIGRATIONS entry noting the additional ignore line so existing consumers untrack their tracked `.codex/instructions.md`.
+
+### Immediate implications
+
+- Do not re-add `.codex/instructions.md` to git tracking in this repo.
+- When the framework adds the entry, local override becomes redundant and can be simplified (drop `.codex/` from this repo's `.gitignore`).
+
+### Reference
+
+- `23min/ai-workflow#5` — sync.sh consolidation PR (merged 2026-04-20)
+- This repo's `.gitignore` — `.codex/` entry added locally
+
+---
+
+## Heatmap view — deferred enhancements (m-E21-06 Q&A, 2026-04-23)
+
+### Why this is a gap
+
+The m-E21-06 Heatmap View design Q&A (14 questions) surfaced several enhancements that are real analytical value but are not required for the first shipping heatmap. Default behavior for the milestone favors paradigm coherence (shared normalization with topology, topological default sort, etc.); these items are alternative modes and secondary analytical tools.
+
+### Deferred items
+
+- **Fixed per-metric color ranges** (Q3-D). Utilization anchored to `[0, 1]`, bounded metrics pinned to their natural domain, etc. Stable across runs (e.g. utilization of 0.5 always looks the same). Requires metric-registry enrichment (per-metric `domain` metadata) and doesn't work for unbounded metrics without convention. Default normalization is shared full-window with 99th-percentile clipping.
+- **Per-row (per-node) color normalization toggle** (Q3-C). Each row normalizes over its own min/max, surfacing "temporal pattern within this node" at the cost of cross-node comparability. Useful secondary mode for "what's the shape of this node's pattern?" — defer until asked.
+- **Current-bin value sort mode** (Q7 extra). Sorts rows by value at the scrubber's current bin; re-sorts when the scrubber moves. Cute but volatile; unclear real analytical use.
+- **Trend / slope sort mode** (Q7 extra). Rank rows by slope of their time series to answer "which nodes are getting worse over time?" Genuinely analytical but adds statistical complexity; defer.
+- **View-registry graduation** (Q13). m-E21-06 ships a typed `<ViewSwitcher>` with views listed inline on the topology page and shared state in a store. When a third layered view lands (decomposition / comparison / flow-balance — currently out-of-scope of E-21) with real asymmetry from topology/heatmap, graduate to a manifest-based registry + `ViewContext` pattern. Premature to build now.
+
+### Immediate implications
+
+- These are UX-enrichment items, not correctness gaps. Shipping m-E21-06 without them is honest: the default behavior is the right default for a first heatmap.
+- If future layered-view milestones surface asymmetry that the inline `<ViewSwitcher>` handles awkwardly, graduate to a registry pattern then — not speculatively.
+
+### Reference
+
+- E-21 m-E21-06 Q&A conversation, 2026-04-23 (in-session, not archived).
+- Source spec: `work/epics/unplanned/ui-analytical-views/spec.md` V1 Heatmap View.
+- E-21 epic spec: `work/epics/E-21-svelte-workbench-and-analysis/spec.md` m-E21-06 row.
+
+---
+
+## Topology DAG has no keyboard nav or ARIA structure (m-E21-06 AC12 homework)
+
+### Why this is a gap
+
+m-E21-06 establishes the accessibility bar for the Svelte workbench: heatmap cells are keyboard-reachable via Tab + arrow keys, carry `role="grid"`/`role="row"`/`role="gridcell"` with `aria-label` containing node id + bin + metric + value, render a visible focus ring, and fire tooltip-on-focus. During the AC12 homework audit the topology DAG area was found to lag that bar:
+
+- DAG SVG is rendered via `{@html renderSVG(...)}` from the dag-map library; nodes have no `tabindex` and cannot be reached by keyboard.
+- No ARIA roles on the SVG container, nodes, or edges — a screen-reader user gets no structure.
+- Node-click is the only input modality.
+- Edge interaction (click-to-pin-edge) has no keyboard equivalent.
+
+Per milestone confirmation #3, this was not retrofitted inside m-E21-06. The heatmap ships at the higher bar; topology remains at the earlier bar.
+
+### Status
+
+Open. Blazor UI's original topology had keyboard + ARIA; Svelte topology regressed here and the regression predates m-E21-06.
+
+### Immediate implications
+
+- Do not ship accessibility audits against the Svelte workbench as "complete" until topology reaches heatmap's bar.
+- When a future milestone (likely m-E21-08 polish) adds pattern encoding / high-contrast tuning, include topology keyboard + ARIA retrofit in the same pass.
+- The dag-map library itself may need to grow tabindex / role options on its rendered nodes; coordinate with the library owners before forking rendering in the topology Svelte component.
+
+---
+
+## Data-viz palette not validated for color-blindness (m-E21-06 AC12 homework)
+
+### Why this is a gap
+
+The `--ft-viz-*` palette introduced in m-E21-02 (teal, pink, coral, blue, green, amber, purple) was chosen for general aesthetic contrast but was not validated against color-blindness simulators. Under ADR-m-E21-06-02 both topology and heatmap now share the same teal → amber → red gradient from `dag-map`'s `colorScales.palette`, so the issue amplifies — users with deuteranopia or protanopia may see low-utilization teal and high-utilization red as the same muted hue.
+
+### Status
+
+Open. Deferred from m-E21-06 per confirmation #3 — pattern-encoding (redundant hatch overlay) and high-contrast tuning land in m-E21-08 polish milestone.
+
+### Immediate implications
+
+- Until polish lands, users with color-vision differences will rely on the `data-value-bucket` attribute semantics (`low` / `mid` / `high`) and on hover tooltips for correctness.
+- When m-E21-08 runs, add a deuteranopia / protanopia / tritanopia simulator pass to the workbench smoke test; pattern-encode heatmap cells when enabled via a user preference toggle.
+
+---
+
+## Bidirectional card ↔ view selection (reverse cross-link)
+
+### Why this is a gap
+
+m-E21-06 Heatmap View ships a **one-way** cross-link: clicking a heatmap cell or a topology node pins the node and sets `viewState.selectedCell`; the matching workbench card's title renders in turquoise (`--ft-highlight`). The reverse path — click a workbench card → the corresponding cell in the heatmap and node in topology light up as the selected item — is not implemented.
+
+Today, clicking a card body does nothing (only the ✕ close button is interactive). That's fine for shipping m-E21-06, but it's the natural other half of the "same model, multiple views" principle the milestone is built on. For long pin-stacks it's common to wonder "where is this node in the graph?" without needing to hover-scan the heatmap or DAG.
+
+### Proposed shape
+
+- **Card body click** → `viewState.setSelectedCell(card.nodeId, viewState.currentBin)`.
+  - Heatmap: the existing `selectedCell`-driven overlay rect automatically appears at (nodeId, currentBin). Zero new code in heatmap.
+  - Topology: dag-map nodes are rendered as SVG via `{@html renderSVG(...)}`. Add a CSS rule `.node-selected { stroke: var(--ft-highlight); stroke-width: 2; }` and a `$effect` that toggles the class by id — same pattern as the existing `.edge-selected` toggle in `ui/src/routes/time-travel/topology/+page.svelte:127–128`.
+- Keep the ✕ close button as the sole unpin surface on the card. Card body click = select only (no toggle / no unpin).
+- Keyboard reachability on the card body for a11y (space / enter → same effect).
+
+### Status
+
+Open, captured 2026-04-24 as a "natural next step" after m-E21-06 card cross-link work.
+
+### Immediate implications
+
+- Bundle into **m-E21-08 Polish** — that milestone already has topology keyboard-nav + ARIA retrofit and color-blind validation queued. Adding the reverse-cross-link while topology SVG is being touched is cheap.
+- Before shipping: decide whether card body click conflicts with any future card interactivity (expand/collapse, drill-in). If so, scope the click to the card title bar rather than the whole body — leaves the body area free for subsequent interactive content.
+- No backend changes needed.
+
+### Reference
+
+- `ui/src/routes/time-travel/topology/+page.svelte:127-128` — existing `.edge-selected` class toggle pattern.
+- `ui/src/lib/stores/view-state.svelte.ts` — `setSelectedCell` / `clearSelectedCell` already in place.
+- `ui/src/lib/components/workbench-card.svelte` — needs a click handler on the card body or title.
+
+---
+
+## Heatmap sliding-window scrubber (Blazor-parity zoom-and-pan)
+
+### Why this is a gap
+
+m-E21-06 Heatmap View ships a **fit-to-width** toggle (`ft.heatmap.fitWidth`, default off) that compresses `CELL_W` to `max(3, min(18, floor(containerWidth / binCount)))` so wide runs (e.g. 288 bins for the multi-tier supply chain model) fit the viewport without horizontal scroll. That solves the overview-first case but sacrifices per-cell fidelity — at 3–5 px per bin, individual tile values are hard to read, tooltip hover is fiddly, and the column-highlight marker shrinks accordingly.
+
+The Blazor UI's scrubber has a **draggable window** affordance — a resizable/pannable range on the scrubber track that selects a subset of bins for inspection. The Svelte timeline scrubber currently only exposes a single-thumb `currentBin`. A Blazor-parity dual-handle "window scrubber" would let users keep the default 18 px cell size at full fidelity while panning across a long run:
+
+- Window size = e.g. 64 bins; drag the window across 288 bins = five screens of detail.
+- Heatmap renders `binCount=64` with `CELL_W=18`, no compression.
+- The scrubber track doubles as a minimap-style summary.
+- `state_window` already accepts `startBin` / `endBin`, so the data plane is ready.
+
+### Status
+
+Open, deferred by user decision 2026-04-24. Fit-to-width is the 80 % solution for overview; the sliding window is the 80 % solution for detail-at-scale. Shipping the window properly needs a dedicated milestone because:
+
+- `TimelineScrubber` needs dual handles (window-start, window-end) plus a window body for drag-to-pan.
+- `currentBin` vs `windowBin` semantics must be nailed down (what does "pin this cell" mean when the user is viewing bins 128–191 but the full-run thumb is at 30?).
+- Heatmap and topology both need to consume the window range from the shared view-state store (new `windowRange` field).
+- Playwright coverage for drag-pan, resize, and keyboard equivalents (PgUp / PgDn to pan).
+
+### Immediate implications
+
+- Until the sliding-window milestone lands, fit-to-width is the only knob for wide runs on the heatmap.
+- Plan for a new E-21 milestone after m-E21-07 Validation and m-E21-08 Polish — or fold into polish if scope allows.
+- When the milestone lands, the Blazor-parity gesture needs to be muscle-memory-compatible for existing users (drag the window body; resize via handles).
+
+---
+
 ## FFI-based engine evaluator (alternative to subprocess)
 
 ### Why this is a gap
@@ -668,6 +939,156 @@ Prototype spike:
 - Do not treat “.NET session service” as settled in the Studio architecture doc. Mark it as an assumption pending spike.
 - Keep the `IModelEvaluator` seam language-neutral in spirit — it is currently .NET-flavored but the pattern (compile-once-eval-many with parameter patches) ports directly.
 - Do not expand the .NET layer with anything that would be load-bearing to keep on .NET specifically. Structural patch handling, session IR, and WS multiplex should be written as if any language could host them.
+
+---
+
+## `transportation-basic` regressed: `edge_flow_mismatch_incoming` × 3 after E-24 unification
+
+### Why this is a gap
+
+Running the `transportation-basic` template (titled "Transportation Network with Hub Queue") today (2026-04-28) emits **three** analyser warnings of code `edge_flow_mismatch_incoming` (severity `warning`):
+
+```
+Arrivals do not match sum of incoming edge flows. Edges: queue_to_airport.   (LineAirport,    Δ ≈ 1.89)
+Arrivals do not match sum of incoming edge flows. Edges: queue_to_downtown.  (LineDowntown,   Δ ≈ 9.46)
+Arrivals do not match sum of incoming edge flows. Edges: queue_to_industrial.(LineIndustrial, Δ ≈ 7.57)
+```
+
+The analyser is asserting the conservation invariant `arrivals[t] == sum(incoming_edges_after_lag[t])` at the three downstream service nodes (`LineAirport`, `LineDowntown`, `LineIndustrial`) fed by the central hub queue. The mismatch values are **not** floating-point noise — they're 1.89, 9.46, 7.57 in absolute units. Real semantic divergence.
+
+Comparing run artifacts on disk for the **same template** under **default parameters**:
+
+| Run | Date | Warning count | `edge_flow_mismatch_incoming` |
+|---|---|---|---|
+| `run_20260424T124735Z_25e2fe28` | 2026-04-24 | 0 | 0 |
+| `run_20260424T124839Z_ef75aea3` | 2026-04-24 | 0 | 0 |
+| `run_20260424T142044Z_f6d43b90` | 2026-04-24 | 0 | 0 |
+| `run_20260424T150244Z_b2f4c995` | 2026-04-24 | 0 | 0 |
+| `run_20260428T165413Z_6ed5974e` | 2026-04-28 | 3 | 3 |
+
+Four prior runs of the same template emitted **zero** warnings. Today's run emits **three**.
+
+### What did NOT change in the regression window
+
+- `git log -- src/FlowTime.Core/Analysis/InvariantAnalyzer.cs` — last commit is `044d2bc` (E-16-03 era, pre-window). Conservation logic untouched. The mismatch tolerance is unchanged.
+- `git log -- templates/transportation-basic.yaml` — last commit `a06ed88` (M-06.01 era). Template YAML and default parameters unchanged.
+
+### What DID change in the regression window
+
+Between 2026-04-24 (last clean runs) and 2026-04-28 (offending run), **E-24 Schema Alignment** merged to main on 2026-04-25 (D-2026-04-25-038). Relevant commits in `src/FlowTime.Core/`:
+
+- `131dd35` — m-E24-02 step 1: `ProvenanceDto`, `OutputDto` cleanup, YamlDotNet 17.0.1
+- `5a2a31d` — post-m-E24-02 cleanup: delete `ProvenanceEmbedder`, rename `GridDefinition.StartTimeUtc` → `Start`, drop `Template Legacy*` aliases
+- `a7c984f` — m-E24-04: `ParseScalar` honors ScalarStyle; quote type-ambiguous strings on emit
+- `b3efda0` — m-E23-01 part 1: close `ModelSchemaValidator` silent-error blind spot + restructure node-kind clusters
+- `d42f649` — m-E23-01 AC4: 12 cross-reference/cross-array adjuncts on `ModelSchemaValidator`
+- `4fe8d45` — m-E23-03: delete `ModelValidator`; relocate `ValidationResult`
+
+The shape of the model passing Sim → Engine changed. The pre-E-24 runs' `spec.yaml` carries `generator: flowtime-sim`, `topology:` block, `classes: []` (the legacy `SimModelArtifact` shape). The post-E-24 run's `spec.yaml` is the unified `ModelDto` form — no `topology:` block, single-level `values:`. Same source template, same parameters, materially different compiled-graph shape.
+
+### Likely cause (hypothesis — needs Engine-team confirmation)
+
+E-24's model unification changed how the queue-and-route flow compiles into the runtime DAG. The conservation invariant now fails at the three downstream service nodes by a small but non-trivial margin. Specific suspect: how the central queue's outgoing edges, lag, and the downstream `arrivals` series wire together post-unification — the unified shape may emit a slightly different routing semantic for `serviceWithBuffer` → service hop than the pre-unification pipeline did.
+
+Alternative benign reading: the analyser is correctly detecting a real model property that was always present but didn't fire pre-unification because the lag handling or edge volume computation produced an exactly-canceling difference. In that case the "regression" is actually the analyser working *better* post-unification, not worse. The 1.89 / 9.46 / 7.57 magnitudes lean against this — they're at non-trivial scale.
+
+### Status
+
+**Open.** Needs Engine-team investigation. Likely outcomes:
+1. Real bug in the unified-model compilation path (queue + routing + lag interplay). Fix is engine-side; templates stay.
+2. Real model issue in `transportation-basic` that was masked pre-E-24 and is correctly surfaced now. Fix is template-side; engine stays.
+3. Tolerance / semantic mismatch in the analyser's conservation check (e.g. lag application boundary). Fix is analyser-side.
+
+Discriminating between (1), (2), (3) requires comparing the **compiled DAG** (not the source template) pre-E-24 vs post-E-24 — the spec.yaml diff already shows the model shape diverged; the engine-side compilation surely diverged too.
+
+### Why the build-time canary did not catch this
+
+`tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs::Survey_Templates_For_Warnings` (E-24 m-E24-05) hard-asserts **`val-err == 0`** across all twelve shipped templates. `edge_flow_mismatch_incoming` has severity `warning`, not error — so it never fails the canary. The canary collects val-warn counts as diagnostic output but does not assert on them. **A val-warn delta of +3 on `transportation-basic` slipped through silently.**
+
+This is a known weakness of the canary: it gates on validator errors only, not on analyser warnings. See sibling gap entry below for the broader testing-rigor argument.
+
+### Reference
+
+- Offending run (today): `data/runs/run_20260428T165413Z_6ed5974e/run.json` — three `edge_flow_mismatch_incoming` items in `warnings[]`.
+- Clean baseline (pre-E-24): `data/runs/run_20260424T150244Z_b2f4c995/run.json` — empty `warnings[]`.
+- Analyser source: `src/FlowTime.Core/Analysis/InvariantAnalyzer.cs:323-335` (incoming-edge conservation check) and `:330` (warning message).
+- Template: `templates/transportation-basic.yaml`.
+- Canary: `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs`.
+
+### Immediate implications
+
+- Plan an Engine-side investigation milestone — likely a small "E-24 follow-up" or new E-25 micro-milestone — before further analyser/engine work that depends on the conservation invariant being clean across all shipped templates.
+- Treat any new appearances of `edge_flow_mismatch_incoming` (or `_outgoing`) on previously-clean templates as a regression signal until this is resolved.
+- Do NOT delete the offending run artifact (`run_20260428T165413Z_6ed5974e`) — it is the reproduction case.
+- m-E21 / m-E22 work can proceed in parallel; this regression is engine-side and does not block consumer-surface work.
+
+---
+
+## Tests are too weak: surveyed-output-only canaries cannot detect drift; need deterministic golden-output assertions
+
+### Why this is a gap
+
+The `transportation-basic` regression above (`edge_flow_mismatch_incoming` × 3 after E-24 unification) was caught **by accident**: only because four prior run artifacts from 2026-04-24 happened to still be on disk for byte-comparison against today's run. **If those runs had been pruned, the regression would have been invisible to the test suite** — the build-time canary `Survey_Templates_For_Warnings` would still have reported `val-err == 0` and passed.
+
+This exposes a structural weakness in the testing rigor:
+
+1. **The canary asserts existence-of-error-class, not output-equivalence.** It says "no template produces a validator error". It does NOT say "this template produces this specific output for this specific parameter set." A regression that shifts the output without producing a validator error slips through.
+2. **The canary gates on `val-err == 0` only.** Analyser warnings, run-time warnings, and per-bin numeric output drift are all unscored. A model could go from "12 warnings" to "0 warnings" or vice-versa, and from "arrivals=10.0" to "arrivals=10.5", and the canary would not budge.
+3. **No golden-output fixtures.** The repo has 12 shipped templates that are surveyed-but-not-asserted-against. There is no fixture that says "for `transportation-basic` with `splitAirport=0.4`, `splitIndustrial=0.3`, `hubRetryRate=0.2`, the `arrivals[Router]` series at bin 12 is exactly X.XX, and the warning set is exactly {Y, Z}."
+
+The user-stated intent is correct: **tests need to create models for which the test deterministically knows what the output should be, and compare against that.** Today's tests largely don't do that for the engine-template integration surface.
+
+### What "stronger" looks like
+
+A golden-output canary for each shipped template, with:
+
+- A pinned parameter set (chosen for both numeric-stability and analytical-coverage — including some that should produce known warnings, some that should be clean).
+- A pinned expected output bundle: per-series per-bin numeric values (or a tight tolerance), full warning set with codes + message + nodeId + edgeIds + severity, run manifest fields.
+- A byte-identical (or tight-tolerance numeric) assertion. A drift fails the build with a clear diff showing which series at which bin moved by how much, and which warnings appeared / disappeared.
+- Forward-only regeneration when a deliberate engine change shifts numeric output: a `--regenerate` mode the engineer runs after a sanctioned change, producing a reviewable diff that becomes the new pinned expected output. (Pattern matches `dotnet test --update-snapshots` style.)
+
+This is the standard "approval testing" / "golden master" pattern. The `Survey_Templates_For_Warnings` canary is the lightweight version of this; it needs to be promoted to the strict version.
+
+### Where the bar is already set higher (precedents in this repo)
+
+- `tests/FlowTime.Adapters.Synthetic.Tests/FileSeriesReaderTests.cs` and similar — assert exact CSV byte content against pinned fixtures.
+- `tests/FlowTime.Sim.Tests/Templates/RouterTemplateRegressionTests.cs`, `TransitNodeTemplateTests.cs`, `EvaluationIntegrityTemplateTests.cs` — assert specific structural properties per template.
+- m-E21-07 AC1 real-bytes fixture (`FLOWTIME_E2E_TEST_RUNS=1`) — pinned wire-format round-trip on `state_window` warnings.
+
+These cover narrow surfaces. They do NOT cover the **end-to-end** "render template at default params → run engine → byte-compare full output bundle" loop that would have caught the regression above.
+
+### Status
+
+**Open.** Worth planning into a near-term milestone. Strongly suggest scoping into an explicit testing-rigor milestone before further engine evolution (E-22 Time Machine: Model Fit + Chunked Evaluation, E-15 Telemetry Ingestion, future Cloud Deployment work). Each of those will introduce more compilation paths, more analytical surfaces, more places where silent drift can hide.
+
+### Proposed shape (for milestone planning)
+
+**Milestone scope (rough; needs proper planning):**
+
+1. **Pick a representative parameter set per template.** Default params are usually fine but some templates may need explicit "happy path" + "deliberately-broken" pairs to lock both the clean-output and the warning-emission paths.
+2. **Generate the expected output bundle** by running the engine **once** at a sanctioned point in time (post-E-24, post-E-23, post-E-21 wrap is a reasonable baseline). Capture: full per-series per-bin numeric table (or tight-tolerance representation), full warning set, manifest summary fields.
+3. **Pin the expected bundles** under `tests/fixtures/golden-templates/<template-id>/` with documentation of the parameter set + capture date + capture commit hash.
+4. **Write the test:** parameterized over the 12 templates, each runs the engine and byte-compares (or tolerance-compares numeric series) against the pinned bundle.
+5. **Add a `--regenerate` mode** for sanctioned-change workflow: after a deliberate engine change shifts output, the engineer regenerates the bundles and the diff becomes the PR review artifact.
+6. **Make the canary fail on val-warn delta**, not just val-err. Even before the full golden pinning lands, a per-template `val-warn` count delta gate would have caught today's regression: 0→3 on `transportation-basic` would have failed the build.
+
+**Out of scope (deliberately):**
+
+- Floating-point exact equality across platforms. Tolerance-based numeric comparison is fine and is what every other comparable engine canary uses.
+- Pinning intermediate compilation-IR. The pinned artifact is the **observable engine output** (series + warnings), not the intermediate compiled DAG. The IR can change freely as long as the output stays equivalent.
+
+### Reference
+
+- Today's regression case: `data/runs/run_20260428T165413Z_6ed5974e` vs `data/runs/run_20260424T150244Z_b2f4c995` (same template, default params, divergent warning counts).
+- Existing canary: `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs::Survey_Templates_For_Warnings`.
+- Pattern precedents in this repo: see "Where the bar is already set higher" above.
+- User-stated intent (this conversation, 2026-04-28): "Tests need to create models for which the test deterministically know what the output should be and compare against that."
+
+### Immediate implications
+
+- Do **not** delete the per-template run artifacts in `data/runs/` until a golden-output canary is in place — they are the only reproduction surface for retroactive drift detection.
+- Treat any new analyser-warning regression on a previously-clean template as a **hard regression** until the canary is strict enough to catch it automatically.
+- Plan this milestone into the near-term sequence — preferably before E-22 (Model Fit) starts, since model-fit work will compare engine output against telemetry and silently-drifting output would corrupt fit results without warning.
 
 ---
 

@@ -78,4 +78,42 @@ describe('computeSparklinePath', () => {
 			expect(path).not.toContain('Infinity');
 		}
 	});
+
+	it('breaks the path at NaN gaps', () => {
+		// values=[0, NaN, 10] — two segments with a gap
+		const path = computeSparklinePath([0, NaN, 10], { width: 100, height: 30 });
+		// Should have two M commands (one for each segment)
+		const moveCount = (path.match(/M /g) ?? []).length;
+		expect(moveCount).toBe(2);
+		expect(path).not.toContain('NaN');
+	});
+
+	it('returns empty string when all values are NaN', () => {
+		expect(computeSparklinePath([NaN, NaN, NaN], { width: 100, height: 30 })).toBe('');
+	});
+
+	it('returns empty string for single NaN value', () => {
+		expect(computeSparklinePath([NaN], { width: 100, height: 30 })).toBe('');
+	});
+
+	it('handles NaN at start of series', () => {
+		const path = computeSparklinePath([NaN, 5, 10], { width: 100, height: 30 });
+		// First segment starts with M at the first finite value
+		expect(path.startsWith('M 50.00')).toBe(true);
+		expect(path).not.toContain('NaN');
+	});
+
+	it('handles NaN at end of series', () => {
+		const path = computeSparklinePath([0, 5, NaN], { width: 100, height: 30 });
+		expect(path).not.toContain('NaN');
+		// Only two points should have been rendered
+		expect((path.match(/M|L/g) ?? []).length).toBe(2);
+	});
+
+	it('treats Infinity and -Infinity as gaps', () => {
+		const path = computeSparklinePath([0, Infinity, 10], { width: 100, height: 30 });
+		expect(path).not.toContain('Infinity');
+		const moveCount = (path.match(/M /g) ?? []).length;
+		expect(moveCount).toBe(2);
+	});
 });

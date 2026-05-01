@@ -2,7 +2,7 @@
 
 **ID:** m-E21-01-workbench-foundation
 **Epic:** E-21 — Svelte Workbench & Analysis Surfaces
-**Status:** draft
+**Status:** complete (merged to epic 2026-04-17)
 
 ## Goal
 

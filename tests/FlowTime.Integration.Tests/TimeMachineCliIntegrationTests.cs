@@ -250,6 +250,110 @@ public class TimeMachineCliIntegrationTests
         Assert.Equal(50.0, paramValue, precision: 1);
     }
 
+    /// <summary>
+    /// Confirms the additive <c>trace</c> field added by D-2026-04-21-034 appears in the
+    /// CLI JSON passthrough for both goal-seek and optimize. No CLI-side code change is
+    /// required — the field flows through automatically via the shared JSON options.
+    /// </summary>
+    [Fact]
+    public async Task GoalSeek_JsonOutput_IncludesTraceField()
+    {
+        var enginePath = TryResolveEnginePath();
+        if (enginePath is null) return;
+
+        var spec = new
+        {
+            modelYaml = ValidYaml,
+            paramId = "arrivals",
+            metricSeriesId = "served",
+            target = 25.0,
+            searchLo = 0.0,
+            searchHi = 200.0,
+            tolerance = 0.1,
+        };
+        var specJson = JsonSerializer.Serialize(spec);
+
+        var (stdout, stderr) = NewWriters();
+        var code = await GoalSeekCommand.ExecuteAsync(
+            ["--engine", enginePath],
+            new StringReader(specJson), stdout, stderr);
+
+        Assert.Equal(0, code);
+        using var doc = JsonDocument.Parse(stdout.ToString());
+        var root = doc.RootElement;
+
+        Assert.True(root.TryGetProperty("trace", out var trace),
+            "CLI JSON output must include 'trace' field.");
+        Assert.Equal(JsonValueKind.Array, trace.ValueKind);
+        // At minimum the two boundary evaluations must be present.
+        Assert.True(trace.GetArrayLength() >= 2);
+
+        // Spot-check the first entry's camelCase shape.
+        var first = trace[0];
+        Assert.True(first.TryGetProperty("iteration", out _));
+        Assert.True(first.TryGetProperty("paramValue", out _));
+        Assert.True(first.TryGetProperty("metricMean", out _));
+        Assert.True(first.TryGetProperty("searchLo", out _));
+        Assert.True(first.TryGetProperty("searchHi", out _));
+    }
+
+    [Fact]
+    public async Task Optimize_JsonOutput_IncludesTraceField()
+    {
+        var enginePath = TryResolveEnginePath();
+        if (enginePath is null) return;
+
+        // Same bowl fixture as Optimize_ConvergesOnBowlFunction.
+        var modelYaml = """
+            schemaVersion: 1
+            grid:
+              bins: 4
+              binSize: 15
+              binUnit: minutes
+            nodes:
+              - id: arrivals
+                kind: const
+                values: [10, 10, 10, 10]
+              - id: served
+                kind: expr
+                expr: "arrivals * 0.5"
+              - id: residual
+                kind: expr
+                expr: "MAX(served - 7, 7 - served)"
+            """;
+        var spec = new
+        {
+            modelYaml,
+            paramIds = new[] { "arrivals" },
+            metricSeriesId = "residual",
+            objective = "minimize",
+            searchRanges = new { arrivals = new { lo = 0.0, hi = 100.0 } },
+            tolerance = 0.01,
+        };
+        var specJson = JsonSerializer.Serialize(spec);
+
+        var (stdout, stderr) = NewWriters();
+        var code = await OptimizeCommand.ExecuteAsync(
+            ["--engine", enginePath],
+            new StringReader(specJson), stdout, stderr);
+
+        Assert.Equal(0, code);
+        using var doc = JsonDocument.Parse(stdout.ToString());
+        var root = doc.RootElement;
+
+        Assert.True(root.TryGetProperty("trace", out var trace),
+            "CLI JSON output must include 'trace' field.");
+        Assert.Equal(JsonValueKind.Array, trace.ValueKind);
+        Assert.True(trace.GetArrayLength() >= 1);
+
+        var first = trace[0];
+        Assert.True(first.TryGetProperty("iteration", out _));
+        Assert.True(first.TryGetProperty("paramValues", out var pv));
+        Assert.Equal(JsonValueKind.Object, pv.ValueKind);
+        Assert.True(pv.TryGetProperty("arrivals", out _));
+        Assert.True(first.TryGetProperty("metricMean", out _));
+    }
+
     // ── runtime / engine errors (exit 3) ──────────────────────────
 
     [Fact]

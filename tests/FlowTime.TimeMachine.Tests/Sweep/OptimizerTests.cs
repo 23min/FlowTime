@@ -335,4 +335,178 @@ public sealed class OptimizerTests
         Assert.False(result.Converged);
         Assert.Equal(1, result.Iterations);
     }
+
+    // ── Trace shape (AC2) ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// Exit-path "pre-loop convergence" — initial simplex already satisfies tolerance.
+    /// Trace is exactly one entry (<c>iteration: 0</c>) and matches the reported result.
+    /// </summary>
+    [Fact]
+    public async Task OptimizeAsync_PreLoopConvergence_TraceHasSingleEntry()
+    {
+        var optimizer = MakeOptimizer(new Bowl1DEvaluator());
+        // Tiny range: midpoint=50, perturbation at 50.1, f-spread tiny → converges at 0 iterations.
+        var spec = new OptimizeSpec(Yaml1D, ["arrivals"], "metric",
+            OptimizeObjective.Minimize,
+            new Dictionary<string, SearchRange> { ["arrivals"] = new(49.0, 51.0) },
+            tolerance: 0.1);
+
+        var result = await optimizer.OptimizeAsync(spec);
+
+        Assert.True(result.Converged);
+        Assert.Equal(0, result.Iterations);
+        Assert.Single(result.Trace);
+        Assert.Equal(0, result.Trace[0].Iteration);
+        // Best vertex is simplex[0] = midpoint after pre-loop sort.
+        Assert.Equal(result.ParamValues["arrivals"], result.Trace[0].ParamValues["arrivals"], precision: 6);
+        Assert.Equal(result.AchievedMetricMean, result.Trace[0].MetricMean, precision: 6);
+    }
+
+    /// <summary>
+    /// Exit-path "main-loop convergence" — trace is iteration:0 + iteration:1..N.
+    /// Length == iterations + 1.
+    /// </summary>
+    [Fact]
+    public async Task OptimizeAsync_MainLoopConvergence_TraceLengthMatchesIterationsPlusOne()
+    {
+        var optimizer = MakeOptimizer(new Bowl1DEvaluator());
+        var spec = new OptimizeSpec(Yaml1D, ["arrivals"], "metric",
+            OptimizeObjective.Minimize,
+            new Dictionary<string, SearchRange> { ["arrivals"] = new(0.0, 100.0) });
+
+        var result = await optimizer.OptimizeAsync(spec);
+
+        Assert.True(result.Converged);
+        Assert.True(result.Iterations >= 1);
+        Assert.Equal(result.Iterations + 1, result.Trace.Count);
+
+        // Ordering: iteration values 0, 1, 2, ... N.
+        for (int i = 0; i < result.Trace.Count; i++)
+            Assert.Equal(i, result.Trace[i].Iteration);
+
+        // Last trace entry matches final result (the sort-best vertex on the return path).
+        var last = result.Trace[^1];
+        Assert.Equal(result.ParamValues["arrivals"], last.ParamValues["arrivals"], precision: 6);
+        Assert.Equal(result.AchievedMetricMean, last.MetricMean, precision: 6);
+    }
+
+    /// <summary>
+    /// Exit-path "max-iterations exhausted" — still trace length == iterations + 1.
+    /// </summary>
+    [Fact]
+    public async Task OptimizeAsync_MaxIterationsExhausted_TraceLengthMatchesIterationsPlusOne()
+    {
+        var optimizer = MakeOptimizer(new Bowl1DEvaluator());
+        var spec = new OptimizeSpec(Yaml1D, ["arrivals"], "metric",
+            OptimizeObjective.Minimize,
+            new Dictionary<string, SearchRange> { ["arrivals"] = new(0.0, 75.0) },
+            tolerance: 1e-15,
+            maxIterations: 3);
+
+        var result = await optimizer.OptimizeAsync(spec);
+
+        Assert.False(result.Converged);
+        Assert.Equal(3, result.Iterations);
+        Assert.Equal(4, result.Trace.Count);
+        Assert.Equal(0, result.Trace[0].Iteration);
+        Assert.Equal(1, result.Trace[1].Iteration);
+        Assert.Equal(2, result.Trace[2].Iteration);
+        Assert.Equal(3, result.Trace[3].Iteration);
+    }
+
+    /// <summary>
+    /// Unsigned-metric invariant for MINIMIZE — trace's <c>metricMean</c> is the
+    /// bowl value (always non-negative), never negated.
+    /// </summary>
+    [Fact]
+    public async Task OptimizeAsync_MinimizeBowl_TraceMetricsAreUnsigned()
+    {
+        var optimizer = MakeOptimizer(new Bowl1DEvaluator());
+        var spec = new OptimizeSpec(Yaml1D, ["arrivals"], "metric",
+            OptimizeObjective.Minimize,
+            new Dictionary<string, SearchRange> { ["arrivals"] = new(0.0, 100.0) });
+
+        var result = await optimizer.OptimizeAsync(spec);
+
+        // Bowl f(x)=(x-50)^2 is always ≥ 0 — any negative entry proves the internal
+        // sign-flipped f-value leaked into the trace.
+        Assert.All(result.Trace, tp => Assert.True(tp.MetricMean >= 0.0,
+            $"Negative metricMean at iteration {tp.Iteration}: {tp.MetricMean}"));
+    }
+
+    /// <summary>
+    /// Unsigned-metric invariant for MAXIMIZE — trace's <c>metricMean</c> is the
+    /// raw linear value (positive), not the negated internal f-value.
+    /// </summary>
+    [Fact]
+    public async Task OptimizeAsync_MaximizeLinear_TraceMetricsAreUnsigned()
+    {
+        var optimizer = MakeOptimizer(new LinearEvaluator());
+        var spec = new OptimizeSpec(Yaml1D, ["arrivals"], "metric",
+            OptimizeObjective.Maximize,
+            new Dictionary<string, SearchRange> { ["arrivals"] = new(0.0, 100.0) });
+
+        var result = await optimizer.OptimizeAsync(spec);
+
+        // metric = arrivals ∈ [0, 100]; maximize negates internally so sorted-best f
+        // is the most-negative value. If the trace leaked the sign-flipped value,
+        // metricMean would be negative.
+        Assert.All(result.Trace, tp => Assert.True(tp.MetricMean >= 0.0,
+            $"Trace metricMean {tp.MetricMean} at iter {tp.Iteration} looks sign-flipped"));
+
+        // The final trace entry must match the achieved (unsigned) metric.
+        var last = result.Trace[^1];
+        Assert.Equal(result.AchievedMetricMean, last.MetricMean, precision: 6);
+    }
+
+    /// <summary>
+    /// Trace's <c>paramValues</c> must contain an entry for every spec param id,
+    /// in the original order.
+    /// </summary>
+    [Fact]
+    public async Task OptimizeAsync_2DBowl_TraceParamValuesContainAllParams()
+    {
+        var optimizer = MakeOptimizer(new Bowl2DEvaluator());
+        var spec = new OptimizeSpec(Yaml2D, ["arrivals", "capacity"], "metric",
+            OptimizeObjective.Minimize,
+            new Dictionary<string, SearchRange>
+            {
+                ["arrivals"] = new(0.0, 100.0),
+                ["capacity"] = new(50.0, 200.0),
+            });
+
+        var result = await optimizer.OptimizeAsync(spec);
+
+        Assert.NotEmpty(result.Trace);
+        Assert.All(result.Trace, tp =>
+        {
+            Assert.True(tp.ParamValues.ContainsKey("arrivals"));
+            Assert.True(tp.ParamValues.ContainsKey("capacity"));
+        });
+    }
+
+    /// <summary>
+    /// Shrink path — trace still captures one entry per iteration after the sort,
+    /// even when iterations end in a shrink step.
+    /// </summary>
+    [Fact]
+    public async Task OptimizeAsync_ShrinkPath_TraceStillCapturesPerIteration()
+    {
+        var optimizer = MakeOptimizer(new StepEvaluator(peak: 50.0, valley: 45.0));
+        var spec = new OptimizeSpec(Yaml1D, ["arrivals"], "metric",
+            OptimizeObjective.Minimize,
+            new Dictionary<string, SearchRange> { ["arrivals"] = new(0.0, 100.0) },
+            tolerance: 1e-15,
+            maxIterations: 2);
+
+        var result = await optimizer.OptimizeAsync(spec);
+
+        Assert.False(result.Converged);
+        Assert.Equal(2, result.Iterations);
+        Assert.Equal(3, result.Trace.Count);
+        Assert.Equal(0, result.Trace[0].Iteration);
+        Assert.Equal(1, result.Trace[1].Iteration);
+        Assert.Equal(2, result.Trace[2].Iteration);
+    }
 }

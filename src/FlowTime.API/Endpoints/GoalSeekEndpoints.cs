@@ -67,7 +67,8 @@ internal static class GoalSeekEndpoints
             result.ParamValue,
             result.AchievedMetricMean,
             result.Converged,
-            result.Iterations));
+            result.Iterations,
+            result.Trace));
     }
 }
 
@@ -85,4 +86,5 @@ internal sealed record GoalSeekResponse(
     double ParamValue,
     double AchievedMetricMean,
     bool Converged,
-    int Iterations);
+    int Iterations,
+    IReadOnlyList<GoalSeekTracePoint> Trace);

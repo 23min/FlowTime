@@ -55,14 +55,23 @@ internal static class SensitivityEndpoints
             request.MetricSeriesId,
             request.Perturbation ?? 0.05);
 
-        var result = await sensitivityRunner.RunAsync(spec, cancellationToken);
+        try
+        {
+            var result = await sensitivityRunner.RunAsync(spec, cancellationToken);
 
-        return Results.Ok(new SensitivityResponse(
-            MetricSeriesId: result.MetricSeriesId,
-            Points: result.Points
-                .Select(p => new SensitivityPointDto(p.ParamId, p.BaseValue, p.Gradient))
-                .ToArray()
-        ));
+            return Results.Ok(new SensitivityResponse(
+                MetricSeriesId: result.MetricSeriesId,
+                Points: result.Points
+                    .Select(p => new SensitivityPointDto(p.ParamId, p.BaseValue, p.Gradient))
+                    .ToArray()
+            ));
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Engine compile/eval errors surface as InvalidOperationException from the session bridge.
+            // Return them as 400 with a structured body so clients can display the message.
+            return Results.BadRequest(new { error = ex.Message });
+        }
     }
 }
 
