@@ -227,14 +227,63 @@ Coverage gaps and mitigations:
 
 ### Phase 2 — projector
 
-- [ ] Decide projector home (e.g. `tools/migration/aiwf-v3-projector/` — temporary; deletes at end of Phase 5)
-- [ ] Implement reading: `work/epics/`, `work/decisions.md`, `work/gaps.md`, `CLAUDE.md` Current Work
-- [ ] Implement ID remap: epics keep ids; milestones get `auto`; produce `id-map.csv` side-output
-- [ ] Implement body rewriting: substitute old `m-E18-13-...` references with new `M-NNN` per the id-map
-- [ ] Implement frontmatter synthesis from prose `**ID:**` / `**Status:**` markers
-- [ ] Emit `manifest.yaml` per kind (epics, milestones, decisions, gaps) — five files or one combined
-- [ ] Emit `skip-log.md` listing what didn't migrate (completed-epic detail if archived; agent-history; etc.)
-- [ ] Spot-check projector output on one epic (E-22) before running across the whole tree
+**Design (Phase 2 Q&A settled 2026-05-01):**
+- Home: `work/migration/scripts/`
+- Manifests output: `work/migration/manifests/` (separate from scripts; data ≠ code)
+- Language: Python 3 + `uv` script mode (PEP 723 inline deps; `uv run script.py`); no `pyproject.toml`
+- Incremental scope: E-22 first, then extend in successive passes; decisions + gaps last
+
+**Authoritative aiwf status sets (from `aiwf schema`):**
+
+| Kind | Statuses | Required fields | Notes |
+|---|---|---|---|
+| epic | `proposed, active, done, cancelled` | id, title, status | no parent |
+| milestone | `draft, in_progress, done, cancelled` | id, title, status, parent | parent → epic |
+| adr | `proposed, accepted, superseded, rejected` | id, title, status | optional supersedes/superseded_by |
+| gap | `open, addressed, wontfix` | id, title, status | optional discovered_in/addressed_by |
+| decision | `proposed, accepted, superseded, rejected` | id, title, status | optional relates_to |
+| contract | `proposed, accepted, deprecated, retired, rejected` | id, title, status | optional linked_adrs |
+
+**v1 → v3 status-mapping table (filled as passes encounter source statuses):**
+
+| v1 source status | v1 kind | v3 status | Settled |
+|---|---|---|---|
+| `planning` | epic | `proposed` | ✅ Pass A (E-22 spec) |
+| `in-progress` | epic / milestone | (epic) `active` / (milestone) `in_progress` | TBD when encountered |
+| `complete` / `completed` | epic / milestone | `done` | TBD when encountered |
+| `pending` | milestone | `draft` | TBD |
+| `paused` | epic / milestone | TBD — possibly `proposed` (no aiwf "paused"); flag as projector finding | TBD |
+| `active` | decision | `accepted` | TBD |
+| `superseded` | decision | `superseded` | TBD |
+| `withdrawn` | decision | `rejected` | TBD |
+| `open` | gap | `open` | TBD |
+| `resolved` (with date suffix) | gap | `addressed` | TBD |
+
+**Successive-pass plan:**
+
+| Pass | Scope | Goal |
+|---|---|---|
+| **A (spike)** | E-22 only | debug shared projector logic against minimal surface |
+| **B** | E-13 + E-14 + E-15 (no-milestone active epics) | confirm shared logic generalizes |
+| **C** | E-18 (multi-milestone generic `m-EXX-NN-...`) | exercise milestone-emit + body-rewrite at scale |
+| **D** | completed-id'd generic-shape epics (E-16, E-17, E-19, E-20, E-21, E-23, E-24) | best-effort projection |
+| **E** | outliers (E-10 `m-ec-pN`; E-11 no-spec.md + `m-svui-NN`; E-12 `M-10.NN`) | per-epic custom rules |
+| **F** | decisions (54, chronological) + gaps (157, git-blame sort) | mechanical projection on stable code |
+| **G** | body-rewrite cross-pass | substitute old ids → new ids per id-map.csv across manifest body strings |
+
+**Implementation checklist:**
+- [x] Decide projector home — `work/migration/scripts/`
+- [x] Decide language — Python 3 + `uv` script mode
+- [x] Decide incremental scope — E-22 first; successive passes A–G
+- [x] Pass A: spike on E-22 — `work/migration/scripts/project_e22.py` (uv script-mode, ruamel.yaml). Generates `work/migration/manifests/e22-spike.yaml`. **Dry-run green:** `aiwf import --dry-run` zero findings, exit 0. 12,902-byte `epic.md` would land at `work/epics/E-22-time-machine-model-fit-chunked-evaluation/epic.md`
+- [ ] Pass B: extend to E-13/E-14/E-15
+- [ ] Pass C: extend to E-18 (milestones)
+- [ ] Pass D: extend to completed-id'd epics
+- [ ] Pass E: outlier per-epic rules (E-10, E-11, E-12)
+- [ ] Pass F: decisions + gaps
+- [ ] Pass G: body-rewrite cross-pass with id-map.csv
+- [ ] Emit `skip-log.md` accumulated across passes
+- [ ] Final: produce single combined manifest for Phase 4 dry-run loop
 
 ### Phase 3 — pre-process source
 
@@ -292,3 +341,10 @@ Append-only record of dry-run iterations, decisions taken mid-flight, and findin
 - 2026-05-01 — phase 1 — marketplace `23min/ai-workflow-rituals` registered (User scope; cache populated under `~/.claude/plugins/cache/`). Plugin install (Project scope) awaiting user action.
 - 2026-05-01 — phase 1 — skill-audit done from plugin cache: 8 aiwfx-* skills + 4 wf-* skills + 4 agents + 5 templates verified present. Three real gaps identified, all with acceptable mitigations: (1) `aiwfx-wrap-milestone` doesn't chain `dead-code-audit` — document in CLAUDE.md; (2) `wf-doc-lint` is minimal port — acceptable since we don't use dropped primitives; (3) tracking-doc path convention shifted to centralized `work/tracking/` — keep our epic-local layout via project override. No blocking gaps.
 - 2026-05-01 — phase 1 — `/plugin install` failed with "Source path does not exist" despite source being present; root cause was plugin-manager bookkeeping confusion (plugins were already installed for `/Users/peterbru/Projects/proliminal.net` and Claude Code wouldn't add a second per-project install record). Recovered via manual edit of `.claude/settings.json` — added `enabledPlugins: { "aiwf-extensions@ai-workflow-rituals": true, "wf-rituals@ai-workflow-rituals": true }`. `aiwf doctor` now confirms "rituals plugin detected." **Phase 1 closed.**
+- 2026-05-01 — phase 1 — committed (8865346 + 2d08da8): devcontainer infra + plan doc.
+- 2026-05-01 — phase 2 — Q1 settled: projector home = `work/migration/scripts/`. Co-locates with plan + id-map.csv + skip-log.md; deletes as one dir at Phase 5.
+- 2026-05-01 — phase 2 — Q2 settled: Python 3 with `uv`. Use uv script mode (PEP 723 inline `# /// script` metadata declaring deps like `ruamel.yaml`); `uv run script.py`. No `pyproject.toml`/project skeleton — each script is self-contained and disposable. uv already in devcontainer (init.sh installs it).
+- 2026-05-01 — phase 2 — Q3 settled: incremental scope = E-22 first (Pass A spike), extend in passes B–G; decisions + gaps last on stable projector code.
+- 2026-05-01 — phase 2 — micro-decisions for Pass A: status mapping `planning → proposed` (epic kind); manifests output dir `work/migration/manifests/` (separate from scripts; data ≠ code). Authoritative status sets pulled from `aiwf schema` and recorded in plan. **Phase 2 design closed; ready to implement Pass A.**
+- 2026-05-01 — phase 2 — Pass A landed. `project_e22.py` (uv PEP-723 script mode, ruamel.yaml LiteralScalarString for body). Single-entity manifest validates with `aiwf import --dry-run` zero findings; would write `work/epics/E-22-time-machine-model-fit-chunked-evaluation/epic.md` (12,902 bytes).
+- 2026-05-01 — phase 2 — **Pass A finding (slug derivation):** aiwf derives destination dir slug from `title`, not source dir name. Source `E-22-model-fit-chunked-evaluation` ≠ aiwf-generated `E-22-time-machine-model-fit-chunked-evaluation`. Phase 3/5 decision pending: preserve v1 short slugs (via `aiwf rename` or trimmed manifest titles) vs. accept title-derived slugs (id is stable ref; path is incidental). Lean: accept; settle before mass import in Pass B.
