@@ -244,15 +244,24 @@ Coverage gaps and mitigations:
 | decision | `proposed, accepted, superseded, rejected` | id, title, status | optional relates_to |
 | contract | `proposed, accepted, deprecated, retired, rejected` | id, title, status | optional linked_adrs |
 
+**Status-derivation rule (precedence):**
+
+1. **Dir location wins for terminal states.** Any epic under `work/epics/completed/` → `done`, regardless of what the source spec's `**Status:**` says. (Pass D applies this to E-10, E-12, E-16, E-17, E-19, E-20, E-21, E-23, E-24.)
+2. **Otherwise use the source `**Status:**` line, mapped via the table below** (also cross-check `work/epics/epic-roadmap.md` when source spec is silent or ambiguous).
+3. **If neither source signals nor roadmap clarify** → default `proposed`, log finding to `skip-log.md`.
+
+   *Rationale:* most active-dir epics in this repo are "we plan to do this; nothing's started" → `proposed`. Epics with explicit "paused" signal map to aiwf `active` (paused work has real commitments / branches / prior milestones; closer to active than proposed). Default for missing-status is `proposed` since the absence of a paused signal in source means we shouldn't infer one.
+
 **v1 → v3 status-mapping table (filled as passes encounter source statuses):**
 
 | v1 source status | v1 kind | v3 status | Settled |
 |---|---|---|---|
 | `planning` | epic | `proposed` | ✅ Pass A (E-22 spec) |
-| `in-progress` | epic / milestone | (epic) `active` / (milestone) `in_progress` | TBD when encountered |
+| `in-progress` | epic / milestone | (epic) `active` / (milestone) `in_progress` | ✅ Pass B (E-18 spec + roadmap + ROADMAP + CLAUDE.md all agree) |
+| `superseded` / `absorbed` | epic | `cancelled` (work moved permanently to a different epic; original plan no longer governs) | ✅ Pass B (E-14: absorbed into ui-analytical-views which is out of migration scope per Q1) |
 | `complete` / `completed` | epic / milestone | `done` | TBD when encountered |
 | `pending` | milestone | `draft` | TBD |
-| `paused` | epic / milestone | TBD — possibly `proposed` (no aiwf "paused"); flag as projector finding | TBD |
+| `paused` | epic / milestone | `active` (epic) — paused work has real commitments / branches / prior milestones; closer to active than proposed | ✅ Pass B (user override) |
 | `active` | decision | `accepted` | TBD |
 | `superseded` | decision | `superseded` | TBD |
 | `withdrawn` | decision | `rejected` | TBD |
@@ -276,7 +285,7 @@ Coverage gaps and mitigations:
 - [x] Decide language — Python 3 + `uv` script mode
 - [x] Decide incremental scope — E-22 first; successive passes A–G
 - [x] Pass A: spike on E-22 — `work/migration/scripts/project_e22.py` (uv script-mode, ruamel.yaml). Generates `work/migration/manifests/e22-spike.yaml`. **Dry-run green:** `aiwf import --dry-run` zero findings, exit 0. 12,902-byte `epic.md` would land at `work/epics/E-22-time-machine-model-fit-chunked-evaluation/epic.md`
-- [ ] Pass B: extend to E-13/E-14/E-15
+- [x] Pass B: extend to E-13/E-14/E-15 (+ E-22 carried from A) — `project_epics.py` replaces `project_e22.py`. **Dry-run green:** 4 epics, 0 findings, exit 0. skip-log.md emitted (1 entry: E-13 default-status). Status mapping table proven on missing/superseded/parenthesized-prose/clean inputs.
 - [ ] Pass C: extend to E-18 (milestones)
 - [ ] Pass D: extend to completed-id'd epics
 - [ ] Pass E: outlier per-epic rules (E-10, E-11, E-12)
@@ -348,3 +357,10 @@ Append-only record of dry-run iterations, decisions taken mid-flight, and findin
 - 2026-05-01 — phase 2 — micro-decisions for Pass A: status mapping `planning → proposed` (epic kind); manifests output dir `work/migration/manifests/` (separate from scripts; data ≠ code). Authoritative status sets pulled from `aiwf schema` and recorded in plan. **Phase 2 design closed; ready to implement Pass A.**
 - 2026-05-01 — phase 2 — Pass A landed. `project_e22.py` (uv PEP-723 script mode, ruamel.yaml LiteralScalarString for body). Single-entity manifest validates with `aiwf import --dry-run` zero findings; would write `work/epics/E-22-time-machine-model-fit-chunked-evaluation/epic.md` (12,902 bytes).
 - 2026-05-01 — phase 2 — **Pass A finding (slug derivation):** aiwf derives destination dir slug from `title`, not source dir name. Source `E-22-model-fit-chunked-evaluation` ≠ aiwf-generated `E-22-time-machine-model-fit-chunked-evaluation`. Phase 3/5 decision pending: preserve v1 short slugs (via `aiwf rename` or trimmed manifest titles) vs. accept title-derived slugs (id is stable ref; path is incidental). Lean: accept; settle before mass import in Pass B.
+- 2026-05-01 — phase 2 — slug-preservation settled: **accept aiwf title-derived slugs.** Identity = id; path = incidental (per upstream design-lessons.md principle 1 "identity is not location"). Projector emits titles verbatim; aiwf decides slugs. Phase 5 cleanup deletes old v1 dirs whole; memory files get one-pass review to fix path references that matter. No `aiwf rename` post-import; no manifest title trimming.
+- 2026-05-01 — phase 2 — Pass B finding 1 settled: missing `**Status:**` in active-dir epic spec → default `proposed` + skip-log finding. Status-derivation rule expanded: roadmap is a secondary cross-check; missing status defaults to `proposed`.
+- 2026-05-01 — phase 2 — mapping override (user): `paused → active` (epic kind). Paused work has real commitments / branches / prior milestones; closer to aiwf `active` than `proposed`. Affects E-11 (paused after M6 per roadmap) → `active`. Default for missing-status is still `proposed` (absence of explicit paused signal means we don't infer one).
+- 2026-05-01 — phase 2 — Pass B finding 2 settled: `superseded` / `absorbed` → `cancelled` (epic). Affects E-14 (absorbed into ui-analytical-views, which is out of migration scope per Q1). Body retains supersession prose verbatim.
+- 2026-05-01 — phase 2 — Pass B mapping resolved (user) for E-18: `in-progress → active`. All four surfaces agree (spec, epic-roadmap, ROADMAP, CLAUDE.md) plus the live `epic/E-18-time-machine` branch hasn't been closed. E-18 → `active`.
+- 2026-05-01 — phase 2 — Pass B finding 3 settled: parenthesized qualifier on `**Status:**` line is preserved by prepending a `> **Status note:** <qualifier>` blockquote to the top of the body. Information not lost; body retains the "capture is shipped; ingestion pipeline is not" nuance from E-15 inline.
+- 2026-05-01 — phase 2 — Pass B landed. `project_epics.py` (replaces `project_e22.py`); `epics-active.yaml` (4 epics: E-13/E-14/E-15/E-22); `skip-log.md` (1 finding: E-13 default-status). Status-mapping table exercised on all four input shapes (missing / superseded / parenthesized-prose / clean). `aiwf import --dry-run` zero error findings, exit 0. Plans 4 writes at title-derived slugs as expected.

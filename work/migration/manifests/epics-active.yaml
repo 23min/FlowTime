@@ -1,0 +1,474 @@
+version: 1
+commit:
+  mode: single
+  message: 'import(spike): Pass B — 4 active-set epics'
+entities:
+  - kind: epic
+    id: E-13
+    frontmatter:
+      title: Path Analysis & Subgraph Queries
+      status: proposed
+    body: |
+      ## 1. Summary
+
+      This epic defines **path analysis** as a first‑class capability in FlowTime: answering end‑to‑end journey questions across one or more routes in the DAG, over time, using FlowTime’s per‑bin node and edge artifacts.
+
+      Path analysis is built on EdgeTimeBin, Classes‑as‑Flows, and the stable post-E-16 fact surfaces exposed by the server. It is consumed by both the UI and MCP server. It is not a replacement for edge overlays; it is a higher‑order analysis layer.
+
+      ---
+
+      ## 2. Motivation
+
+      Edge time bins enable truth‑based edge overlays and conservation checks, but they do not answer questions like:
+
+      - “For the **Order** flow, what was the dominant end‑to‑end path from `Orders.Create → Billing.Settle` at 10:00–14:00, and where did it bottleneck?”
+      - “What fraction of volume went via path A vs path B during a surge window?”
+      - “Which path contributed most to backlog‑hours and SLA misses?”
+      - “If we reroute 15% around `Auth.Validate`, what happens to end‑to‑end latency on the Order journey?”
+
+      Path analysis introduces formal query semantics and derived outputs so these questions are answerable in a consistent, explainable way.
+
+      ---
+
+      ## 3. Definitions
+
+      ### 3.1 Path
+
+      A **path** is a sequence of nodes/edges in the DAG. Path queries can be:
+
+      - **Explicit**: caller supplies a sequence of edges or nodes.
+      - **Set‑based**: “all paths from A to B,” optionally constrained (e.g., must pass through X).
+      - **Policy‑based**: “top K paths by volume” within a window.
+
+      ### 3.2 Path Filters vs Path Analysis
+
+      - **Path Filters** are *subgraph extraction*: return only the nodes/edges that participate in a selected path or set of paths.
+      - **Path Analysis** includes *metrics and attribution* (dominant paths, bottlenecks, path pain, latency estimates).
+
+      Path filters are a subset of path analysis but still require defined semantics (thresholds, class handling, missing edge data behavior).
+
+      ---
+
+      ## 4. Scope
+
+      ### In Scope
+
+      - **Path query object** definition for explicit, set‑based, and policy‑based paths.
+      - **Derived path metrics** that are honest and explainable using existing per‑bin artifacts.
+      - **Subgraph responses** suitable for UI overlays and MCP consumption.
+      - **Provenance metadata** for derived path metrics (origin/aggregation).
+
+      ### Out of Scope (v1)
+
+      - Full process‑mining algorithms or conformance checking.
+      - Probabilistic end‑to‑end latency distributions.
+      - Cross‑run path inference at scale.
+
+      ---
+
+      ## 5. Path Metrics (v1)
+
+      These metrics are designed to be **derived without pretending**:
+
+      ### A. Volume Split
+
+      - Per‑path volume can be computed using edge time bins.
+      - For explicit paths, **path flow** can be approximated by the tightest edge (min‑cut) or by the entry edge, with explicit provenance.
+
+      ### B. Bottleneck Attribution
+
+      Per bin, define a binding score for each node in the path:
+
+      - `binding = 1(Q[t-1] > 0)` OR `utilization[t] ≈ 1`
+      - or `shortfall = max(0, arrivals[t] - capacity[t])`
+
+      Path bottleneck per bin = argmax(binding/shortfall) among nodes on the path.
+
+      ### C. Path “Pain”
+
+      Sum backlog‑hours along the path:
+
+      ```
+      pathPain = Σ_nodes Σ_t Q_node[t] * Δt
+      ```
+
+      This is interpretable and ties directly to incident analysis.
+
+      ### D. End‑to‑End Latency Estimate (v1)
+
+      A pragmatic latency estimate per bin:
+
+      ```
+      W_path[t] ≈ Σ_i W_i[t]
+      W_i[t] ≈ Q_i[t] / max(ε, served_i[t]) * bin_minutes
+      ```
+
+      This is directional and explainable. v2+ can introduce delay kernels / convolution across edges.
+
+      ---
+
+      ## 6. API & Data Contracts
+
+      Path analysis requires a **server‑side contract** so clients don’t compute their own semantics:
+
+      - Path query input (`from`, `to`, `classId`, constraints, window).
+      - Path analysis output (path list, metrics, subgraph).
+      - Clear provenance metadata for derived metrics.
+
+      This should be exposed as a **dedicated analysis endpoint** (preferred), not overloaded onto `/state_window`.
+
+      ---
+
+      ## 7. UI Integration
+
+      Path analysis enables a distinctive UI mode:
+
+      - Highlight chosen path(s).
+      - Edge width = flow.
+      - Node color = bottleneck score / SLA risk.
+      - Scrubber shows dominant path changes over time.
+
+      ---
+
+      ## 8. MCP Integration
+
+      MCP should consume **server‑provided path outputs** (authoritative), not compute path metrics itself.
+
+      ---
+
+      ## 9. Dependencies
+
+      - Stable post-E-16 server-provided state/graph facts and contracts
+      - EdgeTimeBin (edge series + quality + warnings)
+      - Classes as Flows (per-class edge series)
+      - Derived sink/path latency (v1 signal for end-to-end latency)
+      - Resumed Phase 3 p3c + p3b for richer diagnostics and what-if path work
+
+      ---
+
+      ## 10. Roadmap / Milestones (TBD)
+
+      This epic will be broken into milestones once the query contract and minimal metrics are approved.
+
+      Suggested phases:
+      1. Path query contract + subgraph responses on stable post-E-16 fact surfaces.
+      2. Volume split + bottleneck attribution (v1) once edge facts are authoritative.
+      3. Path pain + latency estimate (v1), then richer comparison/what-if path work after p3c + p3b.
+      4. UI + MCP integration; overlay-aware comparisons can layer on later.
+
+      ---
+
+      ## 11. Open Questions
+
+      - How should path volume be defined (min‑cut vs entry edge vs explicit normalization)?
+      - How to handle missing edge data or approximate edge quality?
+      - Where should path outputs be stored (derived on demand vs persisted in run artifacts)?
+      - What is the minimal API footprint that still enables UI/MCP consumption?
+  - kind: epic
+    id: E-14
+    frontmatter:
+      title: Visualizations (Chart Gallery / Demo Lab)
+      status: cancelled
+    body: |
+      This spec is retained as historical planning context only. Live ownership for analytical visualization work now sits with the UI Analytical Views epic.
+
+      ## Intent
+
+      Provide a dedicated UI page where we can prototype role-focused charts (exec, SRE, support) using FlowTime-derived metrics, and clearly show which insights come from FlowTime output versus raw telemetry.
+
+      ## Goals
+
+      - Create a single "Visualization Lab" page with chart panels grouped by role.
+      - Support horizon/stacked charts for volume, queue depth, SLA, latency, retry volume, and utilization.
+      - Use bespoke SVG or canvas charts (no charting library dependencies) for full control.
+      - Allow quick toggles for flow/class selection and time window.
+      - Contrast FlowTime-derived views with raw telemetry views where available.
+      - Keep chart definitions and data wiring deterministic and repeatable for demos.
+      - Keep charting code isolated from other UI modules and fed only by API output (to validate the engine semantics surface).
+
+      ## Non-Goals
+
+      - No new analytics pipeline; reuse existing engine and API outputs.
+      - No third-party charting library dependencies.
+
+      ## Data Sources
+
+      - `/state_window` for per-bin node and edge metrics.
+      - Edge metrics for flow/attempt/retry volumes.
+      - Warnings/quality flags for contextual overlays.
+      - Raw telemetry comparisons only after Telemetry Ingestion is available.
+
+      ## UI Concept (v1)
+
+      - Role tabs (Exec, SRE, Support) each with curated chart bundles.
+      - A simple control strip: window, flow/class, metric set.
+      - Chart cards with consistent titles, units, and provenance text.
+
+      ## Milestones
+
+      - To be defined when the epic is scheduled.
+  - kind: epic
+    id: E-15
+    frontmatter:
+      title: Telemetry Ingestion, Topology Inference, and Canonical Bundles
+      status: proposed
+    body: |
+      > **Status note:** capture is shipped; ingestion pipeline is not
+
+      ## Goal
+
+      Build the pipeline that takes real-world data — event logs, traces, sensor feeds — and produces the two things FlowTime needs: a `/graph` topology and Gold-format time-binned series. This epic owns ingestion, topology inference, validation, and bundle assembly.
+
+      ## Context
+
+      FlowTime currently assumes topology is hand-built and telemetry fills series for known nodes. This works for synthetic models but blocks two capabilities:
+
+      1. **Domain-agnostic adoption** — FlowTime should work for any process with entities flowing through a system: IT microservices, business workflows, transit networks, logistics.
+      2. **Validation against real data** — Synthetic models validate correctness but not usefulness. Real data proves FlowTime's analytical primitives produce answers that matter.
+
+      The March 2026 dataset fitness research (`work/epics/E-15-telemetry-ingestion/reference/dataset-fitness-and-ingestion-research.md`) identifies process mining event logs, distributed systems traces, and physical network telemetry as candidate validation datasets.
+
+      ## Scope
+
+      ### In Scope
+
+      **Gold Builder (raw data → binned facts)**
+      - Bronze → Silver → Gold pipeline: raw payloads → normalized events → binned facts per node per time window
+      - Mapping rules from raw telemetry to canonical node series
+      - Manifest generation and data quality warnings
+      - Class coverage metadata and gap-fill policy
+      - Support for multiple source types: event logs, time-series, OD pairs, API feeds
+
+      **Graph Builder (data → topology)**
+      - Topology inference from case traces (directly-follows graph)
+      - Topology inference from origin-destination pairs
+      - Topology join with external structure sources (GTFS, OSM, service registries)
+      - Edge confidence scoring and provenance metadata
+      - Human curation: accept/reject edges, pin known edges, merge/split nodes, annotate node kinds
+
+      **Bundle Assembly**
+      - Deterministic bundle generation (same inputs → same hashes)
+      - Schema validation against published schemas
+      - Canonical bundle format: `model.yaml`, `manifest.json`, `series/`, CSV files
+
+      **Validation Dataset Integration**
+      - Process mining event log ingestion (BPI Challenge format)
+      - At least one non-IT dataset path (transit, traffic, or logistics)
+
+      ### Out of Scope
+      - Engine semantic derivations (utilization, latency, retry governance) — owned by engine
+      - Overlay scenarios and derived runs — owned by overlays epic
+      - UI workflows beyond topology rendering and basic data availability signals
+      - Real-time / streaming ingestion (batch-first)
+
+      ## Current State (2026-03)
+
+      - **Capture exists**: API `/telemetry/captures` and CLI `flowtime telemetry capture` can generate telemetry bundles from existing runs.
+      - **Bundle contract exists**: `docs/schemas/telemetry-manifest.schema.json` defines the canonical manifest.
+      - **Gold schema defined**: Per node, per time bin: timestamp, node, flow, arrivals, served, errors, optional queue_depth/capacity_proxy.
+      - **TelemetryLoader service** (ADX/KQL or lake ingestion) is not implemented.
+      - **Graph Builder** does not exist.
+      - **No external dataset has been ingested** into FlowTime yet.
+
+      ## Design Principles
+
+      - **Deterministic outputs**: same inputs yield same bundle hashes.
+      - **Schema-first**: ingestion must validate against published schemas.
+      - **No semantics**: ingestion is responsible for aggregation and alignment, not derived metrics (bottleneck ID, cycle time, etc. are engine-side).
+      - **Topology as artifact with provenance**: inferred edges carry confidence scores; the graph is versioned and curable, not a fixed truth.
+      - **Honest about gaps**: missing data, low-confidence edges, and inferred values are explicitly surfaced as warnings — never silently hidden.
+
+      ## Recommended Sequencing
+
+      - Build Gold Builder plus one replayable dataset path first; this epic should not wait on later UI or optimization work.
+      - Follow the first dataset path immediately with Telemetry Loop & Parity so synthetic-vs-replay drift is measured before fitting, optimization, or anomaly automation.
+      - Treat resumed Phase 3 primitives as leverage layers that make ingested data more valuable, not as prerequisites for canonical bundle generation.
+
+      ## Canonical Bundle Contract
+
+      Bundles consist of:
+      - `model.yaml`
+      - `manifest.json` (window, grid, files, warnings)
+      - `series/index.json`
+      - CSV series files
+
+      Ingestion rules ensure:
+      - Stable series naming and units
+      - Consistent bin alignment and gap handling
+      - Explicit warnings for missing or low-quality data
+
+      ## Dependencies
+
+      - **Canonical telemetry contracts and post-E-16 fact surfaces**: ingestion outputs must align with stable series semantics and authoritative graph/category facts.
+      - **Phase 3 analytical primitives** (in progress): bottleneck ID, cycle time, WIP limits — these make ingested data interesting rather than just displayable, but are not required to produce canonical bundles.
+      - **dag-map spike**: informs how inferred topologies render in the UI.
+
+      ## Suggested Milestone Decomposition
+
+      ### M1: Gold Builder v1
+      - Ingest a single process mining event log (BPI Challenge 2012) into Gold format
+      - Bronze → Silver → Gold pipeline for event log sources
+      - Bin alignment, gap handling, data quality warnings
+      - Output: canonical bundle that FlowTime engine can consume
+
+      ### M2: Graph Builder v1
+      - Infer topology from directly-follows relations in event log traces
+      - Output `/graph` with nodes, edges, confidence scores
+      - Human curation hooks (accept/reject/pin)
+      - First end-to-end demo: real dataset → topology + Gold → UI renders graph
+
+      ### M3: External topology join
+      - Join telemetry with external structure source (GTFS, OSM, or service registry)
+      - Support OD-pair and physical-adjacency topology construction
+      - Second dataset path (transit or traffic)
+
+      ### M4: Data quality and operational tooling
+      - Gap detection, zero-fill policies, class coverage metadata
+      - CLI/SDK wrappers for ingestion
+      - Ingestion diagnostics and provenance
+
+      ### M5: TelemetryLoader service
+      - Service endpoint for batch ingestion from data lake / ADX / parquet sources
+      - Production-grade validation and bundle assembly
+
+      ## Validation Datasets (Identified)
+
+      | Dataset | Domain | Why | Milestone |
+      |---------|--------|-----|-----------|
+      | BPI Challenge 2012 | Loan applications | Topology from traces, 13K cases, rework loops | M1, M2 |
+      | Road Traffic Fines | Municipal process | 150K cases, very high volume, clear bottlenecks | M1, M2 |
+      | PeMS + OpenStreetMap | Road traffic | Physical network, massive vehicle volume | M3 |
+      | MTA Ridership + GTFS | Transit passengers | Passengers as entities, incidents, schedule backbone | M3 |
+      | Alibaba Cluster Trace 2018 | Microservices | IT validation, millions of requests, trace-based topology | Future |
+
+      See `work/epics/E-15-telemetry-ingestion/reference/dataset-fitness-and-ingestion-research.md` for the full evaluation and dataset fitness checklist.
+
+      ## References
+
+      - `work/epics/E-15-telemetry-ingestion/reference/dataset-fitness-and-ingestion-research.md` — Dataset fitness research
+      - `work/epics/completed/time-travel/telemetry-generation-explicit.md` — Existing telemetry capture
+      - `docs/reference/engine-capabilities.md` — Engine capabilities
+      - `docs/schemas/telemetry-manifest.schema.json` — Bundle manifest schema
+      - `work/epics/E-10-engine-correctness-and-analytics/spec.md` — Phase 3 analytical primitives (dependency)
+  - kind: epic
+    id: E-22
+    frontmatter:
+      title: Time Machine — Model Fit & Chunked Evaluation
+      status: proposed
+    body: |
+      ## Goal
+
+      Close out the remaining Time Machine analysis modes — **model fitting** against real telemetry and **chunked evaluation** for feedback simulation — and crystallize the resulting surface as a clean embeddable **`FlowTime.Pipeline` SDK**. These are the last two analysis modes in the E-18 Time Machine architecture; delivering them completes the "FlowTime as a callable function" arc.
+
+      ## Context
+
+      E-18 delivered 11 milestones covering parameterized evaluation, engine session protocol, tiered validation, parameter sweep, sensitivity, goal seek, N-parameter optimization, `SessionModelEvaluator`, and the .NET Time Machine CLI. All are on `main`. The analysis layer works end-to-end for synthetic runs.
+
+      Two scope items remained in E-18 and are explicitly carried into E-22:
+
+      - **Model Fit** (`FitSpec`/`FitRunner`/`POST /v1/fit`) — composes `ITelemetrySource` + `Optimizer` with residual as the objective. Infrastructure exists; the composition is the new work. **Blocked on** E-15 Telemetry Ingestion (first repeatable dataset path) and the Telemetry Loop & Parity epic (validated drift bounds — fitting against real telemetry without measured drift would produce falsely precise results).
+
+      - **Chunked Evaluation** (Mode 6) — bin-chunk evaluation for feedback simulation with external controllers. The Rust engine session (m-E18-02) is the seam, but the chunk-step protocol on top of it is not designed.
+
+      A third scope item was decided (2026-04-20) to land alongside Fit and Chunked so the completed surface is exposed as a clean embeddable API:
+
+      - **`FlowTime.Pipeline` SDK wrapper** — thin project exposing `Sweep`, `Sensitivity`, `GoalSeek`, `Optimize`, `Fit`, `ChunkedEvaluate` as a programmatic embedding surface over the Time Machine internals. Callers today reach into `FlowTime.TimeMachine.Sweep.*` directly; the SDK crystallizes the external contract.
+
+      E-22 is sequenced per D-2026-04-15-032 (Option A): `E-21 (active) → E-15 Telemetry Ingestion → Telemetry Loop & Parity → E-22`.
+
+      ### Supersedes
+
+      Closes out E-18 placeholder `m-E18-XX Model Fit` and `m-E18-05 Chunked Evaluation`. E-18 itself remains the archived parent epic (11 delivered milestones recorded there as "complete"); E-22 is the forward-looking epic that completes its scope.
+
+      ### Related
+
+      - **E-15 Telemetry Ingestion** (`work/epics/E-15-telemetry-ingestion/`) — hard prerequisite for Fit. Provides the first repeatable dataset path and replayable canonical bundle via Gold Builder → Graph Builder.
+      - **Telemetry Loop & Parity** (`work/epics/unplanned/telemetry-loop-parity/spec.md`) — hard prerequisite for Fit. Provides measured drift bounds between synthetic and replayed runs; without those bounds, fit quality cannot be meaningfully reported. Currently unnumbered; will take its own epic slot when scheduled.
+      - **E-21 Svelte Workbench & Analysis Surfaces** — builds UI for fit results once Fit's API contract is stable. Not in E-22 scope; E-21 milestone allocation is independent.
+
+      ## Scope
+
+      ### In Scope
+
+      - `FitSpec` + `FitRunner` + `POST /v1/fit` composing `ITelemetrySource` + `Optimizer` with residual objective (RMSE / MAE / configurable) against a user-selected series
+      - `flowtime fit` .NET CLI command, pipeable JSON-in/JSON-out, byte-compatible with `POST /v1/fit`
+      - Chunked evaluation protocol: stateful `chunk_step` session command on the Rust engine that advances a compiled plan by N bins, yielding partial results
+      - `ChunkSpec` + `ChunkRunner` + `POST /v1/chunked-eval` (final name TBD) driving the chunk-step protocol from .NET with external-controller integration
+      - `flowtime chunked-eval` .NET CLI command matching the API contract
+      - `FlowTime.Pipeline` project — thin embeddable SDK exposing `Sweep`, `Sensitivity`, `GoalSeek`, `Optimize`, `Fit`, `ChunkedEvaluate` as a clean programmatic API over the Time Machine internals; surfaces no HTTP, no CLI parsing, no artifact layout
+      - Migration of existing internal callers (the API endpoints, the .NET CLI commands) to the `FlowTime.Pipeline` SDK so the SDK is dogfooded from day one
+      - Test coverage matching E-18 standard: 100% branch coverage on pure runners; integration tests for Rust chunk-step protocol; API contract tests for `/v1/fit` and `/v1/chunked-eval`
+      - Documentation: `docs/architecture/time-machine-analysis-modes.md` extended with Fit and Chunked sections; `FlowTime.Pipeline` SDK embedding guide
+
+      ### Out of Scope
+
+      - **Optimization constraints** (`--constraint "max(node.queue.utilization) < 0.8"`) — tracked in `work/gaps.md`; candidate for a later analysis-layer patch against `OptimizeSpec`/`GoalSeekSpec`/`FitSpec`
+      - **Monte Carlo** (Mode 5) — sampling parameters from distributions, characterizing output distribution. Lower priority than Fit; tracked in gaps
+      - **`FlowTime.Telemetry.*` direct-source adapters** (Prometheus, OpenTelemetry, BPI event logs) — E-15 Gold Builder covers the general batch path; adapters are narrower shortcuts to build only when a concrete client asks
+      - **Tiered validation parity across Sim UI / Blazor UI / Svelte UI / MCP / external agents** — validation surface work; closer to E-21 m-E21-06 (Validation Surface) and future Blazor maintenance
+      - **Canonical bundle round-trip parity AC** (E-18 unchecked AC: capture baseline → replay bundle = same outputs modulo drift) — owned by Telemetry Loop & Parity, not E-22
+      - **Fit-result UI** — lands in E-21 (or a later Svelte milestone) once Fit's API is stable; E-22 delivers only the contract
+      - **Fitting algorithms beyond the existing optimizer** — Fit uses the existing Nelder-Mead `Optimizer` with a residual objective. Gradient-based or Bayesian fitters are future work
+      - **Time grid alignment across heterogeneous sources** — assumes E-15 Gold Builder presents series on a common grid; grid alignment belongs to E-15
+      - **Streaming / push UI for chunked evaluation** — chunked delivers a pull contract (caller drives chunk_step); WebSocket push for live simulation is a separate E-17-style track
+
+      ## Constraints
+
+      - Builds on the existing Rust engine session protocol (m-E18-02). No changes to the MessagePack framing; `chunk_step` is a new command alongside `compile`, `eval`, `patch`, `get_params`, `get_series`, `validate_schema`
+      - `FlowTime.Pipeline` is a pure SDK: no HTTP server, no CLI parsing, no artifact writing. It may compose services from other projects but its public API is in-process method calls returning strongly-typed results
+      - Fit against real telemetry is gated by the Telemetry Loop & Parity harness reporting drift within documented tolerance. A failing parity harness blocks Fit acceptance — reported fit residuals without parity validation are not trustworthy
+      - Byte-for-byte API ↔ CLI parity per the E-18 CLI convention: `flowtime fit < request.json` produces the same JSON as `POST /v1/fit`
+      - .NET 9 / C# 13; invariant culture; camelCase JSON payloads (project-rule: `project.md:43`)
+      - No reintroduction of the deprecated `FlowTime.Generator` project (D-2026-04-07-019 Path B remains authoritative)
+
+      ## Success Criteria
+
+      - [ ] `POST /v1/fit` accepts `(model YAML, telemetry source spec, target series, parameter overrides to fit, residual metric)` and returns a fitted parameter set plus fit quality (residual, iterations, convergence flag)
+      - [ ] `flowtime fit` CLI command produces byte-identical output to `POST /v1/fit` for equivalent inputs
+      - [ ] Fit results against a parity-validated telemetry fixture produce residuals within documented tolerance; the tolerance bound is set by the Telemetry Loop & Parity harness output
+      - [ ] Rust engine session responds to `chunk_step { bins: N }` command by advancing the compiled plan N bins and returning partial series; state persists across calls within a session
+      - [ ] `POST /v1/chunked-eval` drives the chunk-step protocol from .NET, exposing either a polling pull or a request/response-per-chunk model (choice is a design task for the milestone)
+      - [ ] External controller integration demonstration: a fixture controller consumes chunk outputs, writes back parameter patches, and the next chunk reflects the patch — end-to-end test, not just unit coverage
+      - [ ] `FlowTime.Pipeline` project compiles as a standalone library; its public API exposes `Sweep`, `Sensitivity`, `GoalSeek`, `Optimize`, `Fit`, `ChunkedEvaluate` as strongly-typed methods
+      - [ ] All `/v1/*` API endpoints added by E-18 are rewritten to call through `FlowTime.Pipeline` rather than `FlowTime.TimeMachine.*` internals directly; the SDK is dogfooded from day one
+      - [ ] All Time Machine CLI commands (`flowtime validate/sweep/sensitivity/goal-seek/optimize/fit/chunked-eval`) are rewritten to call through `FlowTime.Pipeline`
+      - [ ] 100% branch coverage on new pure runners (`FitRunner`, `ChunkRunner`); integration tests cover the Rust chunk-step protocol; API contract tests cover `/v1/fit` and `/v1/chunked-eval`
+      - [ ] `docs/architecture/time-machine-analysis-modes.md` updated with Fit and Chunked Evaluation sections reflecting the shipped behavior
+      - [ ] `FlowTime.Pipeline` embedding guide documents a concrete use case (e.g., hosted in a notebook, in an Azure Function, in a script) with a complete working example
+      - [ ] On epic completion, E-18's `m-E18-05 Chunked Evaluation` and `m-E18-XX Model Fit` placeholder rows are struck through; E-18 epic status flips to `complete` and the epic is archived under `work/epics/completed/`
+
+      ## Risks & Open Questions
+
+      | Risk / Question | Impact | Mitigation |
+      |-----------------|--------|------------|
+      | Telemetry Loop & Parity epic has not been scheduled; without it Fit cannot be meaningfully validated | **Hard block** | Telemetry Loop & Parity must be scheduled and completed before Fit AC can be closed. E-22 does not start Fit until TLP ships |
+      | E-15 first-dataset-path timeline is uncertain | High | E-15 is on the critical path per Option A. E-22 planning proceeds; E-22 implementation is gated on E-15 delivering at least one end-to-end canonical bundle dataset |
+      | Chunked evaluation semantics for stateful nodes (e.g., queues carrying over bin boundaries) need design; the current `IStatefulNode` stubs may not suffice | Medium | First milestone of chunked scope is a design spike: document chunk-boundary state-transfer semantics before implementation |
+      | Residual metric choice (RMSE vs. MAE vs. weighted) may not generalize across queueing topologies | Medium | Start with RMSE as default; make the residual a configurable strategy in `FitSpec`; document tradeoffs |
+      | `FlowTime.Pipeline` SDK surface may be over-scoped if designed before external embedders give feedback | Medium | Keep the SDK minimal: expose only the methods that existing API/CLI callers need. Defer Monte Carlo, direct-source adapters, and any speculative surface |
+      | Rust `chunk_step` may reveal gaps in the stateful execution seam that require refactoring inside the engine core, not just protocol work | Medium | Scope a Rust-side design spike first; if the seam needs reshaping, split into a foundation milestone before the .NET chunk runner |
+      | Pipeline SDK rewrite of existing API/CLI callers may introduce regressions | Medium | Dogfood migration is done one endpoint at a time with full existing test coverage asserting behavior identity before and after |
+
+      ## Milestones
+
+      Sequencing: Fit first (unblocks the largest downstream set — E-15 dataset path leads directly into fit validation). Chunked second (independent Rust protocol work; runs after Fit only to avoid Rust-engine contention on a single milestone branch). Pipeline SDK third so it crystallizes against the final surface including Fit and Chunked.
+
+      | ID | Title | Status | Depends on |
+      |----|-------|--------|-----------|
+      | m-E22-01-model-fit | Model Fit | not started | E-15 first dataset path complete; Telemetry Loop & Parity harness validated |
+      | m-E22-02-chunked-evaluation | Chunked Evaluation | not started | m-E22-01 (sequencing only; no hard code dependency); m-E18-02 session protocol (already delivered) |
+      | m-E22-03-pipeline-sdk | `FlowTime.Pipeline` SDK Wrapper | not started | m-E22-01 + m-E22-02 complete (SDK reflects the final surface) |
+
+      ## ADRs
+
+      - (none yet — ADRs will be captured under `work/decisions.md` as they arise during milestone planning)
+
+      ## References
+
+      - E-18 epic spec: `work/epics/E-18-headless-pipeline-and-optimization/spec.md`
+      - E-18 gap analysis: `work/epics/E-18-headless-pipeline-and-optimization/e18-gap-analysis.md`
+      - Analysis modes architecture: `docs/architecture/time-machine-analysis-modes.md`
+      - Telemetry Loop & Parity: `work/epics/unplanned/telemetry-loop-parity/spec.md`
+      - E-15 Telemetry Ingestion: `work/epics/E-15-telemetry-ingestion/`
+      - Option A delivery sequence: `work/decisions.md` → D-2026-04-15-032
+      - Headless engine architecture: `docs/architecture/headless-engine-architecture.md`
