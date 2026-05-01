@@ -33,6 +33,70 @@ namespace FlowTime.Integration.Tests;
 public class TemplateWarningSurveyTests
 {
     private const string EngineBaseUrl = "http://localhost:8081";
+
+    /// <summary>
+    /// Per-template baseline of expected live-API <c>run-warn</c> counts (Phase 2). Any
+    /// template not listed here defaults to <c>0</c> (strict). The Phase 2 assertion
+    /// fails the build when a template's actual run-warning count diverges from its
+    /// baseline — both upward (regression) and downward (sanctioned change requires a
+    /// baseline update commit, surfaced in PR review).
+    ///
+    /// <para>
+    /// The baseline gate is the quick-win delta canary filed in <c>work/gaps.md</c> after
+    /// the m-E21-08 transportation-basic regression: previously the canary asserted
+    /// <c>val-err == 0</c> only, so a zero-to-three jump in <c>edge_flow_mismatch_incoming</c>
+    /// warnings on a previously-clean template slipped through silently. This gate would
+    /// have caught it.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Known non-zero baselines</b> document accepted-for-now drift. The
+    /// <c>edge_flow_mismatch_incoming</c> family (and its <c>_outgoing</c> sibling) is
+    /// the m-E21-08 dogfooding finding: the engine started emitting per-edge
+    /// <c>flowVolume</c> series in the E-24 timeframe; the analyser's conservation check
+    /// then began detecting real divergences between expr-layer arrivals and edge-layer
+    /// flow volumes that were silently skipped pre-E-24. The fix is template- or engine-
+    /// side and requires a design decision about which authority wins (expr nodes vs
+    /// topology edge weights). Cross-reference: <c>work/gaps.md</c> §
+    /// transportation-basic regressed. Lowering any of these without resolving the
+    /// underlying question is permitted but should land in a commit that explains why.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Counting note:</b> <c>runWarn</c> is the sum of warnings reported on
+    /// <c>/v1/runs/{id}</c> (run-detail) and <c>/v1/runs/{id}/state_window</c>
+    /// (full-window scan). Items can appear on both surfaces. The number is a
+    /// conservative drift signal, not a precise per-warning census.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Updating the baseline:</b> when a deliberate engine or template change shifts
+    /// the run-warning count for a template, edit this dictionary in the same commit. A
+    /// reviewer sees the change. A drift commit that didn't update the baseline fails
+    /// the build with a clear before/after diff.
+    /// </para>
+    /// </summary>
+    private static readonly Dictionary<string, int> ExpectedRunWarnings = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Captured 2026-05-01 against current main as part of the patch/edge-flow-mismatch
+        // investigation. All non-zero entries trace back to the analyser's edge-flow
+        // conservation check (`edge_flow_mismatch_incoming` / `_outgoing`) finding real
+        // divergences in templates that encode splits via expr nodes but leave topology
+        // edge weights at 1. See xmldoc above + work/gaps.md.
+        ["it-system-microservices"] = 1,
+        ["manufacturing-line"] = 1,
+        ["network-reliability"] = 1,
+        ["supply-chain-incident-retry"] = 1,
+        ["supply-chain-multi-tier"] = 2,
+        ["supply-chain-multi-tier-classes"] = 2,
+        ["transportation-basic"] = 1,
+        ["transportation-basic-classes"] = 8,
+        ["warehouse-picker-waves"] = 1,
+        // All other templates default to 0; add an explicit entry only when a deliberate
+        // change shifts a template's expected run-warn count above zero with a recorded
+        // rationale.
+    };
+
     private readonly ITestOutputHelper output;
 
     public TemplateWarningSurveyTests(ITestOutputHelper output) => this.output = output;
@@ -185,6 +249,7 @@ public class TemplateWarningSurveyTests
 
         int totalRunWarnings = 0;
         int templatesWithRunWarnings = 0;
+        var perTemplateRunWarn = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var row in perTemplate.Where(r => r.renderFailure is null))
         {
@@ -262,12 +327,36 @@ public class TemplateWarningSurveyTests
 
             totalRunWarnings += runWarn;
             if (runWarn > 0) templatesWithRunWarnings++;
+            perTemplateRunWarn[row.templateId] = runWarn;
 
             output.WriteLine(string.Format("{0,-45} {1,10} {2}", row.templateId, runWarn, notes));
         }
 
         output.WriteLine(new string('-', 100));
         output.WriteLine($"Totals: run-warnings={totalRunWarnings} across {templatesWithRunWarnings}/{yamlFiles.Count} templates.");
+
+        // ── Phase 2 hard assertion: per-template run-warn baseline gate. ──
+        // Quick-win delta canary filed after the m-E21-08 transportation-basic regression.
+        // Any template not listed in ExpectedRunWarnings defaults to 0 (strict). Build
+        // fails on either-direction divergence: a regression upward, OR a downward shift
+        // (which means a deliberate fix landed without a baseline update commit).
+        var baselineMismatches = new List<string>();
+        foreach (var (templateId, actual) in perTemplateRunWarn)
+        {
+            var expected = ExpectedRunWarnings.GetValueOrDefault(templateId, 0);
+            if (actual != expected)
+            {
+                baselineMismatches.Add(
+                    $"{templateId} expected={expected} actual={actual}" +
+                    (actual > expected ? " (REGRESSION)" : " (lowered — update baseline?)"));
+            }
+        }
+
+        Assert.True(
+            baselineMismatches.Count == 0,
+            $"Per-template run-warn baseline mismatch: {string.Join(" | ", baselineMismatches)}. " +
+            $"To update the baseline, edit ExpectedRunWarnings in {nameof(TemplateWarningSurveyTests)}.cs " +
+            $"and document the rationale in the dictionary's xmldoc.");
     }
 
     private static async Task<int> TryGetBinCount(HttpClient http, string runId)

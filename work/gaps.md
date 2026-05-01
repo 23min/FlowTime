@@ -994,12 +994,51 @@ Alternative benign reading: the analyser is correctly detecting a real model pro
 
 ### Status
 
-**Open.** Needs Engine-team investigation. Likely outcomes:
-1. Real bug in the unified-model compilation path (queue + routing + lag interplay). Fix is engine-side; templates stay.
-2. Real model issue in `transportation-basic` that was masked pre-E-24 and is correctly surfaced now. Fix is template-side; engine stays.
-3. Tolerance / semantic mismatch in the analyser's conservation check (e.g. lag application boundary). Fix is analyser-side.
+**Diagnosed 2026-05-01 in `patch/edge-flow-mismatch`.** Hypothesis (2) is correct — **a real model issue in `transportation-basic` (and at least 8 sibling templates) that was masked pre-E-24 and is now correctly surfaced.** The fix is template- or engine-side and requires a design decision on which authority wins (expr layer vs topology edge weights). Not blocking — gated by the Phase 2 baseline canary added in the same patch.
 
-Discriminating between (1), (2), (3) requires comparing the **compiled DAG** (not the source template) pre-E-24 vs post-E-24 — the spec.yaml diff already shows the model shape diverged; the engine-side compilation surely diverged too.
+**Mechanism, confirmed by reading run artifacts side-by-side:**
+
+- `arrivals_airport[t]` (LineAirport's incoming series) is byte-identical between the clean (pre-E-24, 2026-04-24) and dirty (post-E-24, 2026-04-28) runs at value `2.270` per bin (= `hub_dispatch * splitAirport (0.3)` per the template's expr nodes).
+- `hub_dispatch[t]` (HubQueue's served, the source of all three line-arrivals) is also byte-identical at value `7.567` per bin.
+- The `queue_to_airport` edge declaration is byte-identical (`from: HubQueue:out, to: LineAirport:in, weight: 1`).
+- **The pre-E-24 run has no per-edge `flowVolume` series at all** (48 series files); the post-E-24 run has 11 such files (59 total) including `edge_queue_to_airport_flowVolume` at value `2.522` per bin (= `hub_dispatch / 3`, the engine's weight-uniform apportionment).
+- The analyser's incoming-conservation check (`src/FlowTime.Core/Analysis/InvariantAnalyzer.cs:323-335`) reads `edgeFlowSeries[edgeId]`. Pre-E-24, the series wasn't there → `TrySumEdgeFlows` returned `false` → the check **silently skipped**. Post-E-24, the series is there → the check runs → finds `2.270 != 2.522` → emits `edge_flow_mismatch_incoming`.
+
+**The divergence is real**, not a tolerance artifact. The template uses parameter-driven splits in the expr layer (`splitAirport=0.3`, `splitIndustrial=0.2`, downtown implicit `0.5`) but every queue→line edge has `weight: 1`, so the engine's weight-based edge-flow computation produces uniform 1/3 splits. The conservation invariant `arrivals == sum(incoming_edges_after_lag)` correctly detects the mismatch.
+
+**The "regression" is improved analyser coverage**, not a new bug. Edge `flowVolume` series began being emitted somewhere in the E-23 / E-24 commit chain (the writers `EdgeFlowMaterializer.cs` + `RunArtifactWriter.cs` weren't directly touched in the window — likely a downstream effect of the model-unification changes that gave the materializer the structural information it needed).
+
+### Outstanding design question
+
+Which authority wins for edge flow volumes — **expr nodes** (`arrivals_airport = hub_dispatch * splitAirport`) or **topology edge weights** (`queue_to_airport: weight: 1`)?
+
+Three options:
+
+1. **Edge weights win.** Templates must encode splits in edge weights, not in expr arithmetic. Current templates need editing (8+ templates affected). Pro: edges are the canonical structural language; expr nodes inflating splits manually is redundant. Con: 8+ templates to fix; possibly other modeling patterns to reconsider.
+2. **Expr authority wins.** Engine should not auto-derive edge flow from weights when an expr node already produces the receiver's `arrivals` series. The conservation check would need to skip edges whose target's `arrivals` is computed (not derived). Pro: templates as-is are correct; minimal change. Con: changes the engine's edge-volume semantics for an entire class of models.
+3. **Both surfaces are normative; the template should make them agree.** Templates use parameters in BOTH places (expr splits AND edge weights). The author commits to the redundancy and tooling helps keep them in sync. Pro: single source of truth conceptually. Con: more verbose templates; tooling needed.
+
+This is an Engine architecture call, not something the m-E21-08 patch resolves. The Phase 2 canary baseline locks in current state so future drift is detected; the design call lives in a future engine milestone (likely the same "engine truth gate" or testing-rigor follow-up that will eventually look at golden-output canaries).
+
+**Affected templates (run-warn count under the Phase 2 canary, captured 2026-05-01):**
+
+| Template | run-warn |
+|---|---|
+| `transportation-basic-classes` | 8 |
+| `supply-chain-multi-tier` | 2 |
+| `supply-chain-multi-tier-classes` | 2 |
+| `it-system-microservices` | 1 |
+| `manufacturing-line` | 1 |
+| `network-reliability` | 1 |
+| `supply-chain-incident-retry` | 1 |
+| `transportation-basic` | 1 |
+| `warehouse-picker-waves` | 1 |
+
+The 1.89 / 9.46 / 7.57 worst-case mismatch values originally cited from `data/runs/run_20260428T165413Z_6ed5974e` for `transportation-basic` are still informative as the magnitude signal.
+
+### Quick-win canary added (2026-05-01, `patch/edge-flow-mismatch`)
+
+Phase 2 of `Survey_Templates_For_Warnings` now hard-asserts a per-template `run-warn` baseline against `ExpectedRunWarnings`. Any drift (upward or downward) fails the build with a clear before/after message. The 9 known-non-zero baselines above are encoded with rationale pointing back to this gap entry. Fix the underlying template/engine question and the baselines drop to zero in the same commit; ship a different change that bumps any baseline and the test fails until the dictionary is updated deliberately. **The canary now actively prevents the class of silent drift that produced this finding.**
 
 ### Why the build-time canary did not catch this
 
