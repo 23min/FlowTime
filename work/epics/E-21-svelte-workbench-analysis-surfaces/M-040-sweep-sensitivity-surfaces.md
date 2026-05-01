@@ -5,57 +5,40 @@ status: done
 parent: E-21
 acs:
   - id: AC-1
-    title: '**New `/analysis` route.** SvelteKit page at `ui/src/routes/analysis/+page.svelte`. Accessible from the sidebar
-      under Tools. Compact layout consistent with the workbench paradigm.'
+    title: New /analysis route
     status: met
   - id: AC-2
-    title: '**Run picker.** Dropdown at the top of `/analysis` to select a run. Defaults to the most recent run (same pattern
-      as `/time-travel/topology`). Loading the model YAML for the selected run populates a param list.'
+    title: Run picker
     status: met
   - id: AC-3
-    title: '**Tab bar.** Four tabs: Sweep, Sensitivity, Goal Seek, Optimize. Only Sweep and Sensitivity are wired in this
-      milestone; Goal Seek and Optimize render placeholder "coming in M-041" content. Tab state preserved in `localStorage`
-      or URL query.'
+    title: Tab bar
     status: met
   - id: AC-4
-    title: "**Parameter selector.** Dropdown listing the run's const-node parameters discovered from the model YAML. Each
-      option shows the parameter id and its baseline value. Empty state when no const nodes exist."
+    title: Parameter selector
     status: met
   - id: AC-5
-    title: '**Value range inputs.** Three inputs (from, to, step) compute the sweep values. A text input for "or custom (comma-separated)"
-      supersedes from/to/step when non-empty. A live preview shows the final value list and count; disallow runs > 50 points
-      with an inline warning (soft cap, still runnable).'
+    title: Value range inputs
     status: met
   - id: AC-6
-    title: '**Run sweep and render results.** A "Run sweep" button calls `POST /v1/sweep`. While running, show a spinner.
-      On result, render: - A line chart: x = param value, y = selected output series aggregate (mean per point) — picked via
-      a series selector populated from response keys. - A per-point table: param value column + one column per captured series
-      showing aggregate (mean) with a compact sparkline of that series across bins. - Reasonable handling for errors (API
-      400/503) with inline error messages.'
+    title: Run sweep and render results
     status: met
   - id: AC-7
-    title: '**Captured series filter.** Optional multi-select chip bar listing common series (`arrivals`, `served`, `errors`,
-      `queue`, `utilization`, `flowLatencyMs`). Empty selection = capture all. Sends `captureSeriesIds` in the request.'
+    title: Captured series filter
     status: met
   - id: AC-8
-    title: '**Param multi-select.** Chip-bar of all discovered const params. Clicking toggles selection. Defaults to all selected.'
+    title: Param multi-select
     status: met
   - id: AC-9
-    title: '**Target metric picker + perturbation.** A text input for the target series id (common ones offered as chips:
-      `served`, `queue`, `flowLatencyMs`, `utilization`). A slider for perturbation (default 0.05, range 0.01–0.30).'
+    title: Target metric picker + perturbation
     status: met
   - id: AC-10
-    title: '**Run sensitivity and render results.** A "Run sensitivity" button calls `POST /v1/sensitivity`. On result, render
-      a horizontal bar chart sorted by |gradient| descending, colored by sign (positive/negative), with numeric gradient labels
-      and the base value shown per row. Empty/error states handled.'
+    title: Run sensitivity and render results
     status: met
   - id: AC-11
-    title: '**Vitest coverage for pure logic.** New helpers (param discovery from YAML, sweep value range generator, aggregate/mean
-      computation) have vitest tests with explicit branch coverage including error paths.'
+    title: Vitest coverage for pure logic
     status: met
   - id: AC-12
-    title: '**Playwright coverage.** New spec `svelte-analysis.spec.ts`: page loads, sweep can be configured and run against
-      a real run, sensitivity can be configured and run. Graceful skip when infra is down.'
+    title: Playwright coverage
     status: met
 ---
 
@@ -91,34 +74,45 @@ Response: { "metricSeriesId": "queue.queueTimeMs", "points": [ { "paramId": "cap
 
 ## Acceptance criteria
 
-### AC-1 — **New `/analysis` route.** SvelteKit page at `ui/src/routes/analysis/+page.svelte`. Accessible from the sidebar under Tools. Compact layout consistent with the workbench paradigm.
+### AC-1 — New /analysis route
 
-### AC-2 — **Run picker.** Dropdown at the top of `/analysis` to select a run. Defaults to the most recent run (same pattern as `/time-travel/topology`). Loading the model YAML for the selected run populates a param list.
+**New `/analysis` route.** SvelteKit page at `ui/src/routes/analysis/+page.svelte`. Accessible from the sidebar under Tools. Compact layout consistent with the workbench paradigm.
+### AC-2 — Run picker
 
-### AC-3 — **Tab bar.** Four tabs: Sweep, Sensitivity, Goal Seek, Optimize. Only Sweep and Sensitivity are wired in this milestone; Goal Seek and Optimize render placeholder "coming in M-041" content. Tab state preserved in `localStorage` or URL query.
+**Run picker.** Dropdown at the top of `/analysis` to select a run. Defaults to the most recent run (same pattern as `/time-travel/topology`). Loading the model YAML for the selected run populates a param list.
+### AC-3 — Tab bar
 
-### AC-4 — **Parameter selector.** Dropdown listing the run's const-node parameters discovered from the model YAML. Each option shows the parameter id and its baseline value. Empty state when no const nodes exist.
+**Tab bar.** Four tabs: Sweep, Sensitivity, Goal Seek, Optimize. Only Sweep and Sensitivity are wired in this milestone; Goal Seek and Optimize render placeholder "coming in M-041" content. Tab state preserved in `localStorage` or URL query.
+### AC-4 — Parameter selector
 
-### AC-5 — **Value range inputs.** Three inputs (from, to, step) compute the sweep values. A text input for "or custom (comma-separated)" supersedes from/to/step when non-empty. A live preview shows the final value list and count; disallow runs > 50 points with an inline warning (soft cap, still runnable).
+**Parameter selector.** Dropdown listing the run's const-node parameters discovered from the model YAML. Each option shows the parameter id and its baseline value. Empty state when no const nodes exist.
+### AC-5 — Value range inputs
 
-### AC-6 — **Run sweep and render results.** A "Run sweep" button calls `POST /v1/sweep`. While running, show a spinner. On result, render: - A line chart: x = param value, y = selected output series aggregate (mean per point) — picked via a series selector populated from response keys. - A per-point table: param value column + one column per captured series showing aggregate (mean) with a compact sparkline of that series across bins. - Reasonable handling for errors (API 400/503) with inline error messages.
+**Value range inputs.** Three inputs (from, to, step) compute the sweep values. A text input for "or custom (comma-separated)" supersedes from/to/step when non-empty. A live preview shows the final value list and count; disallow runs > 50 points with an inline warning (soft cap, still runnable).
+### AC-6 — Run sweep and render results
 
 **Run sweep and render results.** A "Run sweep" button calls `POST /v1/sweep`. While running, show a spinner. On result, render:
 - A line chart: x = param value, y = selected output series aggregate (mean per point) — picked via a series selector populated from response keys.
 - A per-point table: param value column + one column per captured series showing aggregate (mean) with a compact sparkline of that series across bins.
 - Reasonable handling for errors (API 400/503) with inline error messages.
+### AC-7 — Captured series filter
 
-### AC-7 — **Captured series filter.** Optional multi-select chip bar listing common series (`arrivals`, `served`, `errors`, `queue`, `utilization`, `flowLatencyMs`). Empty selection = capture all. Sends `captureSeriesIds` in the request.
+**Captured series filter.** Optional multi-select chip bar listing common series (`arrivals`, `served`, `errors`, `queue`, `utilization`, `flowLatencyMs`). Empty selection = capture all. Sends `captureSeriesIds` in the request.
+### AC-8 — Param multi-select
 
-### AC-8 — **Param multi-select.** Chip-bar of all discovered const params. Clicking toggles selection. Defaults to all selected.
+**Param multi-select.** Chip-bar of all discovered const params. Clicking toggles selection. Defaults to all selected.
+### AC-9 — Target metric picker + perturbation
 
-### AC-9 — **Target metric picker + perturbation.** A text input for the target series id (common ones offered as chips: `served`, `queue`, `flowLatencyMs`, `utilization`). A slider for perturbation (default 0.05, range 0.01–0.30).
+**Target metric picker + perturbation.** A text input for the target series id (common ones offered as chips: `served`, `queue`, `flowLatencyMs`, `utilization`). A slider for perturbation (default 0.05, range 0.01–0.30).
+### AC-10 — Run sensitivity and render results
 
-### AC-10 — **Run sensitivity and render results.** A "Run sensitivity" button calls `POST /v1/sensitivity`. On result, render a horizontal bar chart sorted by |gradient| descending, colored by sign (positive/negative), with numeric gradient labels and the base value shown per row. Empty/error states handled.
+**Run sensitivity and render results.** A "Run sensitivity" button calls `POST /v1/sensitivity`. On result, render a horizontal bar chart sorted by |gradient| descending, colored by sign (positive/negative), with numeric gradient labels and the base value shown per row. Empty/error states handled.
+### AC-11 — Vitest coverage for pure logic
 
-### AC-11 — **Vitest coverage for pure logic.** New helpers (param discovery from YAML, sweep value range generator, aggregate/mean computation) have vitest tests with explicit branch coverage including error paths.
+**Vitest coverage for pure logic.** New helpers (param discovery from YAML, sweep value range generator, aggregate/mean computation) have vitest tests with explicit branch coverage including error paths.
+### AC-12 — Playwright coverage
 
-### AC-12 — **Playwright coverage.** New spec `svelte-analysis.spec.ts`: page loads, sweep can be configured and run against a real run, sensitivity can be configured and run. Graceful skip when infra is down.
+**Playwright coverage.** New spec `svelte-analysis.spec.ts`: page loads, sweep can be configured and run against a real run, sensitivity can be configured and run. Graceful skip when infra is down.
 ## Technical Notes
 
 - **YAML parsing in browser**: `js-yaml` is already a transitive dep via other libs, but we should explicitly add it. Alternative: the API could provide a `/v1/runs/{id}/params` endpoint that returns const-node ids + baselines. For this milestone, browser-parse with `js-yaml`; if it proves fragile, promote to a server endpoint in a later milestone.

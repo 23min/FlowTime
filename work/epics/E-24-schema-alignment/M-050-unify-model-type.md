@@ -5,77 +5,46 @@ status: done
 parent: E-24
 acs:
   - id: AC-1
-    title: "**Unified type exists at its ratified home.** The type named in M-049 lives at its ratified namespace and name.
-      A reader who opens `POST /v1/run`'s handler can follow the type reference to a single definition that represents the
-      full post-substitution model."
+    title: Unified type exists at its ratified home
     status: met
   - id: AC-2
-    title: '**`SimModelBuilder` emits the unified type directly.** `SimModelBuilder.Build(...)` returns the unified type (or
-      an immutable value carrying it). No intermediate `SimModelArtifact` instance is constructed as a bridge. The serialization
-      path produces YAML matching the unified schema shape.'
+    title: SimModelBuilder emits the unified type directly
     status: met
   - id: AC-3
-    title: '**Engine intake parses the unified type directly.** Every YAML → runtime model path on the Engine side passes
-      through the unified type before reaching `ModelDefinition`. The canonical path is `ModelService.ParseYaml(yaml) → ModelDto
-      → ModelService.ConvertToModelDefinition(dto) → ModelDefinition → ModelParser.ParseModel(ModelDefinition)`. No Engine-side
-      site deserializes YAML directly into `ModelDefinition` or `SimModelArtifact`. `RunOrchestrationService.cs:627` (and
-      siblings `:813`, `:838`, `:861`) and any other YAML-intake call site operates on `ModelDto`.'
+    title: Engine intake parses the unified type directly
     status: met
   - id: AC-4
-    title: "**`SimModelArtifact` is deleted.** `src/FlowTime.Sim.Core/Templates/SimModelArtifact.cs` is removed from the repo.
-      `grep -rn \"SimModelArtifact\" --include='*.cs'` returns zero hits."
+    title: SimModelArtifact is deleted
     status: met
   - id: AC-5
-    title: "**Satellite Sim-side types are deleted.** `SimNode`, `SimOutput`, `SimProvenance`, `SimTraffic`, `SimArrival`,
-      `SimArrivalPattern` are removed from the repo. Each satellite either merged into the unified type's equivalent (per
-      M-049) or was deleted because it had no consumer. `grep -rn \"SimNode\\b\\|SimOutput\\b\\|SimProvenance\\b\\|SimTraffic\\\
-      b\\|SimArrival\\b\\|SimArrivalPattern\\b\" --include='*.cs'` returns zero hits."
+    title: Satellite Sim-side types are deleted
     status: met
   - id: AC-6
-    title: "**Leaked-state fields dropped from emission.** Per M-049's decisions, `window`, `generator`, top-level `metadata`,
-      and top-level `mode` no longer appear in emitted YAML. Whatever traceability content was meaningful has been moved into
-      `provenance`."
+    title: Leaked-state fields dropped from emission
     status: met
   - id: AC-7
-    title: '**`POST /v1/run` byte-identical success.** For every template in `templates/*.yaml` with default parameters, `POST
-      /v1/run` returns the same response body pre- and post-m-E24-02. The pre-/post-comparison is captured in the tracking
-      doc as explicit evidence (JSON response diff on at least three representative templates: one minimal, one with PMF nodes,
-      one with classes).'
+    title: POST /v1/run byte-identical success
     status: met
   - id: AC-8
-    title: '**`POST /v1/validate` at Analyse.** The canary `TemplateWarningSurveyTests` is run pre- and post-m-E24-02. The
-      non-`ParseScalar` portion of `val-err` (the four top-level leaked-state shapes, the provenance snake_case shapes, the
-      outputs shapes, the empty-classes shape) drops to zero post-m-E24-02. The `ParseScalar` residual (~231 errors) remains
-      until M-052 lands. The tracking doc captures the full residual histogram.'
+    title: POST /v1/validate at Analyse
     status: met
   - id: AC-9
-    title: '**Fixtures and samples regenerated.** Every test fixture, sample bundle, and reference YAML under `tests/` and
-      `docs/samples/` (or equivalent paths) is regenerated under the unified shape in this milestone. No compatibility reader
-      survives. Any fixture that cannot be regenerated is deleted with a tracking-doc note explaining why.'
+    title: Fixtures and samples regenerated
     status: met
   - id: AC-10
-    title: "**`SimModelBuilder` tests updated in place.** Tests in `tests/FlowTime.Sim.Tests` that asserted the presence of
-      `SimModelArtifact` fields (e.g. `window.start`, top-level `metadata`, provenance snake_case keys) are updated to assert
-      against the unified shape or deleted if the test's only purpose was asserting drift."
+    title: SimModelBuilder tests updated in place
     status: met
   - id: AC-11
-    title: '**Engine tests updated in place.** Tests in `tests/FlowTime.Core.Tests`, `tests/FlowTime.Api.Tests`, `tests/FlowTime.TimeMachine.Tests`,
-      and `tests/FlowTime.Integration.Tests` that author `ModelDefinition` instances directly are updated to author the unified
-      type.'
+    title: Engine tests updated in place
     status: met
   - id: AC-12
-    title: '**Forward-only guard.** No compatibility reader for the old two-type YAML shape exists at epic-branch tip after
-      this milestone. Any legacy-shape detection code that appeared during refactor is deleted in the same change.'
+    title: Forward-only guard
     status: met
   - id: AC-13
-    title: '**Full `.NET` test suite green.** `dotnet test FlowTime.sln` passes. No new regressions beyond the known validator
-      residuals (tracked in AC8) which close in M-051 and M-052.'
+    title: Full .NET test suite green
     status: met
   - id: AC-14
-    title: "**Branch coverage complete.** Every reachable branch added or modified in `SimModelBuilder`, the unified type's
-      serializer hooks, and the Engine's parser is exercised by at least one test. Node-kind variants (value / expr / pmf
-      / inflow / outflow), empty-collection cases (no classes, no outputs, no provenance), and optional-field absence (`grid.start`
-      omitted, `nodes[].source` omitted per M-049 decision) each have coverage."
+    title: Branch coverage complete
     status: met
 ---
 
@@ -97,33 +66,48 @@ This milestone implements those decisions. It is the single milestone where code
 
 ## Acceptance criteria
 
-### AC-1 — **Unified type exists at its ratified home.** The type named in M-049 lives at its ratified namespace and name. A reader who opens `POST /v1/run`'s handler can follow the type reference to a single definition that represents the full post-substitution model.
+### AC-1 — Unified type exists at its ratified home
 
-### AC-2 — **`SimModelBuilder` emits the unified type directly.** `SimModelBuilder.Build(...)` returns the unified type (or an immutable value carrying it). No intermediate `SimModelArtifact` instance is constructed as a bridge. The serialization path produces YAML matching the unified schema shape.
+**Unified type exists at its ratified home.** The type named in M-049 lives at its ratified namespace and name. A reader who opens `POST /v1/run`'s handler can follow the type reference to a single definition that represents the full post-substitution model.
+### AC-2 — SimModelBuilder emits the unified type directly
 
-### AC-3 — **Engine intake parses the unified type directly.** Every YAML → runtime model path on the Engine side passes through the unified type before reaching `ModelDefinition`. The canonical path is `ModelService.ParseYaml(yaml) → ModelDto → ModelService.ConvertToModelDefinition(dto) → ModelDefinition → ModelParser.ParseModel(ModelDefinition)`. No Engine-side site deserializes YAML directly into `ModelDefinition` or `SimModelArtifact`. `RunOrchestrationService.cs:627` (and siblings `:813`, `:838`, `:861`) and any other YAML-intake call site operates on `ModelDto`.
+**`SimModelBuilder` emits the unified type directly.** `SimModelBuilder.Build(...)` returns the unified type (or an immutable value carrying it). No intermediate `SimModelArtifact` instance is constructed as a bridge. The serialization path produces YAML matching the unified schema shape.
+### AC-3 — Engine intake parses the unified type directly
 
-### AC-4 — **`SimModelArtifact` is deleted.** `src/FlowTime.Sim.Core/Templates/SimModelArtifact.cs` is removed from the repo. `grep -rn "SimModelArtifact" --include='*.cs'` returns zero hits.
+**Engine intake parses the unified type directly.** Every YAML → runtime model path on the Engine side passes through the unified type before reaching `ModelDefinition`. The canonical path is `ModelService.ParseYaml(yaml) → ModelDto → ModelService.ConvertToModelDefinition(dto) → ModelDefinition → ModelParser.ParseModel(ModelDefinition)`. No Engine-side site deserializes YAML directly into `ModelDefinition` or `SimModelArtifact`. `RunOrchestrationService.cs:627` (and siblings `:813`, `:838`, `:861`) and any other YAML-intake call site operates on `ModelDto`.
+### AC-4 — SimModelArtifact is deleted
 
-### AC-5 — **Satellite Sim-side types are deleted.** `SimNode`, `SimOutput`, `SimProvenance`, `SimTraffic`, `SimArrival`, `SimArrivalPattern` are removed from the repo. Each satellite either merged into the unified type's equivalent (per M-049) or was deleted because it had no consumer. `grep -rn "SimNode\b\|SimOutput\b\|SimProvenance\b\|SimTraffic\b\|SimArrival\b\|SimArrivalPattern\b" --include='*.cs'` returns zero hits.
+**`SimModelArtifact` is deleted.** `src/FlowTime.Sim.Core/Templates/SimModelArtifact.cs` is removed from the repo. `grep -rn "SimModelArtifact" --include='*.cs'` returns zero hits.
+### AC-5 — Satellite Sim-side types are deleted
 
-### AC-6 — **Leaked-state fields dropped from emission.** Per M-049's decisions, `window`, `generator`, top-level `metadata`, and top-level `mode` no longer appear in emitted YAML. Whatever traceability content was meaningful has been moved into `provenance`.
+**Satellite Sim-side types are deleted.** `SimNode`, `SimOutput`, `SimProvenance`, `SimTraffic`, `SimArrival`, `SimArrivalPattern` are removed from the repo. Each satellite either merged into the unified type's equivalent (per M-049) or was deleted because it had no consumer. `grep -rn "SimNode\b\|SimOutput\b\|SimProvenance\b\|SimTraffic\b\|SimArrival\b\|SimArrivalPattern\b" --include='*.cs'` returns zero hits.
+### AC-6 — Leaked-state fields dropped from emission
 
-### AC-7 — **`POST /v1/run` byte-identical success.** For every template in `templates/*.yaml` with default parameters, `POST /v1/run` returns the same response body pre- and post-m-E24-02. The pre-/post-comparison is captured in the tracking doc as explicit evidence (JSON response diff on at least three representative templates: one minimal, one with PMF nodes, one with classes).
+**Leaked-state fields dropped from emission.** Per M-049's decisions, `window`, `generator`, top-level `metadata`, and top-level `mode` no longer appear in emitted YAML. Whatever traceability content was meaningful has been moved into `provenance`.
+### AC-7 — POST /v1/run byte-identical success
 
-### AC-8 — **`POST /v1/validate` at Analyse.** The canary `TemplateWarningSurveyTests` is run pre- and post-m-E24-02. The non-`ParseScalar` portion of `val-err` (the four top-level leaked-state shapes, the provenance snake_case shapes, the outputs shapes, the empty-classes shape) drops to zero post-m-E24-02. The `ParseScalar` residual (~231 errors) remains until M-052 lands. The tracking doc captures the full residual histogram.
+**`POST /v1/run` byte-identical success.** For every template in `templates/*.yaml` with default parameters, `POST /v1/run` returns the same response body pre- and post-m-E24-02. The pre-/post-comparison is captured in the tracking doc as explicit evidence (JSON response diff on at least three representative templates: one minimal, one with PMF nodes, one with classes).
+### AC-8 — POST /v1/validate at Analyse
 
-### AC-9 — **Fixtures and samples regenerated.** Every test fixture, sample bundle, and reference YAML under `tests/` and `docs/samples/` (or equivalent paths) is regenerated under the unified shape in this milestone. No compatibility reader survives. Any fixture that cannot be regenerated is deleted with a tracking-doc note explaining why.
+**`POST /v1/validate` at Analyse.** The canary `TemplateWarningSurveyTests` is run pre- and post-m-E24-02. The non-`ParseScalar` portion of `val-err` (the four top-level leaked-state shapes, the provenance snake_case shapes, the outputs shapes, the empty-classes shape) drops to zero post-m-E24-02. The `ParseScalar` residual (~231 errors) remains until M-052 lands. The tracking doc captures the full residual histogram.
+### AC-9 — Fixtures and samples regenerated
 
-### AC-10 — **`SimModelBuilder` tests updated in place.** Tests in `tests/FlowTime.Sim.Tests` that asserted the presence of `SimModelArtifact` fields (e.g. `window.start`, top-level `metadata`, provenance snake_case keys) are updated to assert against the unified shape or deleted if the test's only purpose was asserting drift.
+**Fixtures and samples regenerated.** Every test fixture, sample bundle, and reference YAML under `tests/` and `docs/samples/` (or equivalent paths) is regenerated under the unified shape in this milestone. No compatibility reader survives. Any fixture that cannot be regenerated is deleted with a tracking-doc note explaining why.
+### AC-10 — SimModelBuilder tests updated in place
 
-### AC-11 — **Engine tests updated in place.** Tests in `tests/FlowTime.Core.Tests`, `tests/FlowTime.Api.Tests`, `tests/FlowTime.TimeMachine.Tests`, and `tests/FlowTime.Integration.Tests` that author `ModelDefinition` instances directly are updated to author the unified type.
+**`SimModelBuilder` tests updated in place.** Tests in `tests/FlowTime.Sim.Tests` that asserted the presence of `SimModelArtifact` fields (e.g. `window.start`, top-level `metadata`, provenance snake_case keys) are updated to assert against the unified shape or deleted if the test's only purpose was asserting drift.
+### AC-11 — Engine tests updated in place
 
-### AC-12 — **Forward-only guard.** No compatibility reader for the old two-type YAML shape exists at epic-branch tip after this milestone. Any legacy-shape detection code that appeared during refactor is deleted in the same change.
+**Engine tests updated in place.** Tests in `tests/FlowTime.Core.Tests`, `tests/FlowTime.Api.Tests`, `tests/FlowTime.TimeMachine.Tests`, and `tests/FlowTime.Integration.Tests` that author `ModelDefinition` instances directly are updated to author the unified type.
+### AC-12 — Forward-only guard
 
-### AC-13 — **Full `.NET` test suite green.** `dotnet test FlowTime.sln` passes. No new regressions beyond the known validator residuals (tracked in AC8) which close in M-051 and M-052.
+**Forward-only guard.** No compatibility reader for the old two-type YAML shape exists at epic-branch tip after this milestone. Any legacy-shape detection code that appeared during refactor is deleted in the same change.
+### AC-13 — Full .NET test suite green
 
-### AC-14 — **Branch coverage complete.** Every reachable branch added or modified in `SimModelBuilder`, the unified type's serializer hooks, and the Engine's parser is exercised by at least one test. Node-kind variants (value / expr / pmf / inflow / outflow), empty-collection cases (no classes, no outputs, no provenance), and optional-field absence (`grid.start` omitted, `nodes[].source` omitted per M-049 decision) each have coverage.
+**Full `.NET` test suite green.** `dotnet test FlowTime.sln` passes. No new regressions beyond the known validator residuals (tracked in AC8) which close in M-051 and M-052.
+### AC-14 — Branch coverage complete
+
+**Branch coverage complete.** Every reachable branch added or modified in `SimModelBuilder`, the unified type's serializer hooks, and the Engine's parser is exercised by at least one test. Node-kind variants (value / expr / pmf / inflow / outflow), empty-collection cases (no classes, no outputs, no provenance), and optional-field absence (`grid.start` omitted, `nodes[].source` omitted per M-049 decision) each have coverage.
 ## Constraints
 
 - **One type, one change.** The unified type exists after this milestone. No transitional phase where both `SimModelArtifact` and the unified type coexist. The delete happens in the same change that introduces the unified type.

@@ -5,40 +5,25 @@ status: done
 parent: E-23
 acs:
   - id: AC-1
-    title: '**File deleted.** `src/FlowTime.Core/Models/ModelValidator.cs` is removed from the repository. `git log -- src/FlowTime.Core/Models/ModelValidator.cs`
-      shows the deletion commit as most recent.'
+    title: File deleted
     status: met
   - id: AC-2
-    title: '**`ValidationResult` retained.** The `ValidationResult` class (currently defined at the bottom of `ModelValidator.cs`,
-      lines 205–214) is moved to its own file `src/FlowTime.Core/Models/ValidationResult.cs` before the delete — it is shared
-      between `ModelSchemaValidator`, `TimeMachineValidator`, and callers. The move is a pure relocation with no API change.'
+    title: ValidationResult retained
     status: met
   - id: AC-3
-    title: '**Zero `ModelValidator` references.** `grep -rn "ModelValidator\\b" --include="*.cs"` returns zero hits across
-      the whole repository except for comments or commit messages that reference it by name historically. No `using` statement,
-      no method call, no type reference.'
+    title: Zero ModelValidator references
     status: met
   - id: AC-4
-    title: '**Full test suite green.** `dotnet test FlowTime.sln` passes. `dotnet build FlowTime.sln` has no warnings about
-      missing types (CS0246) and no warnings about unused usings introduced by the delete.'
+    title: Full test suite green
     status: met
   - id: AC-5
-    title: "**Both canaries still green.** `TemplateWarningSurveyTests.Survey_Templates_For_Warnings` reports `val-err ==
-      0` across all twelve templates at `ValidationTier.Analyse` (E-24 M-053's hard-asserting survey canary), and `RuleCoverageRegressionTests`
-      (M-046's negative-case catalogue) reports green — every rule the audit claimed `ModelSchemaValidator` covers, it still
-      catches after the delete. Both canaries are the final confirmation that nothing depends on `ModelValidator` post-deletion."
+    title: Both canaries still green
     status: met
   - id: AC-6
-    title: '**Smoke verification across surfaces.** Manual smoke-run of: (a) `POST /v1/run` with a representative template
-      via the Engine API, (b) the Engine CLI `dotnet run --project src/FlowTime.Cli` against the same template, (c) `POST
-      /v1/validate` via the Time Machine surface, (d) one Blazor page that renders a validated model (e.g., Dashboard), (e)
-      one Svelte page that validates a model indirectly (e.g., `/analysis` sweep configuration). All five behave identically
-      to pre-delete.'
+    title: Smoke verification across surfaces
     status: met
   - id: AC-7
-    title: '**Epic close.** On merge to `main`, the E-23 epic status flips from `in-progress` to `complete` and the epic folder
-      is archived under `work/epics/completed/E-23-model-validation-consolidation/`. `ROADMAP.md`, `work/epics/epic-roadmap.md`,
-      and `CLAUDE.md` Current Work are updated to reflect completion.'
+    title: Epic close
     status: met
 ---
 
@@ -54,19 +39,27 @@ Per the 2026-04-23 Truth Discipline guard, retaining an unreferenced entry point
 
 ## Acceptance criteria
 
-### AC-1 — **File deleted.** `src/FlowTime.Core/Models/ModelValidator.cs` is removed from the repository. `git log -- src/FlowTime.Core/Models/ModelValidator.cs` shows the deletion commit as most recent.
+### AC-1 — File deleted
 
-### AC-2 — **`ValidationResult` retained.** The `ValidationResult` class (currently defined at the bottom of `ModelValidator.cs`, lines 205–214) is moved to its own file `src/FlowTime.Core/Models/ValidationResult.cs` before the delete — it is shared between `ModelSchemaValidator`, `TimeMachineValidator`, and callers. The move is a pure relocation with no API change.
+**File deleted.** `src/FlowTime.Core/Models/ModelValidator.cs` is removed from the repository. `git log -- src/FlowTime.Core/Models/ModelValidator.cs` shows the deletion commit as most recent.
+### AC-2 — ValidationResult retained
 
-### AC-3 — **Zero `ModelValidator` references.** `grep -rn "ModelValidator\\b" --include="*.cs"` returns zero hits across the whole repository except for comments or commit messages that reference it by name historically. No `using` statement, no method call, no type reference.
+**`ValidationResult` retained.** The `ValidationResult` class (currently defined at the bottom of `ModelValidator.cs`, lines 205–214) is moved to its own file `src/FlowTime.Core/Models/ValidationResult.cs` before the delete — it is shared between `ModelSchemaValidator`, `TimeMachineValidator`, and callers. The move is a pure relocation with no API change.
+### AC-3 — Zero ModelValidator references
 
-### AC-4 — **Full test suite green.** `dotnet test FlowTime.sln` passes. `dotnet build FlowTime.sln` has no warnings about missing types (CS0246) and no warnings about unused usings introduced by the delete.
+**Zero `ModelValidator` references.** `grep -rn "ModelValidator\\b" --include="*.cs"` returns zero hits across the whole repository except for comments or commit messages that reference it by name historically. No `using` statement, no method call, no type reference.
+### AC-4 — Full test suite green
 
-### AC-5 — **Both canaries still green.** `TemplateWarningSurveyTests.Survey_Templates_For_Warnings` reports `val-err == 0` across all twelve templates at `ValidationTier.Analyse` (E-24 M-053's hard-asserting survey canary), and `RuleCoverageRegressionTests` (M-046's negative-case catalogue) reports green — every rule the audit claimed `ModelSchemaValidator` covers, it still catches after the delete. Both canaries are the final confirmation that nothing depends on `ModelValidator` post-deletion.
+**Full test suite green.** `dotnet test FlowTime.sln` passes. `dotnet build FlowTime.sln` has no warnings about missing types (CS0246) and no warnings about unused usings introduced by the delete.
+### AC-5 — Both canaries still green
 
-### AC-6 — **Smoke verification across surfaces.** Manual smoke-run of: (a) `POST /v1/run` with a representative template via the Engine API, (b) the Engine CLI `dotnet run --project src/FlowTime.Cli` against the same template, (c) `POST /v1/validate` via the Time Machine surface, (d) one Blazor page that renders a validated model (e.g., Dashboard), (e) one Svelte page that validates a model indirectly (e.g., `/analysis` sweep configuration). All five behave identically to pre-delete.
+**Both canaries still green.** `TemplateWarningSurveyTests.Survey_Templates_For_Warnings` reports `val-err == 0` across all twelve templates at `ValidationTier.Analyse` (E-24 M-053's hard-asserting survey canary), and `RuleCoverageRegressionTests` (M-046's negative-case catalogue) reports green — every rule the audit claimed `ModelSchemaValidator` covers, it still catches after the delete. Both canaries are the final confirmation that nothing depends on `ModelValidator` post-deletion.
+### AC-6 — Smoke verification across surfaces
 
-### AC-7 — **Epic close.** On merge to `main`, the E-23 epic status flips from `in-progress` to `complete` and the epic folder is archived under `work/epics/completed/E-23-model-validation-consolidation/`. `ROADMAP.md`, `work/epics/epic-roadmap.md`, and `CLAUDE.md` Current Work are updated to reflect completion.
+**Smoke verification across surfaces.** Manual smoke-run of: (a) `POST /v1/run` with a representative template via the Engine API, (b) the Engine CLI `dotnet run --project src/FlowTime.Cli` against the same template, (c) `POST /v1/validate` via the Time Machine surface, (d) one Blazor page that renders a validated model (e.g., Dashboard), (e) one Svelte page that validates a model indirectly (e.g., `/analysis` sweep configuration). All five behave identically to pre-delete.
+### AC-7 — Epic close
+
+**Epic close.** On merge to `main`, the E-23 epic status flips from `in-progress` to `complete` and the epic folder is archived under `work/epics/completed/E-23-model-validation-consolidation/`. `ROADMAP.md`, `work/epics/epic-roadmap.md`, and `CLAUDE.md` Current Work are updated to reflect completion.
 ## Constraints
 
 - No functional change. The only allowed diffs are: (1) delete `ModelValidator.cs`, (2) move `ValidationResult` to its own file, (3) remove any now-unused `using` statements that referenced the deleted type, (4) remove any dedicated `ModelValidator`-only test files that survived M-047.

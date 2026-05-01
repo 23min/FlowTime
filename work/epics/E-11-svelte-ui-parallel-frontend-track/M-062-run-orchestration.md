@@ -5,23 +5,22 @@ status: in_progress
 parent: E-11
 acs:
   - id: AC-1
-    title: Templates render as cards in a responsive grid with title, description, domain icon, and version badge
+    title: Templates render as cards in a responsive grid with title
     status: open
   - id: AC-2
     title: Search input filters cards by name/description in real-time
     status: open
   - id: AC-3
-    title: 'Selecting a card fetches template detail and shows a configuration panel with: bundle reuse mode (Reuse/Regenerate/Fresh),
-      RNG seed input, and collapsible "Advanced Parameters" section'
+    title: Selecting a card fetches template detail and shows a configuration
     status: open
   - id: AC-4
-    title: Can execute a model run and see results (run ID, metadata, warnings, navigation links) when complete
+    title: Can execute a model run and see results (run ID, metadata, warnings
     status: open
   - id: AC-5
     title: Preview/dry-run mode shows the execution plan without creating a run
     status: open
   - id: AC-6
-    title: Loading, error, and empty states handled gracefully (skeletons, error cards, empty message)
+    title: Loading, error, and empty states handled gracefully (skeletons, error
     status: open
   - id: AC-7
     title: No raw JSON parameter field visible by default (hidden in Advanced section)
@@ -38,18 +37,22 @@ M1-M4 delivered the SvelteKit scaffold, API clients, topology rendering with dag
 
 ## Acceptance criteria
 
-### AC-1 — Templates render as cards in a responsive grid with title, description, domain icon, and version badge
+### AC-1 — Templates render as cards in a responsive grid with title
 
+Templates render as cards in a responsive grid with title, description, domain icon, and version badge
 ### AC-2 — Search input filters cards by name/description in real-time
 
-### AC-3 — Selecting a card fetches template detail and shows a configuration panel with: bundle reuse mode (Reuse/Regenerate/Fresh), RNG seed input, and collapsible "Advanced Parameters" section
+### AC-3 — Selecting a card fetches template detail and shows a configuration
 
-### AC-4 — Can execute a model run and see results (run ID, metadata, warnings, navigation links) when complete
+Selecting a card fetches template detail and shows a configuration panel with: bundle reuse mode (Reuse/Regenerate/Fresh), RNG seed input, and collapsible "Advanced Parameters" section
+### AC-4 — Can execute a model run and see results (run ID, metadata, warnings
 
+Can execute a model run and see results (run ID, metadata, warnings, navigation links) when complete
 ### AC-5 — Preview/dry-run mode shows the execution plan without creating a run
 
-### AC-6 — Loading, error, and empty states handled gracefully (skeletons, error cards, empty message)
+### AC-6 — Loading, error, and empty states handled gracefully (skeletons, error
 
+Loading, error, and empty states handled gracefully (skeletons, error cards, empty message)
 ### AC-7 — No raw JSON parameter field visible by default (hidden in Advanced section)
 ## Technical Notes
 

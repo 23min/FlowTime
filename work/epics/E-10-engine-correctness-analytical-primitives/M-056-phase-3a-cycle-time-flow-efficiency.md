@@ -5,33 +5,19 @@ status: done
 parent: E-10
 acs:
   - id: AC-1
-    title: '**AC-1: Cycle time decomposition in Core.** A new `CycleTimeComputer` in `FlowTime.Core/Metrics/` computes per-bin:
-      - `queueTimeMs` = `(queueDepth / served) * binMs` (null when served <= 0) - `serviceTimeMs` = `processingTimeMsSum /
-      servedCount` (null when unavailable) - `cycleTimeMs` = `queueTimeMs + serviceTimeMs` (or just `queueTimeMs` when service
-      time unavailable) - Follows the three-tier NaN policy (Tier 2: null for unavailable metrics).'
+    title: 'AC-1: Cycle time decomposition in Core'
     status: met
   - id: AC-2
-    title: '**AC-2: Per-class cycle time.** Cycle time decomposition works with per-class `byClass` data. Each class gets
-      its own `queueTimeMs`, `serviceTimeMs`, `cycleTimeMs` when class-level series are available.'
+    title: 'AC-2: Per-class cycle time'
     status: met
   - id: AC-3
-    title: '**AC-3: Flow efficiency metric.** `flowEfficiency = serviceTimeMs / cycleTimeMs` per bin per node. Ranges 0 (all
-      queue time) to 1 (no queue time). Null when `cycleTimeMs` is zero, undefined, or `serviceTimeMs` unavailable. Added
-      to `CycleTimeComputer`.'
+    title: 'AC-3: Flow efficiency metric'
     status: met
   - id: AC-4
-    title: '**AC-4: Tests and gate.** Unit tests for `CycleTimeComputer` covering: normal case, zero served (null), missing
-      processingTimeMsSum (graceful), per-class, flow efficiency. Build green; no new test failures introduced. Pre-existing
-      failures unrelated to this milestone (e.g., schema meta-resolution) are excluded from the gate.'
+    title: 'AC-4: Tests and gate'
     status: met
   - id: AC-5
-    title: "**AC-5: Steady-state validation warning.** When computing cycle time over a window, check whether arrival and
-      departure rates are stable enough for Little's Law to be meaningful: - Compare average arrival rate in the first half
-      of the window to the second half. - If the rates diverge beyond a configurable tolerance (default: 25%), emit a warning
-      annotation on the node: `\"littles-law-non-stationary\"`. - This is a diagnostic signal, not a gate — cycle time is
-      still computed, but flagged as potentially unreliable. - Rationale: Little's Law (which underpins `queueTimeMs = Q/λ
-      × binMs`) assumes steady state. Without this check, point estimates silently mislead during transients, ramp-ups, or
-      drain-downs."
+    title: 'AC-5: Steady-state validation warning'
     status: met
 ---
 
@@ -47,21 +33,23 @@ For synthetic models (no telemetry), `processingTimeMsSum` is unavailable. Cycle
 
 ## Acceptance criteria
 
-### AC-1 — **AC-1: Cycle time decomposition in Core.** A new `CycleTimeComputer` in `FlowTime.Core/Metrics/` computes per-bin: - `queueTimeMs` = `(queueDepth / served) * binMs` (null when served <= 0) - `serviceTimeMs` = `processingTimeMsSum / servedCount` (null when unavailable) - `cycleTimeMs` = `queueTimeMs + serviceTimeMs` (or just `queueTimeMs` when service time unavailable) - Follows the three-tier NaN policy (Tier 2: null for unavailable metrics).
+### AC-1 — AC-1: Cycle time decomposition in Core
 
 **AC-1: Cycle time decomposition in Core.** A new `CycleTimeComputer` in `FlowTime.Core/Metrics/` computes per-bin:
 - `queueTimeMs` = `(queueDepth / served) * binMs` (null when served <= 0)
 - `serviceTimeMs` = `processingTimeMsSum / servedCount` (null when unavailable)
 - `cycleTimeMs` = `queueTimeMs + serviceTimeMs` (or just `queueTimeMs` when service time unavailable)
 - Follows the three-tier NaN policy (Tier 2: null for unavailable metrics).
+### AC-2 — AC-2: Per-class cycle time
 
-### AC-2 — **AC-2: Per-class cycle time.** Cycle time decomposition works with per-class `byClass` data. Each class gets its own `queueTimeMs`, `serviceTimeMs`, `cycleTimeMs` when class-level series are available.
+**AC-2: Per-class cycle time.** Cycle time decomposition works with per-class `byClass` data. Each class gets its own `queueTimeMs`, `serviceTimeMs`, `cycleTimeMs` when class-level series are available.
+### AC-3 — AC-3: Flow efficiency metric
 
-### AC-3 — **AC-3: Flow efficiency metric.** `flowEfficiency = serviceTimeMs / cycleTimeMs` per bin per node. Ranges 0 (all queue time) to 1 (no queue time). Null when `cycleTimeMs` is zero, undefined, or `serviceTimeMs` unavailable. Added to `CycleTimeComputer`.
+**AC-3: Flow efficiency metric.** `flowEfficiency = serviceTimeMs / cycleTimeMs` per bin per node. Ranges 0 (all queue time) to 1 (no queue time). Null when `cycleTimeMs` is zero, undefined, or `serviceTimeMs` unavailable. Added to `CycleTimeComputer`.
+### AC-4 — AC-4: Tests and gate
 
-### AC-4 — **AC-4: Tests and gate.** Unit tests for `CycleTimeComputer` covering: normal case, zero served (null), missing processingTimeMsSum (graceful), per-class, flow efficiency. Build green; no new test failures introduced. Pre-existing failures unrelated to this milestone (e.g., schema meta-resolution) are excluded from the gate.
-
-### AC-5 — **AC-5: Steady-state validation warning.** When computing cycle time over a window, check whether arrival and departure rates are stable enough for Little's Law to be meaningful: - Compare average arrival rate in the first half of the window to the second half. - If the rates diverge beyond a configurable tolerance (default: 25%), emit a warning annotation on the node: `"littles-law-non-stationary"`. - This is a diagnostic signal, not a gate — cycle time is still computed, but flagged as potentially unreliable. - Rationale: Little's Law (which underpins `queueTimeMs = Q/λ × binMs`) assumes steady state. Without this check, point estimates silently mislead during transients, ramp-ups, or drain-downs.
+**AC-4: Tests and gate.** Unit tests for `CycleTimeComputer` covering: normal case, zero served (null), missing processingTimeMsSum (graceful), per-class, flow efficiency. Build green; no new test failures introduced. Pre-existing failures unrelated to this milestone (e.g., schema meta-resolution) are excluded from the gate.
+### AC-5 — AC-5: Steady-state validation warning
 
 **AC-5: Steady-state validation warning.** When computing cycle time over a window, check whether arrival and departure rates are stable enough for Little's Law to be meaningful:
 - Compare average arrival rate in the first half of the window to the second half.

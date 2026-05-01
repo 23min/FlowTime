@@ -5,19 +5,19 @@ status: done
 parent: E-18
 acs:
   - id: AC-1
-    title: '`src/FlowTime.TimeMachine/` exists; `src/FlowTime.Generator/` is gone'
+    title: src/FlowTime.TimeMachine/ exists; src/FlowTime.Generator/ is gone
     status: met
   - id: AC-2
-    title: '`tests/FlowTime.TimeMachine.Tests/` exists; `tests/FlowTime.Generator.Tests/` is gone'
+    title: tests/FlowTime.TimeMachine.Tests/ exists
     status: met
   - id: AC-3
-    title: '`dotnet build FlowTime.sln` succeeds with zero errors'
+    title: dotnet build FlowTime.sln succeeds with zero errors
     status: met
   - id: AC-4
-    title: '`dotnet test FlowTime.sln` passes with the same test count'
+    title: dotnet test FlowTime.sln passes with the same test count
     status: met
   - id: AC-5
-    title: '`rg "FlowTime\.Generator" src/ tests/ --include="*.cs" --include="*.csproj"` returns zero matches'
+    title: rg "FlowTime\.Generator" src/ tests/ --include=".cs"
     status: met
   - id: AC-6
     title: Solution file contains TimeMachine entry; Generator entry is absent
@@ -48,16 +48,21 @@ Pure structural refactor — no behavior change, all tests green, no coexistence
 
 ## Acceptance criteria
 
-### AC-1 — `src/FlowTime.TimeMachine/` exists; `src/FlowTime.Generator/` is gone
+### AC-1 — src/FlowTime.TimeMachine/ exists; src/FlowTime.Generator/ is gone
 
-### AC-2 — `tests/FlowTime.TimeMachine.Tests/` exists; `tests/FlowTime.Generator.Tests/` is gone
+`src/FlowTime.TimeMachine/` exists; `src/FlowTime.Generator/` is gone
+### AC-2 — tests/FlowTime.TimeMachine.Tests/ exists
 
-### AC-3 — `dotnet build FlowTime.sln` succeeds with zero errors
+`tests/FlowTime.TimeMachine.Tests/` exists; `tests/FlowTime.Generator.Tests/` is gone
+### AC-3 — dotnet build FlowTime.sln succeeds with zero errors
 
-### AC-4 — `dotnet test FlowTime.sln` passes with the same test count
+`dotnet build FlowTime.sln` succeeds with zero errors
+### AC-4 — dotnet test FlowTime.sln passes with the same test count
 
-### AC-5 — `rg "FlowTime\.Generator" src/ tests/ --include="*.cs" --include="*.csproj"` returns zero matches
+`dotnet test FlowTime.sln` passes with the same test count
+### AC-5 — rg "FlowTime\.Generator" src/ tests/ --include=".cs"
 
+`rg "FlowTime\.Generator" src/ tests/ --include="*.cs" --include="*.csproj"` returns zero matches
 ### AC-6 — Solution file contains TimeMachine entry; Generator entry is absent
 ## Namespace Mapping
 

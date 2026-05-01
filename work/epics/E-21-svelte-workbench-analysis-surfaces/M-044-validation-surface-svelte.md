@@ -5,127 +5,46 @@ status: done
 parent: E-21
 acs:
   - id: AC-1
-    title: '**Svelte `StateWindowResponse` type widened to match the wire DTO.** `ui/src/lib/api/types.ts` `StateWarning`
-      gains `severity`, `startBin?`, `endBin?`, `signal?` (mirroring `TimeTravelStateWarningDto`). `StateWindowResponse` gains
-      `edgeWarnings: Record<string, StateWarning[]>`. The `bins?: number[]` field is removed (not in the wire DTO; was a phantom).
-      No `getStateWindow(...)` signature change. Vitest covers a fixture-based round-trip parse asserting all fields populate.'
+    title: Svelte StateWindowResponse type widened to match the wire DTO
     status: met
   - id: AC-2
-    title: '**Validation panel surface — left column of the workbench panel.** A new validation panel renders as a **left
-      column inside the existing workbench panel** on `/time-travel/topology` (the bottom region under the splitter at `+page.svelte`
-      ~line 567-600). Pinned `WorkbenchCard` / `WorkbenchEdgeCard` items continue to fill the rest of the panel, to the right
-      of the warnings column. The panel is reachable from both Topology and Heatmap views (the workbench panel persists across
-      view switches per M-043 AC2). The panel renders one merged list of items, sorted by severity (`error` → `warning` →
-      `info` → unknown), then by `nodeId` (empty / null sorts last), then by `message`. Each item displays a chrome severity
-      chip, the human-readable `message`, the `nodeId` when present, and a bin-range chip when `startBin` / `endBin` are present.
-      Edge-keyed warnings (from `edgeWarnings`) render in the same flat list, identified by their edge identity (e.g. `from→to`)
-      instead of `nodeId`. Items without `nodeId` and without an edge identity render with no pin affordance.'
+    title: Validation panel surface — left column of the workbench panel
     status: met
   - id: AC-3
-    title: '**Collapse-on-zero behaviour.** When the loaded run has zero warnings (combined `warnings.length === 0` and empty
-      `edgeWarnings` map), the warnings column **collapses to zero width** (or to a minimal collapsed-header glyph that can
-      be expanded), so pinned cards reclaim the full panel width. When warnings exist, the column expands to a sensible default
-      (recommend ~280-320 px) and renders the list. **Resize / collapse-toggle UX:** a minimum collapsed footprint (zero or
-      a thin header strip) and an expanded default width are settled at start-milestone confirmation; if the column is user-resizable
-      in this milestone, the resize handle behaviour and persistence are recorded as an implementation note in the tracking
-      doc rather than a separate AC. Empty-state string `No validation issues for this run.` applies during the loading-but-not-yet-collapsed
-      transition and to the optional minimal-header expanded state.'
+    title: Collapse-on-zero behaviour
     status: met
   - id: AC-4
-    title: "**Empty-state versus no-data-state distinguished.** The panel distinguishes two states (the third — \"no warnings
-      field on the wire\" — cannot occur because the field is non-optional in the API): - **Issues present:** items rendered
-      per AC2. - **Empty (run completed, zero warnings):** column collapses per AC3; the explicit `No validation issues for
-      this run.` string renders during the load transition and in any expanded minimal-header state. The classifier is a pure
-      helper covered by vitest. (The \"no run loaded yet\" state is the existing pre-load empty surface and is owned by the
-      surrounding workbench panel's `Click a node or edge to inspect` message, not this panel's concern.)"
+    title: Empty-state versus no-data-state distinguished
     status: met
   - id: AC-5
-    title: "**Trigger T1 — surface warnings after a run.** When a run completes via the existing Svelte run flow and `/time-travel/topology`
-      loads the new run, the workbench validation panel renders the warnings from that run's `state_window` response without
-      any additional fetch. Branch covered by Playwright (see AC11)."
+    title: Trigger T1 — surface warnings after a run
     status: met
   - id: AC-6
-    title: "**Trigger T2 — surface warnings when opening an already-run model.** When the user selects a run from the run-selector
-      dropdown, the workbench validation panel renders the warnings from that run's `state_window` response. Branch covered
-      by Playwright (see AC11)."
+    title: Trigger T2 — surface warnings when opening an already-run model
     status: met
   - id: AC-7
-    title: '**Topology node warning styling.** Nodes whose `nodeId` matches at least one entry in the loaded `warnings[]`
-      array render a chrome warning indicator (small badge / dot / glyph or border treatment on the topology node). The indicator
-      uses **chrome-scale tokens distinct from the data-viz palette**: new tokens `--ft-warn` (severity `warning`) and `--ft-err`
-      (severity `error`), mirroring the `--ft-pin` / `--ft-highlight` precedent from M-043. Severity drives the styling; when
-      multiple warnings target the same node, the most-severe wins (`error` > `warning` > `info`). Nodes with no warnings
-      render no indicator. The indicator is hidden (not rendered, not invisible) when the node has no warnings.'
+    title: Topology node warning styling
     status: met
   - id: AC-8
-    title: '**Topology edge warning styling.** Edges whose identity (`from→to` or matching `edgeId` form used by `edgeWarnings`)
-      appears as a key in `edgeWarnings` render a chrome warning indicator on the topology edge — analogous to AC7 but for
-      edges. Same chrome tokens (`--ft-warn` / `--ft-err`); same severity-max collapse. The exact visual treatment (recoloured
-      stroke, dashed accent, badge on the edge midpoint, or a sibling glyph) settles in the tracking doc Design Notes alongside
-      the M-043 conventions, but it must be visually distinct from the existing `--ft-viz-amber` selected-edge stroke at `+page.svelte:609-613`.'
+    title: Topology edge warning styling
     status: met
   - id: AC-9
-    title: '**Click-a-warning-row to pin and cross-highlight.** Clicking an item in the validation panel: - **If the row has
-      a `nodeId`:** pins that node into the workbench (calls `viewState.pinNode(nodeId, kind?)`, which delegates to `workbench.toggle`)
-      and sets `viewState.setSelectedCell(nodeId, viewState.currentBin)` so the workbench-card title cross-highlight renders.
-      Mirrors the topology-click handler convention at `+page.svelte:106-119`. - **If the row is an edge-keyed warning:**
-      pins the corresponding edge into the workbench via the existing edge-pin path so a `WorkbenchEdgeCard` renders for it.
-      - **If the row has neither identity:** renders with no pin affordance; clicking is a no-op. Clicking is independent
-      of which view is active (Topology or Heatmap); both views are kept in sync via the shared store per M-043 AC13.'
+    title: Click-a-warning-row to pin and cross-highlight
     status: met
   - id: AC-10
-    title: "**Bidirectional cross-link from selection to warnings panel.** When a node or edge is selected in the workbench
-      (driven by `viewState.selectedCell` for node selection or by the existing edge-pin state for edges), the warnings panel
-      highlights the matching warning rows so the user can see which warnings apply to the current selection. The exact pixel
-      behaviour (filter-only-matching vs highlight-and-de-emphasize-others) is an implementation-note decision recorded in
-      the tracking doc rather than an AC; the contract is \"selection → matching warning rows are visually distinguished.\"\
-      \ No new fields on the shared view-state store are required for the contract — the panel derives the highlight set from
-      `viewState.selectedCell?.nodeId` and from the workbench's pinned-edge state. If a `selectedWarningId` field ends up
-      genuinely needed during build, it lives in `view-state.svelte.ts` alongside `selectedCell` and is named at that time."
+    title: Bidirectional cross-link from selection to warnings panel
     status: met
   - id: AC-11
-    title: '**Single source of truth.** Validation items for a given run live in exactly one place in the UI (one derived
-      store keyed off the loaded `state_window` response). The warnings panel, the topology node styling (AC7), and the topology
-      edge styling (AC8) all read from it. No duplicate fetching, no per-component re-derivation of "is this node warning-flagged?".
-      Switching views (Topology ↔ Heatmap) does not refetch; selecting a different run does (because the underlying `state_window`
-      call is what changes).'
+    title: Single source of truth
     status: met
   - id: AC-12
-    title: '**New chrome tokens land alongside existing chrome scale.** `--ft-warn` and `--ft-err` are added to the chrome-token
-      CSS surface alongside `--ft-pin` and `--ft-highlight` (per M-043). Both light and dark themes; designed not to clash
-      with the data-viz palette (per M-039) or with `--ft-pin` / `--ft-highlight`. An `--ft-info` token is optional in this
-      milestone — add only if the chosen Playwright fixture exercises an `info`-severity warning; otherwise note it as a follow-up.'
+    title: New chrome tokens land alongside existing chrome scale
     status: met
   - id: AC-13
-    title: '**Tier-3-only scope explicit.** No tier-1 / tier-2 UX appears in this milestone. The user gets `400 { error }`
-      from `POST /v1/run` for tier-1 / tier-2 failures via the existing run-orchestration surface; this milestone does not
-      surface those failures in the workbench. (Captured in *Out of Scope*; restated as an AC so the build cannot quietly
-      add a "validation failed" surface.)'
+    title: Tier-3-only scope explicit
     status: met
   - id: AC-14
-    title: "**Testing — Playwright + vitest, every reachable branch covered.** Per the project's UI-testing hard rule: Playwright
-      drives every shipped trigger end-to-end in a real browser; vitest covers pure helpers. **Vitest:** - Widened-type round-trip
-      parse (AC1). - State classifier `classifyValidationState({ warnings, edgeWarnings }): 'empty' | 'issues'` — both branches.
-      - Item sort `sortValidationItems(items): items[]` — severity desc → nodeId / edge-id (empty last) → message; ties at
-      every level. - Severity-to-chrome-token helper — `error` / `warning` / `info` / unknown-fallback. - Severity-max collapse
-      `maxSeverityForKey(items): 'error' | 'warning' | 'info' | null` — every combination plus empty. - Cross-link state-transition
-      helper that derives \"rows matching the current selection\" from `viewState.selectedCell` and the warnings array (covers
-      nodeId-match, edge-match, neither-match, no-selection). **Playwright** (extending or siblinging `tests/ui/specs/svelte-topology.spec.ts`;
-      graceful-skip on dev-server / API unavailability per the project rule): - Trigger T1 — run a model with zero warnings
-      → after run loads, the warnings column collapses (zero width or minimal-header) and pinned cards fill the panel; no
-      topology warning indicators visible. - Trigger T1 — run a model with at least one warning (fixture chosen to exercise
-      tier-3 analyser output reliably) → warnings column expands → row lists `nodeId`, `message`, severity chip → corresponding
-      topology node renders a warning indicator with the right severity token. - Trigger T2 — open an already-run model with
-      persisted warnings → warnings column populates from that run's `state_window` response. - Click a node-attributed warning
-      row → corresponding workbench card pins → workbench-card title cross-highlights (M-043 selected-state convention). -
-      Click an edge-attributed warning row → corresponding `WorkbenchEdgeCard` pins → topology edge styled per AC8. - Click
-      a topology node that has warnings → warnings panel highlights / filters to its rows (AC10). - Click a topology edge
-      that has warnings → warnings panel highlights / filters to its rows (AC10). - Validation panel persists across view
-      switch (Topology → Heatmap → Topology); node + edge indicators re-render correctly when switching back to Topology.
-      - One spec asserting at least two distinct severities render with distinct chrome tokens (data fixture chosen to exercise
-      both `warning` and `error` if a tier-3 fixture exists; otherwise skip with a clear message and file follow-up). A line-by-line
-      branch audit of the new UI + helpers against tests is recorded in the tracking doc's Coverage Notes section, matching
-      the M-042 / M-043 audit structure."
+    title: Testing — Playwright + vitest, every reachable branch covered
     status: met
 ---
 
@@ -189,44 +108,53 @@ The parallel `edgeWarnings: { <edgeId>: StateWarning[] }` map carries warnings t
 
 ## Acceptance criteria
 
-### AC-1 — **Svelte `StateWindowResponse` type widened to match the wire DTO.** `ui/src/lib/api/types.ts` `StateWarning` gains `severity`, `startBin?`, `endBin?`, `signal?` (mirroring `TimeTravelStateWarningDto`). `StateWindowResponse` gains `edgeWarnings: Record<string, StateWarning[]>`. The `bins?: number[]` field is removed (not in the wire DTO; was a phantom). No `getStateWindow(...)` signature change. Vitest covers a fixture-based round-trip parse asserting all fields populate.
+### AC-1 — Svelte StateWindowResponse type widened to match the wire DTO
 
-### AC-2 — **Validation panel surface — left column of the workbench panel.** A new validation panel renders as a **left column inside the existing workbench panel** on `/time-travel/topology` (the bottom region under the splitter at `+page.svelte` ~line 567-600). Pinned `WorkbenchCard` / `WorkbenchEdgeCard` items continue to fill the rest of the panel, to the right of the warnings column. The panel is reachable from both Topology and Heatmap views (the workbench panel persists across view switches per M-043 AC2). The panel renders one merged list of items, sorted by severity (`error` → `warning` → `info` → unknown), then by `nodeId` (empty / null sorts last), then by `message`. Each item displays a chrome severity chip, the human-readable `message`, the `nodeId` when present, and a bin-range chip when `startBin` / `endBin` are present. Edge-keyed warnings (from `edgeWarnings`) render in the same flat list, identified by their edge identity (e.g. `from→to`) instead of `nodeId`. Items without `nodeId` and without an edge identity render with no pin affordance.
+**Svelte `StateWindowResponse` type widened to match the wire DTO.** `ui/src/lib/api/types.ts` `StateWarning` gains `severity`, `startBin?`, `endBin?`, `signal?` (mirroring `TimeTravelStateWarningDto`). `StateWindowResponse` gains `edgeWarnings: Record<string, StateWarning[]>`. The `bins?: number[]` field is removed (not in the wire DTO; was a phantom). No `getStateWindow(...)` signature change. Vitest covers a fixture-based round-trip parse asserting all fields populate.
+### AC-2 — Validation panel surface — left column of the workbench panel
 
-### AC-3 — **Collapse-on-zero behaviour.** When the loaded run has zero warnings (combined `warnings.length === 0` and empty `edgeWarnings` map), the warnings column **collapses to zero width** (or to a minimal collapsed-header glyph that can be expanded), so pinned cards reclaim the full panel width. When warnings exist, the column expands to a sensible default (recommend ~280-320 px) and renders the list. **Resize / collapse-toggle UX:** a minimum collapsed footprint (zero or a thin header strip) and an expanded default width are settled at start-milestone confirmation; if the column is user-resizable in this milestone, the resize handle behaviour and persistence are recorded as an implementation note in the tracking doc rather than a separate AC. Empty-state string `No validation issues for this run.` applies during the loading-but-not-yet-collapsed transition and to the optional minimal-header expanded state.
+**Validation panel surface — left column of the workbench panel.** A new validation panel renders as a **left column inside the existing workbench panel** on `/time-travel/topology` (the bottom region under the splitter at `+page.svelte` ~line 567-600). Pinned `WorkbenchCard` / `WorkbenchEdgeCard` items continue to fill the rest of the panel, to the right of the warnings column. The panel is reachable from both Topology and Heatmap views (the workbench panel persists across view switches per M-043 AC2). The panel renders one merged list of items, sorted by severity (`error` → `warning` → `info` → unknown), then by `nodeId` (empty / null sorts last), then by `message`. Each item displays a chrome severity chip, the human-readable `message`, the `nodeId` when present, and a bin-range chip when `startBin` / `endBin` are present. Edge-keyed warnings (from `edgeWarnings`) render in the same flat list, identified by their edge identity (e.g. `from→to`) instead of `nodeId`. Items without `nodeId` and without an edge identity render with no pin affordance.
+### AC-3 — Collapse-on-zero behaviour
 
-### AC-4 — **Empty-state versus no-data-state distinguished.** The panel distinguishes two states (the third — "no warnings field on the wire" — cannot occur because the field is non-optional in the API): - **Issues present:** items rendered per AC2. - **Empty (run completed, zero warnings):** column collapses per AC3; the explicit `No validation issues for this run.` string renders during the load transition and in any expanded minimal-header state. The classifier is a pure helper covered by vitest. (The "no run loaded yet" state is the existing pre-load empty surface and is owned by the surrounding workbench panel's `Click a node or edge to inspect` message, not this panel's concern.)
+**Collapse-on-zero behaviour.** When the loaded run has zero warnings (combined `warnings.length === 0` and empty `edgeWarnings` map), the warnings column **collapses to zero width** (or to a minimal collapsed-header glyph that can be expanded), so pinned cards reclaim the full panel width. When warnings exist, the column expands to a sensible default (recommend ~280-320 px) and renders the list. **Resize / collapse-toggle UX:** a minimum collapsed footprint (zero or a thin header strip) and an expanded default width are settled at start-milestone confirmation; if the column is user-resizable in this milestone, the resize handle behaviour and persistence are recorded as an implementation note in the tracking doc rather than a separate AC. Empty-state string `No validation issues for this run.` applies during the loading-but-not-yet-collapsed transition and to the optional minimal-header expanded state.
+### AC-4 — Empty-state versus no-data-state distinguished
 
 **Empty-state versus no-data-state distinguished.** The panel distinguishes two states (the third — "no warnings field on the wire" — cannot occur because the field is non-optional in the API):
 - **Issues present:** items rendered per AC2.
 - **Empty (run completed, zero warnings):** column collapses per AC3; the explicit `No validation issues for this run.` string renders during the load transition and in any expanded minimal-header state.
 The classifier is a pure helper covered by vitest. (The "no run loaded yet" state is the existing pre-load empty surface and is owned by the surrounding workbench panel's `Click a node or edge to inspect` message, not this panel's concern.)
+### AC-5 — Trigger T1 — surface warnings after a run
 
-### AC-5 — **Trigger T1 — surface warnings after a run.** When a run completes via the existing Svelte run flow and `/time-travel/topology` loads the new run, the workbench validation panel renders the warnings from that run's `state_window` response without any additional fetch. Branch covered by Playwright (see AC11).
+**Trigger T1 — surface warnings after a run.** When a run completes via the existing Svelte run flow and `/time-travel/topology` loads the new run, the workbench validation panel renders the warnings from that run's `state_window` response without any additional fetch. Branch covered by Playwright (see AC11).
+### AC-6 — Trigger T2 — surface warnings when opening an already-run model
 
-### AC-6 — **Trigger T2 — surface warnings when opening an already-run model.** When the user selects a run from the run-selector dropdown, the workbench validation panel renders the warnings from that run's `state_window` response. Branch covered by Playwright (see AC11).
+**Trigger T2 — surface warnings when opening an already-run model.** When the user selects a run from the run-selector dropdown, the workbench validation panel renders the warnings from that run's `state_window` response. Branch covered by Playwright (see AC11).
+### AC-7 — Topology node warning styling
 
-### AC-7 — **Topology node warning styling.** Nodes whose `nodeId` matches at least one entry in the loaded `warnings[]` array render a chrome warning indicator (small badge / dot / glyph or border treatment on the topology node). The indicator uses **chrome-scale tokens distinct from the data-viz palette**: new tokens `--ft-warn` (severity `warning`) and `--ft-err` (severity `error`), mirroring the `--ft-pin` / `--ft-highlight` precedent from M-043. Severity drives the styling; when multiple warnings target the same node, the most-severe wins (`error` > `warning` > `info`). Nodes with no warnings render no indicator. The indicator is hidden (not rendered, not invisible) when the node has no warnings.
+**Topology node warning styling.** Nodes whose `nodeId` matches at least one entry in the loaded `warnings[]` array render a chrome warning indicator (small badge / dot / glyph or border treatment on the topology node). The indicator uses **chrome-scale tokens distinct from the data-viz palette**: new tokens `--ft-warn` (severity `warning`) and `--ft-err` (severity `error`), mirroring the `--ft-pin` / `--ft-highlight` precedent from M-043. Severity drives the styling; when multiple warnings target the same node, the most-severe wins (`error` > `warning` > `info`). Nodes with no warnings render no indicator. The indicator is hidden (not rendered, not invisible) when the node has no warnings.
+### AC-8 — Topology edge warning styling
 
-### AC-8 — **Topology edge warning styling.** Edges whose identity (`from→to` or matching `edgeId` form used by `edgeWarnings`) appears as a key in `edgeWarnings` render a chrome warning indicator on the topology edge — analogous to AC7 but for edges. Same chrome tokens (`--ft-warn` / `--ft-err`); same severity-max collapse. The exact visual treatment (recoloured stroke, dashed accent, badge on the edge midpoint, or a sibling glyph) settles in the tracking doc Design Notes alongside the M-043 conventions, but it must be visually distinct from the existing `--ft-viz-amber` selected-edge stroke at `+page.svelte:609-613`.
-
-### AC-9 — **Click-a-warning-row to pin and cross-highlight.** Clicking an item in the validation panel: - **If the row has a `nodeId`:** pins that node into the workbench (calls `viewState.pinNode(nodeId, kind?)`, which delegates to `workbench.toggle`) and sets `viewState.setSelectedCell(nodeId, viewState.currentBin)` so the workbench-card title cross-highlight renders. Mirrors the topology-click handler convention at `+page.svelte:106-119`. - **If the row is an edge-keyed warning:** pins the corresponding edge into the workbench via the existing edge-pin path so a `WorkbenchEdgeCard` renders for it. - **If the row has neither identity:** renders with no pin affordance; clicking is a no-op. Clicking is independent of which view is active (Topology or Heatmap); both views are kept in sync via the shared store per M-043 AC13.
+**Topology edge warning styling.** Edges whose identity (`from→to` or matching `edgeId` form used by `edgeWarnings`) appears as a key in `edgeWarnings` render a chrome warning indicator on the topology edge — analogous to AC7 but for edges. Same chrome tokens (`--ft-warn` / `--ft-err`); same severity-max collapse. The exact visual treatment (recoloured stroke, dashed accent, badge on the edge midpoint, or a sibling glyph) settles in the tracking doc Design Notes alongside the M-043 conventions, but it must be visually distinct from the existing `--ft-viz-amber` selected-edge stroke at `+page.svelte:609-613`.
+### AC-9 — Click-a-warning-row to pin and cross-highlight
 
 **Click-a-warning-row to pin and cross-highlight.** Clicking an item in the validation panel:
 - **If the row has a `nodeId`:** pins that node into the workbench (calls `viewState.pinNode(nodeId, kind?)`, which delegates to `workbench.toggle`) and sets `viewState.setSelectedCell(nodeId, viewState.currentBin)` so the workbench-card title cross-highlight renders. Mirrors the topology-click handler convention at `+page.svelte:106-119`.
 - **If the row is an edge-keyed warning:** pins the corresponding edge into the workbench via the existing edge-pin path so a `WorkbenchEdgeCard` renders for it.
 - **If the row has neither identity:** renders with no pin affordance; clicking is a no-op.
 Clicking is independent of which view is active (Topology or Heatmap); both views are kept in sync via the shared store per M-043 AC13.
+### AC-10 — Bidirectional cross-link from selection to warnings panel
 
-### AC-10 — **Bidirectional cross-link from selection to warnings panel.** When a node or edge is selected in the workbench (driven by `viewState.selectedCell` for node selection or by the existing edge-pin state for edges), the warnings panel highlights the matching warning rows so the user can see which warnings apply to the current selection. The exact pixel behaviour (filter-only-matching vs highlight-and-de-emphasize-others) is an implementation-note decision recorded in the tracking doc rather than an AC; the contract is "selection → matching warning rows are visually distinguished." No new fields on the shared view-state store are required for the contract — the panel derives the highlight set from `viewState.selectedCell?.nodeId` and from the workbench's pinned-edge state. If a `selectedWarningId` field ends up genuinely needed during build, it lives in `view-state.svelte.ts` alongside `selectedCell` and is named at that time.
+**Bidirectional cross-link from selection to warnings panel.** When a node or edge is selected in the workbench (driven by `viewState.selectedCell` for node selection or by the existing edge-pin state for edges), the warnings panel highlights the matching warning rows so the user can see which warnings apply to the current selection. The exact pixel behaviour (filter-only-matching vs highlight-and-de-emphasize-others) is an implementation-note decision recorded in the tracking doc rather than an AC; the contract is "selection → matching warning rows are visually distinguished." No new fields on the shared view-state store are required for the contract — the panel derives the highlight set from `viewState.selectedCell?.nodeId` and from the workbench's pinned-edge state. If a `selectedWarningId` field ends up genuinely needed during build, it lives in `view-state.svelte.ts` alongside `selectedCell` and is named at that time.
+### AC-11 — Single source of truth
 
-### AC-11 — **Single source of truth.** Validation items for a given run live in exactly one place in the UI (one derived store keyed off the loaded `state_window` response). The warnings panel, the topology node styling (AC7), and the topology edge styling (AC8) all read from it. No duplicate fetching, no per-component re-derivation of "is this node warning-flagged?". Switching views (Topology ↔ Heatmap) does not refetch; selecting a different run does (because the underlying `state_window` call is what changes).
+**Single source of truth.** Validation items for a given run live in exactly one place in the UI (one derived store keyed off the loaded `state_window` response). The warnings panel, the topology node styling (AC7), and the topology edge styling (AC8) all read from it. No duplicate fetching, no per-component re-derivation of "is this node warning-flagged?". Switching views (Topology ↔ Heatmap) does not refetch; selecting a different run does (because the underlying `state_window` call is what changes).
+### AC-12 — New chrome tokens land alongside existing chrome scale
 
-### AC-12 — **New chrome tokens land alongside existing chrome scale.** `--ft-warn` and `--ft-err` are added to the chrome-token CSS surface alongside `--ft-pin` and `--ft-highlight` (per M-043). Both light and dark themes; designed not to clash with the data-viz palette (per M-039) or with `--ft-pin` / `--ft-highlight`. An `--ft-info` token is optional in this milestone — add only if the chosen Playwright fixture exercises an `info`-severity warning; otherwise note it as a follow-up.
+**New chrome tokens land alongside existing chrome scale.** `--ft-warn` and `--ft-err` are added to the chrome-token CSS surface alongside `--ft-pin` and `--ft-highlight` (per M-043). Both light and dark themes; designed not to clash with the data-viz palette (per M-039) or with `--ft-pin` / `--ft-highlight`. An `--ft-info` token is optional in this milestone — add only if the chosen Playwright fixture exercises an `info`-severity warning; otherwise note it as a follow-up.
+### AC-13 — Tier-3-only scope explicit
 
-### AC-13 — **Tier-3-only scope explicit.** No tier-1 / tier-2 UX appears in this milestone. The user gets `400 { error }` from `POST /v1/run` for tier-1 / tier-2 failures via the existing run-orchestration surface; this milestone does not surface those failures in the workbench. (Captured in *Out of Scope*; restated as an AC so the build cannot quietly add a "validation failed" surface.)
-
-### AC-14 — **Testing — Playwright + vitest, every reachable branch covered.** Per the project's UI-testing hard rule: Playwright drives every shipped trigger end-to-end in a real browser; vitest covers pure helpers. **Vitest:** - Widened-type round-trip parse (AC1). - State classifier `classifyValidationState({ warnings, edgeWarnings }): 'empty' | 'issues'` — both branches. - Item sort `sortValidationItems(items): items[]` — severity desc → nodeId / edge-id (empty last) → message; ties at every level. - Severity-to-chrome-token helper — `error` / `warning` / `info` / unknown-fallback. - Severity-max collapse `maxSeverityForKey(items): 'error' | 'warning' | 'info' | null` — every combination plus empty. - Cross-link state-transition helper that derives "rows matching the current selection" from `viewState.selectedCell` and the warnings array (covers nodeId-match, edge-match, neither-match, no-selection). **Playwright** (extending or siblinging `tests/ui/specs/svelte-topology.spec.ts`; graceful-skip on dev-server / API unavailability per the project rule): - Trigger T1 — run a model with zero warnings → after run loads, the warnings column collapses (zero width or minimal-header) and pinned cards fill the panel; no topology warning indicators visible. - Trigger T1 — run a model with at least one warning (fixture chosen to exercise tier-3 analyser output reliably) → warnings column expands → row lists `nodeId`, `message`, severity chip → corresponding topology node renders a warning indicator with the right severity token. - Trigger T2 — open an already-run model with persisted warnings → warnings column populates from that run's `state_window` response. - Click a node-attributed warning row → corresponding workbench card pins → workbench-card title cross-highlights (M-043 selected-state convention). - Click an edge-attributed warning row → corresponding `WorkbenchEdgeCard` pins → topology edge styled per AC8. - Click a topology node that has warnings → warnings panel highlights / filters to its rows (AC10). - Click a topology edge that has warnings → warnings panel highlights / filters to its rows (AC10). - Validation panel persists across view switch (Topology → Heatmap → Topology); node + edge indicators re-render correctly when switching back to Topology. - One spec asserting at least two distinct severities render with distinct chrome tokens (data fixture chosen to exercise both `warning` and `error` if a tier-3 fixture exists; otherwise skip with a clear message and file follow-up). A line-by-line branch audit of the new UI + helpers against tests is recorded in the tracking doc's Coverage Notes section, matching the M-042 / M-043 audit structure.
+**Tier-3-only scope explicit.** No tier-1 / tier-2 UX appears in this milestone. The user gets `400 { error }` from `POST /v1/run` for tier-1 / tier-2 failures via the existing run-orchestration surface; this milestone does not surface those failures in the workbench. (Captured in *Out of Scope*; restated as an AC so the build cannot quietly add a "validation failed" surface.)
+### AC-14 — Testing — Playwright + vitest, every reachable branch covered
 
 **Testing — Playwright + vitest, every reachable branch covered.** Per the project's UI-testing hard rule: Playwright drives every shipped trigger end-to-end in a real browser; vitest covers pure helpers. **Vitest:**
 - Widened-type round-trip parse (AC1).

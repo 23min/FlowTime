@@ -7,44 +7,31 @@ depends_on:
   - M-035
 acs:
   - id: AC-1
-    title: '**AC-1: Class assignment map.** The engine extracts `traffic.arrivals` entries to build a node-to-class mapping.
-      Equivalent to `ClassAssignmentMapBuilder` (trivial — 37 lines of C#).'
+    title: 'AC-1: Class assignment map'
     status: met
   - id: AC-2
-    title: '**AC-2: Per-class series in EvalResult.** The `EvalResult` struct (or its successor) includes per-class series:
-      for each node that has class contributions, the result contains `(node_id, class_id) → f64[]` series values. At minimum,
-      arrival nodes, expression nodes, and serviceWithBuffer nodes must have per-class decomposition.'
+    title: 'AC-2: Per-class series in EvalResult'
     status: met
   - id: AC-3
-    title: '**AC-3: Expression-tree per-class evaluation.** For `expr` nodes, per-class decomposition must handle the expression
-      tree correctly: binary ops (add, sub, mul, div), scalar ops, and functions (SHIFT, CONV, MIN, MAX, CLAMP). The per-class
-      series must sum to the total series within floating-point tolerance.'
+    title: 'AC-3: Expression-tree per-class evaluation'
     status: met
   - id: AC-4
-    title: '**AC-4: ServiceWithBuffer per-class decomposition.** Queue nodes produce per-class queue depth, per-class served,
-      per-class arrivals. Queue depth decomposition follows proportional allocation based on arrival class fractions.'
+    title: 'AC-4: ServiceWithBuffer per-class decomposition'
     status: met
   - id: AC-5
-    title: '**AC-5: Edge series in EvalResult.** The result includes per-edge metrics: `(edge_id, metric) → f64[]` where metric
-      is one of: `flowVolume`, `attemptsVolume`, `failuresVolume`, `retryVolume`. Per-class edge decomposition: `(edge_id,
-      metric, class_id) → f64[]`.'
+    title: 'AC-5: Edge series in EvalResult'
     status: met
   - id: AC-6
-    title: '**AC-6: Router per-class distribution.** Class-based routes distribute flow to their designated targets. Weight-based
-      routes distribute remaining (non-class-assigned) flow by weight. Router diagnostics (leakage, accuracy) are available
-      in the result.'
+    title: 'AC-6: Router per-class distribution'
     status: met
   - id: AC-7
-    title: '**AC-7: Parity harness green for class fixtures.** The 3 class-enabled fixtures (`class-enabled.yaml`, `router-class.yaml`,
-      `router-mixed.yaml`) pass the parity harness from M-035. Known divergences resolved.'
+    title: 'AC-7: Parity harness green for class fixtures'
     status: met
   - id: AC-8
-    title: '**AC-8: Parity harness green for edge fixtures.** The 6 edge-bearing fixtures pass the parity harness with edge
-      series comparison. Edge series values match C# `EdgeFlowMaterializer` output within tolerance.'
+    title: 'AC-8: Parity harness green for edge fixtures'
     status: met
   - id: AC-9
-    title: '**AC-9: Normalization invariant.** For every node, the sum of per-class series equals the total series within
-      1e-10 tolerance. A Rust test asserts this invariant across all class-enabled fixtures.'
+    title: 'AC-9: Normalization invariant'
     status: met
 ---
 
@@ -69,23 +56,33 @@ Option B leverages the matrix architecture — it's "classes as columns" rather 
 
 ## Acceptance criteria
 
-### AC-1 — **AC-1: Class assignment map.** The engine extracts `traffic.arrivals` entries to build a node-to-class mapping. Equivalent to `ClassAssignmentMapBuilder` (trivial — 37 lines of C#).
+### AC-1 — AC-1: Class assignment map
 
-### AC-2 — **AC-2: Per-class series in EvalResult.** The `EvalResult` struct (or its successor) includes per-class series: for each node that has class contributions, the result contains `(node_id, class_id) → f64[]` series values. At minimum, arrival nodes, expression nodes, and serviceWithBuffer nodes must have per-class decomposition.
+**AC-1: Class assignment map.** The engine extracts `traffic.arrivals` entries to build a node-to-class mapping. Equivalent to `ClassAssignmentMapBuilder` (trivial — 37 lines of C#).
+### AC-2 — AC-2: Per-class series in EvalResult
 
-### AC-3 — **AC-3: Expression-tree per-class evaluation.** For `expr` nodes, per-class decomposition must handle the expression tree correctly: binary ops (add, sub, mul, div), scalar ops, and functions (SHIFT, CONV, MIN, MAX, CLAMP). The per-class series must sum to the total series within floating-point tolerance.
+**AC-2: Per-class series in EvalResult.** The `EvalResult` struct (or its successor) includes per-class series: for each node that has class contributions, the result contains `(node_id, class_id) → f64[]` series values. At minimum, arrival nodes, expression nodes, and serviceWithBuffer nodes must have per-class decomposition.
+### AC-3 — AC-3: Expression-tree per-class evaluation
 
-### AC-4 — **AC-4: ServiceWithBuffer per-class decomposition.** Queue nodes produce per-class queue depth, per-class served, per-class arrivals. Queue depth decomposition follows proportional allocation based on arrival class fractions.
+**AC-3: Expression-tree per-class evaluation.** For `expr` nodes, per-class decomposition must handle the expression tree correctly: binary ops (add, sub, mul, div), scalar ops, and functions (SHIFT, CONV, MIN, MAX, CLAMP). The per-class series must sum to the total series within floating-point tolerance.
+### AC-4 — AC-4: ServiceWithBuffer per-class decomposition
 
-### AC-5 — **AC-5: Edge series in EvalResult.** The result includes per-edge metrics: `(edge_id, metric) → f64[]` where metric is one of: `flowVolume`, `attemptsVolume`, `failuresVolume`, `retryVolume`. Per-class edge decomposition: `(edge_id, metric, class_id) → f64[]`.
+**AC-4: ServiceWithBuffer per-class decomposition.** Queue nodes produce per-class queue depth, per-class served, per-class arrivals. Queue depth decomposition follows proportional allocation based on arrival class fractions.
+### AC-5 — AC-5: Edge series in EvalResult
 
-### AC-6 — **AC-6: Router per-class distribution.** Class-based routes distribute flow to their designated targets. Weight-based routes distribute remaining (non-class-assigned) flow by weight. Router diagnostics (leakage, accuracy) are available in the result.
+**AC-5: Edge series in EvalResult.** The result includes per-edge metrics: `(edge_id, metric) → f64[]` where metric is one of: `flowVolume`, `attemptsVolume`, `failuresVolume`, `retryVolume`. Per-class edge decomposition: `(edge_id, metric, class_id) → f64[]`.
+### AC-6 — AC-6: Router per-class distribution
 
-### AC-7 — **AC-7: Parity harness green for class fixtures.** The 3 class-enabled fixtures (`class-enabled.yaml`, `router-class.yaml`, `router-mixed.yaml`) pass the parity harness from M-035. Known divergences resolved.
+**AC-6: Router per-class distribution.** Class-based routes distribute flow to their designated targets. Weight-based routes distribute remaining (non-class-assigned) flow by weight. Router diagnostics (leakage, accuracy) are available in the result.
+### AC-7 — AC-7: Parity harness green for class fixtures
 
-### AC-8 — **AC-8: Parity harness green for edge fixtures.** The 6 edge-bearing fixtures pass the parity harness with edge series comparison. Edge series values match C# `EdgeFlowMaterializer` output within tolerance.
+**AC-7: Parity harness green for class fixtures.** The 3 class-enabled fixtures (`class-enabled.yaml`, `router-class.yaml`, `router-mixed.yaml`) pass the parity harness from M-035. Known divergences resolved.
+### AC-8 — AC-8: Parity harness green for edge fixtures
 
-### AC-9 — **AC-9: Normalization invariant.** For every node, the sum of per-class series equals the total series within 1e-10 tolerance. A Rust test asserts this invariant across all class-enabled fixtures.
+**AC-8: Parity harness green for edge fixtures.** The 6 edge-bearing fixtures pass the parity harness with edge series comparison. Edge series values match C# `EdgeFlowMaterializer` output within tolerance.
+### AC-9 — AC-9: Normalization invariant
+
+**AC-9: Normalization invariant.** For every node, the sum of per-class series equals the total series within 1e-10 tolerance. A Rust test asserts this invariant across all class-enabled fixtures.
 ## Out of Scope
 
 - Artifact directory layout changes (M-037)

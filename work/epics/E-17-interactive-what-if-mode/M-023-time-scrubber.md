@@ -7,82 +7,52 @@ depends_on:
   - M-022
 acs:
   - id: AC-1
-    title: '**AC-1: `selectedBin` state.** The What-If page introduces `let selectedBin = $state<number | null>(null)`. `null`
-      means "mean mode" (existing behavior, unchanged). A number means "bin T mode".'
+    title: 'AC-1: selectedBin state'
     status: met
   - id: AC-2
-    title: '**AC-2: Scrubber control.** Below the topology panel (before the warnings panel), a scrubber section renders when
-      a model is compiled and has `bins > 1`: - Label: `Bin: {T} / {bins - 1}` (or `Mean` when null). - A range `<input>`
-      from `0` to `bins - 1`, step `1`, bound to `selectedBin` (0 when null). - A `Mean` toggle button / checkbox that sets
-      `selectedBin` back to `null`. - When `selectedBin` is `null`, the slider displays at position 0 but is visually dimmed
-      or labeled "Mean". - `data-testid="bin-scrubber"` on the range input, `data-testid="bin-mean-toggle"` on the reset button.'
+    title: 'AC-2: Scrubber control'
     status: met
   - id: AC-3
-    title: '**AC-3: Scrubber hidden when `bins === 1`.** Models with a single bin have nothing to scrub. The scrubber section
-      is not rendered when `bins <= 1`.'
+    title: 'AC-3: Scrubber hidden when bins === 1'
     status: met
   - id: AC-4
-    title: '**AC-4: `buildMetricMap` accepts optional bin.** The signature of `buildMetricMap` in `topology-metrics.ts` is
-      extended: ```typescript export function buildMetricMap( graph: EngineGraph, series: Record<string, number[]>, bin?:
-      number, // undefined → mean mode ): MetricMap; ``` When `bin` is a valid index, use `values[bin]` instead of the mean.
-      When `bin` is out of range or undefined, fall back to the mean. The existing mean behavior is unchanged — no callers
-      break.'
+    title: 'AC-4: buildMetricMap accepts optional bin'
     status: met
   - id: AC-5
-    title: '**AC-5: `buildEdgeMetricMap` accepts optional bin.** The same optional `bin` parameter is added to `buildEdgeMetricMap`
-      (from M-022), with identical semantics.'
+    title: 'AC-5: buildEdgeMetricMap accepts optional bin'
     status: met
   - id: AC-6
-    title: "**AC-6: `metricMap` and `edgeMetricMap` react to `selectedBin`.** In `+page.svelte`, both derived stores read
-      `selectedBin` and pass it to the metric builders. Svelte's reactivity ensures the topology recolors without re-layout
-      when the scrubber moves."
+    title: 'AC-6: metricMap and edgeMetricMap react to selectedBin'
     status: met
   - id: AC-7
-    title: '**AC-7: `Chart` accepts `crosshairBin`.** The `<Chart>` component (in `chart.svelte`) gains a new optional prop:
-      ```typescript interface Props { // ...existing... crosshairBin?: number; // undefined → no crosshair } ``` When set,
-      a vertical SVG line is rendered at the x-position corresponding to `crosshairBin`. The line is styled as a light gray
-      or muted dashed line that does not interfere with the hover tooltip or series paths.'
+    title: 'AC-7: Chart accepts crosshairBin'
     status: met
   - id: AC-8
-    title: '**AC-8: `crosshairX` pure helper.** A new export in `chart-geometry.ts`: ```typescript export function crosshairX(bin:
-      number, geom: ChartGeometry): number | null; ``` Returns the SVG x-coordinate for `bin`, or `null` if `bin` is out of
-      range. Uses `geom.plotLeft`, `geom.plotRight`, and `geom.bins` for the linear interpolation. Fully unit-tested.'
+    title: 'AC-8: crosshairX pure helper'
     status: met
   - id: AC-9
-    title: '**AC-9: All charts show crosshair at `selectedBin`.** In `+page.svelte`, every `<Chart>` is passed `crosshairBin={selectedBin
-      ?? undefined}`. When the scrubber moves, all charts update the crosshair position in lockstep.'
+    title: 'AC-9: All charts show crosshair at selectedBin'
     status: met
   - id: AC-10
-    title: '**AC-10: `buildMetricMap` per-bin tests.** New vitest cases in `topology-metrics.test.ts`: - `bin=0` → returns
-      value at index 0, not mean. - `bin=N-1` → returns value at last index. - `bin=N` (out of range) → falls back to mean.
-      - `bin=undefined` → returns mean (unchanged behavior, existing test keeps passing). - At least 6 new tests.'
+    title: 'AC-10: buildMetricMap per-bin tests'
     status: met
   - id: AC-11
-    title: '**AC-11: `buildEdgeMetricMap` per-bin tests.** Same coverage as AC-10 but for edge metrics. At least 4 new tests.'
+    title: 'AC-11: buildEdgeMetricMap per-bin tests'
     status: met
   - id: AC-12
-    title: '**AC-12: `crosshairX` tests.** In `chart-geometry.test.ts`: - Bin 0 → returns `plotLeft`. - Bin `bins-1` → returns
-      `plotRight`. - Bin at midpoint → returns midpoint x. - Bin out of range (negative, >= bins) → returns `null`. - At least
-      5 tests.'
+    title: 'AC-12: crosshairX tests'
     status: met
   - id: AC-13
-    title: '**AC-13: Chart crosshair render test (Svelte component smoke test).** Using the existing Vitest + jsdom setup
-      (matching the chart-geometry tests), verify that when `crosshairBin` is set, a `<line>` element appears in the Chart
-      SVG.'
+    title: 'AC-13: Chart crosshair render test (Svelte component smoke test)'
     status: met
   - id: AC-14
-    title: "**AC-14: Scrubber visible and functional.** On the `queue-with-wip` model (multiple bins): - Scrubber is present
-      with `data-testid=\"bin-scrubber\"`. - Drag scrubber to bin `N/2` → topology node colors change (at least one node's
-      fill differs from the mean-mode color). - All chart SVGs contain a `<line>` element (crosshair) after scrubber is moved.
-      - Click `data-testid=\"bin-mean-toggle\"` → crosshair disappears from charts, heatmap reverts to mean colors."
+    title: 'AC-14: Scrubber visible and functional'
     status: met
   - id: AC-15
-    title: '**AC-15: Scrubber absent on single-bin model.** Load `capacity-constrained` model (4 bins — scrubber should appear).
-      Load a hypothetical 1-bin model or verify by counting bins from the latency badge area. If no suitable model exists,
-      verify the condition is covered by unit test only and note the gap.'
+    title: 'AC-15: Scrubber absent on single-bin model'
     status: met
   - id: AC-16
-    title: '**AC-16: No regression.** All previous vitest (173+) and Playwright (19+) tests pass.'
+    title: 'AC-16: No regression'
     status: met
 ---
 
@@ -105,9 +75,10 @@ The M-020 spec explicitly noted this as a future enhancement:
 
 ## Acceptance criteria
 
-### AC-1 — **AC-1: `selectedBin` state.** The What-If page introduces `let selectedBin = $state<number | null>(null)`. `null` means "mean mode" (existing behavior, unchanged). A number means "bin T mode".
+### AC-1 — AC-1: selectedBin state
 
-### AC-2 — **AC-2: Scrubber control.** Below the topology panel (before the warnings panel), a scrubber section renders when a model is compiled and has `bins > 1`: - Label: `Bin: {T} / {bins - 1}` (or `Mean` when null). - A range `<input>` from `0` to `bins - 1`, step `1`, bound to `selectedBin` (0 when null). - A `Mean` toggle button / checkbox that sets `selectedBin` back to `null`. - When `selectedBin` is `null`, the slider displays at position 0 but is visually dimmed or labeled "Mean". - `data-testid="bin-scrubber"` on the range input, `data-testid="bin-mean-toggle"` on the reset button.
+**AC-1: `selectedBin` state.** The What-If page introduces `let selectedBin = $state<number | null>(null)`. `null` means "mean mode" (existing behavior, unchanged). A number means "bin T mode".
+### AC-2 — AC-2: Scrubber control
 
 **AC-2: Scrubber control.** Below the topology panel (before the warnings panel), a scrubber section renders when a model is compiled and has `bins > 1`:
 - Label: `Bin: {T} / {bins - 1}` (or `Mean` when null).
@@ -115,10 +86,10 @@ The M-020 spec explicitly noted this as a future enhancement:
 - A `Mean` toggle button / checkbox that sets `selectedBin` back to `null`.
 - When `selectedBin` is `null`, the slider displays at position 0 but is visually dimmed or labeled "Mean".
 - `data-testid="bin-scrubber"` on the range input, `data-testid="bin-mean-toggle"` on the reset button.
+### AC-3 — AC-3: Scrubber hidden when bins === 1
 
-### AC-3 — **AC-3: Scrubber hidden when `bins === 1`.** Models with a single bin have nothing to scrub. The scrubber section is not rendered when `bins <= 1`.
-
-### AC-4 — **AC-4: `buildMetricMap` accepts optional bin.** The signature of `buildMetricMap` in `topology-metrics.ts` is extended: ```typescript export function buildMetricMap( graph: EngineGraph, series: Record<string, number[]>, bin?: number, // undefined → mean mode ): MetricMap; ``` When `bin` is a valid index, use `values[bin]` instead of the mean. When `bin` is out of range or undefined, fall back to the mean. The existing mean behavior is unchanged — no callers break.
+**AC-3: Scrubber hidden when `bins === 1`.** Models with a single bin have nothing to scrub. The scrubber section is not rendered when `bins <= 1`.
+### AC-4 — AC-4: buildMetricMap accepts optional bin
 
 **AC-4: `buildMetricMap` accepts optional bin.** The signature of `buildMetricMap` in `topology-metrics.ts` is extended:
 ```typescript
@@ -129,12 +100,13 @@ bin?: number,   // undefined → mean mode
 ): MetricMap;
 ```
 When `bin` is a valid index, use `values[bin]` instead of the mean. When `bin` is out of range or undefined, fall back to the mean. The existing mean behavior is unchanged — no callers break.
+### AC-5 — AC-5: buildEdgeMetricMap accepts optional bin
 
-### AC-5 — **AC-5: `buildEdgeMetricMap` accepts optional bin.** The same optional `bin` parameter is added to `buildEdgeMetricMap` (from M-022), with identical semantics.
+**AC-5: `buildEdgeMetricMap` accepts optional bin.** The same optional `bin` parameter is added to `buildEdgeMetricMap` (from M-022), with identical semantics.
+### AC-6 — AC-6: metricMap and edgeMetricMap react to selectedBin
 
-### AC-6 — **AC-6: `metricMap` and `edgeMetricMap` react to `selectedBin`.** In `+page.svelte`, both derived stores read `selectedBin` and pass it to the metric builders. Svelte's reactivity ensures the topology recolors without re-layout when the scrubber moves.
-
-### AC-7 — **AC-7: `Chart` accepts `crosshairBin`.** The `<Chart>` component (in `chart.svelte`) gains a new optional prop: ```typescript interface Props { // ...existing... crosshairBin?: number; // undefined → no crosshair } ``` When set, a vertical SVG line is rendered at the x-position corresponding to `crosshairBin`. The line is styled as a light gray or muted dashed line that does not interfere with the hover tooltip or series paths.
+**AC-6: `metricMap` and `edgeMetricMap` react to `selectedBin`.** In `+page.svelte`, both derived stores read `selectedBin` and pass it to the metric builders. Svelte's reactivity ensures the topology recolors without re-layout when the scrubber moves.
+### AC-7 — AC-7: Chart accepts crosshairBin
 
 **AC-7: `Chart` accepts `crosshairBin`.** The `<Chart>` component (in `chart.svelte`) gains a new optional prop:
 ```typescript
@@ -144,18 +116,17 @@ crosshairBin?: number;  // undefined → no crosshair
 }
 ```
 When set, a vertical SVG line is rendered at the x-position corresponding to `crosshairBin`. The line is styled as a light gray or muted dashed line that does not interfere with the hover tooltip or series paths.
-
-### AC-8 — **AC-8: `crosshairX` pure helper.** A new export in `chart-geometry.ts`: ```typescript export function crosshairX(bin: number, geom: ChartGeometry): number | null; ``` Returns the SVG x-coordinate for `bin`, or `null` if `bin` is out of range. Uses `geom.plotLeft`, `geom.plotRight`, and `geom.bins` for the linear interpolation. Fully unit-tested.
+### AC-8 — AC-8: crosshairX pure helper
 
 **AC-8: `crosshairX` pure helper.** A new export in `chart-geometry.ts`:
 ```typescript
 export function crosshairX(bin: number, geom: ChartGeometry): number | null;
 ```
 Returns the SVG x-coordinate for `bin`, or `null` if `bin` is out of range. Uses `geom.plotLeft`, `geom.plotRight`, and `geom.bins` for the linear interpolation. Fully unit-tested.
+### AC-9 — AC-9: All charts show crosshair at selectedBin
 
-### AC-9 — **AC-9: All charts show crosshair at `selectedBin`.** In `+page.svelte`, every `<Chart>` is passed `crosshairBin={selectedBin ?? undefined}`. When the scrubber moves, all charts update the crosshair position in lockstep.
-
-### AC-10 — **AC-10: `buildMetricMap` per-bin tests.** New vitest cases in `topology-metrics.test.ts`: - `bin=0` → returns value at index 0, not mean. - `bin=N-1` → returns value at last index. - `bin=N` (out of range) → falls back to mean. - `bin=undefined` → returns mean (unchanged behavior, existing test keeps passing). - At least 6 new tests.
+**AC-9: All charts show crosshair at `selectedBin`.** In `+page.svelte`, every `<Chart>` is passed `crosshairBin={selectedBin ?? undefined}`. When the scrubber moves, all charts update the crosshair position in lockstep.
+### AC-10 — AC-10: buildMetricMap per-bin tests
 
 **AC-10: `buildMetricMap` per-bin tests.** New vitest cases in `topology-metrics.test.ts`:
 - `bin=0` → returns value at index 0, not mean.
@@ -163,10 +134,10 @@ Returns the SVG x-coordinate for `bin`, or `null` if `bin` is out of range. Uses
 - `bin=N` (out of range) → falls back to mean.
 - `bin=undefined` → returns mean (unchanged behavior, existing test keeps passing).
 - At least 6 new tests.
+### AC-11 — AC-11: buildEdgeMetricMap per-bin tests
 
-### AC-11 — **AC-11: `buildEdgeMetricMap` per-bin tests.** Same coverage as AC-10 but for edge metrics. At least 4 new tests.
-
-### AC-12 — **AC-12: `crosshairX` tests.** In `chart-geometry.test.ts`: - Bin 0 → returns `plotLeft`. - Bin `bins-1` → returns `plotRight`. - Bin at midpoint → returns midpoint x. - Bin out of range (negative, >= bins) → returns `null`. - At least 5 tests.
+**AC-11: `buildEdgeMetricMap` per-bin tests.** Same coverage as AC-10 but for edge metrics. At least 4 new tests.
+### AC-12 — AC-12: crosshairX tests
 
 **AC-12: `crosshairX` tests.** In `chart-geometry.test.ts`:
 - Bin 0 → returns `plotLeft`.
@@ -174,20 +145,22 @@ Returns the SVG x-coordinate for `bin`, or `null` if `bin` is out of range. Uses
 - Bin at midpoint → returns midpoint x.
 - Bin out of range (negative, >= bins) → returns `null`.
 - At least 5 tests.
+### AC-13 — AC-13: Chart crosshair render test (Svelte component smoke test)
 
-### AC-13 — **AC-13: Chart crosshair render test (Svelte component smoke test).** Using the existing Vitest + jsdom setup (matching the chart-geometry tests), verify that when `crosshairBin` is set, a `<line>` element appears in the Chart SVG.
-
-### AC-14 — **AC-14: Scrubber visible and functional.** On the `queue-with-wip` model (multiple bins): - Scrubber is present with `data-testid="bin-scrubber"`. - Drag scrubber to bin `N/2` → topology node colors change (at least one node's fill differs from the mean-mode color). - All chart SVGs contain a `<line>` element (crosshair) after scrubber is moved. - Click `data-testid="bin-mean-toggle"` → crosshair disappears from charts, heatmap reverts to mean colors.
+**AC-13: Chart crosshair render test (Svelte component smoke test).** Using the existing Vitest + jsdom setup (matching the chart-geometry tests), verify that when `crosshairBin` is set, a `<line>` element appears in the Chart SVG.
+### AC-14 — AC-14: Scrubber visible and functional
 
 **AC-14: Scrubber visible and functional.** On the `queue-with-wip` model (multiple bins):
 - Scrubber is present with `data-testid="bin-scrubber"`.
 - Drag scrubber to bin `N/2` → topology node colors change (at least one node's fill differs from the mean-mode color).
 - All chart SVGs contain a `<line>` element (crosshair) after scrubber is moved.
 - Click `data-testid="bin-mean-toggle"` → crosshair disappears from charts, heatmap reverts to mean colors.
+### AC-15 — AC-15: Scrubber absent on single-bin model
 
-### AC-15 — **AC-15: Scrubber absent on single-bin model.** Load `capacity-constrained` model (4 bins — scrubber should appear). Load a hypothetical 1-bin model or verify by counting bins from the latency badge area. If no suitable model exists, verify the condition is covered by unit test only and note the gap.
+**AC-15: Scrubber absent on single-bin model.** Load `capacity-constrained` model (4 bins — scrubber should appear). Load a hypothetical 1-bin model or verify by counting bins from the latency badge area. If no suitable model exists, verify the condition is covered by unit test only and note the gap.
+### AC-16 — AC-16: No regression
 
-### AC-16 — **AC-16: No regression.** All previous vitest (173+) and Playwright (19+) tests pass.
+**AC-16: No regression.** All previous vitest (173+) and Playwright (19+) tests pass.
 ## Technical Notes
 
 ### `buildMetricMap` extension

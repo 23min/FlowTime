@@ -5,33 +5,22 @@ status: done
 parent: E-16
 acs:
   - id: AC-1
-    title: Stationarity, backlog growth, overload, and age-risk analysis consume compiled descriptors plus evaluated 
-      analytical facts from Core; no current-state API path reconstructs analytical warning applicability from raw 
-      semantics or payload shape.
+    title: Stationarity, backlog growth, overload, and age-risk analysis consume
     status: met
   - id: AC-2
-    title: Core extends the consolidated internal analytical result surface with structured analytical warning facts for
-      the relevant window/current-state paths. The API projects those facts into contract DTOs without building 
-      analytical warning policy locally.
+    title: Core extends the consolidated internal analytical result surface with
     status: met
   - id: AC-3
-    title: 'Primitive ownership is singular: - `RuntimeAnalyticalEvaluator`, or a tightly-scoped Core analyzer directly beneath
-      it, is the only public analytical owner for latency and stationarity warning semantics. - `LatencyComputer` is deleted
-      or reduced to private/internal helper math beneath the evaluator/analyzer surface; `StateQueryService` does not call
-      it directly. - `CycleTimeComputer.CheckNonStationary()` is deleted or reduced to private/internal helper math; public
-      stationarity policy is no longer exposed from `CycleTimeComputer`.'
+    title: Primitive ownership is singular
     status: met
   - id: AC-4
-    title: '`StateQueryService` no longer contains analytical warning producers such as `BuildBacklogWarnings()`, `BuildStationarityWarnings()`,
-      `FindQueueGrowthStreak()`, `FindOverloadStreak()`, or `FindAgeRiskStreak()` for runtime analytical behavior.'
+    title: StateQueryService no longer contains analytical warning producers
     status: met
   - id: AC-5
-    title: Duplicate analytical policy paths are removed. Each analytical concept relevant to this slice (`queueTimeMs`,
-      `latencyMinutes`, stationarity, backlog growth, overload, age risk) has exactly one public owner in Core, and the 
-      API acts only as projector.
+    title: Duplicate analytical policy paths are removed
     status: met
   - id: AC-6
-    title: '`dotnet build` and `dotnet test --nologo` are green, with regenerated approved outputs where warning facts changed.'
+    title: dotnet build and dotnet test --nologo are green, with regenerated
     status: met
 ---
 
@@ -57,22 +46,27 @@ Current primitive ownership is also still split:
 
 ## Acceptance criteria
 
-### AC-1 — Stationarity, backlog growth, overload, and age-risk analysis consume compiled descriptors plus evaluated analytical facts from Core; no current-state API path reconstructs analytical warning applicability from raw semantics or payload shape.
+### AC-1 — Stationarity, backlog growth, overload, and age-risk analysis consume
 
-### AC-2 — Core extends the consolidated internal analytical result surface with structured analytical warning facts for the relevant window/current-state paths. The API projects those facts into contract DTOs without building analytical warning policy locally.
+Stationarity, backlog growth, overload, and age-risk analysis consume compiled descriptors plus evaluated analytical facts from Core; no current-state API path reconstructs analytical warning applicability from raw semantics or payload shape.
+### AC-2 — Core extends the consolidated internal analytical result surface with
 
-### AC-3 — Primitive ownership is singular: - `RuntimeAnalyticalEvaluator`, or a tightly-scoped Core analyzer directly beneath it, is the only public analytical owner for latency and stationarity warning semantics. - `LatencyComputer` is deleted or reduced to private/internal helper math beneath the evaluator/analyzer surface; `StateQueryService` does not call it directly. - `CycleTimeComputer.CheckNonStationary()` is deleted or reduced to private/internal helper math; public stationarity policy is no longer exposed from `CycleTimeComputer`.
+Core extends the consolidated internal analytical result surface with structured analytical warning facts for the relevant window/current-state paths. The API projects those facts into contract DTOs without building analytical warning policy locally.
+### AC-3 — Primitive ownership is singular
 
 Primitive ownership is singular:
 - `RuntimeAnalyticalEvaluator`, or a tightly-scoped Core analyzer directly beneath it, is the only public analytical owner for latency and stationarity warning semantics.
 - `LatencyComputer` is deleted or reduced to private/internal helper math beneath the evaluator/analyzer surface; `StateQueryService` does not call it directly.
 - `CycleTimeComputer.CheckNonStationary()` is deleted or reduced to private/internal helper math; public stationarity policy is no longer exposed from `CycleTimeComputer`.
+### AC-4 — StateQueryService no longer contains analytical warning producers
 
-### AC-4 — `StateQueryService` no longer contains analytical warning producers such as `BuildBacklogWarnings()`, `BuildStationarityWarnings()`, `FindQueueGrowthStreak()`, `FindOverloadStreak()`, or `FindAgeRiskStreak()` for runtime analytical behavior.
+`StateQueryService` no longer contains analytical warning producers such as `BuildBacklogWarnings()`, `BuildStationarityWarnings()`, `FindQueueGrowthStreak()`, `FindOverloadStreak()`, or `FindAgeRiskStreak()` for runtime analytical behavior.
+### AC-5 — Duplicate analytical policy paths are removed
 
-### AC-5 — Duplicate analytical policy paths are removed. Each analytical concept relevant to this slice (`queueTimeMs`, `latencyMinutes`, stationarity, backlog growth, overload, age risk) has exactly one public owner in Core, and the API acts only as projector.
+Duplicate analytical policy paths are removed. Each analytical concept relevant to this slice (`queueTimeMs`, `latencyMinutes`, stationarity, backlog growth, overload, age risk) has exactly one public owner in Core, and the API acts only as projector.
+### AC-6 — dotnet build and dotnet test --nologo are green, with regenerated
 
-### AC-6 — `dotnet build` and `dotnet test --nologo` are green, with regenerated approved outputs where warning facts changed.
+`dotnet build` and `dotnet test --nologo` are green, with regenerated approved outputs where warning facts changed.
 ## Guards / DO NOT
 
 - **DO NOT** fold non-analytical warnings (e.g., configuration warnings, model validation warnings) into this milestone. Scope is analytical warnings only.

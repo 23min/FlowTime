@@ -5,48 +5,28 @@ status: done
 parent: E-24
 acs:
   - id: AC-1
-    title: '**Canary promoted to hard assertion.** `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs` is modified
-      so `Survey_Templates_For_Warnings` asserts `val-err == 0` for every template at `ValidationTier.Analyse`. The current
-      informational logging (`Totals: validator-errors=..., ...`) is retained for diagnostic visibility, but a non-zero count
-      now fails the assertion. Graceful-skip behavior when port 8081 is unreachable is preserved (follows the existing `SkipUnless`
-      / health-probe pattern).'
+    title: Canary promoted to hard assertion
     status: met
   - id: AC-2
-    title: "**Canary is green in-assertion.** Run the canary once against a live Engine API after M-052's close. Confirm `val-err=0`
-      across all twelve templates. The tracking doc captures the verbatim \"Totals\" output as evidence."
+    title: Canary is green in-assertion
     status: met
   - id: AC-3
-    title: '**Full `.NET` solution suite green.** `dotnet test FlowTime.sln` passes. All test assemblies report zero failures.
-      Any pre-existing flakes (`RustEngine_CleansUpTempDirectory_OnFailure`, `SessionModelEvaluatorIntegrationTests.Dispose_TerminatesSubprocess`
-      per M-046 baselines) remain the same flakes with the same transient-timing signature — no new timing sensitivity introduced
-      by E-24.'
+    title: Full .NET solution suite green
     status: met
   - id: AC-4
-    title: "**Grep audits pass.** The following audits are captured in the tracking doc: - `grep -rn \"generated_at\\|model_id\\\
-      |template_id\\|template_version\" docs/schemas/model.schema.yaml` returns zero hits. - `grep -rn \"SimModelArtifact\"\
-      \ --include='*.cs'` returns zero hits. - `grep -rn \"SimNode\\b\\|SimOutput\\b\\|SimProvenance\\b\\|SimTraffic\\b\\\
-      |SimArrival\\b\\|SimArrivalPattern\\b\" --include='*.cs'` returns zero hits."
+    title: Grep audits pass
     status: met
   - id: AC-5
-    title: '**Documentation aligned.** Any architecture doc (`docs/architecture/*`) that still describes the pre-E-24 two-type
-      / two-schema shape is updated to reflect the post-E-24 unified reality. Historical descriptions move to `docs/archive/`
-      if they are still useful as history, or are deleted. `docs/schemas/README.md` (rewritten in M-051) is verified current.
-      The tracking doc lists every audited file and its disposition.'
+    title: Documentation aligned
     status: met
   - id: AC-6
-    title: "**E-23 pause is cleared.** `work/epics/E-23-model-validation-consolidation/spec.md` status flips from `paused`
-      to `ready-to-resume` (or to `in-progress` — reviewer choice). The E-23 spec's amendment notes E-24's close and points
-      to the canary green assertion as the entry condition for M-047. Same status-surface sweep across `ROADMAP.md`, `work/epics/epic-roadmap.md`,
-      and `CLAUDE.md`."
+    title: E-23 pause is cleared
     status: met
   - id: AC-7
-    title: "**Decisions logged.** A new decision entry records E-24's close and notes any deltas between M-049's design decisions
-      and the final landed state (there should be none if the milestones executed as planned; if any, they are documented
-      as sub-decisions). Candidate ID: `D-2026-MM-DD-NNN: E-24 Schema Alignment closed; E-23 ready to resume`."
+    title: Decisions logged
     status: met
   - id: AC-8
-    title: "**No new validator features.** The canary's promotion is the only behavior change here. No new tiers, no line/column
-      mapping, no suggestion hints. Out-of-scope work remains out."
+    title: No new validator features
     status: met
 ---
 
@@ -66,26 +46,33 @@ The canary reported `val-err=0` at M-052's wrap. This milestone makes that zero 
 
 ## Acceptance criteria
 
-### AC-1 — **Canary promoted to hard assertion.** `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs` is modified so `Survey_Templates_For_Warnings` asserts `val-err == 0` for every template at `ValidationTier.Analyse`. The current informational logging (`Totals: validator-errors=..., ...`) is retained for diagnostic visibility, but a non-zero count now fails the assertion. Graceful-skip behavior when port 8081 is unreachable is preserved (follows the existing `SkipUnless` / health-probe pattern).
+### AC-1 — Canary promoted to hard assertion
 
-### AC-2 — **Canary is green in-assertion.** Run the canary once against a live Engine API after M-052's close. Confirm `val-err=0` across all twelve templates. The tracking doc captures the verbatim "Totals" output as evidence.
+**Canary promoted to hard assertion.** `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs` is modified so `Survey_Templates_For_Warnings` asserts `val-err == 0` for every template at `ValidationTier.Analyse`. The current informational logging (`Totals: validator-errors=..., ...`) is retained for diagnostic visibility, but a non-zero count now fails the assertion. Graceful-skip behavior when port 8081 is unreachable is preserved (follows the existing `SkipUnless` / health-probe pattern).
+### AC-2 — Canary is green in-assertion
 
-### AC-3 — **Full `.NET` solution suite green.** `dotnet test FlowTime.sln` passes. All test assemblies report zero failures. Any pre-existing flakes (`RustEngine_CleansUpTempDirectory_OnFailure`, `SessionModelEvaluatorIntegrationTests.Dispose_TerminatesSubprocess` per M-046 baselines) remain the same flakes with the same transient-timing signature — no new timing sensitivity introduced by E-24.
+**Canary is green in-assertion.** Run the canary once against a live Engine API after M-052's close. Confirm `val-err=0` across all twelve templates. The tracking doc captures the verbatim "Totals" output as evidence.
+### AC-3 — Full .NET solution suite green
 
-### AC-4 — **Grep audits pass.** The following audits are captured in the tracking doc: - `grep -rn "generated_at\|model_id\|template_id\|template_version" docs/schemas/model.schema.yaml` returns zero hits. - `grep -rn "SimModelArtifact" --include='*.cs'` returns zero hits. - `grep -rn "SimNode\b\|SimOutput\b\|SimProvenance\b\|SimTraffic\b\|SimArrival\b\|SimArrivalPattern\b" --include='*.cs'` returns zero hits.
+**Full `.NET` solution suite green.** `dotnet test FlowTime.sln` passes. All test assemblies report zero failures. Any pre-existing flakes (`RustEngine_CleansUpTempDirectory_OnFailure`, `SessionModelEvaluatorIntegrationTests.Dispose_TerminatesSubprocess` per M-046 baselines) remain the same flakes with the same transient-timing signature — no new timing sensitivity introduced by E-24.
+### AC-4 — Grep audits pass
 
 **Grep audits pass.** The following audits are captured in the tracking doc:
 - `grep -rn "generated_at\|model_id\|template_id\|template_version" docs/schemas/model.schema.yaml` returns zero hits.
 - `grep -rn "SimModelArtifact" --include='*.cs'` returns zero hits.
 - `grep -rn "SimNode\b\|SimOutput\b\|SimProvenance\b\|SimTraffic\b\|SimArrival\b\|SimArrivalPattern\b" --include='*.cs'` returns zero hits.
+### AC-5 — Documentation aligned
 
-### AC-5 — **Documentation aligned.** Any architecture doc (`docs/architecture/*`) that still describes the pre-E-24 two-type / two-schema shape is updated to reflect the post-E-24 unified reality. Historical descriptions move to `docs/archive/` if they are still useful as history, or are deleted. `docs/schemas/README.md` (rewritten in M-051) is verified current. The tracking doc lists every audited file and its disposition.
+**Documentation aligned.** Any architecture doc (`docs/architecture/*`) that still describes the pre-E-24 two-type / two-schema shape is updated to reflect the post-E-24 unified reality. Historical descriptions move to `docs/archive/` if they are still useful as history, or are deleted. `docs/schemas/README.md` (rewritten in M-051) is verified current. The tracking doc lists every audited file and its disposition.
+### AC-6 — E-23 pause is cleared
 
-### AC-6 — **E-23 pause is cleared.** `work/epics/E-23-model-validation-consolidation/spec.md` status flips from `paused` to `ready-to-resume` (or to `in-progress` — reviewer choice). The E-23 spec's amendment notes E-24's close and points to the canary green assertion as the entry condition for M-047. Same status-surface sweep across `ROADMAP.md`, `work/epics/epic-roadmap.md`, and `CLAUDE.md`.
+**E-23 pause is cleared.** `work/epics/E-23-model-validation-consolidation/spec.md` status flips from `paused` to `ready-to-resume` (or to `in-progress` — reviewer choice). The E-23 spec's amendment notes E-24's close and points to the canary green assertion as the entry condition for M-047. Same status-surface sweep across `ROADMAP.md`, `work/epics/epic-roadmap.md`, and `CLAUDE.md`.
+### AC-7 — Decisions logged
 
-### AC-7 — **Decisions logged.** A new decision entry records E-24's close and notes any deltas between M-049's design decisions and the final landed state (there should be none if the milestones executed as planned; if any, they are documented as sub-decisions). Candidate ID: `D-2026-MM-DD-NNN: E-24 Schema Alignment closed; E-23 ready to resume`.
+**Decisions logged.** A new decision entry records E-24's close and notes any deltas between M-049's design decisions and the final landed state (there should be none if the milestones executed as planned; if any, they are documented as sub-decisions). Candidate ID: `D-2026-MM-DD-NNN: E-24 Schema Alignment closed; E-23 ready to resume`.
+### AC-8 — No new validator features
 
-### AC-8 — **No new validator features.** The canary's promotion is the only behavior change here. No new tiers, no line/column mapping, no suggestion hints. Out-of-scope work remains out.
+**No new validator features.** The canary's promotion is the only behavior change here. No new tiers, no line/column mapping, no suggestion hints. Out-of-scope work remains out.
 ## Constraints
 
 - **Assertion replaces informational log, not augments it.** The test fails the build on non-zero `val-err`. If reviewers want the diagnostic log to survive, it survives as stdout; the assertion is the gate.

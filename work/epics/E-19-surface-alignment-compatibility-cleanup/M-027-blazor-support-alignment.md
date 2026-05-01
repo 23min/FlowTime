@@ -5,19 +5,19 @@ status: done
 parent: E-19
 acs:
   - id: AC-1
-    title: Stale `RunAsync` wrapper deleted (row 64)
+    title: Stale RunAsync wrapper deleted (row 64)
     status: met
   - id: AC-2
-    title: Stale `GetIndexAsync` and `GetSeriesAsync` wrappers deleted (row 65)
+    title: Stale GetIndexAsync and GetSeriesAsync wrappers deleted (row 65)
     status: met
   - id: AC-3
-    title: '`FlowTimeSimService` API-mode data generation rewired to orchestration'
+    title: FlowTimeSimService API-mode data generation rewired to orchestration
     status: met
   - id: AC-4
-    title: '`SimResultsService` run queries go through the Engine API only'
+    title: SimResultsService run queries go through the Engine API only
     status: met
   - id: AC-5
-    title: Dead Sim run-query URL construction removed from `SimulationResults.razor`
+    title: Dead Sim run-query URL construction removed from
     status: met
   - id: AC-6
     title: Supported Blazor Sim client surface confirmed aligned (row 63)
@@ -66,7 +66,7 @@ The key distinction this milestone enforces:
 
 ## Acceptance criteria
 
-### AC-1 — Stale `RunAsync` wrapper deleted (row 64)
+### AC-1 — Stale RunAsync wrapper deleted (row 64)
 
 `RunAsync(string yaml, ...)` on `IFlowTimeSimApiClient` targets `POST /api/v1/run` on the Sim service, which was removed on 2025-10-01 and does not return even when Sim is reachable. The file itself marks the method broken with a TODO comment.
 
@@ -84,8 +84,7 @@ The key distinction this milestone enforces:
 - `FlowTimeSimApiClient.CreateRunAsync` (row 63) — the supported Sim orchestration wrapper.
 
 **Grep guard:** No declaration or use of `IFlowTimeSimApiClient.RunAsync` remains in `src/FlowTime.UI/` or `tests/FlowTime.UI.Tests/`. The literal `api/v1/run` (i.e. the Sim `/api/v1/run` path, as distinct from Sim `/api/v1/runs/...` query routes which also do not exist and are covered by AC2) must not appear anywhere in `src/FlowTime.UI/Services/FlowTimeSimApiClient.cs` or `src/FlowTime.UI/Services/FlowTimeSimApiClientWithFallback.cs`.
-
-### AC-2 — Stale `GetIndexAsync` and `GetSeriesAsync` wrappers deleted (row 65)
+### AC-2 — Stale GetIndexAsync and GetSeriesAsync wrappers deleted (row 65)
 
 `GetIndexAsync` and `GetSeriesAsync` on `IFlowTimeSimApiClient` target `GET /api/v1/runs/{runId}/index` and `GET /api/v1/runs/{runId}/series/{seriesId}` on the Sim service. Neither route exists on Sim today and both files are marked broken with TODO comments pointing at Engine API as the correct target.
 
@@ -102,8 +101,7 @@ The key distinction this milestone enforces:
 - `SeriesIndex` type itself — still consumed by the Engine client return type.
 
 **Grep guard:** No declaration or use of `IFlowTimeSimApiClient.GetIndexAsync` or `IFlowTimeSimApiClient.GetSeriesAsync` remains in `src/FlowTime.UI/` or `tests/FlowTime.UI.Tests/`. No literal `api/v1/runs/{` followed by `/index` or `/series/` constructed against a Sim base address remains in `src/FlowTime.UI/Services/FlowTimeSimApiClient.cs` or `src/FlowTime.UI/Services/FlowTimeSimApiClientWithFallback.cs`.
-
-### AC-3 — `FlowTimeSimService` API-mode data generation rewired to orchestration
+### AC-3 — FlowTimeSimService API-mode data generation rewired to orchestration
 
 `FlowTimeSimService.RunApiModeSimulationAsync` at [src/FlowTime.UI/Services/TemplateServiceImplementations.cs:951-1008](../../../src/FlowTime.UI/Services/TemplateServiceImplementations.cs) currently:
 
@@ -126,8 +124,7 @@ The supported replacement path is `CreateRunAsync` (row 63) on the Sim orchestra
 - `FlowTimeSimService.RunSimulationAsync`'s outer demo-vs-api branch — only the API-mode branch body changes.
 
 **Grep guard:** No `simClient.RunAsync(` or `simClient.GetIndexAsync(` call site remains in `src/FlowTime.UI/Services/TemplateServiceImplementations.cs`. No `/sim/runs/` URL literal remains anywhere in `src/FlowTime.UI/`.
-
-### AC-4 — `SimResultsService` run queries go through the Engine API only
+### AC-4 — SimResultsService run queries go through the Engine API only
 
 `SimResultsService.GetSimulationResultsAsync` at [src/FlowTime.UI/Services/SimResultsService.cs:38-124](../../../src/FlowTime.UI/Services/SimResultsService.cs) currently branches on `isEngineRun` (a `runId.StartsWith("run_")` check) and calls either `apiClient.GetRunIndexAsync`/`GetRunSeriesAsync` (for engine runs) or the stale `simClient.GetIndexAsync`/`GetSeriesAsync` (for non-engine runs). After AC3 rewires data generation onto `CreateRunAsync`, every API-mode run produces a canonical Engine-format runId, so the branch is dead.
 
@@ -143,8 +140,7 @@ The supported replacement path is `CreateRunAsync` (row 63) on the Sim orchestra
 - `SimResultData` result type including the `BinMinutes` computed display property (preserved per M-026 spec).
 
 **Grep guard:** No `simClient.GetIndexAsync(` or `simClient.GetSeriesAsync(` call site remains in `src/FlowTime.UI/Services/SimResultsService.cs`. `IFlowTimeSimApiClient` must no longer appear in the `SimResultsService` constructor signature.
-
-### AC-5 — Dead Sim run-query URL construction removed from `SimulationResults.razor`
+### AC-5 — Dead Sim run-query URL construction removed from
 
 [src/FlowTime.UI/Components/Templates/SimulationResults.razor:295-312](../../../src/FlowTime.UI/Components/Templates/SimulationResults.razor) constructs a download URL conditional on demo vs API mode:
 
@@ -163,7 +159,6 @@ After AC3 rewires API-mode data generation to produce canonical Engine run IDs, 
 - The mode-mismatch warning logic at [src/FlowTime.UI/Components/Templates/SimulationResults.razor:280-293](../../../src/FlowTime.UI/Components/Templates/SimulationResults.razor). That UX guidance still applies.
 
 **Grep guard:** No `/sim/runs/` literal remains in `src/FlowTime.UI/Components/`. No `{apiConfig.ApiVersion}/runs/{runId}/series/` literal that does not match the canonical Engine route shape remains in `src/FlowTime.UI/Components/Templates/SimulationResults.razor`.
-
 ### AC-6 — Supported Blazor Sim client surface confirmed aligned (row 63)
 
 Row 63 of the supported-surfaces matrix lists `HealthAsync`, `GetDetailedHealthAsync`, `GetTemplatesAsync`, `GetTemplateAsync`, `GenerateModelAsync`, `CreateRunAsync` as the supported Blazor Sim client surface. After AC1 and AC2 complete, those are the only methods remaining on `IFlowTimeSimApiClient`.

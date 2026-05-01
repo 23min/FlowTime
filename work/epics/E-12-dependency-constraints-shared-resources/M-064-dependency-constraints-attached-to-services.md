@@ -8,7 +8,7 @@ acs:
     title: Services can declare dependency constraints without explicit dependency nodes.
     status: met
   - id: AC-2
-    title: '`/state` and `/state_window` expose constraint metrics and limitation status.'
+    title: /state and /state_window expose constraint metrics and limitation
     status: met
   - id: AC-3
     title: Shared dependency allocation is deterministic and documented.
@@ -107,8 +107,9 @@ Option A (explicit dependency nodes) is correct but can clutter large graphs. Mo
 
 ### AC-1 — Services can declare dependency constraints without explicit dependency nodes.
 
-### AC-2 — `/state` and `/state_window` expose constraint metrics and limitation status.
+### AC-2 — /state and /state_window expose constraint metrics and limitation
 
+`/state` and `/state_window` expose constraint metrics and limitation status.
 ### AC-3 — Shared dependency allocation is deterministic and documented.
 
 ### AC-4 — Warnings surface missing constraint inputs with provenance metadata.

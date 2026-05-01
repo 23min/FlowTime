@@ -5,7 +5,7 @@ status: done
 parent: E-11
 acs:
   - id: AC-1
-    title: '`pnpm dev` serves the app at localhost:5173'
+    title: pnpm dev serves the app at localhost:5173
     status: met
   - id: AC-2
     title: Sidebar collapses/expands with smooth transition
@@ -24,8 +24,9 @@ Standing SvelteKit app with sidebar layout and theme toggle.
 
 ## Acceptance criteria
 
-### AC-1 — `pnpm dev` serves the app at localhost:5173
+### AC-1 — pnpm dev serves the app at localhost:5173
 
+`pnpm dev` serves the app at localhost:5173
 ### AC-2 — Sidebar collapses/expands with smooth transition
 
 ### AC-3 — Theme toggle persists to localStorage and respects system preference

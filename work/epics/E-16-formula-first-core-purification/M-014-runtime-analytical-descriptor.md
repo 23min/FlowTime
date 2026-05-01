@@ -5,35 +5,28 @@ status: done
 parent: E-16
 acs:
   - id: AC-1
-    title: 'Runtime nodes carry a compiled analytical descriptor that captures: effective analytical identity, queue/service
-      semantics, cycle-time applicability, warning applicability, queue-origin/source-node facts, node category, and resolved
-      parallelism.'
+    title: Runtime nodes carry a compiled analytical descriptor that captures
     status: met
   - id: AC-2
-    title: Explicit `serviceWithBuffer` nodes and reference-resolved queue-backed nodes produce identical descriptors 
-      using typed references and real fixture shapes, not basename heuristics.
+    title: Explicit serviceWithBuffer nodes and reference-resolved queue-backed
     status: met
   - id: AC-3
-    title: Snapshot/window analytical paths, backlog warnings, flow-latency base composition, SLA helper logic, and 
-      internal state/graph projection paths consume the descriptor rather than reconstructing analytical identity from 
-      strings.
+    title: Snapshot/window analytical paths, backlog warnings, flow-latency base
     status: met
   - id: AC-4
-    title: '`AnalyticalCapabilities` is deleted. Its capability flags are absorbed into the descriptor. Its computation methods
-      live on the descriptor-backed evaluator surface.'
+    title: AnalyticalCapabilities is deleted
     status: met
   - id: AC-5
-    title: Adapter-side logical-type inference helpers used for runtime analytical behavior are deleted.
+    title: Adapter-side logical-type inference helpers used for runtime
     status: met
   - id: AC-6
-    title: Core and targeted API tests prove parity for both explicit and reference-resolved cases.
+    title: Core and targeted API tests prove parity for both explicit and
     status: met
   - id: AC-7
-    title: Node category (expression/constant/service/queue/dlq) is a compiled descriptor field. No downstream code 
-      re-derives it from `kind` strings.
+    title: Node category (expression/constant/service/queue/dlq) is a compiled
     status: met
   - id: AC-8
-    title: '`dotnet build` and `dotnet test --nologo` are green.'
+    title: dotnet build and dotnet test --nologo are green.
     status: met
 ---
 
@@ -61,21 +54,30 @@ The descriptor absorbs `AnalyticalCapabilities` rather than sitting alongside it
 
 ## Acceptance criteria
 
-### AC-1 — Runtime nodes carry a compiled analytical descriptor that captures: effective analytical identity, queue/service semantics, cycle-time applicability, warning applicability, queue-origin/source-node facts, node category, and resolved parallelism.
+### AC-1 — Runtime nodes carry a compiled analytical descriptor that captures
 
-### AC-2 — Explicit `serviceWithBuffer` nodes and reference-resolved queue-backed nodes produce identical descriptors using typed references and real fixture shapes, not basename heuristics.
+Runtime nodes carry a compiled analytical descriptor that captures: effective analytical identity, queue/service semantics, cycle-time applicability, warning applicability, queue-origin/source-node facts, node category, and resolved parallelism.
+### AC-2 — Explicit serviceWithBuffer nodes and reference-resolved queue-backed
 
-### AC-3 — Snapshot/window analytical paths, backlog warnings, flow-latency base composition, SLA helper logic, and internal state/graph projection paths consume the descriptor rather than reconstructing analytical identity from strings.
+Explicit `serviceWithBuffer` nodes and reference-resolved queue-backed nodes produce identical descriptors using typed references and real fixture shapes, not basename heuristics.
+### AC-3 — Snapshot/window analytical paths, backlog warnings, flow-latency base
 
-### AC-4 — `AnalyticalCapabilities` is deleted. Its capability flags are absorbed into the descriptor. Its computation methods live on the descriptor-backed evaluator surface.
+Snapshot/window analytical paths, backlog warnings, flow-latency base composition, SLA helper logic, and internal state/graph projection paths consume the descriptor rather than reconstructing analytical identity from strings.
+### AC-4 — AnalyticalCapabilities is deleted
 
-### AC-5 — Adapter-side logical-type inference helpers used for runtime analytical behavior are deleted.
+`AnalyticalCapabilities` is deleted. Its capability flags are absorbed into the descriptor. Its computation methods live on the descriptor-backed evaluator surface.
+### AC-5 — Adapter-side logical-type inference helpers used for runtime
 
-### AC-6 — Core and targeted API tests prove parity for both explicit and reference-resolved cases.
+Adapter-side logical-type inference helpers used for runtime analytical behavior are deleted.
+### AC-6 — Core and targeted API tests prove parity for both explicit and
 
-### AC-7 — Node category (expression/constant/service/queue/dlq) is a compiled descriptor field. No downstream code re-derives it from `kind` strings.
+Core and targeted API tests prove parity for both explicit and reference-resolved cases.
+### AC-7 — Node category (expression/constant/service/queue/dlq) is a compiled
 
-### AC-8 — `dotnet build` and `dotnet test --nologo` are green.
+Node category (expression/constant/service/queue/dlq) is a compiled descriptor field. No downstream code re-derives it from `kind` strings.
+### AC-8 — dotnet build and dotnet test --nologo are green.
+
+`dotnet build` and `dotnet test --nologo` are green.
 ## Guards / DO NOT
 
 - **DO NOT** keep `AnalyticalCapabilities` alongside the descriptor. The descriptor replaces it.

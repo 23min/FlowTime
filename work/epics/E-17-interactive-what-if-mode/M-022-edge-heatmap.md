@@ -7,51 +7,31 @@ depends_on:
   - M-021
 acs:
   - id: AC-1
-    title: "**AC-1: Edge metric map computation.** A new pure function `buildEdgeMetricMap` in `ui/src/lib/api/topology-metrics.ts`:
-      ```typescript export function buildEdgeMetricMap( graph: EngineGraph, series: Record<string, number[]>, ): MetricMap;
-      ``` For each edge `{ from, to }` in `graph.edges`: - Look up the `from` node's primary series using the same `findNodeSeries`
-      logic used for nodes. - Compute the mean across all bins. - Insert into the map with key `${from}->${to}` (see Technical
-      Notes for key format). - If no series is found for `from`, omit the edge from the map (edge renders with default styling)."
+    title: 'AC-1: Edge metric map computation'
     status: met
   - id: AC-2
-    title: '**AC-2: Edge metric map normalization.** `normalizeMetricMap` (already exists, normalizes to `[0, 1]`) is applied
-      to the raw edge metric map before passing to `dag-map-view`. The function is shared — no duplication.'
+    title: 'AC-2: Edge metric map normalization'
     status: met
   - id: AC-3
-    title: '**AC-3: Edge metrics wired into `dag-map-view`.** In `+page.svelte`, a new `$derived.by` computes the normalized
-      edge metric map and passes it as `edgeMetrics` to `<DagMapView>`. The map recomputes when `series` or `engineGraph`
-      changes.'
+    title: 'AC-3: Edge metrics wired into dag-map-view'
     status: met
   - id: AC-4
-    title: '**AC-4: Layout unaffected.** Adding `edgeMetrics` does not trigger a DAG re-layout. The `edgeMetrics` prop is
-      consumed only in `renderSVG`, not in `layoutMetro`. This is the existing separation in `dag-map-view.svelte`. Verify:
-      the `layout` derived store does not read `edgeMetrics`.'
+    title: 'AC-4: Layout unaffected'
     status: met
   - id: AC-5
-    title: '**AC-5: Visual result.** Load the `capacity-constrained` model. The edge from `arrivals` to `Service` is colored
-      (not gray/default). Dragging the `arrivals` slider shifts the edge color intensity. This is a visual smoke-test via
-      Playwright.'
+    title: 'AC-5: Visual result'
     status: met
   - id: AC-6
-    title: "**AC-6: Edge key format confirmed.** The `dag-map` library's `edgeMetrics` key format is `${fromId}\\u2192${toId}`
-      — the Unicode right-arrow character `→` (`\\u2192`) between node IDs (confirmed in `dag-map/src/render.js:151`). The
-      `buildEdgeMetricMap` function uses this exact format. A comment in the source records this."
+    title: 'AC-6: Edge key format confirmed'
     status: met
   - id: AC-7
-    title: '**AC-7: Pure unit tests.** Vitest tests in `ui/src/lib/api/topology-metrics.test.ts` cover: - `buildEdgeMetricMap`
-      with a simple two-node graph where `from` has a known series → map entry present with correct mean. - `buildEdgeMetricMap`
-      with an edge whose `from` node has no series → edge omitted from map. - `buildEdgeMetricMap` with a multi-edge graph
-      → correct keys for all edges. - Map has same size as number of edges with known series (no extra entries). - At least
-      8 tests total for the new function.'
+    title: 'AC-7: Pure unit tests'
     status: met
   - id: AC-8
-    title: "**AC-8: Playwright E2E.** Extend `tests/ui/specs/svelte-what-if.spec.ts`: - After model load, the topology graph
-      SVG contains at least one colored (non-default) edge element. - Dragging `arrivals` slider on `capacity-constrained`
-      model changes an edge's visual attribute (color or stroke). - Layout stability: edge positions (path data or endpoint
-      coords) do not change when a parameter is tweaked — only fill/stroke attributes change."
+    title: 'AC-8: Playwright E2E'
     status: met
   - id: AC-9
-    title: '**AC-9: No regression on prior ACs.** All 173 vitest and 19 Playwright tests from M-021 continue to pass.'
+    title: 'AC-9: No regression on prior ACs'
     status: met
 ---
 
@@ -75,7 +55,7 @@ This interpretation is consistent and symmetric: a node that feeds into multiple
 
 ## Acceptance criteria
 
-### AC-1 — **AC-1: Edge metric map computation.** A new pure function `buildEdgeMetricMap` in `ui/src/lib/api/topology-metrics.ts`: ```typescript export function buildEdgeMetricMap( graph: EngineGraph, series: Record<string, number[]>, ): MetricMap; ``` For each edge `{ from, to }` in `graph.edges`: - Look up the `from` node's primary series using the same `findNodeSeries` logic used for nodes. - Compute the mean across all bins. - Insert into the map with key `${from}->${to}` (see Technical Notes for key format). - If no series is found for `from`, omit the edge from the map (edge renders with default styling).
+### AC-1 — AC-1: Edge metric map computation
 
 **AC-1: Edge metric map computation.** A new pure function `buildEdgeMetricMap` in `ui/src/lib/api/topology-metrics.ts`:
 ```typescript
@@ -89,18 +69,22 @@ For each edge `{ from, to }` in `graph.edges`:
 - Compute the mean across all bins.
 - Insert into the map with key `${from}->${to}` (see Technical Notes for key format).
 - If no series is found for `from`, omit the edge from the map (edge renders with default styling).
+### AC-2 — AC-2: Edge metric map normalization
 
-### AC-2 — **AC-2: Edge metric map normalization.** `normalizeMetricMap` (already exists, normalizes to `[0, 1]`) is applied to the raw edge metric map before passing to `dag-map-view`. The function is shared — no duplication.
+**AC-2: Edge metric map normalization.** `normalizeMetricMap` (already exists, normalizes to `[0, 1]`) is applied to the raw edge metric map before passing to `dag-map-view`. The function is shared — no duplication.
+### AC-3 — AC-3: Edge metrics wired into dag-map-view
 
-### AC-3 — **AC-3: Edge metrics wired into `dag-map-view`.** In `+page.svelte`, a new `$derived.by` computes the normalized edge metric map and passes it as `edgeMetrics` to `<DagMapView>`. The map recomputes when `series` or `engineGraph` changes.
+**AC-3: Edge metrics wired into `dag-map-view`.** In `+page.svelte`, a new `$derived.by` computes the normalized edge metric map and passes it as `edgeMetrics` to `<DagMapView>`. The map recomputes when `series` or `engineGraph` changes.
+### AC-4 — AC-4: Layout unaffected
 
-### AC-4 — **AC-4: Layout unaffected.** Adding `edgeMetrics` does not trigger a DAG re-layout. The `edgeMetrics` prop is consumed only in `renderSVG`, not in `layoutMetro`. This is the existing separation in `dag-map-view.svelte`. Verify: the `layout` derived store does not read `edgeMetrics`.
+**AC-4: Layout unaffected.** Adding `edgeMetrics` does not trigger a DAG re-layout. The `edgeMetrics` prop is consumed only in `renderSVG`, not in `layoutMetro`. This is the existing separation in `dag-map-view.svelte`. Verify: the `layout` derived store does not read `edgeMetrics`.
+### AC-5 — AC-5: Visual result
 
-### AC-5 — **AC-5: Visual result.** Load the `capacity-constrained` model. The edge from `arrivals` to `Service` is colored (not gray/default). Dragging the `arrivals` slider shifts the edge color intensity. This is a visual smoke-test via Playwright.
+**AC-5: Visual result.** Load the `capacity-constrained` model. The edge from `arrivals` to `Service` is colored (not gray/default). Dragging the `arrivals` slider shifts the edge color intensity. This is a visual smoke-test via Playwright.
+### AC-6 — AC-6: Edge key format confirmed
 
-### AC-6 — **AC-6: Edge key format confirmed.** The `dag-map` library's `edgeMetrics` key format is `${fromId}\u2192${toId}` — the Unicode right-arrow character `→` (`\u2192`) between node IDs (confirmed in `dag-map/src/render.js:151`). The `buildEdgeMetricMap` function uses this exact format. A comment in the source records this.
-
-### AC-7 — **AC-7: Pure unit tests.** Vitest tests in `ui/src/lib/api/topology-metrics.test.ts` cover: - `buildEdgeMetricMap` with a simple two-node graph where `from` has a known series → map entry present with correct mean. - `buildEdgeMetricMap` with an edge whose `from` node has no series → edge omitted from map. - `buildEdgeMetricMap` with a multi-edge graph → correct keys for all edges. - Map has same size as number of edges with known series (no extra entries). - At least 8 tests total for the new function.
+**AC-6: Edge key format confirmed.** The `dag-map` library's `edgeMetrics` key format is `${fromId}\u2192${toId}` — the Unicode right-arrow character `→` (`\u2192`) between node IDs (confirmed in `dag-map/src/render.js:151`). The `buildEdgeMetricMap` function uses this exact format. A comment in the source records this.
+### AC-7 — AC-7: Pure unit tests
 
 **AC-7: Pure unit tests.** Vitest tests in `ui/src/lib/api/topology-metrics.test.ts` cover:
 - `buildEdgeMetricMap` with a simple two-node graph where `from` has a known series → map entry present with correct mean.
@@ -108,15 +92,15 @@ For each edge `{ from, to }` in `graph.edges`:
 - `buildEdgeMetricMap` with a multi-edge graph → correct keys for all edges.
 - Map has same size as number of edges with known series (no extra entries).
 - At least 8 tests total for the new function.
-
-### AC-8 — **AC-8: Playwright E2E.** Extend `tests/ui/specs/svelte-what-if.spec.ts`: - After model load, the topology graph SVG contains at least one colored (non-default) edge element. - Dragging `arrivals` slider on `capacity-constrained` model changes an edge's visual attribute (color or stroke). - Layout stability: edge positions (path data or endpoint coords) do not change when a parameter is tweaked — only fill/stroke attributes change.
+### AC-8 — AC-8: Playwright E2E
 
 **AC-8: Playwright E2E.** Extend `tests/ui/specs/svelte-what-if.spec.ts`:
 - After model load, the topology graph SVG contains at least one colored (non-default) edge element.
 - Dragging `arrivals` slider on `capacity-constrained` model changes an edge's visual attribute (color or stroke).
 - Layout stability: edge positions (path data or endpoint coords) do not change when a parameter is tweaked — only fill/stroke attributes change.
+### AC-9 — AC-9: No regression on prior ACs
 
-### AC-9 — **AC-9: No regression on prior ACs.** All 173 vitest and 19 Playwright tests from M-021 continue to pass.
+**AC-9: No regression on prior ACs.** All 173 vitest and 19 Playwright tests from M-021 continue to pass.
 ## Technical Notes
 
 ### Edge key format in dag-map

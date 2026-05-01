@@ -5,38 +5,28 @@ status: done
 parent: E-16
 acs:
   - id: AC-1
-    title: Core exposes an analytical evaluation surface for snapshot, window, and by-class values driven by the 
-      compiled analytical descriptor and explicit class-truth boundary.
+    title: Core exposes an analytical evaluation surface for snapshot, window
     status: met
   - id: AC-2
-    title: Core returns one consolidated internal analytical result surface with explicit nested sections for derived 
-      values, emitted-series truth, effective-capacity/utilization facts, and graph-level flow-latency outputs 
-      sufficient for projection.
+    title: Core returns one consolidated internal analytical result surface with
     status: met
   - id: AC-3
-    title: '`StateQueryService` no longer computes analytical emission truth or per-node/per-class analytical math locally
-      in the current state paths.'
+    title: StateQueryService no longer computes analytical emission truth or
     status: met
   - id: AC-4
-    title: '`flowLatencyMs` computation moves to Core as a pure function: `(compiledTopology, perNodeCycleTime[], edgeFlowVolume[])
-      → perNodeFlowLatency[]`. The adapter passes inputs, Core owns the graph traversal and accumulation.'
+    title: flowLatencyMs computation moves to Core as a pure function
     status: met
   - id: AC-5
-    title: Effective capacity computation (`capacity x parallelism`) has one owner in Core. The API's 
-      `GetEffectiveCapacity` / `GetParallelismValue` / `ComputeUtilizationSeries` delegation is replaced by Core 
-      evaluation.
+    title: Effective capacity computation (capacity x parallelism) has one owner
     status: met
   - id: AC-6
-    title: Tests prove analytical evaluation against both real multi-class fixtures and explicit fallback cases without 
-      conflating the two.
+    title: Tests prove analytical evaluation against both real multi-class
     status: met
   - id: AC-7
-    title: '`MetricsService` and analogous analytical query surfaces consume the same Core evaluation surface instead of maintaining
-      a second model-evaluation fallback path for analytical behavior; legacy runs that depended on the fallback path are
-      removed or regenerated as part of the forward-only cut.'
+    title: MetricsService and analogous analytical query surfaces consume the
     status: met
   - id: AC-8
-    title: '`dotnet build` and `dotnet test --nologo` are green.'
+    title: dotnet build and dotnet test --nologo are green.
     status: met
 ---
 
@@ -58,21 +48,30 @@ Metrics query resolution also still carries a duplicate analytical path: `Metric
 
 ## Acceptance criteria
 
-### AC-1 — Core exposes an analytical evaluation surface for snapshot, window, and by-class values driven by the compiled analytical descriptor and explicit class-truth boundary.
+### AC-1 — Core exposes an analytical evaluation surface for snapshot, window
 
-### AC-2 — Core returns one consolidated internal analytical result surface with explicit nested sections for derived values, emitted-series truth, effective-capacity/utilization facts, and graph-level flow-latency outputs sufficient for projection.
+Core exposes an analytical evaluation surface for snapshot, window, and by-class values driven by the compiled analytical descriptor and explicit class-truth boundary.
+### AC-2 — Core returns one consolidated internal analytical result surface with
 
-### AC-3 — `StateQueryService` no longer computes analytical emission truth or per-node/per-class analytical math locally in the current state paths.
+Core returns one consolidated internal analytical result surface with explicit nested sections for derived values, emitted-series truth, effective-capacity/utilization facts, and graph-level flow-latency outputs sufficient for projection.
+### AC-3 — StateQueryService no longer computes analytical emission truth or
 
-### AC-4 — `flowLatencyMs` computation moves to Core as a pure function: `(compiledTopology, perNodeCycleTime[], edgeFlowVolume[]) → perNodeFlowLatency[]`. The adapter passes inputs, Core owns the graph traversal and accumulation.
+`StateQueryService` no longer computes analytical emission truth or per-node/per-class analytical math locally in the current state paths.
+### AC-4 — flowLatencyMs computation moves to Core as a pure function
 
-### AC-5 — Effective capacity computation (`capacity x parallelism`) has one owner in Core. The API's `GetEffectiveCapacity` / `GetParallelismValue` / `ComputeUtilizationSeries` delegation is replaced by Core evaluation.
+`flowLatencyMs` computation moves to Core as a pure function: `(compiledTopology, perNodeCycleTime[], edgeFlowVolume[]) → perNodeFlowLatency[]`. The adapter passes inputs, Core owns the graph traversal and accumulation.
+### AC-5 — Effective capacity computation (capacity x parallelism) has one owner
 
-### AC-6 — Tests prove analytical evaluation against both real multi-class fixtures and explicit fallback cases without conflating the two.
+Effective capacity computation (`capacity x parallelism`) has one owner in Core. The API's `GetEffectiveCapacity` / `GetParallelismValue` / `ComputeUtilizationSeries` delegation is replaced by Core evaluation.
+### AC-6 — Tests prove analytical evaluation against both real multi-class
 
-### AC-7 — `MetricsService` and analogous analytical query surfaces consume the same Core evaluation surface instead of maintaining a second model-evaluation fallback path for analytical behavior; legacy runs that depended on the fallback path are removed or regenerated as part of the forward-only cut.
+Tests prove analytical evaluation against both real multi-class fixtures and explicit fallback cases without conflating the two.
+### AC-7 — MetricsService and analogous analytical query surfaces consume the
 
-### AC-8 — `dotnet build` and `dotnet test --nologo` are green.
+`MetricsService` and analogous analytical query surfaces consume the same Core evaluation surface instead of maintaining a second model-evaluation fallback path for analytical behavior; legacy runs that depended on the fallback path are removed or regenerated as part of the forward-only cut.
+### AC-8 — dotnet build and dotnet test --nologo are green.
+
+`dotnet build` and `dotnet test --nologo` are green.
 ## Guards / DO NOT
 
 - **DO NOT** leave `flowLatencyMs` in the adapter. It is graph-level queueing theory — expected sojourn time through a network — not an orchestration concern. The Core is a graph engine; this computation belongs there.

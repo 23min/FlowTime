@@ -5,16 +5,16 @@ status: done
 parent: E-18
 acs:
   - id: AC-1
-    title: '`TimeMachineValidator.Validate(yaml, ValidationTier.Schema)` returns errors for invalid YAML'
+    title: TimeMachineValidator.Validate(yaml, ValidationTier.Schema) returns
     status: met
   - id: AC-2
-    title: '`TimeMachineValidator.Validate(yaml, ValidationTier.Compile)` catches structural errors (bad node refs, bad expressions)'
+    title: TimeMachineValidator.Validate(yaml, ValidationTier.Compile) catches
     status: met
   - id: AC-3
-    title: '`TimeMachineValidator.Validate(yaml, ValidationTier.Analyse)` returns warnings from invariant analyzer'
+    title: TimeMachineValidator.Validate(yaml, ValidationTier.Analyse) returns
     status: met
   - id: AC-4
-    title: '`POST /v1/validate` responds 200 with `{ isValid, tier, errors, warnings }` for all three tiers'
+    title: POST /v1/validate responds 200 with { isValid, tier, errors, warnings
     status: met
   - id: AC-5
     title: Invalid tier value → 400 Bad Request
@@ -23,13 +23,13 @@ acs:
     title: Empty/null yaml → 400 Bad Request
     status: met
   - id: AC-7
-    title: Rust session `validate_schema` returns `{ is_valid, errors }` without full compile
+    title: Rust session validate_schema returns { is_valid, errors } without
     status: met
   - id: AC-8
-    title: '`rg "FlowTime\.Generator" src/ tests/` still zero (no regressions)'
+    title: rg "FlowTime\.Generator" src/ tests/ still zero (no regressions)
     status: met
   - id: AC-9
-    title: '`dotnet test FlowTime.sln` all green; Rust `cargo test` all green'
+    title: dotnet test FlowTime.sln all green; Rust cargo test all green
     status: met
 ---
 
@@ -121,20 +121,28 @@ returns `error: { code: "compile_error", ... }` on failure.
 
 ## Acceptance criteria
 
-### AC-1 — `TimeMachineValidator.Validate(yaml, ValidationTier.Schema)` returns errors for invalid YAML
+### AC-1 — TimeMachineValidator.Validate(yaml, ValidationTier.Schema) returns
 
-### AC-2 — `TimeMachineValidator.Validate(yaml, ValidationTier.Compile)` catches structural errors (bad node refs, bad expressions)
+`TimeMachineValidator.Validate(yaml, ValidationTier.Schema)` returns errors for invalid YAML
+### AC-2 — TimeMachineValidator.Validate(yaml, ValidationTier.Compile) catches
 
-### AC-3 — `TimeMachineValidator.Validate(yaml, ValidationTier.Analyse)` returns warnings from invariant analyzer
+`TimeMachineValidator.Validate(yaml, ValidationTier.Compile)` catches structural errors (bad node refs, bad expressions)
+### AC-3 — TimeMachineValidator.Validate(yaml, ValidationTier.Analyse) returns
 
-### AC-4 — `POST /v1/validate` responds 200 with `{ isValid, tier, errors, warnings }` for all three tiers
+`TimeMachineValidator.Validate(yaml, ValidationTier.Analyse)` returns warnings from invariant analyzer
+### AC-4 — POST /v1/validate responds 200 with { isValid, tier, errors, warnings
 
+`POST /v1/validate` responds 200 with `{ isValid, tier, errors, warnings }` for all three tiers
 ### AC-5 — Invalid tier value → 400 Bad Request
 
 ### AC-6 — Empty/null yaml → 400 Bad Request
 
-### AC-7 — Rust session `validate_schema` returns `{ is_valid, errors }` without full compile
+### AC-7 — Rust session validate_schema returns { is_valid, errors } without
 
-### AC-8 — `rg "FlowTime\.Generator" src/ tests/` still zero (no regressions)
+Rust session `validate_schema` returns `{ is_valid, errors }` without full compile
+### AC-8 — rg "FlowTime\.Generator" src/ tests/ still zero (no regressions)
 
-### AC-9 — `dotnet test FlowTime.sln` all green; Rust `cargo test` all green
+`rg "FlowTime\.Generator" src/ tests/` still zero (no regressions)
+### AC-9 — dotnet test FlowTime.sln all green; Rust cargo test all green
+
+`dotnet test FlowTime.sln` all green; Rust `cargo test` all green

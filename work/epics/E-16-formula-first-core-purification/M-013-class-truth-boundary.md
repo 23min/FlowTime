@@ -5,31 +5,25 @@ status: done
 parent: E-16
 acs:
   - id: AC-1
-    title: Internal class surfaces distinguish real by-class data, synthesized fallback, and no-class coverage 
-      explicitly via a typed representation (not just string key conventions).
+    title: Internal class surfaces distinguish real by-class data, synthesized
     status: met
   - id: AC-2
-    title: Wildcard fallback is represented as an explicit fallback fact rather than inferred solely from the `*` key or
-      the absence of real class data.
+    title: Wildcard fallback is represented as an explicit fallback fact rather
     status: met
   - id: AC-3
-    title: Analytical evaluation and projection code consume explicit class-truth facts instead of silently relying on 
-      wildcard fallback.
+    title: Analytical evaluation and projection code consume explicit
     status: met
   - id: AC-4
-    title: Tests cover real multi-class fixtures separately from fallback projection cases, and approved outputs are 
-      regenerated forward-only where needed.
+    title: Tests cover real multi-class fixtures separately from fallback
     status: met
   - id: AC-5
-    title: A test or assertion proves that fallback-only data cannot be confused with real by-class analytical results 
-      in downstream evaluation.
+    title: A test or assertion proves that fallback-only data cannot be confused
     status: met
   - id: AC-6
-    title: Forward-only regenerated runtime metadata carries explicit fallback labeling at the class boundary; legacy 
-      `*` / `DEFAULT` normalization helpers are deleted rather than retained as compatibility translators.
+    title: Forward-only regenerated runtime metadata carries explicit fallback
     status: met
   - id: AC-7
-    title: '`dotnet build` and `dotnet test --nologo` are green.'
+    title: dotnet build and dotnet test --nologo are green.
     status: met
 ---
 
@@ -48,19 +42,27 @@ Wildcard handling is currently scattered across:
 
 ## Acceptance criteria
 
-### AC-1 — Internal class surfaces distinguish real by-class data, synthesized fallback, and no-class coverage explicitly via a typed representation (not just string key conventions).
+### AC-1 — Internal class surfaces distinguish real by-class data, synthesized
 
-### AC-2 — Wildcard fallback is represented as an explicit fallback fact rather than inferred solely from the `*` key or the absence of real class data.
+Internal class surfaces distinguish real by-class data, synthesized fallback, and no-class coverage explicitly via a typed representation (not just string key conventions).
+### AC-2 — Wildcard fallback is represented as an explicit fallback fact rather
 
-### AC-3 — Analytical evaluation and projection code consume explicit class-truth facts instead of silently relying on wildcard fallback.
+Wildcard fallback is represented as an explicit fallback fact rather than inferred solely from the `*` key or the absence of real class data.
+### AC-3 — Analytical evaluation and projection code consume explicit
 
-### AC-4 — Tests cover real multi-class fixtures separately from fallback projection cases, and approved outputs are regenerated forward-only where needed.
+Analytical evaluation and projection code consume explicit class-truth facts instead of silently relying on wildcard fallback.
+### AC-4 — Tests cover real multi-class fixtures separately from fallback
 
-### AC-5 — A test or assertion proves that fallback-only data cannot be confused with real by-class analytical results in downstream evaluation.
+Tests cover real multi-class fixtures separately from fallback projection cases, and approved outputs are regenerated forward-only where needed.
+### AC-5 — A test or assertion proves that fallback-only data cannot be confused
 
-### AC-6 — Forward-only regenerated runtime metadata carries explicit fallback labeling at the class boundary; legacy `*` / `DEFAULT` normalization helpers are deleted rather than retained as compatibility translators.
+A test or assertion proves that fallback-only data cannot be confused with real by-class analytical results in downstream evaluation.
+### AC-6 — Forward-only regenerated runtime metadata carries explicit fallback
 
-### AC-7 — `dotnet build` and `dotnet test --nologo` are green.
+Forward-only regenerated runtime metadata carries explicit fallback labeling at the class boundary; legacy `*` / `DEFAULT` normalization helpers are deleted rather than retained as compatibility translators.
+### AC-7 — dotnet build and dotnet test --nologo are green.
+
+`dotnet build` and `dotnet test --nologo` are green.
 ## Guards / DO NOT
 
 - **DO NOT** add `IsFallback` booleans to every DTO or scatter fallback awareness across unrelated types. Use a small explicit runtime shape (e.g., a tagged union or wrapper) at the class-data boundary.

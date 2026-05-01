@@ -5,7 +5,7 @@ status: done
 parent: E-12
 acs:
   - id: AC-1
-    title: Dependency nodes appear in `/state` and `/state_window` with correct series and metadata.
+    title: Dependency nodes appear in /state and /state_window with correct
     status: met
   - id: AC-2
     title: Edge semantics for dependency load are explicit and validated.
@@ -107,8 +107,9 @@ To keep the graph acyclic while still modeling dependency failures:
 
 ## Acceptance criteria
 
-### AC-1 — Dependency nodes appear in `/state` and `/state_window` with correct series and metadata.
+### AC-1 — Dependency nodes appear in /state and /state_window with correct
 
+Dependency nodes appear in `/state` and `/state_window` with correct series and metadata.
 ### AC-2 — Edge semantics for dependency load are explicit and validated.
 
 ### AC-3 — Missing dependency signals emit warnings and are visible to consumers.

@@ -5,28 +5,28 @@ status: done
 parent: E-18
 acs:
   - id: AC-1
-    title: '`ITelemetrySource` interface exists in `FlowTime.TimeMachine.Telemetry`'
+    title: ITelemetrySource interface exists in FlowTime.TimeMachine.Telemetry
     status: met
   - id: AC-2
-    title: '`TelemetryData` carries Grid + Series + optional Provenance'
+    title: TelemetryData carries Grid + Series + optional Provenance
     status: met
   - id: AC-3
-    title: '`CanonicalBundleSource.ReadAsync` reads a bundle directory and returns correct series values'
+    title: CanonicalBundleSource.ReadAsync reads a bundle directory and returns
     status: met
   - id: AC-4
-    title: '`FileCsvSource.ReadAsync` reads a single CSV and returns the series under the specified ID'
+    title: FileCsvSource.ReadAsync reads a single CSV and returns the series
     status: met
   - id: AC-5
-    title: Both implementations compile and have passing unit tests (23 tests across 2 suites)
+    title: Both implementations compile and have passing unit tests (23 tests
     status: met
   - id: AC-6
-    title: '`ITelemetrySink` is **not** introduced (explicitly documented as deferred)'
+    title: ITelemetrySink is not introduced (explicitly documented as deferred)
     status: met
   - id: AC-7
-    title: '`rg "FlowTime\.Generator" src/ tests/` still zero (no regressions)'
+    title: rg "FlowTime\.Generator" src/ tests/ still zero (no regressions)
     status: met
   - id: AC-8
-    title: '`dotnet test FlowTime.sln` all green (72 TimeMachine tests, 0 failures)'
+    title: dotnet test FlowTime.sln all green (72 TimeMachine tests, 0 failures)
     status: met
 ---
 
@@ -134,18 +134,27 @@ public sealed class FileCsvSource : ITelemetrySource
 
 ## Acceptance criteria
 
-### AC-1 — `ITelemetrySource` interface exists in `FlowTime.TimeMachine.Telemetry`
+### AC-1 — ITelemetrySource interface exists in FlowTime.TimeMachine.Telemetry
 
-### AC-2 — `TelemetryData` carries Grid + Series + optional Provenance
+`ITelemetrySource` interface exists in `FlowTime.TimeMachine.Telemetry`
+### AC-2 — TelemetryData carries Grid + Series + optional Provenance
 
-### AC-3 — `CanonicalBundleSource.ReadAsync` reads a bundle directory and returns correct series values
+`TelemetryData` carries Grid + Series + optional Provenance
+### AC-3 — CanonicalBundleSource.ReadAsync reads a bundle directory and returns
 
-### AC-4 — `FileCsvSource.ReadAsync` reads a single CSV and returns the series under the specified ID
+`CanonicalBundleSource.ReadAsync` reads a bundle directory and returns correct series values
+### AC-4 — FileCsvSource.ReadAsync reads a single CSV and returns the series
 
-### AC-5 — Both implementations compile and have passing unit tests (23 tests across 2 suites)
+`FileCsvSource.ReadAsync` reads a single CSV and returns the series under the specified ID
+### AC-5 — Both implementations compile and have passing unit tests (23 tests
 
-### AC-6 — `ITelemetrySink` is **not** introduced (explicitly documented as deferred)
+Both implementations compile and have passing unit tests (23 tests across 2 suites)
+### AC-6 — ITelemetrySink is not introduced (explicitly documented as deferred)
 
-### AC-7 — `rg "FlowTime\.Generator" src/ tests/` still zero (no regressions)
+`ITelemetrySink` is **not** introduced (explicitly documented as deferred)
+### AC-7 — rg "FlowTime\.Generator" src/ tests/ still zero (no regressions)
 
-### AC-8 — `dotnet test FlowTime.sln` all green (72 TimeMachine tests, 0 failures)
+`rg "FlowTime\.Generator" src/ tests/` still zero (no regressions)
+### AC-8 — dotnet test FlowTime.sln all green (72 TimeMachine tests, 0 failures)
+
+`dotnet test FlowTime.sln` all green (72 TimeMachine tests, 0 failures)

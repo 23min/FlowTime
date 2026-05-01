@@ -5,26 +5,25 @@ status: done
 parent: E-18
 acs:
   - id: AC-1
-    title: '`GoalSeekSpec` validates: non-null/whitespace ModelYaml/ParamId/MetricSeriesId; SearchLo < SearchHi; Tolerance
-      > 0; MaxIterations ≥ 1'
+    title: GoalSeekSpec validates
     status: met
   - id: AC-2
-    title: '`GoalSeeker.SeekAsync` converges on a linear model to within tolerance'
+    title: GoalSeeker.SeekAsync converges on a linear model to within tolerance
     status: met
   - id: AC-3
-    title: '`GoalSeeker` returns `Converged=false` when target is not bracketed'
+    title: GoalSeeker returns Converged=false when target is not bracketed
     status: met
   - id: AC-4
-    title: '`GoalSeeker` returns `Converged=false` (best guess) when max iterations exhausted'
+    title: GoalSeeker returns Converged=false (best guess) when max iterations
     status: met
   - id: AC-5
-    title: '`GoalSeeker` respects `CancellationToken`'
+    title: GoalSeeker respects CancellationToken
     status: met
   - id: AC-6
-    title: '`POST /v1/goal-seek` returns 400 for missing/invalid required fields'
+    title: POST /v1/goal-seek returns 400 for missing/invalid required fields
     status: met
   - id: AC-7
-    title: '`POST /v1/goal-seek` returns 503 when engine not enabled'
+    title: POST /v1/goal-seek returns 503 when engine not enabled
     status: met
   - id: AC-8
     title: 'Unit tests pass: 26 tests (GoalSeekSpec ×14, GoalSeeker ×12)'
@@ -33,7 +32,7 @@ acs:
     title: 'API tests pass: 8 tests (7×400, 1×503)'
     status: met
   - id: AC-10
-    title: '`dotnet test FlowTime.sln` all green (163 TimeMachine, 250 API)'
+    title: dotnet test FlowTime.sln all green (163 TimeMachine, 250 API)
     status: met
 ---
 
@@ -96,25 +95,32 @@ Bisection on the metric mean:
 
 ## Acceptance criteria
 
-### AC-1 — `GoalSeekSpec` validates: non-null/whitespace ModelYaml/ParamId/MetricSeriesId; SearchLo < SearchHi; Tolerance > 0; MaxIterations ≥ 1
+### AC-1 — GoalSeekSpec validates
 
 `GoalSeekSpec` validates: non-null/whitespace ModelYaml/ParamId/MetricSeriesId;
 SearchLo < SearchHi; Tolerance > 0; MaxIterations ≥ 1
+### AC-2 — GoalSeeker.SeekAsync converges on a linear model to within tolerance
 
-### AC-2 — `GoalSeeker.SeekAsync` converges on a linear model to within tolerance
+`GoalSeeker.SeekAsync` converges on a linear model to within tolerance
+### AC-3 — GoalSeeker returns Converged=false when target is not bracketed
 
-### AC-3 — `GoalSeeker` returns `Converged=false` when target is not bracketed
+`GoalSeeker` returns `Converged=false` when target is not bracketed
+### AC-4 — GoalSeeker returns Converged=false (best guess) when max iterations
 
-### AC-4 — `GoalSeeker` returns `Converged=false` (best guess) when max iterations exhausted
+`GoalSeeker` returns `Converged=false` (best guess) when max iterations exhausted
+### AC-5 — GoalSeeker respects CancellationToken
 
-### AC-5 — `GoalSeeker` respects `CancellationToken`
+`GoalSeeker` respects `CancellationToken`
+### AC-6 — POST /v1/goal-seek returns 400 for missing/invalid required fields
 
-### AC-6 — `POST /v1/goal-seek` returns 400 for missing/invalid required fields
+`POST /v1/goal-seek` returns 400 for missing/invalid required fields
+### AC-7 — POST /v1/goal-seek returns 503 when engine not enabled
 
-### AC-7 — `POST /v1/goal-seek` returns 503 when engine not enabled
-
+`POST /v1/goal-seek` returns 503 when engine not enabled
 ### AC-8 — Unit tests pass: 26 tests (GoalSeekSpec ×14, GoalSeeker ×12)
 
 ### AC-9 — API tests pass: 8 tests (7×400, 1×503)
 
-### AC-10 — `dotnet test FlowTime.sln` all green (163 TimeMachine, 250 API)
+### AC-10 — dotnet test FlowTime.sln all green (163 TimeMachine, 250 API)
+
+`dotnet test FlowTime.sln` all green (163 TimeMachine, 250 API)

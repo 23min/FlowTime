@@ -5,73 +5,64 @@ status: done
 parent: E-18
 acs:
   - id: AC-1
-    title: '`SessionModelEvaluator` exists, implements `IModelEvaluator` and `IAsyncDisposable`'
+    title: SessionModelEvaluator exists, implements IModelEvaluator and
     status: met
   - id: AC-2
     title: Constructor validates engine path (non-null, non-whitespace)
     status: met
   - id: AC-3
-    title: First `EvaluateAsync` call spawns the subprocess exactly once; subsequent calls reuse it
+    title: First EvaluateAsync call spawns the subprocess exactly once
     status: met
   - id: AC-4
-    title: First call sends `compile`; subsequent calls send `eval` with overrides extracted via `ConstNodeReader`
+    title: First call sends compile; subsequent calls send eval with overrides
     status: met
   - id: AC-5
-    title: Returned series dictionary uses case-insensitive keys (matches `RustModelEvaluator`)
+    title: Returned series dictionary uses case-insensitive keys (matches
     status: met
   - id: AC-6
-    title: Error responses (`error` key present) raise `InvalidOperationException` with code + message
+    title: Error responses (error key present) raise InvalidOperationException
     status: met
   - id: AC-7
-    title: '`DisposeAsync` closes stdin, waits for exit, kills the process tree on timeout'
+    title: DisposeAsync closes stdin, waits for exit, kills the process tree on
     status: met
   - id: AC-8
-    title: '`DisposeAsync` is idempotent (safe to call multiple times)'
+    title: DisposeAsync is idempotent (safe to call multiple times)
     status: met
   - id: AC-9
-    title: Calling `EvaluateAsync` after `DisposeAsync` throws `ObjectDisposedException`
+    title: Calling EvaluateAsync after DisposeAsync throws
     status: met
   - id: AC-10
-    title: '`CancellationToken` is observed during I/O'
+    title: CancellationToken is observed during I/O
     status: met
   - id: AC-11
-    title: Concurrent `EvaluateAsync` calls on one instance are serialized (no interleaved frames)
+    title: Concurrent EvaluateAsync calls on one instance are serialized (no
     status: met
   - id: AC-12
-    title: 'DI: `IModelEvaluator`, `SweepRunner`, `SensitivityRunner`, `GoalSeeker`, `Optimizer` all registered as `Scoped`'
+    title: DI
     status: met
   - id: AC-13
-    title: 'DI: `RustEngine:UseSession` config (default `true`) selects `SessionModelEvaluator`; `false` selects `RustModelEvaluator`'
+    title: DI
     status: met
   - id: AC-14
-    title: '`RustModelEvaluator.cs` retained as fallback; covered by an API test that flips the config switch'
+    title: RustModelEvaluator.cs retained as fallback; covered by an API test
     status: met
   - id: AC-15
-    title: 'Unit tests pass: 32 tests total - 6 constructor + disposal (SessionModelEvaluatorTests) - 3 BuildOverrides (empty
-      / all-found / some-missing) - 5 ExtractResult (success / error-with-code-msg / error-missing-subfields / neither / malformed-result)
-      - 4 ExtractParamIds (missing-key / not-array / valid / malformed-items) - 6 ExtractSeries (missing-key / not-dict /
-      valid / case-insensitive / non-string-key / non-array-value) - 1 WriteFrameAsync (length-prefixed MessagePack) - 5 ReadFrameAsync
-      (valid / zero / negative / excessive / truncated) - 2 ReadExactAsync (full-read / EOF-mid-read)'
+    title: Unit tests pass
     status: met
   - id: AC-16
-    title: 'Integration tests pass with the Rust binary present: 8 tests (SessionModelEvaluatorIntegrationTests) - [x] Compile-once
-      / eval-many returns correct series after parameter override - [x] Parity on numeric values against per-eval path (keys
-      differ by design — documented in `work/gaps.md`) - [x] `SweepRunner` drives `SessionModelEvaluator` end-to-end over
-      a 5-point sweep - [x] Session subprocess does not leak after disposal - [x] Invalid model raises `InvalidOperationException`
-      with engine error code - [x] Concurrent calls on one instance are serialized'
+    title: Integration tests pass with the Rust binary present
     status: met
   - id: AC-17
-    title: 'API DI tests pass: 4 tests (ModelEvaluatorRegistrationTests — default/true/false/scope lifetime)'
+    title: API DI tests pass
     status: met
   - id: AC-18
-    title: '`dotnet build FlowTime.sln` green'
+    title: dotnet build FlowTime.sln green
     status: met
   - id: AC-19
-    title: '`dotnet test FlowTime.sln` all green (1,620 passed / 9 skipped)'
+    title: dotnet test FlowTime.sln all green (1,620 passed / 9 skipped)
     status: met
   - id: AC-20
-    title: '`docs/architecture/time-machine-analysis-modes.md` updated — now documents both evaluator paths, config switch,
-      and scoped lifetime'
+    title: docs/architecture/time-machine-analysis-modes.md updated
     status: met
 ---
 
@@ -194,35 +185,48 @@ raises `InvalidOperationException` with the error code + message.
 
 ## Acceptance criteria
 
-### AC-1 — `SessionModelEvaluator` exists, implements `IModelEvaluator` and `IAsyncDisposable`
+### AC-1 — SessionModelEvaluator exists, implements IModelEvaluator and
 
+`SessionModelEvaluator` exists, implements `IModelEvaluator` and `IAsyncDisposable`
 ### AC-2 — Constructor validates engine path (non-null, non-whitespace)
 
-### AC-3 — First `EvaluateAsync` call spawns the subprocess exactly once; subsequent calls reuse it
+### AC-3 — First EvaluateAsync call spawns the subprocess exactly once
 
-### AC-4 — First call sends `compile`; subsequent calls send `eval` with overrides extracted via `ConstNodeReader`
+First `EvaluateAsync` call spawns the subprocess exactly once; subsequent calls reuse it
+### AC-4 — First call sends compile; subsequent calls send eval with overrides
 
-### AC-5 — Returned series dictionary uses case-insensitive keys (matches `RustModelEvaluator`)
+First call sends `compile`; subsequent calls send `eval` with overrides extracted via `ConstNodeReader`
+### AC-5 — Returned series dictionary uses case-insensitive keys (matches
 
-### AC-6 — Error responses (`error` key present) raise `InvalidOperationException` with code + message
+Returned series dictionary uses case-insensitive keys (matches `RustModelEvaluator`)
+### AC-6 — Error responses (error key present) raise InvalidOperationException
 
-### AC-7 — `DisposeAsync` closes stdin, waits for exit, kills the process tree on timeout
+Error responses (`error` key present) raise `InvalidOperationException` with code + message
+### AC-7 — DisposeAsync closes stdin, waits for exit, kills the process tree on
 
-### AC-8 — `DisposeAsync` is idempotent (safe to call multiple times)
+`DisposeAsync` closes stdin, waits for exit, kills the process tree on timeout
+### AC-8 — DisposeAsync is idempotent (safe to call multiple times)
 
-### AC-9 — Calling `EvaluateAsync` after `DisposeAsync` throws `ObjectDisposedException`
+`DisposeAsync` is idempotent (safe to call multiple times)
+### AC-9 — Calling EvaluateAsync after DisposeAsync throws
 
-### AC-10 — `CancellationToken` is observed during I/O
+Calling `EvaluateAsync` after `DisposeAsync` throws `ObjectDisposedException`
+### AC-10 — CancellationToken is observed during I/O
 
-### AC-11 — Concurrent `EvaluateAsync` calls on one instance are serialized (no interleaved frames)
+`CancellationToken` is observed during I/O
+### AC-11 — Concurrent EvaluateAsync calls on one instance are serialized (no
 
-### AC-12 — DI: `IModelEvaluator`, `SweepRunner`, `SensitivityRunner`, `GoalSeeker`, `Optimizer` all registered as `Scoped`
+Concurrent `EvaluateAsync` calls on one instance are serialized (no interleaved frames)
+### AC-12 — DI
 
-### AC-13 — DI: `RustEngine:UseSession` config (default `true`) selects `SessionModelEvaluator`; `false` selects `RustModelEvaluator`
+DI: `IModelEvaluator`, `SweepRunner`, `SensitivityRunner`, `GoalSeeker`, `Optimizer` all registered as `Scoped`
+### AC-13 — DI
 
-### AC-14 — `RustModelEvaluator.cs` retained as fallback; covered by an API test that flips the config switch
+DI: `RustEngine:UseSession` config (default `true`) selects `SessionModelEvaluator`; `false` selects `RustModelEvaluator`
+### AC-14 — RustModelEvaluator.cs retained as fallback; covered by an API test
 
-### AC-15 — Unit tests pass: 32 tests total - 6 constructor + disposal (SessionModelEvaluatorTests) - 3 BuildOverrides (empty / all-found / some-missing) - 5 ExtractResult (success / error-with-code-msg / error-missing-subfields / neither / malformed-result) - 4 ExtractParamIds (missing-key / not-array / valid / malformed-items) - 6 ExtractSeries (missing-key / not-dict / valid / case-insensitive / non-string-key / non-array-value) - 1 WriteFrameAsync (length-prefixed MessagePack) - 5 ReadFrameAsync (valid / zero / negative / excessive / truncated) - 2 ReadExactAsync (full-read / EOF-mid-read)
+`RustModelEvaluator.cs` retained as fallback; covered by an API test that flips the config switch
+### AC-15 — Unit tests pass
 
 Unit tests pass: 32 tests total
 - 6 constructor + disposal (SessionModelEvaluatorTests)
@@ -233,8 +237,7 @@ Unit tests pass: 32 tests total
 - 1 WriteFrameAsync (length-prefixed MessagePack)
 - 5 ReadFrameAsync (valid / zero / negative / excessive / truncated)
 - 2 ReadExactAsync (full-read / EOF-mid-read)
-
-### AC-16 — Integration tests pass with the Rust binary present: 8 tests (SessionModelEvaluatorIntegrationTests) - [x] Compile-once / eval-many returns correct series after parameter override - [x] Parity on numeric values against per-eval path (keys differ by design — documented in `work/gaps.md`) - [x] `SweepRunner` drives `SessionModelEvaluator` end-to-end over a 5-point sweep - [x] Session subprocess does not leak after disposal - [x] Invalid model raises `InvalidOperationException` with engine error code - [x] Concurrent calls on one instance are serialized
+### AC-16 — Integration tests pass with the Rust binary present
 
 Integration tests pass with the Rust binary present: 8 tests (SessionModelEvaluatorIntegrationTests)
 - [x] Compile-once / eval-many returns correct series after parameter override
@@ -243,14 +246,18 @@ Integration tests pass with the Rust binary present: 8 tests (SessionModelEvalua
 - [x] Session subprocess does not leak after disposal
 - [x] Invalid model raises `InvalidOperationException` with engine error code
 - [x] Concurrent calls on one instance are serialized
+### AC-17 — API DI tests pass
 
-### AC-17 — API DI tests pass: 4 tests (ModelEvaluatorRegistrationTests — default/true/false/scope lifetime)
+API DI tests pass: 4 tests (ModelEvaluatorRegistrationTests — default/true/false/scope lifetime)
+### AC-18 — dotnet build FlowTime.sln green
 
-### AC-18 — `dotnet build FlowTime.sln` green
+`dotnet build FlowTime.sln` green
+### AC-19 — dotnet test FlowTime.sln all green (1,620 passed / 9 skipped)
 
-### AC-19 — `dotnet test FlowTime.sln` all green (1,620 passed / 9 skipped)
+`dotnet test FlowTime.sln` all green (1,620 passed / 9 skipped)
+### AC-20 — docs/architecture/time-machine-analysis-modes.md updated
 
-### AC-20 — `docs/architecture/time-machine-analysis-modes.md` updated — now documents both evaluator paths, config switch, and scoped lifetime
+`docs/architecture/time-machine-analysis-modes.md` updated — now documents both evaluator paths, config switch, and scoped lifetime
 ## Coverage notes
 
 **Covered:** every reachable branch in the production implementation — 44 dedicated tests (32 unit + 8 integration + 4 DI). The unit tests deliberately exercise every parsing helper with hand-crafted protocol payloads that the real Rust engine would not produce (missing fields, malformed types, non-string keys, out-of-range frame lengths), because those are defense-in-depth paths against protocol corruption and must not fail silently.

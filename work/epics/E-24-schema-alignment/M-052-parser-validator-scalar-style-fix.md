@@ -5,55 +5,31 @@ status: done
 parent: E-24
 acs:
   - id: AC-1
-    title: '**`ModelSchemaValidator.ParseScalar` honors `ScalarStyle.Plain`.** Non-plain scalars resolve as strings. The guard
-      is placed immediately after the `value is null` check and before the existing `bool.TryParse` call. Plain scalars continue
-      to coerce as today (bool → int → double → string in that order).'
+    title: ModelSchemaValidator.ParseScalar honors ScalarStyle.Plain
     status: met
   - id: AC-2
-    title: '**`TemplateSchemaValidator.ParseScalar` is mirrored.** The identical guard lands in the Sim-side validator at
-      `src/FlowTime.Sim.Core/Templates/TemplateSchemaValidator.cs:173-197`. Both validators use the same guard shape and semantics
-      — no divergence.'
+    title: TemplateSchemaValidator.ParseScalar is mirrored
     status: met
   - id: AC-3
-    title: '**Test-side coercion helper updated.** `tests/FlowTime.TimeMachine.Tests/TemplateSchemaValidationTests.cs:134-169`
-      (`NormalizeYaml` / `TryConvertScalar`) is either updated to match the validator (ScalarStyle-aware) or replaced entirely
-      by a delegate call into the fixed `ModelSchemaValidator`. Leaving the helper in its current aggressive-coerce state
-      is not acceptable because it silently re-introduces the defect in the test layer.'
+    title: Test-side coercion helper updated
     status: met
   - id: AC-4
-    title: '**Scalar-style test matrix — Engine side.** New tests in `tests/FlowTime.Core.Tests` (or appropriate home) cover
-      at minimum: (a) quoted integer literal `expr: "0"` resolves as string and passes `nodes[].expr: type: string`; (b) unquoted
-      integer `schemaVersion: 1` resolves as integer and passes `schemaVersion: type: integer`; (c) quoted boolean `"true"`
-      resolves as string; (d) unquoted boolean `true` resolves as bool; (e) quoted null `"null"` resolves as the 4-character
-      string; (f) unquoted null (`null` / empty) resolves as JSON null; (g) folded `>` and literal `|` block scalars resolve
-      as strings. Each case is a distinct test method with an explicit test name describing the scalar style and expected
-      resolution.'
+    title: Scalar-style test matrix — Engine side
     status: met
   - id: AC-5
-    title: '**Scalar-style test matrix — Sim side.** Mirror test matrix in `tests/FlowTime.Sim.Tests` against `TemplateSchemaValidator`.
-      Same case-by-case coverage; identical expectations.'
+    title: Scalar-style test matrix — Sim side
     status: met
   - id: AC-6
-    title: '**Canary reports `val-err=0`.** `TemplateWarningSurveyTests.Survey_Templates_For_Warnings` reports `validator-errors=0`
-      across all twelve templates at `ValidationTier.Analyse`. The total residual from the M-046 baseline (726) has collapsed
-      to 0 after M-050 + M-051 (removed ~495 non-C) and M-052 (removed ~231 C-defect). The tracking doc records the final
-      per-template histogram.'
+    title: Canary reports val-err=0
     status: met
   - id: AC-7
-    title: '**No regression in the broader validator behavior.** Tests that author plain-scalar integer/bool values (e.g.
-      `schemaVersion: 1`, `bins: 24`, PMF values) continue to pass unchanged. The guard adds stricter handling only for non-plain
-      scalars.'
+    title: No regression in the broader validator behavior
     status: met
   - id: AC-8
-    title: '**Full `.NET` suite green.** `dotnet test FlowTime.sln` passes. No new regressions. Any test that accidentally
-      relied on quoted-literal coercion is updated in-milestone to author the scalar correctly (unquoted if integer was intended,
-      quoted if string was intended).'
+    title: Full .NET suite green
     status: met
   - id: AC-9
-    title: '**Branch coverage complete.** The new `ScalarStyle.Plain` guard in each validator is exercised by at least the
-      five non-plain style variants (SingleQuoted, DoubleQuoted, Literal, Folded, and where applicable FlowSingleQuoted /
-      FlowDoubleQuoted if present in the YamlDotNet enum the project targets). The existing plain-path coercion has test coverage
-      preserved (bool / int / double / string).'
+    title: Branch coverage complete
     status: met
 ---
 
@@ -69,23 +45,33 @@ The defect is independent of unification. Unification (M-050) and schema realign
 
 ## Acceptance criteria
 
-### AC-1 — **`ModelSchemaValidator.ParseScalar` honors `ScalarStyle.Plain`.** Non-plain scalars resolve as strings. The guard is placed immediately after the `value is null` check and before the existing `bool.TryParse` call. Plain scalars continue to coerce as today (bool → int → double → string in that order).
+### AC-1 — ModelSchemaValidator.ParseScalar honors ScalarStyle.Plain
 
-### AC-2 — **`TemplateSchemaValidator.ParseScalar` is mirrored.** The identical guard lands in the Sim-side validator at `src/FlowTime.Sim.Core/Templates/TemplateSchemaValidator.cs:173-197`. Both validators use the same guard shape and semantics — no divergence.
+**`ModelSchemaValidator.ParseScalar` honors `ScalarStyle.Plain`.** Non-plain scalars resolve as strings. The guard is placed immediately after the `value is null` check and before the existing `bool.TryParse` call. Plain scalars continue to coerce as today (bool → int → double → string in that order).
+### AC-2 — TemplateSchemaValidator.ParseScalar is mirrored
 
-### AC-3 — **Test-side coercion helper updated.** `tests/FlowTime.TimeMachine.Tests/TemplateSchemaValidationTests.cs:134-169` (`NormalizeYaml` / `TryConvertScalar`) is either updated to match the validator (ScalarStyle-aware) or replaced entirely by a delegate call into the fixed `ModelSchemaValidator`. Leaving the helper in its current aggressive-coerce state is not acceptable because it silently re-introduces the defect in the test layer.
+**`TemplateSchemaValidator.ParseScalar` is mirrored.** The identical guard lands in the Sim-side validator at `src/FlowTime.Sim.Core/Templates/TemplateSchemaValidator.cs:173-197`. Both validators use the same guard shape and semantics — no divergence.
+### AC-3 — Test-side coercion helper updated
 
-### AC-4 — **Scalar-style test matrix — Engine side.** New tests in `tests/FlowTime.Core.Tests` (or appropriate home) cover at minimum: (a) quoted integer literal `expr: "0"` resolves as string and passes `nodes[].expr: type: string`; (b) unquoted integer `schemaVersion: 1` resolves as integer and passes `schemaVersion: type: integer`; (c) quoted boolean `"true"` resolves as string; (d) unquoted boolean `true` resolves as bool; (e) quoted null `"null"` resolves as the 4-character string; (f) unquoted null (`null` / empty) resolves as JSON null; (g) folded `>` and literal `|` block scalars resolve as strings. Each case is a distinct test method with an explicit test name describing the scalar style and expected resolution.
+**Test-side coercion helper updated.** `tests/FlowTime.TimeMachine.Tests/TemplateSchemaValidationTests.cs:134-169` (`NormalizeYaml` / `TryConvertScalar`) is either updated to match the validator (ScalarStyle-aware) or replaced entirely by a delegate call into the fixed `ModelSchemaValidator`. Leaving the helper in its current aggressive-coerce state is not acceptable because it silently re-introduces the defect in the test layer.
+### AC-4 — Scalar-style test matrix — Engine side
 
-### AC-5 — **Scalar-style test matrix — Sim side.** Mirror test matrix in `tests/FlowTime.Sim.Tests` against `TemplateSchemaValidator`. Same case-by-case coverage; identical expectations.
+**Scalar-style test matrix — Engine side.** New tests in `tests/FlowTime.Core.Tests` (or appropriate home) cover at minimum: (a) quoted integer literal `expr: "0"` resolves as string and passes `nodes[].expr: type: string`; (b) unquoted integer `schemaVersion: 1` resolves as integer and passes `schemaVersion: type: integer`; (c) quoted boolean `"true"` resolves as string; (d) unquoted boolean `true` resolves as bool; (e) quoted null `"null"` resolves as the 4-character string; (f) unquoted null (`null` / empty) resolves as JSON null; (g) folded `>` and literal `|` block scalars resolve as strings. Each case is a distinct test method with an explicit test name describing the scalar style and expected resolution.
+### AC-5 — Scalar-style test matrix — Sim side
 
-### AC-6 — **Canary reports `val-err=0`.** `TemplateWarningSurveyTests.Survey_Templates_For_Warnings` reports `validator-errors=0` across all twelve templates at `ValidationTier.Analyse`. The total residual from the M-046 baseline (726) has collapsed to 0 after M-050 + M-051 (removed ~495 non-C) and M-052 (removed ~231 C-defect). The tracking doc records the final per-template histogram.
+**Scalar-style test matrix — Sim side.** Mirror test matrix in `tests/FlowTime.Sim.Tests` against `TemplateSchemaValidator`. Same case-by-case coverage; identical expectations.
+### AC-6 — Canary reports val-err=0
 
-### AC-7 — **No regression in the broader validator behavior.** Tests that author plain-scalar integer/bool values (e.g. `schemaVersion: 1`, `bins: 24`, PMF values) continue to pass unchanged. The guard adds stricter handling only for non-plain scalars.
+**Canary reports `val-err=0`.** `TemplateWarningSurveyTests.Survey_Templates_For_Warnings` reports `validator-errors=0` across all twelve templates at `ValidationTier.Analyse`. The total residual from the M-046 baseline (726) has collapsed to 0 after M-050 + M-051 (removed ~495 non-C) and M-052 (removed ~231 C-defect). The tracking doc records the final per-template histogram.
+### AC-7 — No regression in the broader validator behavior
 
-### AC-8 — **Full `.NET` suite green.** `dotnet test FlowTime.sln` passes. No new regressions. Any test that accidentally relied on quoted-literal coercion is updated in-milestone to author the scalar correctly (unquoted if integer was intended, quoted if string was intended).
+**No regression in the broader validator behavior.** Tests that author plain-scalar integer/bool values (e.g. `schemaVersion: 1`, `bins: 24`, PMF values) continue to pass unchanged. The guard adds stricter handling only for non-plain scalars.
+### AC-8 — Full .NET suite green
 
-### AC-9 — **Branch coverage complete.** The new `ScalarStyle.Plain` guard in each validator is exercised by at least the five non-plain style variants (SingleQuoted, DoubleQuoted, Literal, Folded, and where applicable FlowSingleQuoted / FlowDoubleQuoted if present in the YamlDotNet enum the project targets). The existing plain-path coercion has test coverage preserved (bool / int / double / string).
+**Full `.NET` suite green.** `dotnet test FlowTime.sln` passes. No new regressions. Any test that accidentally relied on quoted-literal coercion is updated in-milestone to author the scalar correctly (unquoted if integer was intended, quoted if string was intended).
+### AC-9 — Branch coverage complete
+
+**Branch coverage complete.** The new `ScalarStyle.Plain` guard in each validator is exercised by at least the five non-plain style variants (SingleQuoted, DoubleQuoted, Literal, Folded, and where applicable FlowSingleQuoted / FlowDoubleQuoted if present in the YamlDotNet enum the project targets). The existing plain-path coercion has test coverage preserved (bool / int / double / string).
 ## Constraints
 
 - **Exactly one guard shape in both validators.** The check is `if (scalar.Style != ScalarStyle.Plain) return JsonValue.Create(value)!;` placed in the same position in both files. No second inference layer (e.g. tag-based `!!str` detection) — YAML's resolver already embeds the distinction in `Style`.

@@ -5,58 +5,31 @@ status: done
 parent: E-23
 acs:
   - id: AC-1
-    title: "**Call-site enumeration is fresh.** First action of the milestone: `grep -rn \"ModelValidator\\.Validate\" --include=\"\
-      *.cs\"` outside `.claude/worktrees/`. Record the live list in the tracking doc — line numbers must be the live ones
-      at start-milestone time, not cached from this spec. Today's enumeration (subject to refresh at start) is three production
-      sites and four test files: - `src/FlowTime.API/Program.cs` (`POST /v1/run` validation block) - `src/FlowTime.Cli/Program.cs`
-      (Engine CLI `run` entry) - `src/FlowTime.TimeMachine/Validation/TimeMachineValidator.cs` (the redundant delegation alongside
-      the existing `ModelSchemaValidator.Validate` call — remove the `ModelValidator` line, keep the `ModelSchemaValidator`
-      line as the whole of tier-1 schema check) - `tests/FlowTime.Integration.Tests/SimToEngineWorkflowTests.cs` - `tests/FlowTime.Tests/Schema/TargetSchemaValidationTests.cs`
-      - `tests/FlowTime.Tests/Schema/SchemaVersionTests.cs` - `tests/FlowTime.Tests/Schema/SchemaErrorHandlingTests.cs`"
+    title: Call-site enumeration is fresh
     status: met
   - id: AC-2
-    title: '**Production call sites migrated.** Each production call site (the three above, post-refresh) passes through `ModelSchemaValidator.Validate`
-      instead. The production diff is small — type name swap plus, where needed, error-shape adaptation at the response site.'
+    title: Production call sites migrated
     status: met
   - id: AC-3
-    title: '**Test suite migrated.** The three `tests/FlowTime.Tests/Schema/*.cs` files referencing `ModelValidator.Validate`
-      are rewritten to assert against `ModelSchemaValidator`. Each individual assertion falls into one of: (a) kept as-is
-      because `ModelSchemaValidator` already covers it identically, (b) updated to match the new error-message format, (c)
-      relaxed to assert on semantic properties (`IsValid == false`, at least one error containing a specified substring or
-      matching a specified pattern) when exact phrasing is not contract-meaningful, (d) deleted because it asserts an internal
-      `ModelValidator` detail not reachable from `ModelSchemaValidator`. The tracking doc records which bucket each assertion
-      fell into. `SimToEngineWorkflowTests.cs` lines using `ModelValidator.Validate` are updated to `ModelSchemaValidator.Validate`.'
+    title: Test suite migrated
     status: met
   - id: AC-4
-    title: '**Error-phrasing audit recorded.** The tracking doc includes a before/after table for the representative invalid-model
-      corpus (missing `bins`, missing `grid`, wrong `schemaVersion`, legacy top-level `arrivals`, legacy node-level `expression`,
-      legacy `binMinutes`): `ModelValidator` message vs. `ModelSchemaValidator` message, plus a note on any downstream consumer
-      (UI, CLI stdout, API response) that surfaces the string directly.'
+    title: Error-phrasing audit recorded
     status: met
   - id: AC-5
-    title: '**API contract preserved.** `POST /v1/run` continues to return HTTP 400 with a `{ "error": "..." }` JSON body
-      for invalid models. The `error` string may be differently phrased, but the shape — one JSON field, semicolon-joined
-      on multi-error — is identical. API contract tests are green.'
+    title: API contract preserved
     status: met
   - id: AC-6
-    title: '**CLI stderr output preserved.** `dotnet run --project src/FlowTime.Cli` on an invalid model continues to write
-      `Model validation failed:` followed by one ` - <msg>` line per error, returning exit code 1. Tests (if any) and manual
-      smoke are green.'
+    title: CLI stderr output preserved
     status: met
   - id: AC-7
-    title: '**`ModelValidator` has zero production callers.** `grep -rn "ModelValidator\.Validate\|ModelValidator\b" --include="*.cs"`
-      outside `.claude/worktrees/` returns matches only inside `src/FlowTime.Core/Models/ModelValidator.cs` itself. No `.cs`
-      file outside that one references the type by name.'
+    title: ModelValidator has zero production callers
     status: met
   - id: AC-8
-    title: "**Full .NET suite green.** `dotnet test FlowTime.sln` passes. Both canaries — E-24's `TemplateWarningSurveyTests`
-      (`val-err == 0`) and M-046's `RuleCoverageRegressionTests` — stay green. No Svelte/Blazor/UI regressions (those surfaces
-      are unmodified but smoke-checked via existing Playwright specs running against a live engine)."
+    title: Full .NET suite green
     status: met
   - id: AC-9
-    title: '**Optional: latency delta recorded.** If measurable with reasonable effort (e.g., a single warm-run timing of
-      `POST /v1/run` against a representative template before and after), the tracking doc records the `ModelValidator` →
-      `ModelSchemaValidator` latency delta. Non-blocking; documented as informational.'
+    title: 'Optional: latency delta recorded'
     status: met
 ---
 
@@ -74,7 +47,7 @@ This milestone intentionally stops before deletion so rollback is cheap. If some
 
 ## Acceptance criteria
 
-### AC-1 — **Call-site enumeration is fresh.** First action of the milestone: `grep -rn "ModelValidator\.Validate" --include="*.cs"` outside `.claude/worktrees/`. Record the live list in the tracking doc — line numbers must be the live ones at start-milestone time, not cached from this spec. Today's enumeration (subject to refresh at start) is three production sites and four test files: - `src/FlowTime.API/Program.cs` (`POST /v1/run` validation block) - `src/FlowTime.Cli/Program.cs` (Engine CLI `run` entry) - `src/FlowTime.TimeMachine/Validation/TimeMachineValidator.cs` (the redundant delegation alongside the existing `ModelSchemaValidator.Validate` call — remove the `ModelValidator` line, keep the `ModelSchemaValidator` line as the whole of tier-1 schema check) - `tests/FlowTime.Integration.Tests/SimToEngineWorkflowTests.cs` - `tests/FlowTime.Tests/Schema/TargetSchemaValidationTests.cs` - `tests/FlowTime.Tests/Schema/SchemaVersionTests.cs` - `tests/FlowTime.Tests/Schema/SchemaErrorHandlingTests.cs`
+### AC-1 — Call-site enumeration is fresh
 
 **Call-site enumeration is fresh.** First action of the milestone: `grep -rn "ModelValidator\.Validate" --include="*.cs"` outside `.claude/worktrees/`. Record the live list in the tracking doc — line numbers must be the live ones at start-milestone time, not cached from this spec. Today's enumeration (subject to refresh at start) is three production sites and four test files:
 - `src/FlowTime.API/Program.cs` (`POST /v1/run` validation block)
@@ -84,22 +57,30 @@ This milestone intentionally stops before deletion so rollback is cheap. If some
 - `tests/FlowTime.Tests/Schema/TargetSchemaValidationTests.cs`
 - `tests/FlowTime.Tests/Schema/SchemaVersionTests.cs`
 - `tests/FlowTime.Tests/Schema/SchemaErrorHandlingTests.cs`
+### AC-2 — Production call sites migrated
 
-### AC-2 — **Production call sites migrated.** Each production call site (the three above, post-refresh) passes through `ModelSchemaValidator.Validate` instead. The production diff is small — type name swap plus, where needed, error-shape adaptation at the response site.
+**Production call sites migrated.** Each production call site (the three above, post-refresh) passes through `ModelSchemaValidator.Validate` instead. The production diff is small — type name swap plus, where needed, error-shape adaptation at the response site.
+### AC-3 — Test suite migrated
 
-### AC-3 — **Test suite migrated.** The three `tests/FlowTime.Tests/Schema/*.cs` files referencing `ModelValidator.Validate` are rewritten to assert against `ModelSchemaValidator`. Each individual assertion falls into one of: (a) kept as-is because `ModelSchemaValidator` already covers it identically, (b) updated to match the new error-message format, (c) relaxed to assert on semantic properties (`IsValid == false`, at least one error containing a specified substring or matching a specified pattern) when exact phrasing is not contract-meaningful, (d) deleted because it asserts an internal `ModelValidator` detail not reachable from `ModelSchemaValidator`. The tracking doc records which bucket each assertion fell into. `SimToEngineWorkflowTests.cs` lines using `ModelValidator.Validate` are updated to `ModelSchemaValidator.Validate`.
+**Test suite migrated.** The three `tests/FlowTime.Tests/Schema/*.cs` files referencing `ModelValidator.Validate` are rewritten to assert against `ModelSchemaValidator`. Each individual assertion falls into one of: (a) kept as-is because `ModelSchemaValidator` already covers it identically, (b) updated to match the new error-message format, (c) relaxed to assert on semantic properties (`IsValid == false`, at least one error containing a specified substring or matching a specified pattern) when exact phrasing is not contract-meaningful, (d) deleted because it asserts an internal `ModelValidator` detail not reachable from `ModelSchemaValidator`. The tracking doc records which bucket each assertion fell into. `SimToEngineWorkflowTests.cs` lines using `ModelValidator.Validate` are updated to `ModelSchemaValidator.Validate`.
+### AC-4 — Error-phrasing audit recorded
 
-### AC-4 — **Error-phrasing audit recorded.** The tracking doc includes a before/after table for the representative invalid-model corpus (missing `bins`, missing `grid`, wrong `schemaVersion`, legacy top-level `arrivals`, legacy node-level `expression`, legacy `binMinutes`): `ModelValidator` message vs. `ModelSchemaValidator` message, plus a note on any downstream consumer (UI, CLI stdout, API response) that surfaces the string directly.
+**Error-phrasing audit recorded.** The tracking doc includes a before/after table for the representative invalid-model corpus (missing `bins`, missing `grid`, wrong `schemaVersion`, legacy top-level `arrivals`, legacy node-level `expression`, legacy `binMinutes`): `ModelValidator` message vs. `ModelSchemaValidator` message, plus a note on any downstream consumer (UI, CLI stdout, API response) that surfaces the string directly.
+### AC-5 — API contract preserved
 
-### AC-5 — **API contract preserved.** `POST /v1/run` continues to return HTTP 400 with a `{ "error": "..." }` JSON body for invalid models. The `error` string may be differently phrased, but the shape — one JSON field, semicolon-joined on multi-error — is identical. API contract tests are green.
+**API contract preserved.** `POST /v1/run` continues to return HTTP 400 with a `{ "error": "..." }` JSON body for invalid models. The `error` string may be differently phrased, but the shape — one JSON field, semicolon-joined on multi-error — is identical. API contract tests are green.
+### AC-6 — CLI stderr output preserved
 
-### AC-6 — **CLI stderr output preserved.** `dotnet run --project src/FlowTime.Cli` on an invalid model continues to write `Model validation failed:` followed by one ` - <msg>` line per error, returning exit code 1. Tests (if any) and manual smoke are green.
+**CLI stderr output preserved.** `dotnet run --project src/FlowTime.Cli` on an invalid model continues to write `Model validation failed:` followed by one ` - <msg>` line per error, returning exit code 1. Tests (if any) and manual smoke are green.
+### AC-7 — ModelValidator has zero production callers
 
-### AC-7 — **`ModelValidator` has zero production callers.** `grep -rn "ModelValidator\.Validate\|ModelValidator\b" --include="*.cs"` outside `.claude/worktrees/` returns matches only inside `src/FlowTime.Core/Models/ModelValidator.cs` itself. No `.cs` file outside that one references the type by name.
+**`ModelValidator` has zero production callers.** `grep -rn "ModelValidator\.Validate\|ModelValidator\b" --include="*.cs"` outside `.claude/worktrees/` returns matches only inside `src/FlowTime.Core/Models/ModelValidator.cs` itself. No `.cs` file outside that one references the type by name.
+### AC-8 — Full .NET suite green
 
-### AC-8 — **Full .NET suite green.** `dotnet test FlowTime.sln` passes. Both canaries — E-24's `TemplateWarningSurveyTests` (`val-err == 0`) and M-046's `RuleCoverageRegressionTests` — stay green. No Svelte/Blazor/UI regressions (those surfaces are unmodified but smoke-checked via existing Playwright specs running against a live engine).
+**Full .NET suite green.** `dotnet test FlowTime.sln` passes. Both canaries — E-24's `TemplateWarningSurveyTests` (`val-err == 0`) and M-046's `RuleCoverageRegressionTests` — stay green. No Svelte/Blazor/UI regressions (those surfaces are unmodified but smoke-checked via existing Playwright specs running against a live engine).
+### AC-9 — Optional: latency delta recorded
 
-### AC-9 — **Optional: latency delta recorded.** If measurable with reasonable effort (e.g., a single warm-run timing of `POST /v1/run` against a representative template before and after), the tracking doc records the `ModelValidator` → `ModelSchemaValidator` latency delta. Non-blocking; documented as informational.
+**Optional: latency delta recorded.** If measurable with reasonable effort (e.g., a single warm-run timing of `POST /v1/run` against a representative template before and after), the tracking doc records the `ModelValidator` → `ModelSchemaValidator` latency delta. Non-blocking; documented as informational.
 ## Constraints
 
 - No change to `ModelValidator.cs` in this milestone. It stays on disk unreferenced outside its own file so a revert-migration is a single commit.

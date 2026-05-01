@@ -5,39 +5,22 @@ status: done
 parent: E-20
 acs:
   - id: AC-1
-    title: "**AC-1: Router weight-based splitting.** The compiler processes `NodeDefinition.router` to split a source series
-      across targets by weight: - For each route: `target_arrivals += source * (weight / totalWeight)`. - Routes without explicit
-      weight default to 1.0. - Multiple routes to the same target accumulate via VecAdd. - The router's source is resolved
-      from `router.inputs.queue` (the queue node whose outflow feeds the router) or the node's own series. - Emitted as ScalarMul
-      + VecAdd ops — no new Op variant needed."
+    title: 'AC-1: Router weight-based splitting'
     status: met
   - id: AC-2
-    title: '**AC-2: Router class-based routing.** Routes with a `classes` list route per-class flow to specific targets: -
-      The compiler resolves per-class arrival columns from `model.traffic.arrivals` (each entry has a `classId` and `nodeId`).
-      - Class routes extract per-class columns and sum them for the target. - Remaining flow (after class routes) is distributed
-      by weight among weight-only routes. - Per-class columns use the naming convention `{nodeId}__class_{classId}`.'
+    title: 'AC-2: Router class-based routing'
     status: met
   - id: AC-3
-    title: "**AC-3: Constraint proportional allocation.** New `ProportionalAlloc` op: - Reads N demand columns + 1 capacity
-      column. - Per bin: if `totalDemand > capacity`, writes `capped[i] = capacity * (demand[i] / totalDemand)`. Otherwise
-      writes demands unchanged. - The compiler processes `topology.constraints` to emit ProportionalAlloc ops, connecting
-      each constraint's `semantics.arrivals` (demand total) and `semantics.served` (capacity) to the constrained topology
-      nodes via `topologyNode.constraints` lists. - Constrained nodes' inflow columns are replaced with the capped versions."
+    title: 'AC-3: Constraint proportional allocation'
     status: met
   - id: AC-4
-    title: '**AC-4: Router → Constraint evaluation order.** The compiler emits router ops before constraint ops (matching
-      C# `RouterAwareGraphEvaluator` → `ConstraintAwareEvaluator` order). Constraint allocation reads from router-adjusted
-      columns. The unified topo sort orders: data nodes → router splits → constraint allocation → queue recurrence.'
+    title: 'AC-4: Router → Constraint evaluation order'
     status: met
   - id: AC-5
-    title: '**AC-5: Parity fixtures.** Create test models and verify parity with C# output: - Weight-based router: 3 routes
-      with weights [0.5, 0.3, 0.2], verify target arrivals sum to source - Class-based router: 2 classes routed to different
-      targets - Mixed router: some routes class-based, remainder weight-based - Simple constraint: 2 nodes sharing capacity,
-      demand > capacity → proportional split - Constraint below capacity: demand < capacity → no capping - Router + constraint
-      combined: router feeds constrained nodes'
+    title: 'AC-5: Parity fixtures'
     status: met
   - id: AC-6
-    title: '**AC-6: Existing tests unbroken.** All 65 existing Rust tests still pass.'
+    title: 'AC-6: Existing tests unbroken'
     status: met
 ---
 
@@ -59,7 +42,7 @@ In the matrix model, all of these become plan ops. Router splitting is `ScalarMu
 
 ## Acceptance criteria
 
-### AC-1 — **AC-1: Router weight-based splitting.** The compiler processes `NodeDefinition.router` to split a source series across targets by weight: - For each route: `target_arrivals += source * (weight / totalWeight)`. - Routes without explicit weight default to 1.0. - Multiple routes to the same target accumulate via VecAdd. - The router's source is resolved from `router.inputs.queue` (the queue node whose outflow feeds the router) or the node's own series. - Emitted as ScalarMul + VecAdd ops — no new Op variant needed.
+### AC-1 — AC-1: Router weight-based splitting
 
 **AC-1: Router weight-based splitting.** The compiler processes `NodeDefinition.router` to split a source series across targets by weight:
 - For each route: `target_arrivals += source * (weight / totalWeight)`.
@@ -67,26 +50,24 @@ In the matrix model, all of these become plan ops. Router splitting is `ScalarMu
 - Multiple routes to the same target accumulate via VecAdd.
 - The router's source is resolved from `router.inputs.queue` (the queue node whose outflow feeds the router) or the node's own series.
 - Emitted as ScalarMul + VecAdd ops — no new Op variant needed.
-
-### AC-2 — **AC-2: Router class-based routing.** Routes with a `classes` list route per-class flow to specific targets: - The compiler resolves per-class arrival columns from `model.traffic.arrivals` (each entry has a `classId` and `nodeId`). - Class routes extract per-class columns and sum them for the target. - Remaining flow (after class routes) is distributed by weight among weight-only routes. - Per-class columns use the naming convention `{nodeId}__class_{classId}`.
+### AC-2 — AC-2: Router class-based routing
 
 **AC-2: Router class-based routing.** Routes with a `classes` list route per-class flow to specific targets:
 - The compiler resolves per-class arrival columns from `model.traffic.arrivals` (each entry has a `classId` and `nodeId`).
 - Class routes extract per-class columns and sum them for the target.
 - Remaining flow (after class routes) is distributed by weight among weight-only routes.
 - Per-class columns use the naming convention `{nodeId}__class_{classId}`.
-
-### AC-3 — **AC-3: Constraint proportional allocation.** New `ProportionalAlloc` op: - Reads N demand columns + 1 capacity column. - Per bin: if `totalDemand > capacity`, writes `capped[i] = capacity * (demand[i] / totalDemand)`. Otherwise writes demands unchanged. - The compiler processes `topology.constraints` to emit ProportionalAlloc ops, connecting each constraint's `semantics.arrivals` (demand total) and `semantics.served` (capacity) to the constrained topology nodes via `topologyNode.constraints` lists. - Constrained nodes' inflow columns are replaced with the capped versions.
+### AC-3 — AC-3: Constraint proportional allocation
 
 **AC-3: Constraint proportional allocation.** New `ProportionalAlloc` op:
 - Reads N demand columns + 1 capacity column.
 - Per bin: if `totalDemand > capacity`, writes `capped[i] = capacity * (demand[i] / totalDemand)`. Otherwise writes demands unchanged.
 - The compiler processes `topology.constraints` to emit ProportionalAlloc ops, connecting each constraint's `semantics.arrivals` (demand total) and `semantics.served` (capacity) to the constrained topology nodes via `topologyNode.constraints` lists.
 - Constrained nodes' inflow columns are replaced with the capped versions.
+### AC-4 — AC-4: Router → Constraint evaluation order
 
-### AC-4 — **AC-4: Router → Constraint evaluation order.** The compiler emits router ops before constraint ops (matching C# `RouterAwareGraphEvaluator` → `ConstraintAwareEvaluator` order). Constraint allocation reads from router-adjusted columns. The unified topo sort orders: data nodes → router splits → constraint allocation → queue recurrence.
-
-### AC-5 — **AC-5: Parity fixtures.** Create test models and verify parity with C# output: - Weight-based router: 3 routes with weights [0.5, 0.3, 0.2], verify target arrivals sum to source - Class-based router: 2 classes routed to different targets - Mixed router: some routes class-based, remainder weight-based - Simple constraint: 2 nodes sharing capacity, demand > capacity → proportional split - Constraint below capacity: demand < capacity → no capping - Router + constraint combined: router feeds constrained nodes
+**AC-4: Router → Constraint evaluation order.** The compiler emits router ops before constraint ops (matching C# `RouterAwareGraphEvaluator` → `ConstraintAwareEvaluator` order). Constraint allocation reads from router-adjusted columns. The unified topo sort orders: data nodes → router splits → constraint allocation → queue recurrence.
+### AC-5 — AC-5: Parity fixtures
 
 **AC-5: Parity fixtures.** Create test models and verify parity with C# output:
 - Weight-based router: 3 routes with weights [0.5, 0.3, 0.2], verify target arrivals sum to source
@@ -95,8 +76,9 @@ In the matrix model, all of these become plan ops. Router splitting is `ScalarMu
 - Simple constraint: 2 nodes sharing capacity, demand > capacity → proportional split
 - Constraint below capacity: demand < capacity → no capping
 - Router + constraint combined: router feeds constrained nodes
+### AC-6 — AC-6: Existing tests unbroken
 
-### AC-6 — **AC-6: Existing tests unbroken.** All 65 existing Rust tests still pass.
+**AC-6: Existing tests unbroken.** All 65 existing Rust tests still pass.
 ## Technical Notes
 
 - **Router source resolution:** A router node in the YAML has `router.inputs.queue` pointing to a queue node. The router distributes the queue's outflow (served series) across targets. Each target gets a fraction of the served flow as its arrivals.

@@ -5,40 +5,40 @@ status: done
 parent: E-18
 acs:
   - id: AC-1
-    title: '`IModelEvaluator` interface exists in `FlowTime.TimeMachine.Sweep`'
+    title: IModelEvaluator interface exists in FlowTime.TimeMachine.Sweep
     status: met
   - id: AC-2
-    title: '`SweepSpec` validates: non-null/whitespace ModelYaml, non-null/whitespace ParamId, non-null/non-empty Values'
+    title: SweepSpec validates
     status: met
   - id: AC-3
-    title: '`ConstNodePatcher.Patch` correctly replaces const node values; returns original YAML for unknown/non-const nodes'
+    title: ConstNodePatcher.Patch correctly replaces const node values; returns
     status: met
   - id: AC-4
-    title: '`SweepRunner.RunAsync` returns one `SweepPoint` per input value, with correct ParamValue and Series'
+    title: SweepRunner.RunAsync returns one SweepPoint per input value, with
     status: met
   - id: AC-5
-    title: '`SweepRunner` respects `CaptureSeriesIds` filter (null = all series)'
+    title: SweepRunner respects CaptureSeriesIds filter (null = all series)
     status: met
   - id: AC-6
-    title: '`SweepRunner` respects `CancellationToken` between evaluation points'
+    title: SweepRunner respects CancellationToken between evaluation points
     status: met
   - id: AC-7
-    title: '`RustModelEvaluator` wraps `RustEngineRunner` and maps series list to dictionary'
+    title: RustModelEvaluator wraps RustEngineRunner and maps series list to
     status: met
   - id: AC-8
-    title: '`POST /v1/sweep` returns 400 for missing yaml / paramId / empty values'
+    title: POST /v1/sweep returns 400 for missing yaml / paramId / empty values
     status: met
   - id: AC-9
-    title: '`POST /v1/sweep` returns 503 when Rust engine not enabled'
+    title: POST /v1/sweep returns 503 when Rust engine not enabled
     status: met
   - id: AC-10
-    title: 'Unit tests pass: 28 sweep unit tests (SweepSpec ×9, ConstNodePatcher ×7, SweepRunner ×12)'
+    title: Unit tests pass
     status: met
   - id: AC-11
     title: 'API validation tests pass: 7 tests (6×400, 1×503)'
     status: met
   - id: AC-12
-    title: '`dotnet test FlowTime.sln` all green (105 TimeMachine, 235 API — pre-existing integration failures unrelated)'
+    title: dotnet test FlowTime.sln all green (105 TimeMachine, 235 API
     status: met
 ---
 
@@ -113,26 +113,38 @@ session-based evaluator can be dropped in without changing the sweep domain mode
 
 ## Acceptance criteria
 
-### AC-1 — `IModelEvaluator` interface exists in `FlowTime.TimeMachine.Sweep`
+### AC-1 — IModelEvaluator interface exists in FlowTime.TimeMachine.Sweep
 
-### AC-2 — `SweepSpec` validates: non-null/whitespace ModelYaml, non-null/whitespace ParamId, non-null/non-empty Values
+`IModelEvaluator` interface exists in `FlowTime.TimeMachine.Sweep`
+### AC-2 — SweepSpec validates
 
-### AC-3 — `ConstNodePatcher.Patch` correctly replaces const node values; returns original YAML for unknown/non-const nodes
+`SweepSpec` validates: non-null/whitespace ModelYaml, non-null/whitespace ParamId, non-null/non-empty Values
+### AC-3 — ConstNodePatcher.Patch correctly replaces const node values; returns
 
-### AC-4 — `SweepRunner.RunAsync` returns one `SweepPoint` per input value, with correct ParamValue and Series
+`ConstNodePatcher.Patch` correctly replaces const node values; returns original YAML for unknown/non-const nodes
+### AC-4 — SweepRunner.RunAsync returns one SweepPoint per input value, with
 
-### AC-5 — `SweepRunner` respects `CaptureSeriesIds` filter (null = all series)
+`SweepRunner.RunAsync` returns one `SweepPoint` per input value, with correct ParamValue and Series
+### AC-5 — SweepRunner respects CaptureSeriesIds filter (null = all series)
 
-### AC-6 — `SweepRunner` respects `CancellationToken` between evaluation points
+`SweepRunner` respects `CaptureSeriesIds` filter (null = all series)
+### AC-6 — SweepRunner respects CancellationToken between evaluation points
 
-### AC-7 — `RustModelEvaluator` wraps `RustEngineRunner` and maps series list to dictionary
+`SweepRunner` respects `CancellationToken` between evaluation points
+### AC-7 — RustModelEvaluator wraps RustEngineRunner and maps series list to
 
-### AC-8 — `POST /v1/sweep` returns 400 for missing yaml / paramId / empty values
+`RustModelEvaluator` wraps `RustEngineRunner` and maps series list to dictionary
+### AC-8 — POST /v1/sweep returns 400 for missing yaml / paramId / empty values
 
-### AC-9 — `POST /v1/sweep` returns 503 when Rust engine not enabled
+`POST /v1/sweep` returns 400 for missing yaml / paramId / empty values
+### AC-9 — POST /v1/sweep returns 503 when Rust engine not enabled
 
-### AC-10 — Unit tests pass: 28 sweep unit tests (SweepSpec ×9, ConstNodePatcher ×7, SweepRunner ×12)
+`POST /v1/sweep` returns 503 when Rust engine not enabled
+### AC-10 — Unit tests pass
 
+Unit tests pass: 28 sweep unit tests (SweepSpec ×9, ConstNodePatcher ×7, SweepRunner ×12)
 ### AC-11 — API validation tests pass: 7 tests (6×400, 1×503)
 
-### AC-12 — `dotnet test FlowTime.sln` all green (105 TimeMachine, 235 API — pre-existing integration failures unrelated)
+### AC-12 — dotnet test FlowTime.sln all green (105 TimeMachine, 235 API
+
+`dotnet test FlowTime.sln` all green (105 TimeMachine, 235 API — pre-existing integration failures unrelated)

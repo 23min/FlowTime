@@ -7,34 +7,19 @@ depends_on:
   - M-034
 acs:
   - id: AC-1
-    title: '**AC-1: `outputs:` filtering in Rust compiler.** When the model has an `outputs` section, the Rust engine filters
-      its output to only include the listed series. The `as` field renames the series in the output. When no `outputs` section
-      is present, all non-temp series are included (current behavior).'
+    title: 'AC-1: outputs: filtering in Rust compiler'
     status: met
   - id: AC-2
-    title: '**AC-2: Parameterized parity test.** A single test method that: - Iterates over all `engine/fixtures/*.yaml` files
-      - Evaluates each through the Rust engine (via `RustEngineRunner`) - Evaluates each through the C# engine (`ModelService.ParseAndConvert`
-      → `RouterAwareGraphEvaluator.Evaluate`) - Compares shared series values bin-by-bin with configurable tolerance (default:
-      1e-10) - Uses case-insensitive series matching (Rust lowercases topology node IDs) - Reports per-fixture, per-series
-      pass/fail with divergence details on failure'
+    title: 'AC-2: Parameterized parity test'
     status: met
   - id: AC-3
-    title: '**AC-3: All non-class, non-edge fixtures pass parity.** The following fixtures must produce identical series values
-      in both engines: - `hello.yaml`, `simple-const.yaml` — trivial models - `complex-pmf.yaml`, `pmf.yaml` — PMF nodes -
-      `http-service.yaml` — expression-based service - `topology-simple-queue.yaml`, `topology-backpressure.yaml`, `topology-cascading-overflow.yaml`,
-      `topology-wip-limit.yaml`, `topology-dispatch.yaml`, `topology-retry-echo.yaml` — topology models - `constraint-below-capacity.yaml`,
-      `constraint-proportional.yaml` — constraint allocation - `router-weight.yaml`, `router-with-constraint.yaml` — weight-based
-      routing - `retry-service-time.yaml` — retry kernels - `order-system.yaml`, `microservices.yaml` — complex multi-node
-      models'
+    title: 'AC-3: All non-class, non-edge fixtures pass parity'
     status: met
   - id: AC-4
-    title: '**AC-4: Class and edge fixtures documented.** Fixtures that use classes (`class-enabled.yaml`, `router-class.yaml`,
-      `router-mixed.yaml`) are tested but expected divergences are documented. The harness marks them as "known divergence
-      — per-class decomposition not yet implemented" rather than failing the test run.'
+    title: 'AC-4: Class and edge fixtures documented'
     status: met
   - id: AC-5
-    title: '**AC-5: Parity matrix output.** The test run produces a clear summary (in test output or a generated report) showing
-      pass/fail status for each fixture. This becomes the baseline for M-036.'
+    title: 'AC-5: Parity matrix output'
     status: met
 ---
 
@@ -50,9 +35,10 @@ The `outputs:` filtering feature (YAML `outputs` section) is parsed by the Rust 
 
 ## Acceptance criteria
 
-### AC-1 — **AC-1: `outputs:` filtering in Rust compiler.** When the model has an `outputs` section, the Rust engine filters its output to only include the listed series. The `as` field renames the series in the output. When no `outputs` section is present, all non-temp series are included (current behavior).
+### AC-1 — AC-1: outputs: filtering in Rust compiler
 
-### AC-2 — **AC-2: Parameterized parity test.** A single test method that: - Iterates over all `engine/fixtures/*.yaml` files - Evaluates each through the Rust engine (via `RustEngineRunner`) - Evaluates each through the C# engine (`ModelService.ParseAndConvert` → `RouterAwareGraphEvaluator.Evaluate`) - Compares shared series values bin-by-bin with configurable tolerance (default: 1e-10) - Uses case-insensitive series matching (Rust lowercases topology node IDs) - Reports per-fixture, per-series pass/fail with divergence details on failure
+**AC-1: `outputs:` filtering in Rust compiler.** When the model has an `outputs` section, the Rust engine filters its output to only include the listed series. The `as` field renames the series in the output. When no `outputs` section is present, all non-temp series are included (current behavior).
+### AC-2 — AC-2: Parameterized parity test
 
 **AC-2: Parameterized parity test.** A single test method that:
 - Iterates over all `engine/fixtures/*.yaml` files
@@ -61,8 +47,7 @@ The `outputs:` filtering feature (YAML `outputs` section) is parsed by the Rust 
 - Compares shared series values bin-by-bin with configurable tolerance (default: 1e-10)
 - Uses case-insensitive series matching (Rust lowercases topology node IDs)
 - Reports per-fixture, per-series pass/fail with divergence details on failure
-
-### AC-3 — **AC-3: All non-class, non-edge fixtures pass parity.** The following fixtures must produce identical series values in both engines: - `hello.yaml`, `simple-const.yaml` — trivial models - `complex-pmf.yaml`, `pmf.yaml` — PMF nodes - `http-service.yaml` — expression-based service - `topology-simple-queue.yaml`, `topology-backpressure.yaml`, `topology-cascading-overflow.yaml`, `topology-wip-limit.yaml`, `topology-dispatch.yaml`, `topology-retry-echo.yaml` — topology models - `constraint-below-capacity.yaml`, `constraint-proportional.yaml` — constraint allocation - `router-weight.yaml`, `router-with-constraint.yaml` — weight-based routing - `retry-service-time.yaml` — retry kernels - `order-system.yaml`, `microservices.yaml` — complex multi-node models
+### AC-3 — AC-3: All non-class, non-edge fixtures pass parity
 
 **AC-3: All non-class, non-edge fixtures pass parity.** The following fixtures must produce identical series values in both engines:
 - `hello.yaml`, `simple-const.yaml` — trivial models
@@ -73,10 +58,12 @@ The `outputs:` filtering feature (YAML `outputs` section) is parsed by the Rust 
 - `router-weight.yaml`, `router-with-constraint.yaml` — weight-based routing
 - `retry-service-time.yaml` — retry kernels
 - `order-system.yaml`, `microservices.yaml` — complex multi-node models
+### AC-4 — AC-4: Class and edge fixtures documented
 
-### AC-4 — **AC-4: Class and edge fixtures documented.** Fixtures that use classes (`class-enabled.yaml`, `router-class.yaml`, `router-mixed.yaml`) are tested but expected divergences are documented. The harness marks them as "known divergence — per-class decomposition not yet implemented" rather than failing the test run.
+**AC-4: Class and edge fixtures documented.** Fixtures that use classes (`class-enabled.yaml`, `router-class.yaml`, `router-mixed.yaml`) are tested but expected divergences are documented. The harness marks them as "known divergence — per-class decomposition not yet implemented" rather than failing the test run.
+### AC-5 — AC-5: Parity matrix output
 
-### AC-5 — **AC-5: Parity matrix output.** The test run produces a clear summary (in test output or a generated report) showing pass/fail status for each fixture. This becomes the baseline for M-036.
+**AC-5: Parity matrix output.** The test run produces a clear summary (in test output or a generated report) showing pass/fail status for each fixture. This becomes the baseline for M-036.
 ## Out of Scope
 
 - Per-class column decomposition (M-036)

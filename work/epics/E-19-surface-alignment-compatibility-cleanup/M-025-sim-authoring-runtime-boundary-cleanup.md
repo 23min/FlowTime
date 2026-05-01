@@ -8,16 +8,16 @@ acs:
     title: Stored drafts retired (A2)
     status: met
   - id: AC-2
-    title: '`/api/v1/drafts/run` narrowed to inline-source only (A1, A2)'
+    title: /api/v1/drafts/run narrowed to inline-source only (A1, A2)
     status: met
   - id: AC-3
-    title: Sim-only `/api/v1/drafts/validate` deleted (A6)
+    title: Sim-only /api/v1/drafts/validate deleted (A6)
     status: met
   - id: AC-4
     title: Sim-side ZIP archive layer deleted (A3)
     status: met
   - id: AC-5
-    title: Engine `POST /v1/runs` deleted outright (A4)
+    title: Engine POST /v1/runs deleted outright (A4)
     status: met
   - id: AC-6
     title: Engine debug route deleted (scope narrowed during implementation)
@@ -80,7 +80,7 @@ Forward-only deletion of the stored-draft product surface.
 - `StorageKind.Draft`
 - `data/storage/drafts`
 
-### AC-2 — `/api/v1/drafts/run` narrowed to inline-source only (A1, A2)
+### AC-2 — /api/v1/drafts/run narrowed to inline-source only (A1, A2)
 
 `POST /api/v1/drafts/run` at [src/FlowTime.Sim.Service/Program.cs:675](../../../src/FlowTime.Sim.Service/Program.cs) remains a live route but only accepts `DraftSource.type == "inline"`. Any `draftId` resolution branch is removed.
 
@@ -89,8 +89,7 @@ Forward-only deletion of the stored-draft product surface.
 - Documentation for this endpoint (in `docs/reference/contracts.md` and elsewhere) is updated by M-026 — this milestone only removes the code branch.
 
 **Grep guard:** No `draftId` reference remains in the `/api/v1/drafts/run` handler or its request shape.
-
-### AC-3 — Sim-only `/api/v1/drafts/validate` deleted (A6)
+### AC-3 — Sim-only /api/v1/drafts/validate deleted (A6)
 
 `POST /api/v1/drafts/validate` at [src/FlowTime.Sim.Service/Program.cs:540](../../../src/FlowTime.Sim.Service/Program.cs) is removed along with its endpoint-specific tests. The library pieces that back it remain untouched (they become the tier 1/2/3 ingredients the future Time Machine composes per [D-030](../../decisions.md)):
 
@@ -104,7 +103,6 @@ Forward-only deletion of the stored-draft product surface.
 - `FlowTime.Sim.Core.Analysis.InvariantAnalyzer`
 
 **Grep guard:** No `/api/v1/drafts/validate` route literal or `drafts/validate` handler remains in `src/` or `tests/`.
-
 ### AC-4 — Sim-side ZIP archive layer deleted (A3)
 
 Remove the post-hoc run-bundle archive path that writes ZIPs to `data/storage/runs/<runId>` and the `BundleRef` / `StorageRef` return values that surface them.
@@ -120,7 +118,7 @@ Remove the post-hoc run-bundle archive path that writes ZIPs to `data/storage/ru
 
 **Grep guards:** No `StorageKind.Run`, `BundleRef`, `StorageRef`, or `data/storage/runs` reference remains in `src/` or `tests/` on the current surface.
 
-### AC-5 — Engine `POST /v1/runs` deleted outright (A4)
+### AC-5 — Engine POST /v1/runs deleted outright (A4)
 
 `POST /v1/runs` in [src/FlowTime.API/Endpoints/RunOrchestrationEndpoints.cs:19](../../../src/FlowTime.API/Endpoints/RunOrchestrationEndpoints.cs) is removed entirely. No 410-style rejection stub remains. The read endpoints `GET /v1/runs` (line 20) and `GET /v1/runs/{runId}` (line 21) stay — they are the canonical run discovery/detail contract.
 
@@ -135,7 +133,6 @@ Remove the post-hoc run-bundle archive path that writes ZIPs to `data/storage/ru
 **Preserve:** `GET /v1/runs` and `GET /v1/runs/{runId}` — they are the canonical run query surface consumed by the Svelte UI and operator workflows.
 
 **Grep guards:** `MapPost("/runs", HandleCreateRunAsync)`, `BundlePath`, `BundleArchiveBase64`, and `BundleRef` return zero matches in `src/` and `tests/` on the current API surface.
-
 ### AC-6 — Engine debug route deleted (scope narrowed during implementation)
 
 The M-024 audit originally scheduled three Engine routes for deletion in this milestone: `GET /v1/debug/scan-directory/{dirName}`, `POST /v1/run`, and `POST /v1/graph`. During implementation, discovery showed that `POST /v1/run` is used by 50+ test call sites across the Engine Provenance, Parity, and Legacy test suites as the primary run-creation mechanism, and `POST /v1/graph` is used by `Legacy/ApiIntegrationTests.cs`. The matrix entry claim that these routes are "not used by current first-party UIs" is technically correct but underweighted the test-infrastructure coupling. Deleting them in this milestone would either regress ~50 tests of Engine-side runtime provenance coverage (forward-only test deletion — unacceptable) or pull substantial test-migration work that is out of scope for a runtime-cleanup milestone.
