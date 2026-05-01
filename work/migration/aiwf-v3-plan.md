@@ -301,14 +301,15 @@ Coverage gaps and mitigations:
 - [x] Resolve source ambiguities: the only real skip-log finding remaining is m-E18-01's `**Depends on:** E-20` (epic-target) — accepted as projected since aiwf milestone.depends_on requires milestone targets and body prose retains the dep
 - [x] Apply Q1 decision: 17 non-id'd `work/epics/completed/` dirs relocated to `work/archived-epics/` via `git mv` (history preserved); `completed/` now contains only the 9 E-NN dirs
 
-### Phase 4 — dry-run loop
+### Phase 4 — dry-run loop + import + init
 
-- [ ] `aiwf import --dry-run manifest.yaml` from a clean state
-- [ ] Iterate: each finding either fixes the projector (Phase 2) or the source (Phase 3); halve findings each pass
-- [ ] When dry-run is clean, run `aiwf import manifest.yaml` for real → atomic commit on migration branch
-- [ ] Run `aiwf init` (installs pre-push hook + materializes 6 `aiwf-*` skills) — separate commit
-- [ ] Test push from migration branch; pre-push hook should pass since import succeeded
-- [ ] Spot-check: `aiwf history E-22`, `aiwf check`, `aiwf render roadmap`
+- [x] Final `aiwf import --dry-run` sanity check — 166 plans, 0 errors, exit 0
+- [x] Real `aiwf import` — atomic commit `40840ad` with `aiwf-verb: import` + `aiwf-actor: human/peter` trailers; 166 entity files written under `work/epics/`, `work/decisions/`, `work/gaps/`
+- [x] `aiwf init` — wrote `aiwf.yaml`, materialized 8 `aiwf-*` skills (gitignored cache), installed self-guarding pre-push hook + pre-commit hook; commit `13b203f` includes config + .gitignore + STATUS.md (the pre-commit hook auto-generated it)
+- [x] `aiwf doctor` — **all green** (config, 8 skills byte-equal to embed, no id collisions, hook + pre-commit ok, rituals plugin detected)
+- [x] `aiwf check` — 0 errors, 4 warnings (gap-resolved-has-resolver: G-015/G-027/G-028/G-029 marked `addressed` but lack `addressed_by:`; informational, can be enriched in Phase 5)
+- [x] Spot-checks: `aiwf render roadmap` shows full 15-epic / 65-milestone tree; `aiwf status` correctly identifies in-flight E-11 + E-18 work
+- [x] Claude Code session picks up new `aiwf-*` skills end-to-end
 
 ### Phase 5 — teardown and cutover
 
@@ -370,3 +371,4 @@ Append-only record of dry-run iterations, decisions taken mid-flight, and findin
 - 2026-05-01 — phase 2 — Pass F landed. Decisions + gaps. `parse_decisions` splits monolithic `work/decisions.md` by `## D-YYYY-MM-DD-NNN:` headings → 53 entities sorted chronologically as D-001..D-053. `parse_gaps` splits `work/gaps.md` by H2 (skipping "Open Questions" footer) using `git blame --date=short` to recover per-line creation dates → 33 entities sorted chronologically as G-001..G-033. Status: decision `active → accepted`; gap title-suffix `(resolved YYYY-MM-DD) → addressed`. **Final: 166 entities (15 + 65 + 53 + 33), 166 writes, 0 errors, exit 0.** id-map.csv now 118 entries (65 milestones + 53 decisions).
 - 2026-05-01 — phase 2 — Pass G landed. Body-text rewrite via id-map (settled Q&A: targeted, inline, skip-code-blocks). `rewrite_body_text` segments fenced and inline code as placeholders, substitutes old ids → new ids on remaining prose with `(?<![\w-]){escaped}(?:-[a-z0-9-]+)?(?![\w-])` regex (matches both bare id and full-slug forms; collapses both to bare new id). Substitutions applied in length-DESC order. Verified: every old m-EXX-NN and D-YYYY-MM-DD-NNN occurrence in body prose now points to its new M-NNN/D-NNN. `aiwf import --dry-run`: 166 plans, 0 errors, exit 0. **Phase 2 (projector) complete — manifest is import-ready.**
 - 2026-05-01 — phase 3 — pre-process source. (1) 17 non-id'd `work/epics/completed/` dirs relocated to `work/archived-epics/` via `git mv` (preserves history); `completed/` now contains only 9 E-NN dirs. (2) E-13 source spec gets `**Status:** proposed`; E-11 source spec gets `**Status:** paused`. (3) m-E18-01 epic-target dep accepted-as-projected (aiwf invariant; body retains prose). Re-projection: 166 entities unchanged, skip-log shrunk to 1 real + 22 noise findings, `aiwf import --dry-run` exit 0. **Phase 3 complete.**
+- 2026-05-01 — phase 4 — **CUTOVER LANDED.** v1↔v3 coexistence verified pre-import (`aiwf check` saw zero v1 entities — silently ignored due to id-format mismatch). Real `aiwf import` produced atomic commit `40840ad` with `aiwf-verb: import`/`aiwf-actor: human/peter` trailers; 166 entity files written. `aiwf init` produced commit `13b203f` (config + skills cache + STATUS.md from pre-commit hook). `aiwf doctor` all green; `aiwf check` 0 errors / 4 informational warnings (gap-resolved-has-resolver on G-015/27/28/29). `aiwf render roadmap` + `aiwf status` produce correct project views. Claude Code picks up the 8 materialized `aiwf-*` skills live. **Phase 4 complete; Phase 5 (v1 teardown) is next.**
