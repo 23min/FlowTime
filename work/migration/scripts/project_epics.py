@@ -32,6 +32,8 @@ from ruamel.yaml.scalarstring import LiteralScalarString
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 EPICS_DIR = REPO_ROOT / "work/epics"
+DECISIONS_PATH = REPO_ROOT / "work/decisions.md"
+GAPS_PATH = REPO_ROOT / "work/gaps.md"
 OUT_PATH = REPO_ROOT / "work/migration/manifests/epics-active.yaml"
 SKIP_LOG_PATH = REPO_ROOT / "work/migration/manifests/skip-log.md"
 ID_MAP_PATH = REPO_ROOT / "work/migration/manifests/id-map.csv"
@@ -74,6 +76,18 @@ V1_TO_V3_MILESTONE_STATUS = {
     "cancelled": "cancelled",
 }
 
+V1_TO_V3_DECISION_STATUS = {
+    "active": "accepted",
+    "accepted": "accepted",
+    "superseded": "superseded",
+    "withdrawn": "rejected",
+    "rejected": "rejected",
+    "proposed": "proposed",
+}
+
+# Headings inside gaps.md that are NOT individual gap entries (file-level sections)
+GAP_NON_ENTITY_HEADINGS = {"open questions"}
+
 
 @dataclass
 class EpicEntity:
@@ -92,6 +106,26 @@ class MilestoneEntity:
     status: str
     depends_on_old_ids: list[str] = field(default_factory=list)
     body: str = ""
+
+
+@dataclass
+class DecisionEntity:
+    old_id: str            # D-2026-03-30-001
+    new_id: str            # D-001
+    date: str              # 2026-03-30
+    seq: int               # 1
+    title: str
+    status: str
+    body: str
+
+
+@dataclass
+class GapEntity:
+    new_id: str            # G-001
+    title: str
+    status: str
+    creation_date: str     # 2026-03-24
+    body: str
 
 
 # ----- shared -----------------------------------------------------------------
@@ -252,6 +286,133 @@ def discover_milestone_specs(epic_dir: Path) -> list[Path]:
     )
 
 
+def parse_decisions(path: Path, findings: list[str]) -> list[DecisionEntity]:
+    """Split work/decisions.md into individual decision entities, sorted chronologically."""
+    text = path.read_text(encoding="utf-8")
+    heading_re = re.compile(
+        r"^## D-(\d{4}-\d{2}-\d{2})-(\d+):\s*(.+)$", re.MULTILINE
+    )
+    matches = list(heading_re.finditer(text))
+    if not matches:
+        return []
+
+    items: list[DecisionEntity] = []
+    for i, m in enumerate(matches):
+        date_str, seq_str, raw_title = m.group(1), m.group(2), m.group(3).strip()
+        # body: from first newline after heading to next heading (or EOF)
+        body_start = text.find("\n", m.end()) + 1 if text.find("\n", m.end()) >= 0 else m.end()
+        body_end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        body = text[body_start:body_end].strip("\n")
+        if body:
+            body += "\n"
+        # Status from prose Status: line
+        status_match = re.search(r"^\*\*Status:\*\*\s*(\S+)", body, re.MULTILINE)
+        if status_match:
+            v1 = status_match.group(1).lower().rstrip(",")
+            v3 = V1_TO_V3_DECISION_STATUS.get(v1)
+            if v3 is None:
+                findings.append(
+                    f"- **D-{date_str}-{seq_str}**: unmapped decision status {v1!r}; defaulted to `accepted`."
+                )
+                v3 = "accepted"
+        else:
+            v3 = "accepted"
+        items.append(
+            DecisionEntity(
+                old_id=f"D-{date_str}-{seq_str}",
+                new_id="",  # filled after sort
+                date=date_str,
+                seq=int(seq_str),
+                title=raw_title,
+                status=v3,
+                body=body,
+            )
+        )
+    # chronological sort, then assign D-NNN
+    items.sort(key=lambda d: (d.date, d.seq))
+    for i, d in enumerate(items, start=1):
+        d.new_id = f"D-{i:03d}"
+    return items
+
+
+def git_blame_h2_dates(path: Path) -> dict[int, str]:
+    """Return {line_no: YYYY-MM-DD} for every `## ` line in path via `git blame --date=short`."""
+    import subprocess
+    out = subprocess.run(
+        ["git", "blame", "--date=short", str(path.relative_to(REPO_ROOT))],
+        capture_output=True, text=True, check=True, cwd=REPO_ROOT,
+    ).stdout
+    line_dates: dict[int, str] = {}
+    blame_re = re.compile(
+        r"^[\^a-f0-9]+\s+(?:\S+\s+)?\([^)]*?(\d{4}-\d{2}-\d{2})\s+(\d+)\)\s+(.*)$"
+    )
+    for raw in out.splitlines():
+        m = blame_re.match(raw)
+        if not m:
+            continue
+        date, line_no, content = m.group(1), int(m.group(2)), m.group(3)
+        if content.startswith("## "):
+            line_dates[line_no] = date
+    return line_dates
+
+
+def parse_gaps(path: Path, findings: list[str]) -> list[GapEntity]:
+    """Split work/gaps.md into individual gap entities, sorted by git-blame creation date."""
+    text = path.read_text(encoding="utf-8")
+    h2_re = re.compile(r"^## (.+)$", re.MULTILINE)
+    matches = list(h2_re.finditer(text))
+    if not matches:
+        return []
+
+    line_dates = git_blame_h2_dates(path)
+
+    items: list[tuple[str, GapEntity]] = []  # (sort key, entity)
+    for i, m in enumerate(matches):
+        raw_title = m.group(1).strip()
+        if raw_title.lower() in GAP_NON_ENTITY_HEADINGS:
+            continue
+        line_no = text.count("\n", 0, m.start()) + 1
+        creation_date = line_dates.get(line_no)
+        if not creation_date:
+            findings.append(
+                f"- **gap @ line {line_no}**: no git-blame date found; entry skipped."
+            )
+            continue
+        body_start = text.find("\n", m.end()) + 1 if text.find("\n", m.end()) >= 0 else m.end()
+        body_end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        body = text[body_start:body_end].strip("\n")
+        if body:
+            body += "\n"
+
+        # Detect resolved suffix → addressed
+        resolved_match = re.search(r"\s*\(resolved (\d{4}-\d{2}-\d{2})\)\s*$", raw_title)
+        if resolved_match:
+            title = raw_title[: resolved_match.start()].strip()
+            status = "addressed"
+        else:
+            title = raw_title
+            status = "open"
+
+        items.append(
+            (
+                creation_date + f"-L{line_no:05d}",  # stable sort key
+                GapEntity(
+                    new_id="",  # filled after sort
+                    title=title,
+                    status=status,
+                    creation_date=creation_date,
+                    body=body,
+                ),
+            )
+        )
+
+    items.sort(key=lambda kv: kv[0])
+    out_items = [g for _, g in items]
+    for i, g in enumerate(out_items, start=1):
+        g.new_id = f"G-{i:03d}"
+    return out_items
+
+
 def derive_title_from_h1(h1: str) -> str:
     """Strip a leading `Milestone:` and any embedded milestone-id prefix from an H1
     line, returning the title."""
@@ -397,7 +558,10 @@ def allocate_milestone_ids(
 # ----- manifest ---------------------------------------------------------------
 
 def build_manifest(
-    epics: list[EpicEntity], milestones: list[MilestoneEntity]
+    epics: list[EpicEntity],
+    milestones: list[MilestoneEntity],
+    decisions: list[DecisionEntity],
+    gaps: list[GapEntity],
 ) -> dict:
     epic_entries = [
         {
@@ -416,7 +580,7 @@ def build_manifest(
             "parent": m.parent_epic,
         }
         if m.depends_on_old_ids:
-            fm["depends_on"] = list(m.depends_on_old_ids)  # placeholder; replaced after id-map
+            fm["depends_on"] = list(m.depends_on_old_ids)
         milestone_entries.append(
             {
                 "kind": "milestone",
@@ -425,13 +589,34 @@ def build_manifest(
                 "body": LiteralScalarString(m.body),
             }
         )
+    decision_entries = [
+        {
+            "kind": "decision",
+            "id": d.new_id,
+            "frontmatter": {"title": d.title, "status": d.status},
+            "body": LiteralScalarString(d.body),
+        }
+        for d in decisions
+    ]
+    gap_entries = [
+        {
+            "kind": "gap",
+            "id": g.new_id,
+            "frontmatter": {"title": g.title, "status": g.status},
+            "body": LiteralScalarString(g.body),
+        }
+        for g in gaps
+    ]
     return {
         "version": 1,
         "commit": {
             "mode": "single",
-            "message": f"import(spike): {len(epics)} epics + {len(milestones)} milestones",
+            "message": (
+                f"import(spike): {len(epics)} epics + {len(milestones)} milestones "
+                f"+ {len(decisions)} decisions + {len(gaps)} gaps"
+            ),
         },
-        "entities": epic_entries + milestone_entries,
+        "entities": epic_entries + milestone_entries + decision_entries + gap_entries,
     }
 
 
@@ -490,7 +675,13 @@ def main() -> int:
             )
         )
 
-    manifest = build_manifest(epics, milestones)
+    # Pass 4: decisions
+    decisions = parse_decisions(DECISIONS_PATH, findings) if DECISIONS_PATH.exists() else []
+
+    # Pass 5: gaps
+    gaps = parse_gaps(GAPS_PATH, findings) if GAPS_PATH.exists() else []
+
+    manifest = build_manifest(epics, milestones, decisions, gaps)
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     yaml = YAML()
     yaml.indent(mapping=2, sequence=4, offset=2)
@@ -498,13 +689,15 @@ def main() -> int:
     with OUT_PATH.open("w", encoding="utf-8") as f:
         yaml.dump(manifest, f)
 
-    # id-map.csv
-    if id_map:
+    # id-map.csv (milestones + decisions; gaps have no old id)
+    if id_map or decisions:
         with ID_MAP_PATH.open("w", encoding="utf-8", newline="") as f:
             w = csv.writer(f)
             w.writerow(["old_id", "new_id", "kind"])
             for old, new in sorted(id_map.items()):
                 w.writerow([old, new, "milestone"])
+            for d in decisions:
+                w.writerow([d.old_id, d.new_id, "decision"])
     elif ID_MAP_PATH.exists():
         ID_MAP_PATH.unlink()
 
@@ -524,11 +717,13 @@ def main() -> int:
         ms_count = sum(1 for m in milestones if m.parent_epic == e.epic_id)
         print(f"    {e.epic_id:6} {e.status:10} — {e.title}  [{ms_count} milestones]")
     print(f"  milestones: {len(milestones)}")
-    for m in milestones:
-        deps = f" ← {','.join(m.depends_on_old_ids)}" if m.depends_on_old_ids else ""
-        print(f"    {m.new_id} ({m.old_id}) {m.status:12} parent={m.parent_epic} — {m.title}{deps}")
-    if id_map:
-        print(f"\nid-map: {ID_MAP_PATH.relative_to(REPO_ROOT)} ({len(id_map)} entries)")
+    print(f"  decisions:  {len(decisions)} (D-001..D-{len(decisions):03d})")
+    print(f"  gaps:       {len(gaps)} (G-001..G-{len(gaps):03d})")
+    total = len(epics) + len(milestones) + len(decisions) + len(gaps)
+    print(f"  total entities: {total}")
+    if id_map or decisions:
+        n = len(id_map) + len(decisions)
+        print(f"\nid-map: {ID_MAP_PATH.relative_to(REPO_ROOT)} ({n} entries)")
     if findings:
         print(f"findings: {len(findings)} in {SKIP_LOG_PATH.relative_to(REPO_ROOT)}")
     return 0
