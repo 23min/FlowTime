@@ -661,7 +661,7 @@ Decision belongs to the engine epic owner — not in E-21 scope.
 
 - `engine/core/src/compiler.rs` lines 637-670 (top-level node kind
   dispatch), lines 1163-1190 (topology-node kind handling)
-- `work/epics/E-21-svelte-workbench-and-analysis/m-E21-03-sweep-sensitivity.md`
+- `work/epics/completed/E-21-svelte-workbench-and-analysis/m-E21-03-sweep-sensitivity.md`
 - `ui/src/lib/utils/sample-models.ts` (bundled Rust-compatible fixtures)
 
 ---
@@ -757,7 +757,7 @@ The m-E21-06 Heatmap View design Q&A (14 questions) surfaced several enhancement
 
 - E-21 m-E21-06 Q&A conversation, 2026-04-23 (in-session, not archived).
 - Source spec: `work/epics/unplanned/ui-analytical-views/spec.md` V1 Heatmap View.
-- E-21 epic spec: `work/epics/E-21-svelte-workbench-and-analysis/spec.md` m-E21-06 row.
+- E-21 epic spec: `work/epics/completed/E-21-svelte-workbench-and-analysis/spec.md` m-E21-06 row.
 
 ---
 

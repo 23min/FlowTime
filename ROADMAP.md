@@ -102,7 +102,7 @@ Mini-epic (3 milestones). Collapses the codebase's two silently-disagreeing mode
 
 ## E-21 — Svelte Workbench & Analysis Surfaces (all milestones complete — ready for epic wrap)
 
-**Epic:** `work/epics/E-21-svelte-workbench-and-analysis/spec.md` | **Status:** all 8 milestones complete (m-E21-08 Polish completed 2026-04-28). Ready for epic wrap and merge to main.
+**Epic:** `work/epics/completed/E-21-svelte-workbench-and-analysis/spec.md` | **Status:** all 8 milestones complete (m-E21-08 Polish completed 2026-04-28). Ready for epic wrap and merge to main.
 
 Transform the Svelte UI from a Blazor-parallel clone into the primary platform for expert flow analysis and Time Machine surfaces. Workbench paradigm: topology as navigation + click-to-pin inspection panel; `/analysis` route with tabbed Time Machine surfaces (sweep, sensitivity, goal-seek, optimize); heatmap view; validation surface; compact density with calm chrome + vivid data-viz palette.
 

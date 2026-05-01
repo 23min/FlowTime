@@ -1,6 +1,8 @@
 # Epic: Svelte Workbench & Analysis Surfaces
 
 **ID:** E-21
+**Status:** complete
+**Completed:** 2026-04-28
 
 ## Goal
 

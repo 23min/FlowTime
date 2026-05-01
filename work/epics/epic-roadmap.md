@@ -110,7 +110,7 @@ This document should remain in sync with `ROADMAP.md` (which gives the higher-le
 
 #### E-21 — Svelte Workbench & Analysis Surfaces
 
-- **Folder:** `work/epics/E-21-svelte-workbench-and-analysis/`
+- **Folder:** `work/epics/completed/E-21-svelte-workbench-and-analysis/`
 - **Status:** **All 8 milestones complete (2026-04-28) — ready for epic wrap and merge to main** (branch `epic/E-21-svelte-workbench-and-analysis`) — resumed 2026-04-26 after E-24 then E-23 closed; m-E21-06 Heatmap View merged into the epic branch 2026-04-26; m-E21-07 Validation Surface merged 2026-04-28; m-E21-08 Polish completed 2026-04-28. Scope split 2026-04-21 during m-E21-04: Optimize moved to m-E21-05; downstream renumbered heatmap → m-E21-06, validation → m-E21-07, polish → m-E21-08 (epic has 8 milestones, was 7). **Remaining:** none. Ready for epic wrap.
 - **Goal:** Turn the Svelte UI into the primary platform for expert flow analysis and Time Machine surfaces. Workbench paradigm: topology as navigation + click-to-pin inspection; `/analysis` route with tabbed Time Machine surfaces; heatmap view; validation surface; compact density with calm chrome + vivid data-viz palette.
 - **Depends on:** E-11 (M1-M4 + M6), E-17, E-18 analysis endpoints (`/v1/sweep`, `/v1/sensitivity`, `/v1/goal-seek`, `/v1/optimize`, `/v1/validate`).
