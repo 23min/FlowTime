@@ -4,7 +4,68 @@ title: Svelte Parameter Panel
 status: done
 parent: E-17
 depends_on:
-    - M-018
+  - M-018
+acs:
+  - id: AC-1
+    title: '**AC-1: Route `/what-if`.** A new SvelteKit route exists. The page uses the existing app layout (sidebar + topbar)
+      and appears in sidebar navigation.'
+    status: met
+  - id: AC-2
+    title: '**AC-2: Model picker.** The page shows at least 3 built-in example models the user can select (simple const+expr,
+      queue with WIP limit, class-based decomposition). Selecting a model compiles it via the engine session. Built-in models
+      are bundled as string constants, not loaded from disk or network.'
+    status: met
+  - id: AC-3
+    title: '**AC-3: Parameter panel auto-generation.** After `compile`, the panel renders one control per parameter: - **Scalar
+      parameters** (ConstNode with uniform values, ArrivalRate, WipLimit): numeric input + slider. Slider range: `max(0, default
+      × 0.1)` to `max(default × 3, default + 10)`, step = `max(default / 100, 0.1)`. - **Vector parameters** (ConstNode with
+      varying values): read-only display showing the default values (editing is out of scope for this milestone). - **Parameter
+      ID** displayed as the label. **Default value** shown as a small annotation. **Kind** shown as a colored badge (ConstNode
+      / ArrivalRate / WipLimit).'
+    status: met
+  - id: AC-4
+    title: '**AC-4: Reactive series stores.** Each series from the compile/eval response is held in a Svelte writable store
+      (or `$state` rune). When `eval` returns updated series, the stores are updated atomically and the UI re-renders.'
+    status: met
+  - id: AC-5
+    title: '**AC-5: Live eval on parameter change.** Dragging a slider or typing in a numeric input triggers `session.eval({
+      paramId: newValue })`. The returned series update the stores. The full current override set is sent on every eval (not
+      just the changed one), so the state is always consistent.'
+    status: met
+  - id: AC-6
+    title: '**AC-6: Debounced slider updates.** During a continuous slider drag, eval requests are debounced to fire at most
+      every 50ms. The final value after drag-end always triggers an eval to ensure the displayed state is accurate. Numeric-input
+      changes (via typing) are debounced to 150ms.'
+    status: met
+  - id: AC-7
+    title: '**AC-7: Loading and error states.** While an `eval` is in flight, the parameter panel shows a subtle loading indicator
+      (spinner next to the active control, or a top progress bar). If an eval returns an error, the error message is displayed
+      in an alert banner and the UI remains interactive. The old series values stay visible until the error is resolved.'
+    status: met
+  - id: AC-8
+    title: '**AC-8: Reset button.** A "Reset to defaults" button resets all parameter controls to their defaults (from the
+      parameter schema) and triggers a fresh eval.'
+    status: met
+  - id: AC-9
+    title: "**AC-9: Series display.** For every non-internal series in the eval response, the UI shows: - The series name
+      - The current values as a compact numeric list (e.g., `[10.0, 10.0, 10.0, 10.0]`) - A minimal inline sparkline (simple
+      SVG path, not a full chart library) showing the shape over time The sparkline's y-axis auto-scales to the series' min/max.
+      This is intentionally lightweight — full charting is M-020."
+    status: met
+  - id: AC-10
+    title: '**AC-10: Latency display.** The page shows the elapsed_us from the most recent eval response, prominently (e.g.,
+      "Last eval: 42 µs"). This is the "look how fast" badge of honor.'
+    status: met
+  - id: AC-11
+    title: '**AC-11: Disconnect recovery.** If the WebSocket drops (e.g., API restarts), the next parameter change triggers
+      automatic reconnect + replay (already handled by EngineSession). The UI shows a brief "reconnecting…" indicator, then
+      resumes normal operation. No page reload required.'
+    status: met
+  - id: AC-12
+    title: '**AC-12: Unit tests for debounce + control generation.** Vitest unit tests cover: - Debounce helper: multiple
+      rapid calls collapse to one, trailing edge fires - Control config derivation: `ParamInfo` → `{ type, min, max, step,
+      initial }` These are pure functions with no DOM dependencies.'
+    status: met
 ---
 
 ## Goal
@@ -25,42 +86,47 @@ M-019 builds the real interactive surface:
 
 The emphasis is **interactive feel**: the user should be able to grab a slider and see numbers move immediately. Chart/topology visualizations are M-020 — this milestone shows series as small-multiple sparklines or numeric tables that update on parameter changes.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-1. **AC-1: Route `/what-if`.** A new SvelteKit route exists. The page uses the existing app layout (sidebar + topbar) and appears in sidebar navigation.
+### AC-1 — **AC-1: Route `/what-if`.** A new SvelteKit route exists. The page uses the existing app layout (sidebar + topbar) and appears in sidebar navigation.
 
-2. **AC-2: Model picker.** The page shows at least 3 built-in example models the user can select (simple const+expr, queue with WIP limit, class-based decomposition). Selecting a model compiles it via the engine session. Built-in models are bundled as string constants, not loaded from disk or network.
+### AC-2 — **AC-2: Model picker.** The page shows at least 3 built-in example models the user can select (simple const+expr, queue with WIP limit, class-based decomposition). Selecting a model compiles it via the engine session. Built-in models are bundled as string constants, not loaded from disk or network.
 
-3. **AC-3: Parameter panel auto-generation.** After `compile`, the panel renders one control per parameter:
-   - **Scalar parameters** (ConstNode with uniform values, ArrivalRate, WipLimit): numeric input + slider. Slider range: `max(0, default × 0.1)` to `max(default × 3, default + 10)`, step = `max(default / 100, 0.1)`.
-   - **Vector parameters** (ConstNode with varying values): read-only display showing the default values (editing is out of scope for this milestone).
-   - **Parameter ID** displayed as the label. **Default value** shown as a small annotation. **Kind** shown as a colored badge (ConstNode / ArrivalRate / WipLimit).
+### AC-3 — **AC-3: Parameter panel auto-generation.** After `compile`, the panel renders one control per parameter: - **Scalar parameters** (ConstNode with uniform values, ArrivalRate, WipLimit): numeric input + slider. Slider range: `max(0, default × 0.1)` to `max(default × 3, default + 10)`, step = `max(default / 100, 0.1)`. - **Vector parameters** (ConstNode with varying values): read-only display showing the default values (editing is out of scope for this milestone). - **Parameter ID** displayed as the label. **Default value** shown as a small annotation. **Kind** shown as a colored badge (ConstNode / ArrivalRate / WipLimit).
 
-4. **AC-4: Reactive series stores.** Each series from the compile/eval response is held in a Svelte writable store (or `$state` rune). When `eval` returns updated series, the stores are updated atomically and the UI re-renders.
+**AC-3: Parameter panel auto-generation.** After `compile`, the panel renders one control per parameter:
+- **Scalar parameters** (ConstNode with uniform values, ArrivalRate, WipLimit): numeric input + slider. Slider range: `max(0, default × 0.1)` to `max(default × 3, default + 10)`, step = `max(default / 100, 0.1)`.
+- **Vector parameters** (ConstNode with varying values): read-only display showing the default values (editing is out of scope for this milestone).
+- **Parameter ID** displayed as the label. **Default value** shown as a small annotation. **Kind** shown as a colored badge (ConstNode / ArrivalRate / WipLimit).
 
-5. **AC-5: Live eval on parameter change.** Dragging a slider or typing in a numeric input triggers `session.eval({ paramId: newValue })`. The returned series update the stores. The full current override set is sent on every eval (not just the changed one), so the state is always consistent.
+### AC-4 — **AC-4: Reactive series stores.** Each series from the compile/eval response is held in a Svelte writable store (or `$state` rune). When `eval` returns updated series, the stores are updated atomically and the UI re-renders.
 
-6. **AC-6: Debounced slider updates.** During a continuous slider drag, eval requests are debounced to fire at most every 50ms. The final value after drag-end always triggers an eval to ensure the displayed state is accurate. Numeric-input changes (via typing) are debounced to 150ms.
+### AC-5 — **AC-5: Live eval on parameter change.** Dragging a slider or typing in a numeric input triggers `session.eval({ paramId: newValue })`. The returned series update the stores. The full current override set is sent on every eval (not just the changed one), so the state is always consistent.
 
-7. **AC-7: Loading and error states.** While an `eval` is in flight, the parameter panel shows a subtle loading indicator (spinner next to the active control, or a top progress bar). If an eval returns an error, the error message is displayed in an alert banner and the UI remains interactive. The old series values stay visible until the error is resolved.
+### AC-6 — **AC-6: Debounced slider updates.** During a continuous slider drag, eval requests are debounced to fire at most every 50ms. The final value after drag-end always triggers an eval to ensure the displayed state is accurate. Numeric-input changes (via typing) are debounced to 150ms.
 
-8. **AC-8: Reset button.** A "Reset to defaults" button resets all parameter controls to their defaults (from the parameter schema) and triggers a fresh eval.
+### AC-7 — **AC-7: Loading and error states.** While an `eval` is in flight, the parameter panel shows a subtle loading indicator (spinner next to the active control, or a top progress bar). If an eval returns an error, the error message is displayed in an alert banner and the UI remains interactive. The old series values stay visible until the error is resolved.
 
-9. **AC-9: Series display.** For every non-internal series in the eval response, the UI shows:
-   - The series name
-   - The current values as a compact numeric list (e.g., `[10.0, 10.0, 10.0, 10.0]`)
-   - A minimal inline sparkline (simple SVG path, not a full chart library) showing the shape over time
-   The sparkline's y-axis auto-scales to the series' min/max. This is intentionally lightweight — full charting is M-020.
+### AC-8 — **AC-8: Reset button.** A "Reset to defaults" button resets all parameter controls to their defaults (from the parameter schema) and triggers a fresh eval.
 
-10. **AC-10: Latency display.** The page shows the elapsed_us from the most recent eval response, prominently (e.g., "Last eval: 42 µs"). This is the "look how fast" badge of honor.
+### AC-9 — **AC-9: Series display.** For every non-internal series in the eval response, the UI shows: - The series name - The current values as a compact numeric list (e.g., `[10.0, 10.0, 10.0, 10.0]`) - A minimal inline sparkline (simple SVG path, not a full chart library) showing the shape over time The sparkline's y-axis auto-scales to the series' min/max. This is intentionally lightweight — full charting is M-020.
 
-11. **AC-11: Disconnect recovery.** If the WebSocket drops (e.g., API restarts), the next parameter change triggers automatic reconnect + replay (already handled by EngineSession). The UI shows a brief "reconnecting…" indicator, then resumes normal operation. No page reload required.
+**AC-9: Series display.** For every non-internal series in the eval response, the UI shows:
+- The series name
+- The current values as a compact numeric list (e.g., `[10.0, 10.0, 10.0, 10.0]`)
+- A minimal inline sparkline (simple SVG path, not a full chart library) showing the shape over time
+The sparkline's y-axis auto-scales to the series' min/max. This is intentionally lightweight — full charting is M-020.
 
-12. **AC-12: Unit tests for debounce + control generation.** Vitest unit tests cover:
-   - Debounce helper: multiple rapid calls collapse to one, trailing edge fires
-   - Control config derivation: `ParamInfo` → `{ type, min, max, step, initial }`
-   These are pure functions with no DOM dependencies.
+### AC-10 — **AC-10: Latency display.** The page shows the elapsed_us from the most recent eval response, prominently (e.g., "Last eval: 42 µs"). This is the "look how fast" badge of honor.
 
+### AC-11 — **AC-11: Disconnect recovery.** If the WebSocket drops (e.g., API restarts), the next parameter change triggers automatic reconnect + replay (already handled by EngineSession). The UI shows a brief "reconnecting…" indicator, then resumes normal operation. No page reload required.
+
+### AC-12 — **AC-12: Unit tests for debounce + control generation.** Vitest unit tests cover: - Debounce helper: multiple rapid calls collapse to one, trailing edge fires - Control config derivation: `ParamInfo` → `{ type, min, max, step, initial }` These are pure functions with no DOM dependencies.
+
+**AC-12: Unit tests for debounce + control generation.** Vitest unit tests cover:
+- Debounce helper: multiple rapid calls collapse to one, trailing edge fires
+- Control config derivation: `ParamInfo` → `{ type, min, max, step, initial }`
+These are pure functions with no DOM dependencies.
 ## Technical Notes
 
 ### Debounce helper

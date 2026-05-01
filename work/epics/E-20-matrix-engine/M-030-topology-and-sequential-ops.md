@@ -3,6 +3,45 @@ id: M-030
 title: Topology and Sequential Ops
 status: done
 parent: E-20
+acs:
+  - id: AC-1
+    title: '**AC-1: Sequential op variants.** Add to the `Op` enum: - `Shift { out, input, lag }` — `out[t] = input[t - lag]`
+      (0 for t < lag) - `Convolve { out, input, kernel }` — causal convolution: `out[t] = Σ(k) input[t-k] * kernel[k]` - `QueueRecurrence
+      { out, inflow, outflow, loss, init, wip_limit, overflow_out }` — sequential queue depth with optional WIP limit and
+      overflow tracking - `DispatchGate { out, input, period, phase, capacity }` — gates output to dispatch bins, optionally
+      capping at capacity'
+    status: met
+  - id: AC-2
+    title: '**AC-2: Topology synthesis.** The compiler processes `model.topology.nodes` to synthesize queue and retry echo
+      nodes (same logic as C# `ModelCompiler`): - For each `serviceWithBuffer`/`queue`/`dlq` topology node: synthesize a `QueueRecurrence`
+      op from `semantics.arrivals`, `semantics.served` (or capacity), `semantics.errors`, and `initialCondition.queueDepth`.
+      - For each topology node with `retryEcho` + `retryKernel`: synthesize a `Convolve` op. - Queue node ID follows the C#
+      snake_case convention (`Queue → queue_queue`). - Dispatch schedule on topology node → `DispatchGate` op on the outflow
+      before `QueueRecurrence`.'
+    status: met
+  - id: AC-3
+    title: "**AC-3: WIP limits and overflow routing.** - `QueueRecurrence` op supports optional `wip_limit` column (scalar
+      const or series) and `overflow_out` column. - Overflow routing: compiler resolves `wipOverflow` topology node ID to
+      the target's inflow column, emits an additional `VecAdd` to inject overflow into the target's inflow. - Overflow cycle
+      validation at compile time (same as C# `ValidateNoOverflowCycles`)."
+    status: met
+  - id: AC-4
+    title: '**AC-4: SHIFT feedback.** Models with SHIFT-based cross-node feedback cycles evaluate correctly without special
+      handling. The Shift op reads `state[input, t - lag]` which was written in a previous bin iteration since the evaluator
+      processes ops in plan order and sequential ops process bins in order. Test: the backpressure model from E-10 p3b (queue
+      → pressure → SHIFT → effective_arrivals → queue) produces the same stabilization pattern.'
+    status: met
+  - id: AC-5
+    title: '**AC-5: Parity fixtures.** Create simulation-mode topology fixtures (with `grid` + inline `const`/`expr` nodes
+      + topology) and verify parity with C# output: - Simple queue: const arrivals/served → queue depth matches hand-calculated
+      values - Queue with WIP limit: overflow tracked correctly - Queue with dispatch schedule: outflow gated to period bins
+      - Retry echo: CONV(failures, kernel) produces correct retry series - Backpressure feedback: SHIFT-based throttle stabilizes
+      queue - Cascading WIP overflow: A→B→C overflow chain'
+    status: met
+  - id: AC-6
+    title: "**AC-6: Existing tests unbroken.** All 38 existing Rust tests still pass. The compiler changes don't break const/expr
+      compilation."
+    status: met
 ---
 
 ## Goal
@@ -23,37 +62,44 @@ The C# engine handles topology via:
 
 In the matrix model, all of these become ops in the plan. Sequential ops (QueueRecurrence, Shift, Convolve) process bins in order, reading from previous bins in the same matrix — feedback falls out naturally without special handling.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-1. **AC-1: Sequential op variants.** Add to the `Op` enum:
-   - `Shift { out, input, lag }` — `out[t] = input[t - lag]` (0 for t < lag)
-   - `Convolve { out, input, kernel }` — causal convolution: `out[t] = Σ(k) input[t-k] * kernel[k]`
-   - `QueueRecurrence { out, inflow, outflow, loss, init, wip_limit, overflow_out }` — sequential queue depth with optional WIP limit and overflow tracking
-   - `DispatchGate { out, input, period, phase, capacity }` — gates output to dispatch bins, optionally capping at capacity
+### AC-1 — **AC-1: Sequential op variants.** Add to the `Op` enum: - `Shift { out, input, lag }` — `out[t] = input[t - lag]` (0 for t < lag) - `Convolve { out, input, kernel }` — causal convolution: `out[t] = Σ(k) input[t-k] * kernel[k]` - `QueueRecurrence { out, inflow, outflow, loss, init, wip_limit, overflow_out }` — sequential queue depth with optional WIP limit and overflow tracking - `DispatchGate { out, input, period, phase, capacity }` — gates output to dispatch bins, optionally capping at capacity
 
-2. **AC-2: Topology synthesis.** The compiler processes `model.topology.nodes` to synthesize queue and retry echo nodes (same logic as C# `ModelCompiler`):
-   - For each `serviceWithBuffer`/`queue`/`dlq` topology node: synthesize a `QueueRecurrence` op from `semantics.arrivals`, `semantics.served` (or capacity), `semantics.errors`, and `initialCondition.queueDepth`.
-   - For each topology node with `retryEcho` + `retryKernel`: synthesize a `Convolve` op.
-   - Queue node ID follows the C# snake_case convention (`Queue → queue_queue`).
-   - Dispatch schedule on topology node → `DispatchGate` op on the outflow before `QueueRecurrence`.
+**AC-1: Sequential op variants.** Add to the `Op` enum:
+- `Shift { out, input, lag }` — `out[t] = input[t - lag]` (0 for t < lag)
+- `Convolve { out, input, kernel }` — causal convolution: `out[t] = Σ(k) input[t-k] * kernel[k]`
+- `QueueRecurrence { out, inflow, outflow, loss, init, wip_limit, overflow_out }` — sequential queue depth with optional WIP limit and overflow tracking
+- `DispatchGate { out, input, period, phase, capacity }` — gates output to dispatch bins, optionally capping at capacity
 
-3. **AC-3: WIP limits and overflow routing.**
-   - `QueueRecurrence` op supports optional `wip_limit` column (scalar const or series) and `overflow_out` column.
-   - Overflow routing: compiler resolves `wipOverflow` topology node ID to the target's inflow column, emits an additional `VecAdd` to inject overflow into the target's inflow.
-   - Overflow cycle validation at compile time (same as C# `ValidateNoOverflowCycles`).
+### AC-2 — **AC-2: Topology synthesis.** The compiler processes `model.topology.nodes` to synthesize queue and retry echo nodes (same logic as C# `ModelCompiler`): - For each `serviceWithBuffer`/`queue`/`dlq` topology node: synthesize a `QueueRecurrence` op from `semantics.arrivals`, `semantics.served` (or capacity), `semantics.errors`, and `initialCondition.queueDepth`. - For each topology node with `retryEcho` + `retryKernel`: synthesize a `Convolve` op. - Queue node ID follows the C# snake_case convention (`Queue → queue_queue`). - Dispatch schedule on topology node → `DispatchGate` op on the outflow before `QueueRecurrence`.
 
-4. **AC-4: SHIFT feedback.** Models with SHIFT-based cross-node feedback cycles evaluate correctly without special handling. The Shift op reads `state[input, t - lag]` which was written in a previous bin iteration since the evaluator processes ops in plan order and sequential ops process bins in order. Test: the backpressure model from E-10 p3b (queue → pressure → SHIFT → effective_arrivals → queue) produces the same stabilization pattern.
+**AC-2: Topology synthesis.** The compiler processes `model.topology.nodes` to synthesize queue and retry echo nodes (same logic as C# `ModelCompiler`):
+- For each `serviceWithBuffer`/`queue`/`dlq` topology node: synthesize a `QueueRecurrence` op from `semantics.arrivals`, `semantics.served` (or capacity), `semantics.errors`, and `initialCondition.queueDepth`.
+- For each topology node with `retryEcho` + `retryKernel`: synthesize a `Convolve` op.
+- Queue node ID follows the C# snake_case convention (`Queue → queue_queue`).
+- Dispatch schedule on topology node → `DispatchGate` op on the outflow before `QueueRecurrence`.
 
-5. **AC-5: Parity fixtures.** Create simulation-mode topology fixtures (with `grid` + inline `const`/`expr` nodes + topology) and verify parity with C# output:
-   - Simple queue: const arrivals/served → queue depth matches hand-calculated values
-   - Queue with WIP limit: overflow tracked correctly
-   - Queue with dispatch schedule: outflow gated to period bins
-   - Retry echo: CONV(failures, kernel) produces correct retry series
-   - Backpressure feedback: SHIFT-based throttle stabilizes queue
-   - Cascading WIP overflow: A→B→C overflow chain
+### AC-3 — **AC-3: WIP limits and overflow routing.** - `QueueRecurrence` op supports optional `wip_limit` column (scalar const or series) and `overflow_out` column. - Overflow routing: compiler resolves `wipOverflow` topology node ID to the target's inflow column, emits an additional `VecAdd` to inject overflow into the target's inflow. - Overflow cycle validation at compile time (same as C# `ValidateNoOverflowCycles`).
 
-6. **AC-6: Existing tests unbroken.** All 38 existing Rust tests still pass. The compiler changes don't break const/expr compilation.
+**AC-3: WIP limits and overflow routing.**
+- `QueueRecurrence` op supports optional `wip_limit` column (scalar const or series) and `overflow_out` column.
+- Overflow routing: compiler resolves `wipOverflow` topology node ID to the target's inflow column, emits an additional `VecAdd` to inject overflow into the target's inflow.
+- Overflow cycle validation at compile time (same as C# `ValidateNoOverflowCycles`).
 
+### AC-4 — **AC-4: SHIFT feedback.** Models with SHIFT-based cross-node feedback cycles evaluate correctly without special handling. The Shift op reads `state[input, t - lag]` which was written in a previous bin iteration since the evaluator processes ops in plan order and sequential ops process bins in order. Test: the backpressure model from E-10 p3b (queue → pressure → SHIFT → effective_arrivals → queue) produces the same stabilization pattern.
+
+### AC-5 — **AC-5: Parity fixtures.** Create simulation-mode topology fixtures (with `grid` + inline `const`/`expr` nodes + topology) and verify parity with C# output: - Simple queue: const arrivals/served → queue depth matches hand-calculated values - Queue with WIP limit: overflow tracked correctly - Queue with dispatch schedule: outflow gated to period bins - Retry echo: CONV(failures, kernel) produces correct retry series - Backpressure feedback: SHIFT-based throttle stabilizes queue - Cascading WIP overflow: A→B→C overflow chain
+
+**AC-5: Parity fixtures.** Create simulation-mode topology fixtures (with `grid` + inline `const`/`expr` nodes + topology) and verify parity with C# output:
+- Simple queue: const arrivals/served → queue depth matches hand-calculated values
+- Queue with WIP limit: overflow tracked correctly
+- Queue with dispatch schedule: outflow gated to period bins
+- Retry echo: CONV(failures, kernel) produces correct retry series
+- Backpressure feedback: SHIFT-based throttle stabilizes queue
+- Cascading WIP overflow: A→B→C overflow chain
+
+### AC-6 — **AC-6: Existing tests unbroken.** All 38 existing Rust tests still pass. The compiler changes don't break const/expr compilation.
 ## Technical Notes
 
 - **Evaluation order for sequential ops:** The plan is still executed as a linear op list. Sequential ops (QueueRecurrence, Shift, Convolve) internally loop over bins. This is correct because the evaluator processes ops in dependency order (topo sort), and within a sequential op, each bin reads from previous bins that are already written. No special "feedback mode" needed.

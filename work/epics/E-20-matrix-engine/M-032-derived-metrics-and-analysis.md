@@ -3,6 +3,45 @@ id: M-032
 title: Derived Metrics and Analysis
 status: done
 parent: E-20
+acs:
+  - id: AC-1
+    title: '**AC-1: Utilization metric.** Compute `utilization[t] = served[t] / effectiveCapacity[t]` for topology nodes with
+      capacity semantics. Emit as a derived column per node. Returns 0 when capacity is 0. Effective capacity = base capacity
+      × parallelism (when parallelism is defined).'
+    status: met
+  - id: AC-2
+    title: '**AC-2: Cycle time components.** Compute per-bin: - `queueTimeMs[t] = (queueDepth[t] / served[t]) × binMs` (0
+      when served ≤ 0) - `serviceTimeMs[t] = processingTimeMsSum[t] / servedCount[t]` (0 when servedCount ≤ 0) - `cycleTimeMs[t]
+      = queueTimeMs[t] + serviceTimeMs[t]` (sum of available components) - `flowEfficiency[t] = serviceTimeMs[t] / cycleTimeMs[t]`
+      (0 when cycleTime ≤ 0) - `latencyMinutes[t] = queueTimeMs[t] / 60000` - Which components are emitted depends on node
+      category: queue-only → queueTime+latency, service-only → serviceTime, serviceWithBuffer → all.'
+    status: met
+  - id: AC-3
+    title: '**AC-3: Kingman G/G/1 approximation.** Compute `E[Wq] ≈ (ρ/(1-ρ)) × ((Ca² + Cs²)/2) × E[S]` where: - `ρ` = utilization
+      (must be in (0, 1)) - `Ca` = coefficient of variation of arrivals - `Cs` = coefficient of variation of service - `E[S]`
+      = mean service time (ms) - Returns 0 for invalid inputs (ρ ≥ 1, negative Cv, etc.) - Cv is computed from PMF nodes (σ/μ)
+      or as 0.0 for constant series.'
+    status: met
+  - id: AC-4
+    title: '**AC-4: Invariant warnings.** Post-evaluation analysis producing a `Vec<Warning>` struct: - **Non-negativity:**
+      Flag bins where arrivals, served, errors, or queueDepth < -ε (ε = 1e-6) - **Conservation:** Flag bins where served >
+      arrivals + ε (for non-queue nodes) or served > capacity + ε - **Queue balance:** Flag bins where computed queue depth
+      diverges from actual (|computed - actual| > ε) - **Stationarity:** Flag when arrivals first-half vs second-half mean
+      diverges > 25% - Warning struct: `{ node_id, code, message, bins, severity }`'
+    status: met
+  - id: AC-5
+    title: '**AC-5: Derived metrics integration in compiler.** The compiler emits derived metric ops after topology ops, reading
+      from queue depth, served, capacity, and other evaluation columns. A new `compile_derived_metrics` phase appends ops
+      to the plan. The `EvalResult` includes a method to retrieve warnings.'
+    status: met
+  - id: AC-6
+    title: '**AC-6: Parity tests.** Test models verifying: - Utilization: served=8, capacity=10 → utilization=0.8 - Queue
+      time: queueDepth=10, served=5, binMs=60000 → queueTimeMs=120000 - Kingman: ρ=0.8, Ca=1.0, Cs=0.5, E[S]=10 → E[Wq]=25
+      - Conservation violation: served > arrivals detected as warning - Stationarity: increasing arrivals flagged'
+    status: met
+  - id: AC-7
+    title: '**AC-7: Existing tests unbroken.** All 78 existing Rust tests still pass.'
+    status: met
 ---
 
 ## Goal
@@ -15,44 +54,51 @@ M-031 delivered routing and constraint allocation. The engine now handles the fu
 
 The C# engine computes derived metrics in `RuntimeAnalyticalEvaluator` and runs invariant checks in `InvariantAnalyzer`. In the matrix model, derived metrics are additional columns computed from evaluation output. Invariant analysis is a read-only pass that produces warnings.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-1. **AC-1: Utilization metric.** Compute `utilization[t] = served[t] / effectiveCapacity[t]` for topology nodes with capacity semantics. Emit as a derived column per node. Returns 0 when capacity is 0. Effective capacity = base capacity × parallelism (when parallelism is defined).
+### AC-1 — **AC-1: Utilization metric.** Compute `utilization[t] = served[t] / effectiveCapacity[t]` for topology nodes with capacity semantics. Emit as a derived column per node. Returns 0 when capacity is 0. Effective capacity = base capacity × parallelism (when parallelism is defined).
 
-2. **AC-2: Cycle time components.** Compute per-bin:
-   - `queueTimeMs[t] = (queueDepth[t] / served[t]) × binMs` (0 when served ≤ 0)
-   - `serviceTimeMs[t] = processingTimeMsSum[t] / servedCount[t]` (0 when servedCount ≤ 0)
-   - `cycleTimeMs[t] = queueTimeMs[t] + serviceTimeMs[t]` (sum of available components)
-   - `flowEfficiency[t] = serviceTimeMs[t] / cycleTimeMs[t]` (0 when cycleTime ≤ 0)
-   - `latencyMinutes[t] = queueTimeMs[t] / 60000`
-   - Which components are emitted depends on node category: queue-only → queueTime+latency, service-only → serviceTime, serviceWithBuffer → all.
+### AC-2 — **AC-2: Cycle time components.** Compute per-bin: - `queueTimeMs[t] = (queueDepth[t] / served[t]) × binMs` (0 when served ≤ 0) - `serviceTimeMs[t] = processingTimeMsSum[t] / servedCount[t]` (0 when servedCount ≤ 0) - `cycleTimeMs[t] = queueTimeMs[t] + serviceTimeMs[t]` (sum of available components) - `flowEfficiency[t] = serviceTimeMs[t] / cycleTimeMs[t]` (0 when cycleTime ≤ 0) - `latencyMinutes[t] = queueTimeMs[t] / 60000` - Which components are emitted depends on node category: queue-only → queueTime+latency, service-only → serviceTime, serviceWithBuffer → all.
 
-3. **AC-3: Kingman G/G/1 approximation.** Compute `E[Wq] ≈ (ρ/(1-ρ)) × ((Ca² + Cs²)/2) × E[S]` where:
-   - `ρ` = utilization (must be in (0, 1))
-   - `Ca` = coefficient of variation of arrivals
-   - `Cs` = coefficient of variation of service
-   - `E[S]` = mean service time (ms)
-   - Returns 0 for invalid inputs (ρ ≥ 1, negative Cv, etc.)
-   - Cv is computed from PMF nodes (σ/μ) or as 0.0 for constant series.
+**AC-2: Cycle time components.** Compute per-bin:
+- `queueTimeMs[t] = (queueDepth[t] / served[t]) × binMs` (0 when served ≤ 0)
+- `serviceTimeMs[t] = processingTimeMsSum[t] / servedCount[t]` (0 when servedCount ≤ 0)
+- `cycleTimeMs[t] = queueTimeMs[t] + serviceTimeMs[t]` (sum of available components)
+- `flowEfficiency[t] = serviceTimeMs[t] / cycleTimeMs[t]` (0 when cycleTime ≤ 0)
+- `latencyMinutes[t] = queueTimeMs[t] / 60000`
+- Which components are emitted depends on node category: queue-only → queueTime+latency, service-only → serviceTime, serviceWithBuffer → all.
 
-4. **AC-4: Invariant warnings.** Post-evaluation analysis producing a `Vec<Warning>` struct:
-   - **Non-negativity:** Flag bins where arrivals, served, errors, or queueDepth < -ε (ε = 1e-6)
-   - **Conservation:** Flag bins where served > arrivals + ε (for non-queue nodes) or served > capacity + ε
-   - **Queue balance:** Flag bins where computed queue depth diverges from actual (|computed - actual| > ε)
-   - **Stationarity:** Flag when arrivals first-half vs second-half mean diverges > 25%
-   - Warning struct: `{ node_id, code, message, bins, severity }`
+### AC-3 — **AC-3: Kingman G/G/1 approximation.** Compute `E[Wq] ≈ (ρ/(1-ρ)) × ((Ca² + Cs²)/2) × E[S]` where: - `ρ` = utilization (must be in (0, 1)) - `Ca` = coefficient of variation of arrivals - `Cs` = coefficient of variation of service - `E[S]` = mean service time (ms) - Returns 0 for invalid inputs (ρ ≥ 1, negative Cv, etc.) - Cv is computed from PMF nodes (σ/μ) or as 0.0 for constant series.
 
-5. **AC-5: Derived metrics integration in compiler.** The compiler emits derived metric ops after topology ops, reading from queue depth, served, capacity, and other evaluation columns. A new `compile_derived_metrics` phase appends ops to the plan. The `EvalResult` includes a method to retrieve warnings.
+**AC-3: Kingman G/G/1 approximation.** Compute `E[Wq] ≈ (ρ/(1-ρ)) × ((Ca² + Cs²)/2) × E[S]` where:
+- `ρ` = utilization (must be in (0, 1))
+- `Ca` = coefficient of variation of arrivals
+- `Cs` = coefficient of variation of service
+- `E[S]` = mean service time (ms)
+- Returns 0 for invalid inputs (ρ ≥ 1, negative Cv, etc.)
+- Cv is computed from PMF nodes (σ/μ) or as 0.0 for constant series.
 
-6. **AC-6: Parity tests.** Test models verifying:
-   - Utilization: served=8, capacity=10 → utilization=0.8
-   - Queue time: queueDepth=10, served=5, binMs=60000 → queueTimeMs=120000
-   - Kingman: ρ=0.8, Ca=1.0, Cs=0.5, E[S]=10 → E[Wq]=25
-   - Conservation violation: served > arrivals detected as warning
-   - Stationarity: increasing arrivals flagged
+### AC-4 — **AC-4: Invariant warnings.** Post-evaluation analysis producing a `Vec<Warning>` struct: - **Non-negativity:** Flag bins where arrivals, served, errors, or queueDepth < -ε (ε = 1e-6) - **Conservation:** Flag bins where served > arrivals + ε (for non-queue nodes) or served > capacity + ε - **Queue balance:** Flag bins where computed queue depth diverges from actual (|computed - actual| > ε) - **Stationarity:** Flag when arrivals first-half vs second-half mean diverges > 25% - Warning struct: `{ node_id, code, message, bins, severity }`
 
-7. **AC-7: Existing tests unbroken.** All 78 existing Rust tests still pass.
+**AC-4: Invariant warnings.** Post-evaluation analysis producing a `Vec<Warning>` struct:
+- **Non-negativity:** Flag bins where arrivals, served, errors, or queueDepth < -ε (ε = 1e-6)
+- **Conservation:** Flag bins where served > arrivals + ε (for non-queue nodes) or served > capacity + ε
+- **Queue balance:** Flag bins where computed queue depth diverges from actual (|computed - actual| > ε)
+- **Stationarity:** Flag when arrivals first-half vs second-half mean diverges > 25%
+- Warning struct: `{ node_id, code, message, bins, severity }`
 
+### AC-5 — **AC-5: Derived metrics integration in compiler.** The compiler emits derived metric ops after topology ops, reading from queue depth, served, capacity, and other evaluation columns. A new `compile_derived_metrics` phase appends ops to the plan. The `EvalResult` includes a method to retrieve warnings.
+
+### AC-6 — **AC-6: Parity tests.** Test models verifying: - Utilization: served=8, capacity=10 → utilization=0.8 - Queue time: queueDepth=10, served=5, binMs=60000 → queueTimeMs=120000 - Kingman: ρ=0.8, Ca=1.0, Cs=0.5, E[S]=10 → E[Wq]=25 - Conservation violation: served > arrivals detected as warning - Stationarity: increasing arrivals flagged
+
+**AC-6: Parity tests.** Test models verifying:
+- Utilization: served=8, capacity=10 → utilization=0.8
+- Queue time: queueDepth=10, served=5, binMs=60000 → queueTimeMs=120000
+- Kingman: ρ=0.8, Ca=1.0, Cs=0.5, E[S]=10 → E[Wq]=25
+- Conservation violation: served > arrivals detected as warning
+- Stationarity: increasing arrivals flagged
+
+### AC-7 — **AC-7: Existing tests unbroken.** All 78 existing Rust tests still pass.
 ## Technical Notes
 
 - **Derived columns naming:** `{nodeId}_utilization`, `{nodeId}_queue_time_ms`, `{nodeId}_cycle_time_ms`, `{nodeId}_flow_efficiency`, `{nodeId}_latency_min`, `{nodeId}_kingman_wq`.

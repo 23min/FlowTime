@@ -3,6 +3,57 @@ id: M-049
 title: Inventory and Design Decisions
 status: done
 parent: E-24
+acs:
+  - id: AC-1
+    title: '**Full-field inventory complete.** The milestone tracking doc contains a row-per-field table covering every public
+      member of `SimModelArtifact` and `ModelDefinition`, plus every distinct shape the M-046 survey identified. Each row
+      names: field path, emitter / producer (Sim or Engine), consumer (file:line if any) or "no consumer" (with grep verification
+      note), current schema declaration, classification (keep-as-is / rename / move-to-provenance / drop / open), and decision
+      column with chosen side.'
+    status: met
+  - id: AC-2
+    title: "**The six epic-spec open questions resolved.** For each question in the epic spec's Open Questions table, the
+      tracking doc records the decision, the rationale, and the rejected alternative(s). Minimum answers required: - Unified
+      type home (`FlowTime.Core` vs `FlowTime.Contracts` vs new namespace). - Unified type name (does `ModelDefinition` stay,
+      or does it get renamed). - `outputs[].as` semantics (optional + emitter omits, or required + emitter synthesizes with
+      named convention). - `nodes[].source` forward contract (drop until E-15, or declare optional now). - Provenance shape
+      (flat vs nested, specifically for `parameters`). - Canary variant for M-053 (integration test vs fast unit-style vs
+      both)."
+    status: met
+  - id: AC-3
+    title: '**Leaked-state fields have drop plans.** `window`, `generator`, top-level `metadata`, and top-level `mode` each
+      have a decision row. Default disposition is "drop from emission" with grep evidence that no Engine consumer reads them.
+      If any row deviates (e.g. "move into `provenance`"), the new location and reader are named.'
+    status: met
+  - id: AC-4
+    title: "**`SimModelArtifact` satellite types have disposition plans.** `SimNode`, `SimOutput`, `SimProvenance`, `SimTraffic`,
+      `SimArrival`, `SimArrivalPattern` each have a row naming whether they merge into the unified type's equivalents (`NodeDefinition`,
+      `OutputDefinition`, etc.) as-is, with changes, or get deleted entirely. Any field asymmetries between Sim-side and Engine-side
+      types (e.g. `SimNode` has fields `NodeDefinition` lacks, or vice versa) are flagged with a keep / drop decision."
+    status: met
+  - id: AC-5
+    title: '**`provenance` block is named in full.** The final list of fields on the unified `provenance` block is written
+      out with camelCase keys. Each field has a consumer citation and a rationale for inclusion. `schemaVersion` duplicate
+      is decided (default: drop from provenance — top-level owns). `mode` is decided (default: keep in provenance as traceability;
+      drop from top-level emission since Engine does not read it).'
+    status: met
+  - id: AC-6
+    title: '**Uncommitted M-046 schema edits re-examined.** `grid.start`, `nodes[].metadata`, `nodes[].source` each have explicit
+      keep / modify / revert decisions with rationale: - `grid.start`: default keep (Engine consumer confirmed at `ModelParser.cs:62`).
+      Verify under unification. - `nodes[].metadata`: default keep (`GraphService.ResolveDisplayKind`, `StateQueryService.cs:2162`,
+      `RunArtifactWriter.cs:516` are all consumers). Verify. - `nodes[].source`: default revert (no consumer until E-15).
+      Confirm E-15 starts aligned from this baseline.'
+    status: met
+  - id: AC-7
+    title: '**Forward-only disposition confirmed.** The tracking doc names every code path that might read the old two-type
+      YAML shape (fixtures, sample bundles, test helpers, any bundle reader) and its disposition: regenerate, delete, or (rarely)
+      document as historical reference. No compatibility reader survives.'
+    status: met
+  - id: AC-8
+    title: '**No production change.** Diff against `epic/E-24-schema-alignment` touches only this tracking doc, this milestone
+      spec, and (optionally) reference-pointer updates in the epic spec. No edits to `src/`, `tests/`, `docs/schemas/`, or
+      other code-bearing surfaces. Full `.NET` test suite is green throughout (untouched baseline).'
+    status: met
 ---
 
 ## Goal
@@ -21,26 +72,36 @@ Input material:
 
 The inventory covers the full union of fields on `SimModelArtifact` and `ModelDefinition` plus every distinct shape the survey identified. Each row ends with a named decision; no row remains open.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-1. **Full-field inventory complete.** The milestone tracking doc contains a row-per-field table covering every public member of `SimModelArtifact` and `ModelDefinition`, plus every distinct shape the M-046 survey identified. Each row names: field path, emitter / producer (Sim or Engine), consumer (file:line if any) or "no consumer" (with grep verification note), current schema declaration, classification (keep-as-is / rename / move-to-provenance / drop / open), and decision column with chosen side.
-2. **The six epic-spec open questions resolved.** For each question in the epic spec's Open Questions table, the tracking doc records the decision, the rationale, and the rejected alternative(s). Minimum answers required:
-   - Unified type home (`FlowTime.Core` vs `FlowTime.Contracts` vs new namespace).
-   - Unified type name (does `ModelDefinition` stay, or does it get renamed).
-   - `outputs[].as` semantics (optional + emitter omits, or required + emitter synthesizes with named convention).
-   - `nodes[].source` forward contract (drop until E-15, or declare optional now).
-   - Provenance shape (flat vs nested, specifically for `parameters`).
-   - Canary variant for M-053 (integration test vs fast unit-style vs both).
-3. **Leaked-state fields have drop plans.** `window`, `generator`, top-level `metadata`, and top-level `mode` each have a decision row. Default disposition is "drop from emission" with grep evidence that no Engine consumer reads them. If any row deviates (e.g. "move into `provenance`"), the new location and reader are named.
-4. **`SimModelArtifact` satellite types have disposition plans.** `SimNode`, `SimOutput`, `SimProvenance`, `SimTraffic`, `SimArrival`, `SimArrivalPattern` each have a row naming whether they merge into the unified type's equivalents (`NodeDefinition`, `OutputDefinition`, etc.) as-is, with changes, or get deleted entirely. Any field asymmetries between Sim-side and Engine-side types (e.g. `SimNode` has fields `NodeDefinition` lacks, or vice versa) are flagged with a keep / drop decision.
-5. **`provenance` block is named in full.** The final list of fields on the unified `provenance` block is written out with camelCase keys. Each field has a consumer citation and a rationale for inclusion. `schemaVersion` duplicate is decided (default: drop from provenance — top-level owns). `mode` is decided (default: keep in provenance as traceability; drop from top-level emission since Engine does not read it).
-6. **Uncommitted M-046 schema edits re-examined.** `grid.start`, `nodes[].metadata`, `nodes[].source` each have explicit keep / modify / revert decisions with rationale:
-   - `grid.start`: default keep (Engine consumer confirmed at `ModelParser.cs:62`). Verify under unification.
-   - `nodes[].metadata`: default keep (`GraphService.ResolveDisplayKind`, `StateQueryService.cs:2162`, `RunArtifactWriter.cs:516` are all consumers). Verify.
-   - `nodes[].source`: default revert (no consumer until E-15). Confirm E-15 starts aligned from this baseline.
-7. **Forward-only disposition confirmed.** The tracking doc names every code path that might read the old two-type YAML shape (fixtures, sample bundles, test helpers, any bundle reader) and its disposition: regenerate, delete, or (rarely) document as historical reference. No compatibility reader survives.
-8. **No production change.** Diff against `epic/E-24-schema-alignment` touches only this tracking doc, this milestone spec, and (optionally) reference-pointer updates in the epic spec. No edits to `src/`, `tests/`, `docs/schemas/`, or other code-bearing surfaces. Full `.NET` test suite is green throughout (untouched baseline).
+### AC-1 — **Full-field inventory complete.** The milestone tracking doc contains a row-per-field table covering every public member of `SimModelArtifact` and `ModelDefinition`, plus every distinct shape the M-046 survey identified. Each row names: field path, emitter / producer (Sim or Engine), consumer (file:line if any) or "no consumer" (with grep verification note), current schema declaration, classification (keep-as-is / rename / move-to-provenance / drop / open), and decision column with chosen side.
 
+### AC-2 — **The six epic-spec open questions resolved.** For each question in the epic spec's Open Questions table, the tracking doc records the decision, the rationale, and the rejected alternative(s). Minimum answers required: - Unified type home (`FlowTime.Core` vs `FlowTime.Contracts` vs new namespace). - Unified type name (does `ModelDefinition` stay, or does it get renamed). - `outputs[].as` semantics (optional + emitter omits, or required + emitter synthesizes with named convention). - `nodes[].source` forward contract (drop until E-15, or declare optional now). - Provenance shape (flat vs nested, specifically for `parameters`). - Canary variant for M-053 (integration test vs fast unit-style vs both).
+
+**The six epic-spec open questions resolved.** For each question in the epic spec's Open Questions table, the tracking doc records the decision, the rationale, and the rejected alternative(s). Minimum answers required:
+- Unified type home (`FlowTime.Core` vs `FlowTime.Contracts` vs new namespace).
+- Unified type name (does `ModelDefinition` stay, or does it get renamed).
+- `outputs[].as` semantics (optional + emitter omits, or required + emitter synthesizes with named convention).
+- `nodes[].source` forward contract (drop until E-15, or declare optional now).
+- Provenance shape (flat vs nested, specifically for `parameters`).
+- Canary variant for M-053 (integration test vs fast unit-style vs both).
+
+### AC-3 — **Leaked-state fields have drop plans.** `window`, `generator`, top-level `metadata`, and top-level `mode` each have a decision row. Default disposition is "drop from emission" with grep evidence that no Engine consumer reads them. If any row deviates (e.g. "move into `provenance`"), the new location and reader are named.
+
+### AC-4 — **`SimModelArtifact` satellite types have disposition plans.** `SimNode`, `SimOutput`, `SimProvenance`, `SimTraffic`, `SimArrival`, `SimArrivalPattern` each have a row naming whether they merge into the unified type's equivalents (`NodeDefinition`, `OutputDefinition`, etc.) as-is, with changes, or get deleted entirely. Any field asymmetries between Sim-side and Engine-side types (e.g. `SimNode` has fields `NodeDefinition` lacks, or vice versa) are flagged with a keep / drop decision.
+
+### AC-5 — **`provenance` block is named in full.** The final list of fields on the unified `provenance` block is written out with camelCase keys. Each field has a consumer citation and a rationale for inclusion. `schemaVersion` duplicate is decided (default: drop from provenance — top-level owns). `mode` is decided (default: keep in provenance as traceability; drop from top-level emission since Engine does not read it).
+
+### AC-6 — **Uncommitted M-046 schema edits re-examined.** `grid.start`, `nodes[].metadata`, `nodes[].source` each have explicit keep / modify / revert decisions with rationale: - `grid.start`: default keep (Engine consumer confirmed at `ModelParser.cs:62`). Verify under unification. - `nodes[].metadata`: default keep (`GraphService.ResolveDisplayKind`, `StateQueryService.cs:2162`, `RunArtifactWriter.cs:516` are all consumers). Verify. - `nodes[].source`: default revert (no consumer until E-15). Confirm E-15 starts aligned from this baseline.
+
+**Uncommitted M-046 schema edits re-examined.** `grid.start`, `nodes[].metadata`, `nodes[].source` each have explicit keep / modify / revert decisions with rationale:
+- `grid.start`: default keep (Engine consumer confirmed at `ModelParser.cs:62`). Verify under unification.
+- `nodes[].metadata`: default keep (`GraphService.ResolveDisplayKind`, `StateQueryService.cs:2162`, `RunArtifactWriter.cs:516` are all consumers). Verify.
+- `nodes[].source`: default revert (no consumer until E-15). Confirm E-15 starts aligned from this baseline.
+
+### AC-7 — **Forward-only disposition confirmed.** The tracking doc names every code path that might read the old two-type YAML shape (fixtures, sample bundles, test helpers, any bundle reader) and its disposition: regenerate, delete, or (rarely) document as historical reference. No compatibility reader survives.
+
+### AC-8 — **No production change.** Diff against `epic/E-24-schema-alignment` touches only this tracking doc, this milestone spec, and (optionally) reference-pointer updates in the epic spec. No edits to `src/`, `tests/`, `docs/schemas/`, or other code-bearing surfaces. Full `.NET` test suite is green throughout (untouched baseline).
 ## Constraints
 
 - **Decisions are recorded, not deferred.** Every row ends with a named resolution side. "Punt to E-15" is acceptable only when the decision itself is "defer the contract to E-15 and remove any forward-declared schema entry in the meantime" — i.e. a decision, not a question.

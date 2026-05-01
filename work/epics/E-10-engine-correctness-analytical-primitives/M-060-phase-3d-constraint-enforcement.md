@@ -3,6 +3,29 @@ id: M-060
 title: Phase 3d — Constraint Enforcement
 status: done
 parent: E-10
+acs:
+  - id: AC-1
+    title: "**AC-1: Constraint allocation during evaluation.** After all nodes in the DAG have been evaluated, apply constraint
+      allocation per bin: - For each constraint, collect the unconstrained `served[t]` for all assigned nodes. - If total
+      demand exceeds constraint `capacity[t]`, allocate proportionally via `ConstraintAllocator.AllocateProportional`. - Cap
+      each node's `served[t]` to its allocation. - Store the allocation results in the evaluation context for downstream consumption
+      (state/state_window)."
+    status: met
+  - id: AC-2
+    title: "**AC-2: Downstream propagation.** Capped `served` values propagate correctly through the DAG. Nodes that depend
+      on a constrained node's output see the constrained (reduced) values, not the unconstrained originals. This may require
+      a re-evaluation pass for downstream nodes after constraints are applied."
+    status: met
+  - id: AC-3
+    title: '**AC-3: Constraint metadata in evaluation results.** The evaluation result includes per-constraint, per-node,
+      per-bin allocation data so `StateQueryService` can expose constraint status (limited/unlimited) without recomputing.'
+    status: met
+  - id: AC-4
+    title: '**AC-4: Tests and gate.** Tests cover: single constraint with two nodes (proportional split), unconstrained case
+      (demand ≤ capacity, no capping), constraint with zero capacity (all nodes get zero), downstream propagation (constrained
+      served affects downstream queue), multiple constraints on different node groups. Full test suite green. Determinism
+      test updated.'
+    status: met
 ---
 
 ## Goal
@@ -19,20 +42,21 @@ But it has **zero callers in the evaluation pipeline**. It's only used in `State
 
 No backward compatibility is needed — existing model results are throwaway.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-1. **AC-1: Constraint allocation during evaluation.** After all nodes in the DAG have been evaluated, apply constraint allocation per bin:
-   - For each constraint, collect the unconstrained `served[t]` for all assigned nodes.
-   - If total demand exceeds constraint `capacity[t]`, allocate proportionally via `ConstraintAllocator.AllocateProportional`.
-   - Cap each node's `served[t]` to its allocation.
-   - Store the allocation results in the evaluation context for downstream consumption (state/state_window).
+### AC-1 — **AC-1: Constraint allocation during evaluation.** After all nodes in the DAG have been evaluated, apply constraint allocation per bin: - For each constraint, collect the unconstrained `served[t]` for all assigned nodes. - If total demand exceeds constraint `capacity[t]`, allocate proportionally via `ConstraintAllocator.AllocateProportional`. - Cap each node's `served[t]` to its allocation. - Store the allocation results in the evaluation context for downstream consumption (state/state_window).
 
-2. **AC-2: Downstream propagation.** Capped `served` values propagate correctly through the DAG. Nodes that depend on a constrained node's output see the constrained (reduced) values, not the unconstrained originals. This may require a re-evaluation pass for downstream nodes after constraints are applied.
+**AC-1: Constraint allocation during evaluation.** After all nodes in the DAG have been evaluated, apply constraint allocation per bin:
+- For each constraint, collect the unconstrained `served[t]` for all assigned nodes.
+- If total demand exceeds constraint `capacity[t]`, allocate proportionally via `ConstraintAllocator.AllocateProportional`.
+- Cap each node's `served[t]` to its allocation.
+- Store the allocation results in the evaluation context for downstream consumption (state/state_window).
 
-3. **AC-3: Constraint metadata in evaluation results.** The evaluation result includes per-constraint, per-node, per-bin allocation data so `StateQueryService` can expose constraint status (limited/unlimited) without recomputing.
+### AC-2 — **AC-2: Downstream propagation.** Capped `served` values propagate correctly through the DAG. Nodes that depend on a constrained node's output see the constrained (reduced) values, not the unconstrained originals. This may require a re-evaluation pass for downstream nodes after constraints are applied.
 
-4. **AC-4: Tests and gate.** Tests cover: single constraint with two nodes (proportional split), unconstrained case (demand ≤ capacity, no capping), constraint with zero capacity (all nodes get zero), downstream propagation (constrained served affects downstream queue), multiple constraints on different node groups. Full test suite green. Determinism test updated.
+### AC-3 — **AC-3: Constraint metadata in evaluation results.** The evaluation result includes per-constraint, per-node, per-bin allocation data so `StateQueryService` can expose constraint status (limited/unlimited) without recomputing.
 
+### AC-4 — **AC-4: Tests and gate.** Tests cover: single constraint with two nodes (proportional split), unconstrained case (demand ≤ capacity, no capping), constraint with zero capacity (all nodes get zero), downstream propagation (constrained served affects downstream queue), multiple constraints on different node groups. Full test suite green. Determinism test updated.
 ## Technical Notes
 
 - **Evaluation order:** Constraints are cross-node — they span multiple nodes in the DAG. The natural approach:

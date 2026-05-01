@@ -3,6 +3,19 @@ id: M-063
 title: Dependency Constraints Foundations
 status: done
 parent: E-12
+acs:
+  - id: AC-1
+    title: Dependency nodes appear in `/state` and `/state_window` with correct series and metadata.
+    status: met
+  - id: AC-2
+    title: Edge semantics for dependency load are explicit and validated.
+    status: met
+  - id: AC-3
+    title: Missing dependency signals emit warnings and are visible to consumers.
+    status: met
+  - id: AC-4
+    title: Tests pass; no UI changes required.
+    status: met
 ---
 
 ## Goal
@@ -92,9 +105,12 @@ To keep the graph acyclic while still modeling dependency failures:
 4. Implement engine + schema updates.
 5. Update goldens and documentation.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-- Dependency nodes appear in `/state` and `/state_window` with correct series and metadata.
-- Edge semantics for dependency load are explicit and validated.
-- Missing dependency signals emit warnings and are visible to consumers.
-- Tests pass; no UI changes required.
+### AC-1 — Dependency nodes appear in `/state` and `/state_window` with correct series and metadata.
+
+### AC-2 — Edge semantics for dependency load are explicit and validated.
+
+### AC-3 — Missing dependency signals emit warnings and are visible to consumers.
+
+### AC-4 — Tests pass; no UI changes required.

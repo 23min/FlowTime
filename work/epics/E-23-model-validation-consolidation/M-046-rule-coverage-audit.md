@@ -3,6 +3,61 @@ id: M-046
 title: Rule-Coverage Audit
 status: done
 parent: E-23
+acs:
+  - id: AC-1
+    title: '**Full embedment inventory.** A machine-reviewable table in the milestone tracking doc enumerates every rule encoded
+      in: (a) `ModelValidator.cs`, (b) `ModelParser.cs` (tolerations, silent defaults, conditional-omission rules), (c) `SimModelBuilder.cs`
+      (post-E-24 — any remaining implicit emission contract), (d) `RunOrchestrationService.cs` and `GraphService.cs` post-parse
+      model checks. Each entry cites file + line range, the rule in plain English, and the expression form (if any) currently
+      in `model.schema.yaml`.'
+    status: met
+  - id: AC-2
+    title: '**Per-rule disposition.** For every rule, the table records exactly one of: - **schema-covered** — already declared
+      in `model.schema.yaml`, with a line-number citation. - **schema-add** — expressible in JSON Schema draft-07 and added
+      to `model.schema.yaml` in this milestone, with a line-number citation to the new declaration. - **adjunct** — not expressible
+      declaratively; added to `ModelSchemaValidator` as a named method alongside `ValidateClassReferences`, with a line-number
+      citation to the new method. - **parser-justified** — left in parser/emitter code with a written rationale tying it to
+      a `ModelDto` invariant or a YamlDotNet behavior that does not surface as a structural rule (e.g., scalar-style coercion
+      is parser concern, not a model rule). The rationale is written into the audit doc, not just stated. - **drop** — has
+      no live consumer and is removed in this milestone, with a one-line note on why dropping is safe.'
+    status: met
+  - id: AC-3
+    title: '**Schema additions land.** Any rule classified `schema-add` is added to `docs/schemas/model.schema.yaml` in this
+      milestone. Each addition is accompanied by a one-line citation comment in the schema (`# rule from ModelValidator.cs:N
+      — added m-E23-01`) so future readers can trace the provenance.'
+    status: met
+  - id: AC-4
+    title: '**Adjunct additions land.** Any rule classified `adjunct` is added to `ModelSchemaValidator` as a named method
+      invoked from `Validate`. Each adjunct method has at least one unit test that exercises the rule in isolation (red →
+      green from a deliberately-violating model snippet).'
+    status: met
+  - id: AC-5
+    title: '**Coverage canary stays green.** After all schema and adjunct additions, `TemplateWarningSurveyTests.Survey_Templates_For_Warnings`
+      continues to report `val-err == 0` across all twelve templates at `ValidationTier.Analyse`. The canary is the regression
+      guard — adding rules must not break currently-valid templates.'
+    status: met
+  - id: AC-6
+    title: '**Negative-case canary.** A new test (`tests/FlowTime.Core.Tests/Schema/RuleCoverageRegressionTests.cs` or equivalent
+      location) feeds a deliberately-invalid model snippet for each non-trivial rule covered by the audit and asserts `ModelSchemaValidator.Validate(...).IsValid
+      == false`. This is the proof that `ModelSchemaValidator` actually catches every rule the audit claims it covers, before
+      M-047 routes production traffic through it.'
+    status: met
+  - id: AC-7
+    title: '**No call-site migration in this milestone.** `grep -rn "ModelValidator\.Validate" --include="*.cs"` outside `.claude/worktrees/`
+      returns the same call sites at the end of the milestone as at the start. The only allowed production-code diffs are:
+      schema edits in (3), adjunct additions in (4), unit tests in (4) and (6). `ModelValidator.cs` is unchanged in this milestone
+      — it is still the validator on the `/v1/run` and CLI paths.'
+    status: met
+  - id: AC-8
+    title: '**No behaviour regression.** `dotnet test FlowTime.sln` is green (baseline + the new negative-case canary). UI
+      suites untouched. `POST /v1/run` continues to accept every currently-valid template because `ModelValidator` — still
+      the active `/v1/run` validator — is unmodified.'
+    status: met
+  - id: AC-9
+    title: '**Audit doc committed.** The tracking doc `m-E23-01-rule-coverage-audit-tracking.md` lives in the epic folder
+      and contains the full embedment table, per-rule disposition, schema-edit / adjunct-edit citations, and the negative-case
+      test catalogue. Reviewable at PR time without running any tool.'
+    status: met
 ---
 
 ## Goal
@@ -31,23 +86,32 @@ E-24 closed two of the embedments: the *type* (`SimModelArtifact` + `ModelDefini
 
 After this milestone, M-047 has a written contract: every rule has a single canonical home, and that home is reachable from `ModelSchemaValidator.Validate`. The call-site migration is then a mechanical type-name swap.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-1. **Full embedment inventory.** A machine-reviewable table in the milestone tracking doc enumerates every rule encoded in: (a) `ModelValidator.cs`, (b) `ModelParser.cs` (tolerations, silent defaults, conditional-omission rules), (c) `SimModelBuilder.cs` (post-E-24 — any remaining implicit emission contract), (d) `RunOrchestrationService.cs` and `GraphService.cs` post-parse model checks. Each entry cites file + line range, the rule in plain English, and the expression form (if any) currently in `model.schema.yaml`.
-2. **Per-rule disposition.** For every rule, the table records exactly one of:
-   - **schema-covered** — already declared in `model.schema.yaml`, with a line-number citation.
-   - **schema-add** — expressible in JSON Schema draft-07 and added to `model.schema.yaml` in this milestone, with a line-number citation to the new declaration.
-   - **adjunct** — not expressible declaratively; added to `ModelSchemaValidator` as a named method alongside `ValidateClassReferences`, with a line-number citation to the new method.
-   - **parser-justified** — left in parser/emitter code with a written rationale tying it to a `ModelDto` invariant or a YamlDotNet behavior that does not surface as a structural rule (e.g., scalar-style coercion is parser concern, not a model rule). The rationale is written into the audit doc, not just stated.
-   - **drop** — has no live consumer and is removed in this milestone, with a one-line note on why dropping is safe.
-3. **Schema additions land.** Any rule classified `schema-add` is added to `docs/schemas/model.schema.yaml` in this milestone. Each addition is accompanied by a one-line citation comment in the schema (`# rule from ModelValidator.cs:N — added m-E23-01`) so future readers can trace the provenance.
-4. **Adjunct additions land.** Any rule classified `adjunct` is added to `ModelSchemaValidator` as a named method invoked from `Validate`. Each adjunct method has at least one unit test that exercises the rule in isolation (red → green from a deliberately-violating model snippet).
-5. **Coverage canary stays green.** After all schema and adjunct additions, `TemplateWarningSurveyTests.Survey_Templates_For_Warnings` continues to report `val-err == 0` across all twelve templates at `ValidationTier.Analyse`. The canary is the regression guard — adding rules must not break currently-valid templates.
-6. **Negative-case canary.** A new test (`tests/FlowTime.Core.Tests/Schema/RuleCoverageRegressionTests.cs` or equivalent location) feeds a deliberately-invalid model snippet for each non-trivial rule covered by the audit and asserts `ModelSchemaValidator.Validate(...).IsValid == false`. This is the proof that `ModelSchemaValidator` actually catches every rule the audit claims it covers, before M-047 routes production traffic through it.
-7. **No call-site migration in this milestone.** `grep -rn "ModelValidator\.Validate" --include="*.cs"` outside `.claude/worktrees/` returns the same call sites at the end of the milestone as at the start. The only allowed production-code diffs are: schema edits in (3), adjunct additions in (4), unit tests in (4) and (6). `ModelValidator.cs` is unchanged in this milestone — it is still the validator on the `/v1/run` and CLI paths.
-8. **No behaviour regression.** `dotnet test FlowTime.sln` is green (baseline + the new negative-case canary). UI suites untouched. `POST /v1/run` continues to accept every currently-valid template because `ModelValidator` — still the active `/v1/run` validator — is unmodified.
-9. **Audit doc committed.** The tracking doc `m-E23-01-rule-coverage-audit-tracking.md` lives in the epic folder and contains the full embedment table, per-rule disposition, schema-edit / adjunct-edit citations, and the negative-case test catalogue. Reviewable at PR time without running any tool.
+### AC-1 — **Full embedment inventory.** A machine-reviewable table in the milestone tracking doc enumerates every rule encoded in: (a) `ModelValidator.cs`, (b) `ModelParser.cs` (tolerations, silent defaults, conditional-omission rules), (c) `SimModelBuilder.cs` (post-E-24 — any remaining implicit emission contract), (d) `RunOrchestrationService.cs` and `GraphService.cs` post-parse model checks. Each entry cites file + line range, the rule in plain English, and the expression form (if any) currently in `model.schema.yaml`.
 
+### AC-2 — **Per-rule disposition.** For every rule, the table records exactly one of: - **schema-covered** — already declared in `model.schema.yaml`, with a line-number citation. - **schema-add** — expressible in JSON Schema draft-07 and added to `model.schema.yaml` in this milestone, with a line-number citation to the new declaration. - **adjunct** — not expressible declaratively; added to `ModelSchemaValidator` as a named method alongside `ValidateClassReferences`, with a line-number citation to the new method. - **parser-justified** — left in parser/emitter code with a written rationale tying it to a `ModelDto` invariant or a YamlDotNet behavior that does not surface as a structural rule (e.g., scalar-style coercion is parser concern, not a model rule). The rationale is written into the audit doc, not just stated. - **drop** — has no live consumer and is removed in this milestone, with a one-line note on why dropping is safe.
+
+**Per-rule disposition.** For every rule, the table records exactly one of:
+- **schema-covered** — already declared in `model.schema.yaml`, with a line-number citation.
+- **schema-add** — expressible in JSON Schema draft-07 and added to `model.schema.yaml` in this milestone, with a line-number citation to the new declaration.
+- **adjunct** — not expressible declaratively; added to `ModelSchemaValidator` as a named method alongside `ValidateClassReferences`, with a line-number citation to the new method.
+- **parser-justified** — left in parser/emitter code with a written rationale tying it to a `ModelDto` invariant or a YamlDotNet behavior that does not surface as a structural rule (e.g., scalar-style coercion is parser concern, not a model rule). The rationale is written into the audit doc, not just stated.
+- **drop** — has no live consumer and is removed in this milestone, with a one-line note on why dropping is safe.
+
+### AC-3 — **Schema additions land.** Any rule classified `schema-add` is added to `docs/schemas/model.schema.yaml` in this milestone. Each addition is accompanied by a one-line citation comment in the schema (`# rule from ModelValidator.cs:N — added m-E23-01`) so future readers can trace the provenance.
+
+### AC-4 — **Adjunct additions land.** Any rule classified `adjunct` is added to `ModelSchemaValidator` as a named method invoked from `Validate`. Each adjunct method has at least one unit test that exercises the rule in isolation (red → green from a deliberately-violating model snippet).
+
+### AC-5 — **Coverage canary stays green.** After all schema and adjunct additions, `TemplateWarningSurveyTests.Survey_Templates_For_Warnings` continues to report `val-err == 0` across all twelve templates at `ValidationTier.Analyse`. The canary is the regression guard — adding rules must not break currently-valid templates.
+
+### AC-6 — **Negative-case canary.** A new test (`tests/FlowTime.Core.Tests/Schema/RuleCoverageRegressionTests.cs` or equivalent location) feeds a deliberately-invalid model snippet for each non-trivial rule covered by the audit and asserts `ModelSchemaValidator.Validate(...).IsValid == false`. This is the proof that `ModelSchemaValidator` actually catches every rule the audit claims it covers, before M-047 routes production traffic through it.
+
+### AC-7 — **No call-site migration in this milestone.** `grep -rn "ModelValidator\.Validate" --include="*.cs"` outside `.claude/worktrees/` returns the same call sites at the end of the milestone as at the start. The only allowed production-code diffs are: schema edits in (3), adjunct additions in (4), unit tests in (4) and (6). `ModelValidator.cs` is unchanged in this milestone — it is still the validator on the `/v1/run` and CLI paths.
+
+### AC-8 — **No behaviour regression.** `dotnet test FlowTime.sln` is green (baseline + the new negative-case canary). UI suites untouched. `POST /v1/run` continues to accept every currently-valid template because `ModelValidator` — still the active `/v1/run` validator — is unmodified.
+
+### AC-9 — **Audit doc committed.** The tracking doc `m-E23-01-rule-coverage-audit-tracking.md` lives in the epic folder and contains the full embedment table, per-rule disposition, schema-edit / adjunct-edit citations, and the negative-case test catalogue. Reviewable at PR time without running any tool.
 ## Constraints
 
 - **Schema-first preference.** When a rule is expressible in JSON Schema draft-07, it belongs in the schema, not as an adjunct. The schema already declares enums (`binUnit`), ranges (via `minimum`/`maximum`), const values (`schemaVersion: 1`), and additionalProperties policies. A rule should only become an adjunct when JSON Schema draft-07 *cannot* express it (cross-field references, conditional rules dependent on runtime data).

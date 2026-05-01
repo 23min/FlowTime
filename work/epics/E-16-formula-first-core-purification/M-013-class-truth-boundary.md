@@ -3,6 +3,34 @@ id: M-013
 title: Class Truth Boundary
 status: done
 parent: E-16
+acs:
+  - id: AC-1
+    title: Internal class surfaces distinguish real by-class data, synthesized fallback, and no-class coverage 
+      explicitly via a typed representation (not just string key conventions).
+    status: met
+  - id: AC-2
+    title: Wildcard fallback is represented as an explicit fallback fact rather than inferred solely from the `*` key or
+      the absence of real class data.
+    status: met
+  - id: AC-3
+    title: Analytical evaluation and projection code consume explicit class-truth facts instead of silently relying on 
+      wildcard fallback.
+    status: met
+  - id: AC-4
+    title: Tests cover real multi-class fixtures separately from fallback projection cases, and approved outputs are 
+      regenerated forward-only where needed.
+    status: met
+  - id: AC-5
+    title: A test or assertion proves that fallback-only data cannot be confused with real by-class analytical results 
+      in downstream evaluation.
+    status: met
+  - id: AC-6
+    title: Forward-only regenerated runtime metadata carries explicit fallback labeling at the class boundary; legacy 
+      `*` / `DEFAULT` normalization helpers are deleted rather than retained as compatibility translators.
+    status: met
+  - id: AC-7
+    title: '`dotnet build` and `dotnet test --nologo` are green.'
+    status: met
 ---
 
 ## Goal
@@ -18,16 +46,21 @@ Wildcard handling is currently scattered across:
 - `StateQueryService` (line ~4712): `*` and `DEFAULT` detection, skip logic to avoid double-counting
 - `Dashboard.razor.cs` `EnsureFallbackClassesFromWindow()`: client-side fallback class extraction
 
-## Acceptance Criteria
+## Acceptance criteria
 
-1. Internal class surfaces distinguish real by-class data, synthesized fallback, and no-class coverage explicitly via a typed representation (not just string key conventions).
-2. Wildcard fallback is represented as an explicit fallback fact rather than inferred solely from the `*` key or the absence of real class data.
-3. Analytical evaluation and projection code consume explicit class-truth facts instead of silently relying on wildcard fallback.
-4. Tests cover real multi-class fixtures separately from fallback projection cases, and approved outputs are regenerated forward-only where needed.
-5. A test or assertion proves that fallback-only data cannot be confused with real by-class analytical results in downstream evaluation.
-6. Forward-only regenerated runtime metadata carries explicit fallback labeling at the class boundary; legacy `*` / `DEFAULT` normalization helpers are deleted rather than retained as compatibility translators.
-7. `dotnet build` and `dotnet test --nologo` are green.
+### AC-1 — Internal class surfaces distinguish real by-class data, synthesized fallback, and no-class coverage explicitly via a typed representation (not just string key conventions).
 
+### AC-2 — Wildcard fallback is represented as an explicit fallback fact rather than inferred solely from the `*` key or the absence of real class data.
+
+### AC-3 — Analytical evaluation and projection code consume explicit class-truth facts instead of silently relying on wildcard fallback.
+
+### AC-4 — Tests cover real multi-class fixtures separately from fallback projection cases, and approved outputs are regenerated forward-only where needed.
+
+### AC-5 — A test or assertion proves that fallback-only data cannot be confused with real by-class analytical results in downstream evaluation.
+
+### AC-6 — Forward-only regenerated runtime metadata carries explicit fallback labeling at the class boundary; legacy `*` / `DEFAULT` normalization helpers are deleted rather than retained as compatibility translators.
+
+### AC-7 — `dotnet build` and `dotnet test --nologo` are green.
 ## Guards / DO NOT
 
 - **DO NOT** add `IsFallback` booleans to every DTO or scatter fallback awareness across unrelated types. Use a small explicit runtime shape (e.g., a tagged union or wrapper) at the class-data boundary.

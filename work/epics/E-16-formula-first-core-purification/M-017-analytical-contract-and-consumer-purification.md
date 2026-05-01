@@ -3,6 +3,30 @@ id: M-017
 title: Analytical Contract and Consumer Purification
 status: done
 parent: E-16
+acs:
+  - id: AC-1
+    title: '`FlowTime.Contracts` and the current `/state`, `/state_window`, and `/graph` response shapes expose a compact
+      authoritative fact surface sufficient to determine analytical behavior and node category without `kind + logicalType`
+      inference. This includes at minimum: node category (expression/constant/service/queue/dlq/router/sink as needed by first-party
+      consumers), analytical applicability flags (queue semantics, service semantics, cycle-time decomposition), fallback/class-truth
+      labeling, and warning applicability.'
+    status: met
+  - id: AC-2
+    title: 'The explicit first-party consumer scope for this milestone is migrated to use engine-published facts: `src/FlowTime.UI/Services/TimeTravelMetricsClient.cs`,
+      `src/FlowTime.UI/Pages/TimeTravel/Dashboard.razor.cs`, `src/FlowTime.UI/Pages/TimeTravel/Topology.razor`, `src/FlowTime.UI/Components/Topology/GraphMapper.cs`,
+      `src/FlowTime.UI/Components/Topology/TopologyCanvas.razor.cs`, `src/FlowTime.UI/Components/Topology/TooltipFormatter.cs`,
+      and `src/FlowTime.UI/wwwroot/js/topologyCanvas.js`.'
+    status: met
+  - id: AC-3
+    title: Old hint fields and targeted analytical heuristics are removed in the same forward-only cut once those 
+      consumers are migrated; runs, fixtures, and approved snapshots are regenerated rather than compatibility-layered.
+    status: met
+  - id: AC-4
+    title: API/UI tests and a grep-based audit prove the targeted analytical classification helpers are deleted.
+    status: met
+  - id: AC-5
+    title: Documentation and decision records are updated so E-10 Phase 3 can resume on the purified boundary.
+    status: met
 ---
 
 ## Goal
@@ -36,14 +60,17 @@ What is deleted:
 - The `Classify()` and `ClassifyNode()` methods themselves — replaced by reading the category from the contract.
 - The `IsServiceLike()` methods — replaced by reading analytical facts from the contract.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-1. `FlowTime.Contracts` and the current `/state`, `/state_window`, and `/graph` response shapes expose a compact authoritative fact surface sufficient to determine analytical behavior and node category without `kind + logicalType` inference. This includes at minimum: node category (expression/constant/service/queue/dlq/router/sink as needed by first-party consumers), analytical applicability flags (queue semantics, service semantics, cycle-time decomposition), fallback/class-truth labeling, and warning applicability.
-2. The explicit first-party consumer scope for this milestone is migrated to use engine-published facts: `src/FlowTime.UI/Services/TimeTravelMetricsClient.cs`, `src/FlowTime.UI/Pages/TimeTravel/Dashboard.razor.cs`, `src/FlowTime.UI/Pages/TimeTravel/Topology.razor`, `src/FlowTime.UI/Components/Topology/GraphMapper.cs`, `src/FlowTime.UI/Components/Topology/TopologyCanvas.razor.cs`, `src/FlowTime.UI/Components/Topology/TooltipFormatter.cs`, and `src/FlowTime.UI/wwwroot/js/topologyCanvas.js`.
-3. Old hint fields and targeted analytical heuristics are removed in the same forward-only cut once those consumers are migrated; runs, fixtures, and approved snapshots are regenerated rather than compatibility-layered.
-4. API/UI tests and a grep-based audit prove the targeted analytical classification helpers are deleted.
-5. Documentation and decision records are updated so E-10 Phase 3 can resume on the purified boundary.
+### AC-1 — `FlowTime.Contracts` and the current `/state`, `/state_window`, and `/graph` response shapes expose a compact authoritative fact surface sufficient to determine analytical behavior and node category without `kind + logicalType` inference. This includes at minimum: node category (expression/constant/service/queue/dlq/router/sink as needed by first-party consumers), analytical applicability flags (queue semantics, service semantics, cycle-time decomposition), fallback/class-truth labeling, and warning applicability.
 
+### AC-2 — The explicit first-party consumer scope for this milestone is migrated to use engine-published facts: `src/FlowTime.UI/Services/TimeTravelMetricsClient.cs`, `src/FlowTime.UI/Pages/TimeTravel/Dashboard.razor.cs`, `src/FlowTime.UI/Pages/TimeTravel/Topology.razor`, `src/FlowTime.UI/Components/Topology/GraphMapper.cs`, `src/FlowTime.UI/Components/Topology/TopologyCanvas.razor.cs`, `src/FlowTime.UI/Components/Topology/TooltipFormatter.cs`, and `src/FlowTime.UI/wwwroot/js/topologyCanvas.js`.
+
+### AC-3 — Old hint fields and targeted analytical heuristics are removed in the same forward-only cut once those consumers are migrated; runs, fixtures, and approved snapshots are regenerated rather than compatibility-layered.
+
+### AC-4 — API/UI tests and a grep-based audit prove the targeted analytical classification helpers are deleted.
+
+### AC-5 — Documentation and decision records are updated so E-10 Phase 3 can resume on the purified boundary.
 ## Guards / DO NOT
 
 - **DO NOT** expose the full internal Core descriptor type directly in the API contract. Prefer a compact fact surface designed for consumers, not a leak of internal types.

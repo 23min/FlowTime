@@ -3,6 +3,71 @@ id: M-051
 title: Schema Unification
 status: done
 parent: E-24
+acs:
+  - id: AC-1
+    title: '**Schema describes the unified type exactly.** Every property of the unified type (post-m-E24-02) has a declaration
+      in `docs/schemas/model.schema.yaml`. Every schema declaration maps to a field on the unified type. No schema field exists
+      that the unified type does not declare; no unified-type field is undeclared in the schema.'
+    status: met
+  - id: AC-2
+    title: "**camelCase everywhere.** `grep -rn \"generated_at\\|model_id\\|template_id\\|template_version\" docs/schemas/model.schema.yaml`
+      returns zero hits. The `provenance` block uses `generatedAt`, `modelId`, `templateId`, `templateVersion` (and any other
+      provenance keys per M-049's final list)."
+    status: met
+  - id: AC-3
+    title: "**`provenance` block matches emitted shape.** Fields retained per M-049: the final list. The shape (flat vs nested,
+      specifically for `parameters`) matches M-049's ratified shape. `additionalProperties: false` sits on the provenance
+      block."
+    status: met
+  - id: AC-4
+    title: '**`grid.start` declared.** `start` is declared under `grid.properties` as `type: string, format: date-time`, not
+      in `grid.required`. Models authored without `start` continue to validate.'
+    status: met
+  - id: AC-5
+    title: "**`nodes[].metadata` declared.** Per M-049's keep decision. Under `nodes[].properties`, `metadata` is `type: object,
+      additionalProperties: {type: string}` with a description citing `GraphService.ResolveDisplayKind`, `StateQueryService.cs:2162`,
+      and `RunArtifactWriter.cs:516` as consumers."
+    status: met
+  - id: AC-6
+    title: '**`nodes[].source` resolved per M-049.** If decision was "drop": absent from schema (and from emission per M-050).
+      If decision was "declare now as optional": present with forward-shape description cited. Default path is "drop."'
+    status: met
+  - id: AC-7
+    title: '**`outputs[].as` cascade resolved per M-049.** If "Sim synthesizes `as`": schema retains `outputs[].required:
+      [series, as]`. If "optional + emitter omits": schema uses `outputs[].required: [series]` with `as` optional. The chosen
+      side is implemented here.'
+    status: met
+  - id: AC-8
+    title: "**`classes: minItems` resolved per M-049.** Either `minItems: 1` stays and M-050 landed the empty-list emitter
+      guard, or `minItems` is removed. Consistent with M-050's emitter behavior."
+    status: met
+  - id: AC-9
+    title: '**Leaked-state fields absent.** Root `additionalProperties: false` remains. The root `properties` list contains
+      exactly the fields the unified type serializes — no `window`, no top-level `mode`, no top-level `metadata`, no `generator`
+      (unless M-049 explicitly moved one of them into the unified submission type, which is not the default path).'
+    status: met
+  - id: AC-10
+    title: '**`POST /v1/validate` at Analyse reports `val-err=0` on all twelve templates except ParseScalar residuals.** Post-m-E24-03,
+      run the canary. Every template in `templates/*.yaml` with default parameters validates clean under `ModelSchemaValidator.Validate(...)`
+      except for the ~231 `ParseScalar` residuals that M-052 fixes. Tracking doc records the full histogram.'
+    status: met
+  - id: AC-11
+    title: "**Schema readability pass complete.** Every property's description field includes a one-line consumer citation
+      so a reviewer opening the schema understands who reads each field."
+    status: met
+  - id: AC-12
+    title: '**`docs/schemas/README.md` rewritten.** The file describes the one-schema reality. The 2026-04-24 claim of two-schema
+      parity is removed. Any reference to `SimModelArtifact` or the old two-type split is deleted or converted to historical-only
+      language in `docs/archive/`.'
+    status: met
+  - id: AC-13
+    title: '**Architecture docs audited.** `docs/architecture/` entries that described the two-schema world are either corrected
+      or archived. The tracking doc lists every audited file and its disposition.'
+    status: met
+  - id: AC-14
+    title: '**Full `.NET` suite green.** `dotnet test FlowTime.sln` passes. No regressions in `TimeMachineValidator`, `ModelSchemaValidator`,
+      or schema-adjacent tests.'
+    status: met
 ---
 
 ## Goal
@@ -13,23 +78,35 @@ Rewrite `docs/schemas/model.schema.yaml` so it describes the unified type exactl
 
 After M-050, the unified type exists and Sim emits it directly. The schema must describe that unified type — not the old `SimModelArtifact` shape, not the old `ModelDefinition` shape, but the single type both sides now share. Every snake_case field in the `provenance` block is renamed to camelCase per the project rule ("JSON payloads and schemas use camelCase"). Every field M-049 decided to keep gets a consumer citation in its description. Every field M-049 decided to drop from emission is absent from the schema. The schema becomes readable top-to-bottom as the single structural contract.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-1. **Schema describes the unified type exactly.** Every property of the unified type (post-m-E24-02) has a declaration in `docs/schemas/model.schema.yaml`. Every schema declaration maps to a field on the unified type. No schema field exists that the unified type does not declare; no unified-type field is undeclared in the schema.
-2. **camelCase everywhere.** `grep -rn "generated_at\|model_id\|template_id\|template_version" docs/schemas/model.schema.yaml` returns zero hits. The `provenance` block uses `generatedAt`, `modelId`, `templateId`, `templateVersion` (and any other provenance keys per M-049's final list).
-3. **`provenance` block matches emitted shape.** Fields retained per M-049: the final list. The shape (flat vs nested, specifically for `parameters`) matches M-049's ratified shape. `additionalProperties: false` sits on the provenance block.
-4. **`grid.start` declared.** `start` is declared under `grid.properties` as `type: string, format: date-time`, not in `grid.required`. Models authored without `start` continue to validate.
-5. **`nodes[].metadata` declared.** Per M-049's keep decision. Under `nodes[].properties`, `metadata` is `type: object, additionalProperties: {type: string}` with a description citing `GraphService.ResolveDisplayKind`, `StateQueryService.cs:2162`, and `RunArtifactWriter.cs:516` as consumers.
-6. **`nodes[].source` resolved per M-049.** If decision was "drop": absent from schema (and from emission per M-050). If decision was "declare now as optional": present with forward-shape description cited. Default path is "drop."
-7. **`outputs[].as` cascade resolved per M-049.** If "Sim synthesizes `as`": schema retains `outputs[].required: [series, as]`. If "optional + emitter omits": schema uses `outputs[].required: [series]` with `as` optional. The chosen side is implemented here.
-8. **`classes: minItems` resolved per M-049.** Either `minItems: 1` stays and M-050 landed the empty-list emitter guard, or `minItems` is removed. Consistent with M-050's emitter behavior.
-9. **Leaked-state fields absent.** Root `additionalProperties: false` remains. The root `properties` list contains exactly the fields the unified type serializes — no `window`, no top-level `mode`, no top-level `metadata`, no `generator` (unless M-049 explicitly moved one of them into the unified submission type, which is not the default path).
-10. **`POST /v1/validate` at Analyse reports `val-err=0` on all twelve templates except ParseScalar residuals.** Post-m-E24-03, run the canary. Every template in `templates/*.yaml` with default parameters validates clean under `ModelSchemaValidator.Validate(...)` except for the ~231 `ParseScalar` residuals that M-052 fixes. Tracking doc records the full histogram.
-11. **Schema readability pass complete.** Every property's description field includes a one-line consumer citation so a reviewer opening the schema understands who reads each field.
-12. **`docs/schemas/README.md` rewritten.** The file describes the one-schema reality. The 2026-04-24 claim of two-schema parity is removed. Any reference to `SimModelArtifact` or the old two-type split is deleted or converted to historical-only language in `docs/archive/`.
-13. **Architecture docs audited.** `docs/architecture/` entries that described the two-schema world are either corrected or archived. The tracking doc lists every audited file and its disposition.
-14. **Full `.NET` suite green.** `dotnet test FlowTime.sln` passes. No regressions in `TimeMachineValidator`, `ModelSchemaValidator`, or schema-adjacent tests.
+### AC-1 — **Schema describes the unified type exactly.** Every property of the unified type (post-m-E24-02) has a declaration in `docs/schemas/model.schema.yaml`. Every schema declaration maps to a field on the unified type. No schema field exists that the unified type does not declare; no unified-type field is undeclared in the schema.
 
+### AC-2 — **camelCase everywhere.** `grep -rn "generated_at\|model_id\|template_id\|template_version" docs/schemas/model.schema.yaml` returns zero hits. The `provenance` block uses `generatedAt`, `modelId`, `templateId`, `templateVersion` (and any other provenance keys per M-049's final list).
+
+### AC-3 — **`provenance` block matches emitted shape.** Fields retained per M-049: the final list. The shape (flat vs nested, specifically for `parameters`) matches M-049's ratified shape. `additionalProperties: false` sits on the provenance block.
+
+### AC-4 — **`grid.start` declared.** `start` is declared under `grid.properties` as `type: string, format: date-time`, not in `grid.required`. Models authored without `start` continue to validate.
+
+### AC-5 — **`nodes[].metadata` declared.** Per M-049's keep decision. Under `nodes[].properties`, `metadata` is `type: object, additionalProperties: {type: string}` with a description citing `GraphService.ResolveDisplayKind`, `StateQueryService.cs:2162`, and `RunArtifactWriter.cs:516` as consumers.
+
+### AC-6 — **`nodes[].source` resolved per M-049.** If decision was "drop": absent from schema (and from emission per M-050). If decision was "declare now as optional": present with forward-shape description cited. Default path is "drop."
+
+### AC-7 — **`outputs[].as` cascade resolved per M-049.** If "Sim synthesizes `as`": schema retains `outputs[].required: [series, as]`. If "optional + emitter omits": schema uses `outputs[].required: [series]` with `as` optional. The chosen side is implemented here.
+
+### AC-8 — **`classes: minItems` resolved per M-049.** Either `minItems: 1` stays and M-050 landed the empty-list emitter guard, or `minItems` is removed. Consistent with M-050's emitter behavior.
+
+### AC-9 — **Leaked-state fields absent.** Root `additionalProperties: false` remains. The root `properties` list contains exactly the fields the unified type serializes — no `window`, no top-level `mode`, no top-level `metadata`, no `generator` (unless M-049 explicitly moved one of them into the unified submission type, which is not the default path).
+
+### AC-10 — **`POST /v1/validate` at Analyse reports `val-err=0` on all twelve templates except ParseScalar residuals.** Post-m-E24-03, run the canary. Every template in `templates/*.yaml` with default parameters validates clean under `ModelSchemaValidator.Validate(...)` except for the ~231 `ParseScalar` residuals that M-052 fixes. Tracking doc records the full histogram.
+
+### AC-11 — **Schema readability pass complete.** Every property's description field includes a one-line consumer citation so a reviewer opening the schema understands who reads each field.
+
+### AC-12 — **`docs/schemas/README.md` rewritten.** The file describes the one-schema reality. The 2026-04-24 claim of two-schema parity is removed. Any reference to `SimModelArtifact` or the old two-type split is deleted or converted to historical-only language in `docs/archive/`.
+
+### AC-13 — **Architecture docs audited.** `docs/architecture/` entries that described the two-schema world are either corrected or archived. The tracking doc lists every audited file and its disposition.
+
+### AC-14 — **Full `.NET` suite green.** `dotnet test FlowTime.sln` passes. No regressions in `TimeMachineValidator`, `ModelSchemaValidator`, or schema-adjacent tests.
 ## Constraints
 
 - **Schema changes in one cut.** No schema-draft bump, no multi-version acceptance, no snake_case aliases. The provenance rename is forward-only.

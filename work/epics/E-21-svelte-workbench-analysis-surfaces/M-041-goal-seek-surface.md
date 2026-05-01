@@ -3,6 +3,115 @@ id: M-041
 title: Goal Seek Surface
 status: done
 parent: E-21
+acs:
+  - id: AC-1
+    title: '**Goal-seek trace plumbed end-to-end.** `GoalSeeker.SeekAsync` records the two boundary evaluations and each bisection
+      midpoint with the post-step bracket. `GoalSeekResult` gains a `Trace` property (`IReadOnlyList<GoalSeekTracePoint>`).
+      `GoalSeekEndpoints` passes the trace through to the response. All five return paths (`Converged` at `searchLo`, `Converged`
+      at `searchHi`, not-bracketed, tolerance hit mid-loop, max-iterations exhausted) return a trace whose shape matches the
+      semantics above. Existing `GoalSeekEndpointsTests.cs` gains coverage for trace shape + ordering + post-step bracket
+      invariants on each return path.'
+    status: met
+  - id: AC-2
+    title: '**Optimize trace plumbed end-to-end.** `Optimizer.OptimizeAsync` records the post-sort best vertex once before
+      the main loop (as `iteration: 0`) and once per iteration thereafter. `OptimizeResult` gains a `Trace` property (`IReadOnlyList<OptimizeTracePoint>`).
+      `OptimizeEndpoints` passes the trace through. Maximize runs report unsigned `metricMean` on trace entries (sign reversed
+      internally). Existing `OptimizeEndpointsTests.cs` gains coverage for trace shape + ordering + unsigned-metric invariant
+      on both objectives + trace-length / iterations consistency. _The consuming Optimize surface is delivered in M-042._'
+    status: met
+  - id: AC-3
+    title: '**`D-2026-04-21-034` appended to `work/decisions.md` at start-milestone time.** Body matches the draft in Context.
+      E-21 epic spec Scope / Constraints updated in the same commit to reference the new decision alongside D-046 (read-only
+      run-adjacent) and to list the additive compute-response change as the other explicit carve-out.'
+    status: met
+  - id: AC-4
+    title: '**Goal Seek placeholder replaced.** The `goal-seek` tab panel in `ui/src/routes/analysis/+page.svelte` renders
+      live content (not the `coming in m-E21-04` stub). The `optimize` tab panel keeps its placeholder copy updated to reference
+      **M-042**. `TAB_INFO` copy for Goal Seek stands as-is — "convergence info" now accurately describes what the UI renders.'
+    status: met
+  - id: AC-5
+    title: "**Shared result card + shared convergence chart extracted up front.** `ui/src/lib/components/analysis-result-card.svelte`
+      and `ui/src/lib/components/convergence-chart.svelte` land as reusable components in this milestone so M-042's Optimize
+      surface can consume them without further extraction work. Required behaviours (exact prop/slot names are an implementation
+      decision): - **Result card** — accepts a distinct header region, a primary-value region (large monospace), and a meta
+      region for compact key-value pairs (iterations / converged badge / tolerance / direction / target / residual as applicable
+      per surface). - **Convergence chart** — consumes a **normalized** input shape `Array<{ iteration: number; metricMean:
+      number }>`; each caller adapts its response into that shape before passing it in. The chart does not branch on surface
+      type. Goal Seek's bracket and (future) Optimize's `paramValues` are rendered elsewhere (interval bar, per-param table)
+      and do not enter the chart. Required behaviours: optional horizontal reference line when a target is supplied (dashed);
+      caller-supplied y-axis label; line colour reflects converged state (teal when converged, amber when not); the converged/final
+      point is visually emphasized (e.g. a larger marker) relative to intermediate points. - Geometry lives in pure `.ts`
+      siblings with vitest coverage, mirroring `sensitivity-bar-geometry`."
+    status: met
+  - id: AC-6
+    title: "**Parameter selector.** Single-select dropdown listing the current model's const-node parameters (reuses `discoverConstParams`).
+      Each option shows `{id} (base {baseline})` — same format as the Sweep tab. Empty state when no const params exist (same
+      copy as Sweep)."
+    status: met
+  - id: AC-7
+    title: '**Search interval + target + advanced inputs.** Two numeric inputs `searchLo` and `searchHi` with inline validation
+      (both required, `searchLo < searchHi`, defaults `0.5 × baseline` / `2 × baseline` of the selected parameter). Free-text
+      input for `metricSeriesId` with the same chip shortcuts as Sensitivity (`served`, `queue`, `flowLatencyMs`, `utilization`).
+      Numeric input for `target`. A collapsed "Advanced" disclosure exposes `tolerance` (default 1e-6) and `maxIterations`
+      (default 50). All required fields must be valid before the Run button enables.'
+    status: met
+  - id: AC-8
+    title: '**Run goal-seek and render results.** "Run goal seek" button calls `flowtime.goalSeek(...)` (new API method, response
+      type includes `trace`). While running, show a spinner (`Loader2Icon`) and disable the button. On success, render: -
+      The shared result card (AC5) with the final `paramValue`, `achievedMetricMean`, `target`, `|achieved − target|` residual,
+      converged badge, and iteration count. - The shared convergence chart (AC5) plotting `metricMean` vs `iteration` as a
+      line, with a horizontal reference line at `target`. Boundary evaluations (`iteration: 0`) are plotted as two initial
+      points on the x-axis at position 0. The converged/final point is visually emphasized per AC5. - A **search-interval
+      bar** (SVG) showing the original `[searchLo, searchHi]` range with a marker at the final `paramValue`, using `intervalMarkerGeometry`
+      from `interval-bar-geometry.ts`. This is the Goal Seek consumer that justifies landing that geometry file in this milestone;
+      Optimize reuses it for per-param mini bars in M-042. - 400 and 503 errors surfaced as inline messages using the existing
+      analysis-page error pattern.'
+    status: met
+  - id: AC-9
+    title: '**Not-bracketed and not-converged states.** When the API returns `converged: false` with `iterations: 0` (target
+      not bracketed), the result card shows an amber warning explaining that the target was not reachable within the search
+      interval and suggests widening the bounds. The convergence chart still renders the two boundary evaluations. When `converged:
+      false` with `iterations == maxIterations`, the card shows an amber "did not converge" badge and the chart is drawn over
+      the full trace.'
+    status: met
+  - id: AC-10
+    title: '**Session form state — goal-seek.** The Goal Seek form retains its last input values across tab switches within
+      the same page session (in-memory is sufficient). Form values reset when the scenario (run / sample model) changes. Mirrors
+      the Sweep tab behaviour. _Optimize session state lives in M-042._'
+    status: met
+  - id: AC-11
+    title: "**Vitest coverage for pure logic.** New helpers added to `ui/src/lib/utils/analysis-helpers.ts` (or a sibling
+      `goal-seek-helpers.ts` if the file grows unwieldy) have vitest tests with branch coverage: - `defaultSearchBounds(baseline)`
+      — `0.5 × baseline` / `2 × baseline`; guards for `baseline === 0`, negative baselines, non-finite inputs. - `validateSearchInterval({lo,
+      hi})` — structured error for missing / non-finite / `lo >= hi`. - `intervalMarkerGeometry({ lo, hi, value, width })`
+      — clamping when `value ∉ [lo, hi]`, degenerate `hi === lo`, non-finite inputs. _(Shared with Optimize's per-param range
+      bars in M-042.)_ - `convergence-chart-geometry.ts` — operates on the **normalized** `Array<{ iteration, metricMean }>`
+      shape defined in AC5. `convergencePath({ trace, width, height, padding, yDomain })` with tests for empty trace, single-point
+      trace, trace with multiple entries at the same `iteration` (goal-seek boundary case: two points at `iteration: 0`),
+      monotonic vs non-monotonic traces, flat metric (all equal), non-finite values, y-domain override vs auto-fit, target-line
+      y-coordinate computation. - `analysis-result-card-geometry.ts` (if needed) — whatever pure logic the card uses (badge-colour
+      selection given `converged`, residual formatting). Skip the file if the card is pure markup with no computation worth
+      testing. - No mocks; no DOM. - `validateOptimizeForm` is out of scope here; it lives in M-042."
+    status: met
+  - id: AC-12
+    title: "**Playwright coverage.** Extend `tests/ui/specs/svelte-analysis.spec.ts` (preferred) or add `svelte-analysis-goal-seek.spec.ts`:
+      - Goal Seek happy path: page loads, param selector populates, interval defaults render, Run button disabled until form
+      is complete, run against a real engine returns a result card with `paramValue`, `converged` badge, iterations, **and
+      a rendered convergence chart with at least one plotted point beyond iteration 0**. - Goal Seek not-bracketed deterministic
+      repro — uses the tuple recorded in the tracking doc's Notes section (first bundled sample in `SAMPLE_MODELS`, its first
+      discovered const param, `target: 1e12` unreachable). Assert the warning message + the chart rendering only the two boundary
+      points. - Graceful skip when Engine API (8081) or Svelte dev server (5173) is down, matching the existing probe-and-skip
+      pattern in `svelte-analysis.spec.ts`. - _Optimize Playwright coverage is owned by M-042._"
+    status: met
+  - id: AC-13
+    title: "**Line-by-line branch audit** performed in two passes, each captured in the tracking doc's Coverage Notes before
+      its respective commit-approval prompt: - **AC13a — Backend pass (already complete, commit `29ac3e9`).** Five goal-seek
+      return paths; pre-loop and main-loop exits in Nelder-Mead; shrink-vs-no-shrink branches. The optimize branches are audited
+      here even though the consumer is M-042, because the implementation lives on this milestone's commits. - **AC13b — UI
+      pass (pending).** New frontend components, geometry helpers, form validators, and render-condition branches in the Goal
+      Seek tab. Both passes enumerate every reachable branch and match each to a named test (xUnit / vitest / Playwright).
+      Unreachable / defensive-default branches are documented with rationale, following M-040's pattern."
+    status: met
 ---
 
 **Started:** 2026-04-21
@@ -89,65 +198,64 @@ The `trace` extension on `/v1/optimize` is owned by this milestone's backend AC 
 
 **D-047 — Additive `trace` field on `/v1/goal-seek` and `/v1/optimize`** — appended to `work/decisions.md` at start-milestone time (commit `5988f5c`). Scope covers both endpoints; implementation landed in commit `29ac3e9` of this milestone. No rewording needed for the split.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-### Backend — trace extension (AC1-AC3)
+### AC-1 — **Goal-seek trace plumbed end-to-end.** `GoalSeeker.SeekAsync` records the two boundary evaluations and each bisection midpoint with the post-step bracket. `GoalSeekResult` gains a `Trace` property (`IReadOnlyList<GoalSeekTracePoint>`). `GoalSeekEndpoints` passes the trace through to the response. All five return paths (`Converged` at `searchLo`, `Converged` at `searchHi`, not-bracketed, tolerance hit mid-loop, max-iterations exhausted) return a trace whose shape matches the semantics above. Existing `GoalSeekEndpointsTests.cs` gains coverage for trace shape + ordering + post-step bracket invariants on each return path.
 
-1. **Goal-seek trace plumbed end-to-end.** `GoalSeeker.SeekAsync` records the two boundary evaluations and each bisection midpoint with the post-step bracket. `GoalSeekResult` gains a `Trace` property (`IReadOnlyList<GoalSeekTracePoint>`). `GoalSeekEndpoints` passes the trace through to the response. All five return paths (`Converged` at `searchLo`, `Converged` at `searchHi`, not-bracketed, tolerance hit mid-loop, max-iterations exhausted) return a trace whose shape matches the semantics above. Existing `GoalSeekEndpointsTests.cs` gains coverage for trace shape + ordering + post-step bracket invariants on each return path.
+### AC-2 — **Optimize trace plumbed end-to-end.** `Optimizer.OptimizeAsync` records the post-sort best vertex once before the main loop (as `iteration: 0`) and once per iteration thereafter. `OptimizeResult` gains a `Trace` property (`IReadOnlyList<OptimizeTracePoint>`). `OptimizeEndpoints` passes the trace through. Maximize runs report unsigned `metricMean` on trace entries (sign reversed internally). Existing `OptimizeEndpointsTests.cs` gains coverage for trace shape + ordering + unsigned-metric invariant on both objectives + trace-length / iterations consistency. _The consuming Optimize surface is delivered in M-042._
 
-2. **Optimize trace plumbed end-to-end.** `Optimizer.OptimizeAsync` records the post-sort best vertex once before the main loop (as `iteration: 0`) and once per iteration thereafter. `OptimizeResult` gains a `Trace` property (`IReadOnlyList<OptimizeTracePoint>`). `OptimizeEndpoints` passes the trace through. Maximize runs report unsigned `metricMean` on trace entries (sign reversed internally). Existing `OptimizeEndpointsTests.cs` gains coverage for trace shape + ordering + unsigned-metric invariant on both objectives + trace-length / iterations consistency. _The consuming Optimize surface is delivered in M-042._
+### AC-3 — **`D-2026-04-21-034` appended to `work/decisions.md` at start-milestone time.** Body matches the draft in Context. E-21 epic spec Scope / Constraints updated in the same commit to reference the new decision alongside D-046 (read-only run-adjacent) and to list the additive compute-response change as the other explicit carve-out.
 
-3. **`D-2026-04-21-034` appended to `work/decisions.md` at start-milestone time.** Body matches the draft in Context. E-21 epic spec Scope / Constraints updated in the same commit to reference the new decision alongside D-046 (read-only run-adjacent) and to list the additive compute-response change as the other explicit carve-out.
+### AC-4 — **Goal Seek placeholder replaced.** The `goal-seek` tab panel in `ui/src/routes/analysis/+page.svelte` renders live content (not the `coming in m-E21-04` stub). The `optimize` tab panel keeps its placeholder copy updated to reference **M-042**. `TAB_INFO` copy for Goal Seek stands as-is — "convergence info" now accurately describes what the UI renders.
 
-### UI — Tab activation + shared components (AC4-AC5)
+### AC-5 — **Shared result card + shared convergence chart extracted up front.** `ui/src/lib/components/analysis-result-card.svelte` and `ui/src/lib/components/convergence-chart.svelte` land as reusable components in this milestone so M-042's Optimize surface can consume them without further extraction work. Required behaviours (exact prop/slot names are an implementation decision): - **Result card** — accepts a distinct header region, a primary-value region (large monospace), and a meta region for compact key-value pairs (iterations / converged badge / tolerance / direction / target / residual as applicable per surface). - **Convergence chart** — consumes a **normalized** input shape `Array<{ iteration: number; metricMean: number }>`; each caller adapts its response into that shape before passing it in. The chart does not branch on surface type. Goal Seek's bracket and (future) Optimize's `paramValues` are rendered elsewhere (interval bar, per-param table) and do not enter the chart. Required behaviours: optional horizontal reference line when a target is supplied (dashed); caller-supplied y-axis label; line colour reflects converged state (teal when converged, amber when not); the converged/final point is visually emphasized (e.g. a larger marker) relative to intermediate points. - Geometry lives in pure `.ts` siblings with vitest coverage, mirroring `sensitivity-bar-geometry`.
 
-4. **Goal Seek placeholder replaced.** The `goal-seek` tab panel in `ui/src/routes/analysis/+page.svelte` renders live content (not the `coming in m-E21-04` stub). The `optimize` tab panel keeps its placeholder copy updated to reference **M-042**. `TAB_INFO` copy for Goal Seek stands as-is — "convergence info" now accurately describes what the UI renders.
+**Shared result card + shared convergence chart extracted up front.** `ui/src/lib/components/analysis-result-card.svelte` and `ui/src/lib/components/convergence-chart.svelte` land as reusable components in this milestone so M-042's Optimize surface can consume them without further extraction work. Required behaviours (exact prop/slot names are an implementation decision):
+- **Result card** — accepts a distinct header region, a primary-value region (large monospace), and a meta region for compact key-value pairs (iterations / converged badge / tolerance / direction / target / residual as applicable per surface).
+- **Convergence chart** — consumes a **normalized** input shape `Array<{ iteration: number; metricMean: number }>`; each caller adapts its response into that shape before passing it in. The chart does not branch on surface type. Goal Seek's bracket and (future) Optimize's `paramValues` are rendered elsewhere (interval bar, per-param table) and do not enter the chart. Required behaviours: optional horizontal reference line when a target is supplied (dashed); caller-supplied y-axis label; line colour reflects converged state (teal when converged, amber when not); the converged/final point is visually emphasized (e.g. a larger marker) relative to intermediate points.
+- Geometry lives in pure `.ts` siblings with vitest coverage, mirroring `sensitivity-bar-geometry`.
 
-5. **Shared result card + shared convergence chart extracted up front.** `ui/src/lib/components/analysis-result-card.svelte` and `ui/src/lib/components/convergence-chart.svelte` land as reusable components in this milestone so M-042's Optimize surface can consume them without further extraction work. Required behaviours (exact prop/slot names are an implementation decision):
-   - **Result card** — accepts a distinct header region, a primary-value region (large monospace), and a meta region for compact key-value pairs (iterations / converged badge / tolerance / direction / target / residual as applicable per surface).
-   - **Convergence chart** — consumes a **normalized** input shape `Array<{ iteration: number; metricMean: number }>`; each caller adapts its response into that shape before passing it in. The chart does not branch on surface type. Goal Seek's bracket and (future) Optimize's `paramValues` are rendered elsewhere (interval bar, per-param table) and do not enter the chart. Required behaviours: optional horizontal reference line when a target is supplied (dashed); caller-supplied y-axis label; line colour reflects converged state (teal when converged, amber when not); the converged/final point is visually emphasized (e.g. a larger marker) relative to intermediate points.
-   - Geometry lives in pure `.ts` siblings with vitest coverage, mirroring `sensitivity-bar-geometry`.
+### AC-6 — **Parameter selector.** Single-select dropdown listing the current model's const-node parameters (reuses `discoverConstParams`). Each option shows `{id} (base {baseline})` — same format as the Sweep tab. Empty state when no const params exist (same copy as Sweep).
 
-### UI — Goal Seek surface (AC6-AC9)
+### AC-7 — **Search interval + target + advanced inputs.** Two numeric inputs `searchLo` and `searchHi` with inline validation (both required, `searchLo < searchHi`, defaults `0.5 × baseline` / `2 × baseline` of the selected parameter). Free-text input for `metricSeriesId` with the same chip shortcuts as Sensitivity (`served`, `queue`, `flowLatencyMs`, `utilization`). Numeric input for `target`. A collapsed "Advanced" disclosure exposes `tolerance` (default 1e-6) and `maxIterations` (default 50). All required fields must be valid before the Run button enables.
 
-6. **Parameter selector.** Single-select dropdown listing the current model's const-node parameters (reuses `discoverConstParams`). Each option shows `{id} (base {baseline})` — same format as the Sweep tab. Empty state when no const params exist (same copy as Sweep).
+### AC-8 — **Run goal-seek and render results.** "Run goal seek" button calls `flowtime.goalSeek(...)` (new API method, response type includes `trace`). While running, show a spinner (`Loader2Icon`) and disable the button. On success, render: - The shared result card (AC5) with the final `paramValue`, `achievedMetricMean`, `target`, `|achieved − target|` residual, converged badge, and iteration count. - The shared convergence chart (AC5) plotting `metricMean` vs `iteration` as a line, with a horizontal reference line at `target`. Boundary evaluations (`iteration: 0`) are plotted as two initial points on the x-axis at position 0. The converged/final point is visually emphasized per AC5. - A **search-interval bar** (SVG) showing the original `[searchLo, searchHi]` range with a marker at the final `paramValue`, using `intervalMarkerGeometry` from `interval-bar-geometry.ts`. This is the Goal Seek consumer that justifies landing that geometry file in this milestone; Optimize reuses it for per-param mini bars in M-042. - 400 and 503 errors surfaced as inline messages using the existing analysis-page error pattern.
 
-7. **Search interval + target + advanced inputs.** Two numeric inputs `searchLo` and `searchHi` with inline validation (both required, `searchLo < searchHi`, defaults `0.5 × baseline` / `2 × baseline` of the selected parameter). Free-text input for `metricSeriesId` with the same chip shortcuts as Sensitivity (`served`, `queue`, `flowLatencyMs`, `utilization`). Numeric input for `target`. A collapsed "Advanced" disclosure exposes `tolerance` (default 1e-6) and `maxIterations` (default 50). All required fields must be valid before the Run button enables.
+**Run goal-seek and render results.** "Run goal seek" button calls `flowtime.goalSeek(...)` (new API method, response type includes `trace`). While running, show a spinner (`Loader2Icon`) and disable the button. On success, render:
+- The shared result card (AC5) with the final `paramValue`, `achievedMetricMean`, `target`, `|achieved − target|` residual, converged badge, and iteration count.
+- The shared convergence chart (AC5) plotting `metricMean` vs `iteration` as a line, with a horizontal reference line at `target`. Boundary evaluations (`iteration: 0`) are plotted as two initial points on the x-axis at position 0. The converged/final point is visually emphasized per AC5.
+- A **search-interval bar** (SVG) showing the original `[searchLo, searchHi]` range with a marker at the final `paramValue`, using `intervalMarkerGeometry` from `interval-bar-geometry.ts`. This is the Goal Seek consumer that justifies landing that geometry file in this milestone; Optimize reuses it for per-param mini bars in M-042.
+- 400 and 503 errors surfaced as inline messages using the existing analysis-page error pattern.
 
-8. **Run goal-seek and render results.** "Run goal seek" button calls `flowtime.goalSeek(...)` (new API method, response type includes `trace`). While running, show a spinner (`Loader2Icon`) and disable the button. On success, render:
-   - The shared result card (AC5) with the final `paramValue`, `achievedMetricMean`, `target`, `|achieved − target|` residual, converged badge, and iteration count.
-   - The shared convergence chart (AC5) plotting `metricMean` vs `iteration` as a line, with a horizontal reference line at `target`. Boundary evaluations (`iteration: 0`) are plotted as two initial points on the x-axis at position 0. The converged/final point is visually emphasized per AC5.
-   - A **search-interval bar** (SVG) showing the original `[searchLo, searchHi]` range with a marker at the final `paramValue`, using `intervalMarkerGeometry` from `interval-bar-geometry.ts`. This is the Goal Seek consumer that justifies landing that geometry file in this milestone; Optimize reuses it for per-param mini bars in M-042.
-   - 400 and 503 errors surfaced as inline messages using the existing analysis-page error pattern.
+### AC-9 — **Not-bracketed and not-converged states.** When the API returns `converged: false` with `iterations: 0` (target not bracketed), the result card shows an amber warning explaining that the target was not reachable within the search interval and suggests widening the bounds. The convergence chart still renders the two boundary evaluations. When `converged: false` with `iterations == maxIterations`, the card shows an amber "did not converge" badge and the chart is drawn over the full trace.
 
-9. **Not-bracketed and not-converged states.** When the API returns `converged: false` with `iterations: 0` (target not bracketed), the result card shows an amber warning explaining that the target was not reachable within the search interval and suggests widening the bounds. The convergence chart still renders the two boundary evaluations. When `converged: false` with `iterations == maxIterations`, the card shows an amber "did not converge" badge and the chart is drawn over the full trace.
+### AC-10 — **Session form state — goal-seek.** The Goal Seek form retains its last input values across tab switches within the same page session (in-memory is sufficient). Form values reset when the scenario (run / sample model) changes. Mirrors the Sweep tab behaviour. _Optimize session state lives in M-042._
 
-### Cross-cutting (AC10-AC12)
+### AC-11 — **Vitest coverage for pure logic.** New helpers added to `ui/src/lib/utils/analysis-helpers.ts` (or a sibling `goal-seek-helpers.ts` if the file grows unwieldy) have vitest tests with branch coverage: - `defaultSearchBounds(baseline)` — `0.5 × baseline` / `2 × baseline`; guards for `baseline === 0`, negative baselines, non-finite inputs. - `validateSearchInterval({lo, hi})` — structured error for missing / non-finite / `lo >= hi`. - `intervalMarkerGeometry({ lo, hi, value, width })` — clamping when `value ∉ [lo, hi]`, degenerate `hi === lo`, non-finite inputs. _(Shared with Optimize's per-param range bars in M-042.)_ - `convergence-chart-geometry.ts` — operates on the **normalized** `Array<{ iteration, metricMean }>` shape defined in AC5. `convergencePath({ trace, width, height, padding, yDomain })` with tests for empty trace, single-point trace, trace with multiple entries at the same `iteration` (goal-seek boundary case: two points at `iteration: 0`), monotonic vs non-monotonic traces, flat metric (all equal), non-finite values, y-domain override vs auto-fit, target-line y-coordinate computation. - `analysis-result-card-geometry.ts` (if needed) — whatever pure logic the card uses (badge-colour selection given `converged`, residual formatting). Skip the file if the card is pure markup with no computation worth testing. - No mocks; no DOM. - `validateOptimizeForm` is out of scope here; it lives in M-042.
 
-10. **Session form state — goal-seek.** The Goal Seek form retains its last input values across tab switches within the same page session (in-memory is sufficient). Form values reset when the scenario (run / sample model) changes. Mirrors the Sweep tab behaviour. _Optimize session state lives in M-042._
+**Vitest coverage for pure logic.** New helpers added to `ui/src/lib/utils/analysis-helpers.ts` (or a sibling `goal-seek-helpers.ts` if the file grows unwieldy) have vitest tests with branch coverage:
+- `defaultSearchBounds(baseline)` — `0.5 × baseline` / `2 × baseline`; guards for `baseline === 0`, negative baselines, non-finite inputs.
+- `validateSearchInterval({lo, hi})` — structured error for missing / non-finite / `lo >= hi`.
+- `intervalMarkerGeometry({ lo, hi, value, width })` — clamping when `value ∉ [lo, hi]`, degenerate `hi === lo`, non-finite inputs. _(Shared with Optimize's per-param range bars in M-042.)_
+- `convergence-chart-geometry.ts` — operates on the **normalized** `Array<{ iteration, metricMean }>` shape defined in AC5. `convergencePath({ trace, width, height, padding, yDomain })` with tests for empty trace, single-point trace, trace with multiple entries at the same `iteration` (goal-seek boundary case: two points at `iteration: 0`), monotonic vs non-monotonic traces, flat metric (all equal), non-finite values, y-domain override vs auto-fit, target-line y-coordinate computation.
+- `analysis-result-card-geometry.ts` (if needed) — whatever pure logic the card uses (badge-colour selection given `converged`, residual formatting). Skip the file if the card is pure markup with no computation worth testing.
+- No mocks; no DOM.
+- `validateOptimizeForm` is out of scope here; it lives in M-042.
 
-11. **Vitest coverage for pure logic.** New helpers added to `ui/src/lib/utils/analysis-helpers.ts` (or a sibling `goal-seek-helpers.ts` if the file grows unwieldy) have vitest tests with branch coverage:
-    - `defaultSearchBounds(baseline)` — `0.5 × baseline` / `2 × baseline`; guards for `baseline === 0`, negative baselines, non-finite inputs.
-    - `validateSearchInterval({lo, hi})` — structured error for missing / non-finite / `lo >= hi`.
-    - `intervalMarkerGeometry({ lo, hi, value, width })` — clamping when `value ∉ [lo, hi]`, degenerate `hi === lo`, non-finite inputs. _(Shared with Optimize's per-param range bars in M-042.)_
-    - `convergence-chart-geometry.ts` — operates on the **normalized** `Array<{ iteration, metricMean }>` shape defined in AC5. `convergencePath({ trace, width, height, padding, yDomain })` with tests for empty trace, single-point trace, trace with multiple entries at the same `iteration` (goal-seek boundary case: two points at `iteration: 0`), monotonic vs non-monotonic traces, flat metric (all equal), non-finite values, y-domain override vs auto-fit, target-line y-coordinate computation.
-    - `analysis-result-card-geometry.ts` (if needed) — whatever pure logic the card uses (badge-colour selection given `converged`, residual formatting). Skip the file if the card is pure markup with no computation worth testing.
-    - No mocks; no DOM.
-    - `validateOptimizeForm` is out of scope here; it lives in M-042.
+### AC-12 — **Playwright coverage.** Extend `tests/ui/specs/svelte-analysis.spec.ts` (preferred) or add `svelte-analysis-goal-seek.spec.ts`: - Goal Seek happy path: page loads, param selector populates, interval defaults render, Run button disabled until form is complete, run against a real engine returns a result card with `paramValue`, `converged` badge, iterations, **and a rendered convergence chart with at least one plotted point beyond iteration 0**. - Goal Seek not-bracketed deterministic repro — uses the tuple recorded in the tracking doc's Notes section (first bundled sample in `SAMPLE_MODELS`, its first discovered const param, `target: 1e12` unreachable). Assert the warning message + the chart rendering only the two boundary points. - Graceful skip when Engine API (8081) or Svelte dev server (5173) is down, matching the existing probe-and-skip pattern in `svelte-analysis.spec.ts`. - _Optimize Playwright coverage is owned by M-042._
 
-12. **Playwright coverage.** Extend `tests/ui/specs/svelte-analysis.spec.ts` (preferred) or add `svelte-analysis-goal-seek.spec.ts`:
-    - Goal Seek happy path: page loads, param selector populates, interval defaults render, Run button disabled until form is complete, run against a real engine returns a result card with `paramValue`, `converged` badge, iterations, **and a rendered convergence chart with at least one plotted point beyond iteration 0**.
-    - Goal Seek not-bracketed deterministic repro — uses the tuple recorded in the tracking doc's Notes section (first bundled sample in `SAMPLE_MODELS`, its first discovered const param, `target: 1e12` unreachable). Assert the warning message + the chart rendering only the two boundary points.
-    - Graceful skip when Engine API (8081) or Svelte dev server (5173) is down, matching the existing probe-and-skip pattern in `svelte-analysis.spec.ts`.
-    - _Optimize Playwright coverage is owned by M-042._
+**Playwright coverage.** Extend `tests/ui/specs/svelte-analysis.spec.ts` (preferred) or add `svelte-analysis-goal-seek.spec.ts`:
+- Goal Seek happy path: page loads, param selector populates, interval defaults render, Run button disabled until form is complete, run against a real engine returns a result card with `paramValue`, `converged` badge, iterations, **and a rendered convergence chart with at least one plotted point beyond iteration 0**.
+- Goal Seek not-bracketed deterministic repro — uses the tuple recorded in the tracking doc's Notes section (first bundled sample in `SAMPLE_MODELS`, its first discovered const param, `target: 1e12` unreachable). Assert the warning message + the chart rendering only the two boundary points.
+- Graceful skip when Engine API (8081) or Svelte dev server (5173) is down, matching the existing probe-and-skip pattern in `svelte-analysis.spec.ts`.
+- _Optimize Playwright coverage is owned by M-042._
 
-### Branch-coverage audit (AC13)
+### AC-13 — **Line-by-line branch audit** performed in two passes, each captured in the tracking doc's Coverage Notes before its respective commit-approval prompt: - **AC13a — Backend pass (already complete, commit `29ac3e9`).** Five goal-seek return paths; pre-loop and main-loop exits in Nelder-Mead; shrink-vs-no-shrink branches. The optimize branches are audited here even though the consumer is M-042, because the implementation lives on this milestone's commits. - **AC13b — UI pass (pending).** New frontend components, geometry helpers, form validators, and render-condition branches in the Goal Seek tab. Both passes enumerate every reachable branch and match each to a named test (xUnit / vitest / Playwright). Unreachable / defensive-default branches are documented with rationale, following M-040's pattern.
 
-13. **Line-by-line branch audit** performed in two passes, each captured in the tracking doc's Coverage Notes before its respective commit-approval prompt:
-    - **AC13a — Backend pass (already complete, commit `29ac3e9`).** Five goal-seek return paths; pre-loop and main-loop exits in Nelder-Mead; shrink-vs-no-shrink branches. The optimize branches are audited here even though the consumer is M-042, because the implementation lives on this milestone's commits.
-    - **AC13b — UI pass (pending).** New frontend components, geometry helpers, form validators, and render-condition branches in the Goal Seek tab.
-    Both passes enumerate every reachable branch and match each to a named test (xUnit / vitest / Playwright). Unreachable / defensive-default branches are documented with rationale, following M-040's pattern.
-
+**Line-by-line branch audit** performed in two passes, each captured in the tracking doc's Coverage Notes before its respective commit-approval prompt:
+- **AC13a — Backend pass (already complete, commit `29ac3e9`).** Five goal-seek return paths; pre-loop and main-loop exits in Nelder-Mead; shrink-vs-no-shrink branches. The optimize branches are audited here even though the consumer is M-042, because the implementation lives on this milestone's commits.
+- **AC13b — UI pass (pending).** New frontend components, geometry helpers, form validators, and render-condition branches in the Goal Seek tab.
+Both passes enumerate every reachable branch and match each to a named test (xUnit / vitest / Playwright). Unreachable / defensive-default branches are documented with rationale, following M-040's pattern.
 ## Technical Notes
 
 ### Backend

@@ -3,6 +3,73 @@ id: M-024
 title: Supported Surface Inventory, Boundary ADR & Exit Criteria
 status: done
 parent: E-19
+acs:
+  - id: AC-1
+    title: '**Boundary ADR extended.** `docs/architecture/template-draft-model-run-bundle-boundary.md` contains a new "Responsibility
+      Clarification" section (Core = evaluation library, Generator = orchestrator, API = query/operator surface over canonical
+      runs, Sim = authoring + transitional execution host, Time Machine = new E-18 component) and three Mermaid sequence diagrams
+      labelled **Current**, **Transitional (end of E-19)**, and **Target (post-E-18)**. The Target diagram shows the Time
+      Machine as a distinct participant with both UI and AI/MCP clients as equal callers of tiered validation and execution
+      operations. Diagrams correctly distinguish canonical run directory (`data/runs/<runId>/`) from bundle ZIP (`data/storage/runs/<runId>`).
+      The ADR also records the A6 principle that validation is a first-class client-agnostic operation owned by Core and surfaced
+      through the Time Machine.'
+    status: met
+  - id: AC-2
+    title: '**Supported-surfaces matrix published.** New file `docs/architecture/supported-surfaces.md` exists and contains
+      the exhaustive inventory table (see AC 3), the Blazor/Svelte support policy verbatim from this spec, and the shared
+      framing (no renames, Time Machine ownership by E-18, Core purity, API identity, Sim responsibilities, no privileged
+      validation client).'
+    status: met
+  - id: AC-3
+    title: '**Exhaustive inventory table populated.** A single table in `supported-surfaces.md` covers every in-scope surface
+      element with these columns: | Surface | Element | Current status | Decision | Target state | Owning milestone | Grep
+      guard | Populated by systematic sweep of: - Every route in `src/FlowTime.API/Endpoints/*.cs` - Every route in `src/FlowTime.Sim.Service/Program.cs`
+      and `src/FlowTime.Sim.Service/Extensions/*EndpointExtensions.cs` - Every HTTP call site in `src/FlowTime.UI/Services/*`
+      and the Svelte UI equivalents (`ui/src/lib/api/*` or current path) - Every public DTO in `src/FlowTime.Contracts` -
+      Every JSON/YAML schema file tracked in the repo - Every template under the active Sim template directory - Every example
+      under `docs/examples/` (or equivalent current-surface example location) - Every `docs/` page that documents a contract
+      on a current surface Every row with `Decision = delete` or `Decision = archive` has an owning downstream milestone (M-025,
+      M-026, or M-027) and a grep guard specification. Every row with `Decision = supported` has a one-line rationale. Rows
+      where the decision is still unclear are listed as explicit open questions at the bottom of the document, not silently
+      marked supported.'
+    status: met
+  - id: AC-4
+    title: '**A1–A6 decisions are cited, not reinvented, in the inventory.** Every orchestration-endpoint, draft, bundle,
+      import, catalog, and validation row in the inventory links to the corresponding decision section of this spec (or to
+      `work/decisions.md` entries derived from it) rather than reargued inline.'
+    status: met
+  - id: AC-5
+    title: '**`work/decisions.md` updated.** Short entries exist for: the shared framing (no renames, Time Machine ownership
+      by E-18), A1, A2, A3, A4, A5, A6, the Time Machine naming decision, and the Blazor/Svelte support policy. Each entry
+      points at this milestone spec and/or the supported-surfaces doc for detail.'
+    status: met
+  - id: AC-6
+    title: '**E-18 epic spec updated with the validation requirement and Time Machine naming.** `work/epics/E-18-headless-pipeline-and-optimization/spec.md`
+      (directory path preserved for historical stability) is updated in content to title the epic `E-18 Time Machine`, gains
+      an explicit scope item for tiered validation (schema / compile / analyse) as a first-class operation alongside compile/evaluate/reevaluate/parameter-override/artifact-write
+      with the client list (Sim UI, Blazor UI, Svelte UI, MCP servers, external AI agents, tests, CI) and the "no privileged
+      client" principle, and has body references from "Headless" / `FlowTime.Headless` updated to "Time Machine" / `FlowTime.TimeMachine`.
+      The same wrap pass also syncs `ROADMAP.md`, `work/epics/epic-roadmap.md`, and `CLAUDE.md` to the new naming and M-024
+      status.'
+    status: met
+  - id: AC-7
+    title: "**`CLAUDE.md` \"Current Work\" section updated.** E-19 status reflects that M-024 is complete (when the milestone
+      closes) and names M-025 as the next milestone, consistent with the status-sync discipline in the repo's project rules."
+    status: met
+  - id: AC-8
+    title: '**Epic status surfaces reconciled.** `work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md` milestone
+      table, `ROADMAP.md`, and `work/epics/epic-roadmap.md` all reflect M-024 status in a single pass at wrap time.'
+    status: met
+  - id: AC-9
+    title: '**Tracking doc maintained.** `work/epics/E-19-surface-alignment-and-compatibility-cleanup/m-E19-01-supported-surface-inventory-tracking.md`
+      exists and is updated after each AC is satisfied.'
+    status: met
+  - id: AC-10
+    title: '**No code deletion in this milestone.** The inventory names what will be deleted and in which downstream milestone,
+      but no endpoint, DTO, UI client, schema, template, example, or doc is deleted as part of M-024 itself. If the sweep
+      discovers something obviously and trivially dead that cannot wait, it is logged in `work/gaps.md` with a target milestone
+      rather than removed here.'
+    status: met
 ---
 
 ## Goal
@@ -150,42 +217,40 @@ This is not optional for E-18. Validation and compile-only are natural siblings 
 
 The inventory table (AC 3) will naturally show asymmetry: Blazor rows will include "deprecated, scheduled for removal" entries that have no Svelte counterpart. That is expected, not a gap.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-1. **Boundary ADR extended.** `docs/architecture/template-draft-model-run-bundle-boundary.md` contains a new "Responsibility Clarification" section (Core = evaluation library, Generator = orchestrator, API = query/operator surface over canonical runs, Sim = authoring + transitional execution host, Time Machine = new E-18 component) and three Mermaid sequence diagrams labelled **Current**, **Transitional (end of E-19)**, and **Target (post-E-18)**. The Target diagram shows the Time Machine as a distinct participant with both UI and AI/MCP clients as equal callers of tiered validation and execution operations. Diagrams correctly distinguish canonical run directory (`data/runs/<runId>/`) from bundle ZIP (`data/storage/runs/<runId>`). The ADR also records the A6 principle that validation is a first-class client-agnostic operation owned by Core and surfaced through the Time Machine.
+### AC-1 — **Boundary ADR extended.** `docs/architecture/template-draft-model-run-bundle-boundary.md` contains a new "Responsibility Clarification" section (Core = evaluation library, Generator = orchestrator, API = query/operator surface over canonical runs, Sim = authoring + transitional execution host, Time Machine = new E-18 component) and three Mermaid sequence diagrams labelled **Current**, **Transitional (end of E-19)**, and **Target (post-E-18)**. The Target diagram shows the Time Machine as a distinct participant with both UI and AI/MCP clients as equal callers of tiered validation and execution operations. Diagrams correctly distinguish canonical run directory (`data/runs/<runId>/`) from bundle ZIP (`data/storage/runs/<runId>`). The ADR also records the A6 principle that validation is a first-class client-agnostic operation owned by Core and surfaced through the Time Machine.
 
-2. **Supported-surfaces matrix published.** New file `docs/architecture/supported-surfaces.md` exists and contains the exhaustive inventory table (see AC 3), the Blazor/Svelte support policy verbatim from this spec, and the shared framing (no renames, Time Machine ownership by E-18, Core purity, API identity, Sim responsibilities, no privileged validation client).
+### AC-2 — **Supported-surfaces matrix published.** New file `docs/architecture/supported-surfaces.md` exists and contains the exhaustive inventory table (see AC 3), the Blazor/Svelte support policy verbatim from this spec, and the shared framing (no renames, Time Machine ownership by E-18, Core purity, API identity, Sim responsibilities, no privileged validation client).
 
-3. **Exhaustive inventory table populated.** A single table in `supported-surfaces.md` covers every in-scope surface element with these columns:
+### AC-3 — **Exhaustive inventory table populated.** A single table in `supported-surfaces.md` covers every in-scope surface element with these columns: | Surface | Element | Current status | Decision | Target state | Owning milestone | Grep guard | Populated by systematic sweep of: - Every route in `src/FlowTime.API/Endpoints/*.cs` - Every route in `src/FlowTime.Sim.Service/Program.cs` and `src/FlowTime.Sim.Service/Extensions/*EndpointExtensions.cs` - Every HTTP call site in `src/FlowTime.UI/Services/*` and the Svelte UI equivalents (`ui/src/lib/api/*` or current path) - Every public DTO in `src/FlowTime.Contracts` - Every JSON/YAML schema file tracked in the repo - Every template under the active Sim template directory - Every example under `docs/examples/` (or equivalent current-surface example location) - Every `docs/` page that documents a contract on a current surface Every row with `Decision = delete` or `Decision = archive` has an owning downstream milestone (M-025, M-026, or M-027) and a grep guard specification. Every row with `Decision = supported` has a one-line rationale. Rows where the decision is still unclear are listed as explicit open questions at the bottom of the document, not silently marked supported.
 
-   | Surface | Element | Current status | Decision | Target state | Owning milestone | Grep guard |
+**Exhaustive inventory table populated.** A single table in `supported-surfaces.md` covers every in-scope surface element with these columns:
+| Surface | Element | Current status | Decision | Target state | Owning milestone | Grep guard |
+Populated by systematic sweep of:
+- Every route in `src/FlowTime.API/Endpoints/*.cs`
+- Every route in `src/FlowTime.Sim.Service/Program.cs` and `src/FlowTime.Sim.Service/Extensions/*EndpointExtensions.cs`
+- Every HTTP call site in `src/FlowTime.UI/Services/*` and the Svelte UI equivalents (`ui/src/lib/api/*` or current path)
+- Every public DTO in `src/FlowTime.Contracts`
+- Every JSON/YAML schema file tracked in the repo
+- Every template under the active Sim template directory
+- Every example under `docs/examples/` (or equivalent current-surface example location)
+- Every `docs/` page that documents a contract on a current surface
+Every row with `Decision = delete` or `Decision = archive` has an owning downstream milestone (M-025, M-026, or M-027) and a grep guard specification. Every row with `Decision = supported` has a one-line rationale. Rows where the decision is still unclear are listed as explicit open questions at the bottom of the document, not silently marked supported.
 
-   Populated by systematic sweep of:
-   - Every route in `src/FlowTime.API/Endpoints/*.cs`
-   - Every route in `src/FlowTime.Sim.Service/Program.cs` and `src/FlowTime.Sim.Service/Extensions/*EndpointExtensions.cs`
-   - Every HTTP call site in `src/FlowTime.UI/Services/*` and the Svelte UI equivalents (`ui/src/lib/api/*` or current path)
-   - Every public DTO in `src/FlowTime.Contracts`
-   - Every JSON/YAML schema file tracked in the repo
-   - Every template under the active Sim template directory
-   - Every example under `docs/examples/` (or equivalent current-surface example location)
-   - Every `docs/` page that documents a contract on a current surface
+### AC-4 — **A1–A6 decisions are cited, not reinvented, in the inventory.** Every orchestration-endpoint, draft, bundle, import, catalog, and validation row in the inventory links to the corresponding decision section of this spec (or to `work/decisions.md` entries derived from it) rather than reargued inline.
 
-   Every row with `Decision = delete` or `Decision = archive` has an owning downstream milestone (M-025, M-026, or M-027) and a grep guard specification. Every row with `Decision = supported` has a one-line rationale. Rows where the decision is still unclear are listed as explicit open questions at the bottom of the document, not silently marked supported.
+### AC-5 — **`work/decisions.md` updated.** Short entries exist for: the shared framing (no renames, Time Machine ownership by E-18), A1, A2, A3, A4, A5, A6, the Time Machine naming decision, and the Blazor/Svelte support policy. Each entry points at this milestone spec and/or the supported-surfaces doc for detail.
 
-4. **A1–A6 decisions are cited, not reinvented, in the inventory.** Every orchestration-endpoint, draft, bundle, import, catalog, and validation row in the inventory links to the corresponding decision section of this spec (or to `work/decisions.md` entries derived from it) rather than reargued inline.
+### AC-6 — **E-18 epic spec updated with the validation requirement and Time Machine naming.** `work/epics/E-18-headless-pipeline-and-optimization/spec.md` (directory path preserved for historical stability) is updated in content to title the epic `E-18 Time Machine`, gains an explicit scope item for tiered validation (schema / compile / analyse) as a first-class operation alongside compile/evaluate/reevaluate/parameter-override/artifact-write with the client list (Sim UI, Blazor UI, Svelte UI, MCP servers, external AI agents, tests, CI) and the "no privileged client" principle, and has body references from "Headless" / `FlowTime.Headless` updated to "Time Machine" / `FlowTime.TimeMachine`. The same wrap pass also syncs `ROADMAP.md`, `work/epics/epic-roadmap.md`, and `CLAUDE.md` to the new naming and M-024 status.
 
-5. **`work/decisions.md` updated.** Short entries exist for: the shared framing (no renames, Time Machine ownership by E-18), A1, A2, A3, A4, A5, A6, the Time Machine naming decision, and the Blazor/Svelte support policy. Each entry points at this milestone spec and/or the supported-surfaces doc for detail.
+### AC-7 — **`CLAUDE.md` "Current Work" section updated.** E-19 status reflects that M-024 is complete (when the milestone closes) and names M-025 as the next milestone, consistent with the status-sync discipline in the repo's project rules.
 
-6. **E-18 epic spec updated with the validation requirement and Time Machine naming.** `work/epics/E-18-headless-pipeline-and-optimization/spec.md` (directory path preserved for historical stability) is updated in content to title the epic `E-18 Time Machine`, gains an explicit scope item for tiered validation (schema / compile / analyse) as a first-class operation alongside compile/evaluate/reevaluate/parameter-override/artifact-write with the client list (Sim UI, Blazor UI, Svelte UI, MCP servers, external AI agents, tests, CI) and the "no privileged client" principle, and has body references from "Headless" / `FlowTime.Headless` updated to "Time Machine" / `FlowTime.TimeMachine`. The same wrap pass also syncs `ROADMAP.md`, `work/epics/epic-roadmap.md`, and `CLAUDE.md` to the new naming and M-024 status.
+### AC-8 — **Epic status surfaces reconciled.** `work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md` milestone table, `ROADMAP.md`, and `work/epics/epic-roadmap.md` all reflect M-024 status in a single pass at wrap time.
 
-7. **`CLAUDE.md` "Current Work" section updated.** E-19 status reflects that M-024 is complete (when the milestone closes) and names M-025 as the next milestone, consistent with the status-sync discipline in the repo's project rules.
+### AC-9 — **Tracking doc maintained.** `work/epics/E-19-surface-alignment-and-compatibility-cleanup/m-E19-01-supported-surface-inventory-tracking.md` exists and is updated after each AC is satisfied.
 
-8. **Epic status surfaces reconciled.** `work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md` milestone table, `ROADMAP.md`, and `work/epics/epic-roadmap.md` all reflect M-024 status in a single pass at wrap time.
-
-9. **Tracking doc maintained.** `work/epics/E-19-surface-alignment-and-compatibility-cleanup/m-E19-01-supported-surface-inventory-tracking.md` exists and is updated after each AC is satisfied.
-
-10. **No code deletion in this milestone.** The inventory names what will be deleted and in which downstream milestone, but no endpoint, DTO, UI client, schema, template, example, or doc is deleted as part of M-024 itself. If the sweep discovers something obviously and trivially dead that cannot wait, it is logged in `work/gaps.md` with a target milestone rather than removed here.
-
+### AC-10 — **No code deletion in this milestone.** The inventory names what will be deleted and in which downstream milestone, but no endpoint, DTO, UI client, schema, template, example, or doc is deleted as part of M-024 itself. If the sweep discovers something obviously and trivially dead that cannot wait, it is logged in `work/gaps.md` with a target milestone rather than removed here.
 ## Guards / DO NOT
 
 - **DO NOT** delete any code in this milestone. M-024 is a decision and documentation milestone. Every deletion is an AC of a downstream milestone with an explicit grep guard.

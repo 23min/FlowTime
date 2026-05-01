@@ -3,6 +3,50 @@ id: M-012
 title: Compiled Semantic References
 status: done
 parent: E-16
+acs:
+  - id: AC-1
+    title: Runtime-facing node semantics use typed references for the semantic fields that affect runtime behavior, 
+      including arrivals, served, queueDepth, capacity, processingTimeMsSum, servedCount, attempts, failures, retryEcho,
+      and related analytical inputs.
+    status: met
+  - id: AC-2
+    title: The compiler resolves self, node, file, and series references into one canonical representation with 
+      deterministic tests covering current repo-standard reference patterns.
+    status: met
+  - id: AC-3
+    title: Raw source text is retained only for provenance/debug surfaces; runtime behavior no longer depends on 
+      reparsing those raw strings.
+    status: met
+  - id: AC-4
+    title: 'Forward-only migration is explicit: existing run directories, generated fixtures, and approved snapshots that
+      depend on the old runtime shape are regenerated; no compatibility reader or fallback path is added for the old analytical/runtime
+      boundary.'
+    status: met
+  - id: AC-5
+    title: '`StateQueryService` no longer contains raw-string semantic-reference parsing helpers for data loading, queue-source
+      recovery, or parallelism resolution. Any remaining logical-type bridge code consumes compiled typed semantics and is
+      tracked for deletion in M-014.'
+    status: met
+  - id: AC-6
+    title: '`Parallelism` becomes a typed reference (numeric constant or series ref) resolved at compile time. The `object?`
+      type on `NodeSemantics.Parallelism` is replaced.'
+    status: met
+  - id: AC-7
+    title: '`SemanticLoader` is split: reference resolution moves to the compiler; data loading stays as I/O and takes typed
+      references as input instead of raw strings.'
+    status: met
+  - id: AC-8
+    title: A grep-based audit confirms no `file:` / `series:` string parsing remains in API or adapter code for runtime 
+      analytical behavior.
+    status: met
+  - id: AC-9
+    title: Runtime metadata readers no longer recover telemetry-source facts by reparsing raw YAML/model text once 
+      regenerated artifacts can carry those facts explicitly; raw-text fallback readers are deleted in the same 
+      forward-only cut.
+    status: met
+  - id: AC-10
+    title: '`dotnet build` and `dotnet test --nologo` are green.'
+    status: met
 ---
 
 ## Goal
@@ -33,19 +77,27 @@ Before implementation begins, confirm these invariants are testable and will gat
 3. `Parallelism` is no longer `object?` — it is a typed reference resolved at compile time.
 4. SemanticLoader accepts typed references for data loading, not raw authoring strings.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-1. Runtime-facing node semantics use typed references for the semantic fields that affect runtime behavior, including arrivals, served, queueDepth, capacity, processingTimeMsSum, servedCount, attempts, failures, retryEcho, and related analytical inputs.
-2. The compiler resolves self, node, file, and series references into one canonical representation with deterministic tests covering current repo-standard reference patterns.
-3. Raw source text is retained only for provenance/debug surfaces; runtime behavior no longer depends on reparsing those raw strings.
-4. Forward-only migration is explicit: existing run directories, generated fixtures, and approved snapshots that depend on the old runtime shape are regenerated; no compatibility reader or fallback path is added for the old analytical/runtime boundary.
-5. `StateQueryService` no longer contains raw-string semantic-reference parsing helpers for data loading, queue-source recovery, or parallelism resolution. Any remaining logical-type bridge code consumes compiled typed semantics and is tracked for deletion in M-014.
-6. `Parallelism` becomes a typed reference (numeric constant or series ref) resolved at compile time. The `object?` type on `NodeSemantics.Parallelism` is replaced.
-7. `SemanticLoader` is split: reference resolution moves to the compiler; data loading stays as I/O and takes typed references as input instead of raw strings.
-8. A grep-based audit confirms no `file:` / `series:` string parsing remains in API or adapter code for runtime analytical behavior.
-9. Runtime metadata readers no longer recover telemetry-source facts by reparsing raw YAML/model text once regenerated artifacts can carry those facts explicitly; raw-text fallback readers are deleted in the same forward-only cut.
-10. `dotnet build` and `dotnet test --nologo` are green.
+### AC-1 — Runtime-facing node semantics use typed references for the semantic fields that affect runtime behavior, including arrivals, served, queueDepth, capacity, processingTimeMsSum, servedCount, attempts, failures, retryEcho, and related analytical inputs.
 
+### AC-2 — The compiler resolves self, node, file, and series references into one canonical representation with deterministic tests covering current repo-standard reference patterns.
+
+### AC-3 — Raw source text is retained only for provenance/debug surfaces; runtime behavior no longer depends on reparsing those raw strings.
+
+### AC-4 — Forward-only migration is explicit: existing run directories, generated fixtures, and approved snapshots that depend on the old runtime shape are regenerated; no compatibility reader or fallback path is added for the old analytical/runtime boundary.
+
+### AC-5 — `StateQueryService` no longer contains raw-string semantic-reference parsing helpers for data loading, queue-source recovery, or parallelism resolution. Any remaining logical-type bridge code consumes compiled typed semantics and is tracked for deletion in M-014.
+
+### AC-6 — `Parallelism` becomes a typed reference (numeric constant or series ref) resolved at compile time. The `object?` type on `NodeSemantics.Parallelism` is replaced.
+
+### AC-7 — `SemanticLoader` is split: reference resolution moves to the compiler; data loading stays as I/O and takes typed references as input instead of raw strings.
+
+### AC-8 — A grep-based audit confirms no `file:` / `series:` string parsing remains in API or adapter code for runtime analytical behavior.
+
+### AC-9 — Runtime metadata readers no longer recover telemetry-source facts by reparsing raw YAML/model text once regenerated artifacts can carry those facts explicitly; raw-text fallback readers are deleted in the same forward-only cut.
+
+### AC-10 — `dotnet build` and `dotnet test --nologo` are green.
 ## Guards / DO NOT
 
 - **DO NOT** add a compatibility reader or fallback parser for the old raw-string reference shapes. Forward-only.

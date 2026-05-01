@@ -3,6 +3,19 @@ id: M-064
 title: Dependency Constraints (Attached to Services)
 status: done
 parent: E-12
+acs:
+  - id: AC-1
+    title: Services can declare dependency constraints without explicit dependency nodes.
+    status: met
+  - id: AC-2
+    title: '`/state` and `/state_window` expose constraint metrics and limitation status.'
+    status: met
+  - id: AC-3
+    title: Shared dependency allocation is deterministic and documented.
+    status: met
+  - id: AC-4
+    title: Warnings surface missing constraint inputs with provenance metadata.
+    status: met
 ---
 
 ## Goal
@@ -90,9 +103,12 @@ Option A (explicit dependency nodes) is correct but can clutter large graphs. Mo
 5. Update goldens and documentation.
 6. Validate Option B in UI using the dedicated template.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-- Services can declare dependency constraints without explicit dependency nodes.
-- `/state` and `/state_window` expose constraint metrics and limitation status.
-- Shared dependency allocation is deterministic and documented.
-- Warnings surface missing constraint inputs with provenance metadata.
+### AC-1 — Services can declare dependency constraints without explicit dependency nodes.
+
+### AC-2 — `/state` and `/state_window` expose constraint metrics and limitation status.
+
+### AC-3 — Shared dependency allocation is deterministic and documented.
+
+### AC-4 — Warnings surface missing constraint inputs with provenance metadata.

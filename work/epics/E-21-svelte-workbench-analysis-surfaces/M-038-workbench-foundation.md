@@ -3,6 +3,93 @@ id: M-038
 title: Workbench Foundation
 status: done
 parent: E-21
+acs:
+  - id: AC-1
+    title: '**Main content area padding reduced.** The root layout no longer applies blanket `p-6`. Page-level padding is
+      context-dependent: topology/workbench pages use minimal padding (`p-1` or `p-2`), form/config pages may use moderate
+      padding.'
+    status: met
+  - id: AC-2
+    title: '**Sidebar narrowed.** Expanded sidebar width ≤ 208px (from 280px). Collapsed width ≤ 40px. All nav items still
+      readable and clickable.'
+    status: met
+  - id: AC-3
+    title: '**Compact design tokens defined in `app.css`.** Two token layers: - **Chrome tokens:** `--ft-bg`, `--ft-bg-elevated`,
+      `--ft-border`, `--ft-text`, `--ft-text-muted`, `--ft-text-emphasis`. Calm values. Dark mode: near-black backgrounds
+      (`hsl(220 10% 4%)`-range), subtle borders, muted gray text. Light mode: warm light backgrounds, subtle borders, dark
+      text. - **Data-viz tokens:** `--ft-viz-teal`, `--ft-viz-pink`, `--ft-viz-coral`, `--ft-viz-blue`, `--ft-viz-green`,
+      `--ft-viz-amber` plus sequential/diverging scale entry points. Vivid against both dark and light backgrounds. - **Spacing
+      tokens:** `--ft-space-xs` (2px), `--ft-space-sm` (4px), `--ft-space-md` (6px), `--ft-space-lg` (8px), `--ft-space-xl`
+      (12px). Tighter than the current 4/8/12/16/24px scale. - **Border radius:** `--ft-radius` at `0.25rem` or less (from
+      `0.5rem`). - **Type:** working text size is `text-xs` (12px). Emphasis is `text-sm` (14px). Headers use `text-sm font-semibold`
+      or `text-base`.'
+    status: met
+  - id: AC-4
+    title: '**shadcn component overrides applied.** Cards, buttons, inputs, and sidebar components use the compact tokens.
+      No component uses raw `p-4`, `p-6`, `gap-4` etc. — spacing comes from the token scale.'
+    status: met
+  - id: AC-5
+    title: '**Existing pages still function.** What-if page, run orchestration, topology page, health page all render correctly
+      with the new density. Visual audit confirms no layout breakage. Vitest and Playwright suites still pass.'
+    status: met
+  - id: AC-6
+    title: '**`bindEvents()` exported from dag-map.** Given an SVG container element, `bindEvents(container, callbacks)` uses
+      event delegation to fire: - `onNodeClick(nodeId, event)` — click on any `[data-node-id]` element - `onNodeHover(nodeId
+      | null, event)` — mouseenter/mouseleave on node elements - `onEdgeClick(fromId, toId, event)` — click on any `[data-edge-from]`
+      element - `onEdgeHover(fromId, toId | null, event)` — mouseenter/mouseleave on edge elements - Returns a cleanup function
+      that removes all listeners. - Edge hit areas: edge paths are thin lines. `bindEvents` should set `pointer-events: stroke`
+      and use a wider invisible stroke or a transparent hit-area overlay (≥ 8px clickable width) so edges are practically
+      clickable.'
+    status: met
+  - id: AC-7
+    title: '**`selected` render option in dag-map.** `renderSVG(dag, layout, { ..., selected: Set<string> })` draws a selection
+      indicator (ring, outline, or highlight) on nodes whose ID is in the set. The selection visual must compose correctly
+      with heatmap mode (heatmap fills + selection ring, not one replacing the other).'
+    status: met
+  - id: AC-8
+    title: "**dag-map tests cover events and selection.** Unit tests (dag-map's existing test infrastructure) verify: `bindEvents`
+      fires correct callbacks for node/edge clicks and hovers; `selected` set renders the selection indicator; selection composes
+      with heatmap mode. dag-map version bumped and published (or linked via workspace protocol)."
+    status: met
+  - id: AC-9
+    title: '**Topology page restructured as split layout.** The topology page shows the DAG in the upper area and the workbench
+      panel in the lower area, separated by a resizable split (drag to resize, reasonable default like 60/40 or 65/35). When
+      no nodes are pinned, the workbench shows a minimal empty state hint ("Click a node to inspect").'
+    status: met
+  - id: AC-10
+    title: '**Click-to-pin interaction.** Clicking a node in the topology DAG pins it to the workbench. The node appears with
+      a selection indicator in the DAG (via `selected` set) and a card in the workbench. Clicking a pinned node again unpins
+      it (removes card, removes selection indicator). Multiple nodes can be pinned simultaneously.'
+    status: met
+  - id: AC-11
+    title: '**Node card content.** Each workbench card shows: - Node ID and kind (service, queue, dlq, source, router, etc.)
+      - Key metrics at the current timeline bin: utilization, queue depth, arrivals, served, errors, capacity — as available
+      from the state API response - Sparkline showing the selected metric over the full time window (all bins) - Values formatted
+      with appropriate precision (see `format.ts` utilities) - Compact layout using the density tokens — the card should fit
+      meaningful content in ~180-220px width'
+    status: met
+  - id: AC-12
+    title: '**Timeline integration.** When the timeline scrubs (bin changes), all workbench card metric values update to the
+      new bin. Sparklines show a position indicator (vertical line or dot) at the current bin.'
+    status: met
+  - id: AC-13
+    title: '**Cards dismissible.** Each card has a small close/unpin control. Dismissing a card removes the node from the
+      `selected` set and the workbench.'
+    status: met
+  - id: AC-14
+    title: '**Auto-pin highest-utilization node on first load.** When a run loads and state data is available, the node with
+      the highest utilization at bin 0 is auto-pinned to the workbench so it is never empty on first view. If utilization
+      data is unavailable, skip auto-pin (empty state is acceptable).'
+    status: met
+  - id: AC-15
+    title: '**Playwright test coverage.** At least one Playwright spec covering: (a) topology loads and renders, (b) clicking
+      a node opens a workbench card, (c) clicking the close control removes the card, (d) scrubbing the timeline updates card
+      values. Specs skip gracefully if the API or dev server is unavailable.'
+    status: met
+  - id: AC-16
+    title: '**Vitest coverage for new pure logic.** Any new helper functions (metric extraction, card data shaping, sparkline
+      data preparation) have vitest tests with branch coverage.'
+    status: met
 ---
 
 ## Goal
@@ -25,64 +112,61 @@ This milestone delivers three things in sequence:
 - What-if page (`ui/src/routes/what-if/+page.svelte`) has real-time metric display via WebSocket
 - `DagMapView.svelte` wraps dag-map with theme switching and metric mapping
 
-## Acceptance Criteria
+## Acceptance criteria
 
-### Density system (AC1-AC5)
+### AC-1 — **Main content area padding reduced.** The root layout no longer applies blanket `p-6`. Page-level padding is context-dependent: topology/workbench pages use minimal padding (`p-1` or `p-2`), form/config pages may use moderate padding.
 
-1. **Main content area padding reduced.** The root layout no longer applies blanket `p-6`. Page-level padding is context-dependent: topology/workbench pages use minimal padding (`p-1` or `p-2`), form/config pages may use moderate padding.
+### AC-2 — **Sidebar narrowed.** Expanded sidebar width ≤ 208px (from 280px). Collapsed width ≤ 40px. All nav items still readable and clickable.
 
-2. **Sidebar narrowed.** Expanded sidebar width ≤ 208px (from 280px). Collapsed width ≤ 40px. All nav items still readable and clickable.
+### AC-3 — **Compact design tokens defined in `app.css`.** Two token layers: - **Chrome tokens:** `--ft-bg`, `--ft-bg-elevated`, `--ft-border`, `--ft-text`, `--ft-text-muted`, `--ft-text-emphasis`. Calm values. Dark mode: near-black backgrounds (`hsl(220 10% 4%)`-range), subtle borders, muted gray text. Light mode: warm light backgrounds, subtle borders, dark text. - **Data-viz tokens:** `--ft-viz-teal`, `--ft-viz-pink`, `--ft-viz-coral`, `--ft-viz-blue`, `--ft-viz-green`, `--ft-viz-amber` plus sequential/diverging scale entry points. Vivid against both dark and light backgrounds. - **Spacing tokens:** `--ft-space-xs` (2px), `--ft-space-sm` (4px), `--ft-space-md` (6px), `--ft-space-lg` (8px), `--ft-space-xl` (12px). Tighter than the current 4/8/12/16/24px scale. - **Border radius:** `--ft-radius` at `0.25rem` or less (from `0.5rem`). - **Type:** working text size is `text-xs` (12px). Emphasis is `text-sm` (14px). Headers use `text-sm font-semibold` or `text-base`.
 
-3. **Compact design tokens defined in `app.css`.** Two token layers:
-   - **Chrome tokens:** `--ft-bg`, `--ft-bg-elevated`, `--ft-border`, `--ft-text`, `--ft-text-muted`, `--ft-text-emphasis`. Calm values. Dark mode: near-black backgrounds (`hsl(220 10% 4%)`-range), subtle borders, muted gray text. Light mode: warm light backgrounds, subtle borders, dark text.
-   - **Data-viz tokens:** `--ft-viz-teal`, `--ft-viz-pink`, `--ft-viz-coral`, `--ft-viz-blue`, `--ft-viz-green`, `--ft-viz-amber` plus sequential/diverging scale entry points. Vivid against both dark and light backgrounds.
-   - **Spacing tokens:** `--ft-space-xs` (2px), `--ft-space-sm` (4px), `--ft-space-md` (6px), `--ft-space-lg` (8px), `--ft-space-xl` (12px). Tighter than the current 4/8/12/16/24px scale.
-   - **Border radius:** `--ft-radius` at `0.25rem` or less (from `0.5rem`).
-   - **Type:** working text size is `text-xs` (12px). Emphasis is `text-sm` (14px). Headers use `text-sm font-semibold` or `text-base`.
+**Compact design tokens defined in `app.css`.** Two token layers:
+- **Chrome tokens:** `--ft-bg`, `--ft-bg-elevated`, `--ft-border`, `--ft-text`, `--ft-text-muted`, `--ft-text-emphasis`. Calm values. Dark mode: near-black backgrounds (`hsl(220 10% 4%)`-range), subtle borders, muted gray text. Light mode: warm light backgrounds, subtle borders, dark text.
+- **Data-viz tokens:** `--ft-viz-teal`, `--ft-viz-pink`, `--ft-viz-coral`, `--ft-viz-blue`, `--ft-viz-green`, `--ft-viz-amber` plus sequential/diverging scale entry points. Vivid against both dark and light backgrounds.
+- **Spacing tokens:** `--ft-space-xs` (2px), `--ft-space-sm` (4px), `--ft-space-md` (6px), `--ft-space-lg` (8px), `--ft-space-xl` (12px). Tighter than the current 4/8/12/16/24px scale.
+- **Border radius:** `--ft-radius` at `0.25rem` or less (from `0.5rem`).
+- **Type:** working text size is `text-xs` (12px). Emphasis is `text-sm` (14px). Headers use `text-sm font-semibold` or `text-base`.
 
-4. **shadcn component overrides applied.** Cards, buttons, inputs, and sidebar components use the compact tokens. No component uses raw `p-4`, `p-6`, `gap-4` etc. — spacing comes from the token scale.
+### AC-4 — **shadcn component overrides applied.** Cards, buttons, inputs, and sidebar components use the compact tokens. No component uses raw `p-4`, `p-6`, `gap-4` etc. — spacing comes from the token scale.
 
-5. **Existing pages still function.** What-if page, run orchestration, topology page, health page all render correctly with the new density. Visual audit confirms no layout breakage. Vitest and Playwright suites still pass.
+### AC-5 — **Existing pages still function.** What-if page, run orchestration, topology page, health page all render correctly with the new density. Visual audit confirms no layout breakage. Vitest and Playwright suites still pass.
 
-### dag-map library events (AC6-AC8)
+### AC-6 — **`bindEvents()` exported from dag-map.** Given an SVG container element, `bindEvents(container, callbacks)` uses event delegation to fire: - `onNodeClick(nodeId, event)` — click on any `[data-node-id]` element - `onNodeHover(nodeId | null, event)` — mouseenter/mouseleave on node elements - `onEdgeClick(fromId, toId, event)` — click on any `[data-edge-from]` element - `onEdgeHover(fromId, toId | null, event)` — mouseenter/mouseleave on edge elements - Returns a cleanup function that removes all listeners. - Edge hit areas: edge paths are thin lines. `bindEvents` should set `pointer-events: stroke` and use a wider invisible stroke or a transparent hit-area overlay (≥ 8px clickable width) so edges are practically clickable.
 
-6. **`bindEvents()` exported from dag-map.** Given an SVG container element, `bindEvents(container, callbacks)` uses event delegation to fire:
-   - `onNodeClick(nodeId, event)` — click on any `[data-node-id]` element
-   - `onNodeHover(nodeId | null, event)` — mouseenter/mouseleave on node elements
-   - `onEdgeClick(fromId, toId, event)` — click on any `[data-edge-from]` element
-   - `onEdgeHover(fromId, toId | null, event)` — mouseenter/mouseleave on edge elements
-   - Returns a cleanup function that removes all listeners.
-   - Edge hit areas: edge paths are thin lines. `bindEvents` should set `pointer-events: stroke` and use a wider invisible stroke or a transparent hit-area overlay (≥ 8px clickable width) so edges are practically clickable.
+**`bindEvents()` exported from dag-map.** Given an SVG container element, `bindEvents(container, callbacks)` uses event delegation to fire:
+- `onNodeClick(nodeId, event)` — click on any `[data-node-id]` element
+- `onNodeHover(nodeId | null, event)` — mouseenter/mouseleave on node elements
+- `onEdgeClick(fromId, toId, event)` — click on any `[data-edge-from]` element
+- `onEdgeHover(fromId, toId | null, event)` — mouseenter/mouseleave on edge elements
+- Returns a cleanup function that removes all listeners.
+- Edge hit areas: edge paths are thin lines. `bindEvents` should set `pointer-events: stroke` and use a wider invisible stroke or a transparent hit-area overlay (≥ 8px clickable width) so edges are practically clickable.
 
-7. **`selected` render option in dag-map.** `renderSVG(dag, layout, { ..., selected: Set<string> })` draws a selection indicator (ring, outline, or highlight) on nodes whose ID is in the set. The selection visual must compose correctly with heatmap mode (heatmap fills + selection ring, not one replacing the other).
+### AC-7 — **`selected` render option in dag-map.** `renderSVG(dag, layout, { ..., selected: Set<string> })` draws a selection indicator (ring, outline, or highlight) on nodes whose ID is in the set. The selection visual must compose correctly with heatmap mode (heatmap fills + selection ring, not one replacing the other).
 
-8. **dag-map tests cover events and selection.** Unit tests (dag-map's existing test infrastructure) verify: `bindEvents` fires correct callbacks for node/edge clicks and hovers; `selected` set renders the selection indicator; selection composes with heatmap mode. dag-map version bumped and published (or linked via workspace protocol).
+### AC-8 — **dag-map tests cover events and selection.** Unit tests (dag-map's existing test infrastructure) verify: `bindEvents` fires correct callbacks for node/edge clicks and hovers; `selected` set renders the selection indicator; selection composes with heatmap mode. dag-map version bumped and published (or linked via workspace protocol).
 
-### Workbench panel (AC9-AC14)
+### AC-9 — **Topology page restructured as split layout.** The topology page shows the DAG in the upper area and the workbench panel in the lower area, separated by a resizable split (drag to resize, reasonable default like 60/40 or 65/35). When no nodes are pinned, the workbench shows a minimal empty state hint ("Click a node to inspect").
 
-9. **Topology page restructured as split layout.** The topology page shows the DAG in the upper area and the workbench panel in the lower area, separated by a resizable split (drag to resize, reasonable default like 60/40 or 65/35). When no nodes are pinned, the workbench shows a minimal empty state hint ("Click a node to inspect").
+### AC-10 — **Click-to-pin interaction.** Clicking a node in the topology DAG pins it to the workbench. The node appears with a selection indicator in the DAG (via `selected` set) and a card in the workbench. Clicking a pinned node again unpins it (removes card, removes selection indicator). Multiple nodes can be pinned simultaneously.
 
-10. **Click-to-pin interaction.** Clicking a node in the topology DAG pins it to the workbench. The node appears with a selection indicator in the DAG (via `selected` set) and a card in the workbench. Clicking a pinned node again unpins it (removes card, removes selection indicator). Multiple nodes can be pinned simultaneously.
+### AC-11 — **Node card content.** Each workbench card shows: - Node ID and kind (service, queue, dlq, source, router, etc.) - Key metrics at the current timeline bin: utilization, queue depth, arrivals, served, errors, capacity — as available from the state API response - Sparkline showing the selected metric over the full time window (all bins) - Values formatted with appropriate precision (see `format.ts` utilities) - Compact layout using the density tokens — the card should fit meaningful content in ~180-220px width
 
-11. **Node card content.** Each workbench card shows:
-    - Node ID and kind (service, queue, dlq, source, router, etc.)
-    - Key metrics at the current timeline bin: utilization, queue depth, arrivals, served, errors, capacity — as available from the state API response
-    - Sparkline showing the selected metric over the full time window (all bins)
-    - Values formatted with appropriate precision (see `format.ts` utilities)
-    - Compact layout using the density tokens — the card should fit meaningful content in ~180-220px width
+**Node card content.** Each workbench card shows:
+- Node ID and kind (service, queue, dlq, source, router, etc.)
+- Key metrics at the current timeline bin: utilization, queue depth, arrivals, served, errors, capacity — as available from the state API response
+- Sparkline showing the selected metric over the full time window (all bins)
+- Values formatted with appropriate precision (see `format.ts` utilities)
+- Compact layout using the density tokens — the card should fit meaningful content in ~180-220px width
 
-12. **Timeline integration.** When the timeline scrubs (bin changes), all workbench card metric values update to the new bin. Sparklines show a position indicator (vertical line or dot) at the current bin.
+### AC-12 — **Timeline integration.** When the timeline scrubs (bin changes), all workbench card metric values update to the new bin. Sparklines show a position indicator (vertical line or dot) at the current bin.
 
-13. **Cards dismissible.** Each card has a small close/unpin control. Dismissing a card removes the node from the `selected` set and the workbench.
+### AC-13 — **Cards dismissible.** Each card has a small close/unpin control. Dismissing a card removes the node from the `selected` set and the workbench.
 
-14. **Auto-pin highest-utilization node on first load.** When a run loads and state data is available, the node with the highest utilization at bin 0 is auto-pinned to the workbench so it is never empty on first view. If utilization data is unavailable, skip auto-pin (empty state is acceptable).
+### AC-14 — **Auto-pin highest-utilization node on first load.** When a run loads and state data is available, the node with the highest utilization at bin 0 is auto-pinned to the workbench so it is never empty on first view. If utilization data is unavailable, skip auto-pin (empty state is acceptable).
 
-### Cross-cutting (AC15-AC16)
+### AC-15 — **Playwright test coverage.** At least one Playwright spec covering: (a) topology loads and renders, (b) clicking a node opens a workbench card, (c) clicking the close control removes the card, (d) scrubbing the timeline updates card values. Specs skip gracefully if the API or dev server is unavailable.
 
-15. **Playwright test coverage.** At least one Playwright spec covering: (a) topology loads and renders, (b) clicking a node opens a workbench card, (c) clicking the close control removes the card, (d) scrubbing the timeline updates card values. Specs skip gracefully if the API or dev server is unavailable.
-
-16. **Vitest coverage for new pure logic.** Any new helper functions (metric extraction, card data shaping, sparkline data preparation) have vitest tests with branch coverage.
-
+### AC-16 — **Vitest coverage for new pure logic.** Any new helper functions (metric extraction, card data shaping, sparkline data preparation) have vitest tests with branch coverage.
 ## Technical Notes
 
 ### Density system approach

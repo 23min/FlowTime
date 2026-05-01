@@ -3,6 +3,75 @@ id: M-011
 title: .NET Time Machine CLI
 status: done
 parent: E-18
+acs:
+  - id: AC-1
+    title: Five CLI commands (`validate`, `sweep`, `sensitivity`, `goal-seek`, `optimize`) wired into `Program.cs` 
+      router
+    status: met
+  - id: AC-2
+    title: Each command parses `--spec` / stdin, `--output` / stdout, `--no-session`, `--engine`, `--help`
+    status: met
+  - id: AC-3
+    title: '`validate` reads YAML (not JSON) via `--model` / stdin; outputs `ValidationResult` as JSON'
+    status: met
+  - id: AC-4
+    title: Each analysis command reads its matching `*Spec` as JSON and writes its matching result as JSON, 
+      byte-compatible with the corresponding `/v1/` endpoint
+    status: met
+  - id: AC-5
+    title: '`CliEngineSetup` helper resolves binary path via `--engine` → `FLOWTIME_RUST_BINARY` → solution-relative default
+      → `$PATH`'
+    status: met
+  - id: AC-6
+    title: '`CliEngineSetup` constructs `SessionModelEvaluator` by default; `--no-session` selects `RustModelEvaluator`'
+    status: met
+  - id: AC-7
+    title: '`CliJsonIO` helper reads JSON from stdin-or-file and writes JSON to stdout-or-file with camelCase / web defaults
+      matching the API; `JsonStringEnumConverter` added so `objective: "minimize"` etc. deserialize correctly'
+    status: met
+  - id: AC-8
+    title: Exit codes follow the 0/1/2/3 contract (success / analysis-failed / input-error / engine-error)
+    status: met
+  - id: AC-9
+    title: Missing engine binary produces exit 2 with a readable stderr message
+    status: met
+  - id: AC-10
+    title: Invalid JSON produces exit 2 with a stderr message; no partial stdout
+    status: met
+  - id: AC-11
+    title: '`--help` on any command prints command-specific usage and exits 0'
+    status: met
+  - id: AC-12
+    title: 'Unit tests pass: 72 new CLI unit tests - 15 CliJsonIO (read/write, file/stdin, camelCase, null literal, errors)
+      - 14 CliCommonArgs (all flag variants, missing values, unknown flag, positional, dash-as-positional) - 8 CliEngineSetup
+      (path precedence, evaluator selection, disposal idempotency) - 13 ValidateCommand (help, arg errors, tier, valid/invalid
+      YAML, output) - 18 AnalysisCommandTests (help for each of 4 commands, shared error paths, IsOnPath, BarePath) - 4 deferred
+      (covered by integration tests instead — see below)'
+    status: met
+  - id: AC-13
+    title: 'Integration tests pass with the Rust binary present: 10 tests (TimeMachineCliIntegrationTests) - [x] `flowtime
+      validate` with valid and invalid YAML - [x] `flowtime sweep` end-to-end producing correct series (arrivals=10,20,30
+      → served=5,10,15) - [x] `flowtime sensitivity` end-to-end (∂served/∂arrivals = 0.5) - [x] `flowtime goal-seek` end-to-end
+      (target served=25 → arrivals≈50) - [x] `flowtime optimize` converging on a `MAX(x-7,7-x)` bowl around arrivals=14 -
+      [x] Session vs. per-eval flag (`--no-session`) both work - [x] Output to file (`-o`) matches output to stdout - [x]
+      Engine compile error (unknown function) produces exit 3'
+    status: met
+  - id: AC-14
+    title: Every reachable path in the new command classes and helpers is covered (line-by-line audited)
+    status: met
+  - id: AC-15
+    title: '`docs/architecture/time-machine-analysis-modes.md` — new "CLI surface" section documents the five commands, JSON
+      I/O contract, exit codes, evaluator selection, engine resolution, and pipeline composition example'
+    status: met
+  - id: AC-16
+    title: '`Program.cs` `PrintUsage` updated with the five new commands'
+    status: met
+  - id: AC-17
+    title: '`dotnet build FlowTime.sln` green'
+    status: met
+  - id: AC-18
+    title: '`dotnet test FlowTime.sln` all green — 1,702 passed / 9 skipped'
+    status: met
 ---
 
 ## Goal
@@ -170,41 +239,61 @@ cat optimize-spec.json | flowtime optimize
 The JSON path is pipeline-native: compose with `jq`, store specs as fixtures, invoke
 from Azure Functions custom handlers, share spec files with the API.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-- [x] Five CLI commands (`validate`, `sweep`, `sensitivity`, `goal-seek`, `optimize`) wired into `Program.cs` router
-- [x] Each command parses `--spec` / stdin, `--output` / stdout, `--no-session`, `--engine`, `--help`
-- [x] `validate` reads YAML (not JSON) via `--model` / stdin; outputs `ValidationResult` as JSON
-- [x] Each analysis command reads its matching `*Spec` as JSON and writes its matching result as JSON, byte-compatible with the corresponding `/v1/` endpoint
-- [x] `CliEngineSetup` helper resolves binary path via `--engine` → `FLOWTIME_RUST_BINARY` → solution-relative default → `$PATH`
-- [x] `CliEngineSetup` constructs `SessionModelEvaluator` by default; `--no-session` selects `RustModelEvaluator`
-- [x] `CliJsonIO` helper reads JSON from stdin-or-file and writes JSON to stdout-or-file with camelCase / web defaults matching the API; `JsonStringEnumConverter` added so `objective: "minimize"` etc. deserialize correctly
-- [x] Exit codes follow the 0/1/2/3 contract (success / analysis-failed / input-error / engine-error)
-- [x] Missing engine binary produces exit 2 with a readable stderr message
-- [x] Invalid JSON produces exit 2 with a stderr message; no partial stdout
-- [x] `--help` on any command prints command-specific usage and exits 0
-- [x] Unit tests pass: 72 new CLI unit tests
-  - 15 CliJsonIO (read/write, file/stdin, camelCase, null literal, errors)
-  - 14 CliCommonArgs (all flag variants, missing values, unknown flag, positional, dash-as-positional)
-  - 8 CliEngineSetup (path precedence, evaluator selection, disposal idempotency)
-  - 13 ValidateCommand (help, arg errors, tier, valid/invalid YAML, output)
-  - 18 AnalysisCommandTests (help for each of 4 commands, shared error paths, IsOnPath, BarePath)
-  - 4 deferred (covered by integration tests instead — see below)
-- [x] Integration tests pass with the Rust binary present: 10 tests (TimeMachineCliIntegrationTests)
-  - [x] `flowtime validate` with valid and invalid YAML
-  - [x] `flowtime sweep` end-to-end producing correct series (arrivals=10,20,30 → served=5,10,15)
-  - [x] `flowtime sensitivity` end-to-end (∂served/∂arrivals = 0.5)
-  - [x] `flowtime goal-seek` end-to-end (target served=25 → arrivals≈50)
-  - [x] `flowtime optimize` converging on a `MAX(x-7,7-x)` bowl around arrivals=14
-  - [x] Session vs. per-eval flag (`--no-session`) both work
-  - [x] Output to file (`-o`) matches output to stdout
-  - [x] Engine compile error (unknown function) produces exit 3
-- [x] Every reachable path in the new command classes and helpers is covered (line-by-line audited)
-- [x] `docs/architecture/time-machine-analysis-modes.md` — new "CLI surface" section documents the five commands, JSON I/O contract, exit codes, evaluator selection, engine resolution, and pipeline composition example
-- [x] `Program.cs` `PrintUsage` updated with the five new commands
-- [x] `dotnet build FlowTime.sln` green
-- [x] `dotnet test FlowTime.sln` all green — 1,702 passed / 9 skipped
+### AC-1 — Five CLI commands (`validate`, `sweep`, `sensitivity`, `goal-seek`, `optimize`) wired into `Program.cs` router
 
+### AC-2 — Each command parses `--spec` / stdin, `--output` / stdout, `--no-session`, `--engine`, `--help`
+
+### AC-3 — `validate` reads YAML (not JSON) via `--model` / stdin; outputs `ValidationResult` as JSON
+
+### AC-4 — Each analysis command reads its matching `*Spec` as JSON and writes its matching result as JSON, byte-compatible with the corresponding `/v1/` endpoint
+
+### AC-5 — `CliEngineSetup` helper resolves binary path via `--engine` → `FLOWTIME_RUST_BINARY` → solution-relative default → `$PATH`
+
+### AC-6 — `CliEngineSetup` constructs `SessionModelEvaluator` by default; `--no-session` selects `RustModelEvaluator`
+
+### AC-7 — `CliJsonIO` helper reads JSON from stdin-or-file and writes JSON to stdout-or-file with camelCase / web defaults matching the API; `JsonStringEnumConverter` added so `objective: "minimize"` etc. deserialize correctly
+
+### AC-8 — Exit codes follow the 0/1/2/3 contract (success / analysis-failed / input-error / engine-error)
+
+### AC-9 — Missing engine binary produces exit 2 with a readable stderr message
+
+### AC-10 — Invalid JSON produces exit 2 with a stderr message; no partial stdout
+
+### AC-11 — `--help` on any command prints command-specific usage and exits 0
+
+### AC-12 — Unit tests pass: 72 new CLI unit tests - 15 CliJsonIO (read/write, file/stdin, camelCase, null literal, errors) - 14 CliCommonArgs (all flag variants, missing values, unknown flag, positional, dash-as-positional) - 8 CliEngineSetup (path precedence, evaluator selection, disposal idempotency) - 13 ValidateCommand (help, arg errors, tier, valid/invalid YAML, output) - 18 AnalysisCommandTests (help for each of 4 commands, shared error paths, IsOnPath, BarePath) - 4 deferred (covered by integration tests instead — see below)
+
+Unit tests pass: 72 new CLI unit tests
+- 15 CliJsonIO (read/write, file/stdin, camelCase, null literal, errors)
+- 14 CliCommonArgs (all flag variants, missing values, unknown flag, positional, dash-as-positional)
+- 8 CliEngineSetup (path precedence, evaluator selection, disposal idempotency)
+- 13 ValidateCommand (help, arg errors, tier, valid/invalid YAML, output)
+- 18 AnalysisCommandTests (help for each of 4 commands, shared error paths, IsOnPath, BarePath)
+- 4 deferred (covered by integration tests instead — see below)
+
+### AC-13 — Integration tests pass with the Rust binary present: 10 tests (TimeMachineCliIntegrationTests) - [x] `flowtime validate` with valid and invalid YAML - [x] `flowtime sweep` end-to-end producing correct series (arrivals=10,20,30 → served=5,10,15) - [x] `flowtime sensitivity` end-to-end (∂served/∂arrivals = 0.5) - [x] `flowtime goal-seek` end-to-end (target served=25 → arrivals≈50) - [x] `flowtime optimize` converging on a `MAX(x-7,7-x)` bowl around arrivals=14 - [x] Session vs. per-eval flag (`--no-session`) both work - [x] Output to file (`-o`) matches output to stdout - [x] Engine compile error (unknown function) produces exit 3
+
+Integration tests pass with the Rust binary present: 10 tests (TimeMachineCliIntegrationTests)
+- [x] `flowtime validate` with valid and invalid YAML
+- [x] `flowtime sweep` end-to-end producing correct series (arrivals=10,20,30 → served=5,10,15)
+- [x] `flowtime sensitivity` end-to-end (∂served/∂arrivals = 0.5)
+- [x] `flowtime goal-seek` end-to-end (target served=25 → arrivals≈50)
+- [x] `flowtime optimize` converging on a `MAX(x-7,7-x)` bowl around arrivals=14
+- [x] Session vs. per-eval flag (`--no-session`) both work
+- [x] Output to file (`-o`) matches output to stdout
+- [x] Engine compile error (unknown function) produces exit 3
+
+### AC-14 — Every reachable path in the new command classes and helpers is covered (line-by-line audited)
+
+### AC-15 — `docs/architecture/time-machine-analysis-modes.md` — new "CLI surface" section documents the five commands, JSON I/O contract, exit codes, evaluator selection, engine resolution, and pipeline composition example
+
+### AC-16 — `Program.cs` `PrintUsage` updated with the five new commands
+
+### AC-17 — `dotnet build FlowTime.sln` green
+
+### AC-18 — `dotnet test FlowTime.sln` all green — 1,702 passed / 9 skipped
 ## Coverage notes
 
 **Covered:** every reachable branch in the command classes, helpers, and the `AnalysisCliRunner` shared path. The 89 CLI unit tests explicitly exercise:

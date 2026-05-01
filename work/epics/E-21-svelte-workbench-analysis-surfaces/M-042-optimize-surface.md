@@ -3,6 +3,87 @@ id: M-042
 title: Optimize Surface
 status: done
 parent: E-21
+acs:
+  - id: AC-1
+    title: '**Optimize placeholder replaced.** The `optimize` tab panel in `ui/src/routes/analysis/+page.svelte` renders live
+      content (not the M-041 "coming in M-042" stub). `TAB_INFO` copy for Optimize stands as-is — "convergence history" now
+      accurately describes what the UI renders.'
+    status: met
+  - id: AC-2
+    title: '**Param multi-select with bounds — layout.** Chip-bar of all discovered const params at the top (toggle to include
+      in the optimization; same chip styling and toggle interaction as Sensitivity). Below the chip-bar, a **compact table**
+      with one row per selected param and columns `param id`, `baseline`, `lo`, `hi`. The `lo` / `hi` cells are inline numeric
+      inputs with defaults `0.5 × baseline` / `2 × baseline`; the table appears only when at least one chip is active. Rationale:
+      keeps the chip-bar a pure selector (matches Sensitivity muscle memory) and groups the bounds into one aligned grid,
+      which reads cleanly for 1–5 params (the realistic scale for a hand-driven Nelder-Mead session). **Empty state** when
+      no const params are discoverable on the current model: render the Sweep/Goal-Seek shape string `"No const-kind parameters
+      in this model to optimize over."` in the same `<p class="text-xs text-muted-foreground italic">` wrapper used by the
+      Sweep (line 678) and Goal Seek (line 1004) surfaces in `ui/src/routes/analysis/+page.svelte`, with the Run button disabled.
+      **No-params-selected state**: when the chip-bar has rendered but zero chips are toggled on, the bounds table is hidden
+      and the Run button is disabled with an inline hint ("select at least one parameter"). Inline validation: at least one
+      param selected; for every selected param, both bounds required and `lo < hi`.'
+    status: met
+  - id: AC-3
+    title: '**Objective metric + direction + advanced inputs.** Free-text `metricSeriesId` with the same chip shortcuts used
+      by Sensitivity (`served`, `queue`, `flowLatencyMs`, `utilization`). A two-option toggle for direction (`minimize` /
+      `maximize`), defaulting to `minimize` on first render and after every scenario-change reset. A collapsed "Advanced"
+      disclosure exposes `tolerance` (default 1e-4) and `maxIterations` (default 200). All required fields must be valid before
+      the Run button enables.'
+    status: met
+  - id: AC-4
+    title: "**Run optimize and render results.** \"Run optimize\" button calls `flowtime.optimize(...)` (new API method —
+      see Technical Notes). While running, show a spinner (`Loader2Icon`) and disable the button. On success, render: - The
+      **shared** result card (delivered in M-041) showing the objective metric + direction, final `achievedMetricMean`, converged
+      badge, iteration count. - A per-param table: `paramId`, final value, `[lo, hi]` bound (printed as `[lo, hi]` in a text
+      cell), and a **separate** column for the mini \"range bar\" (SVG, reuses `interval-bar-geometry.ts` from M-041) showing
+      where the final value landed inside its bound. The range bar is its own column — do not overlay it on the `[lo, hi]`
+      text cell, so the text stays selectable/copyable and the bar's width is not coupled to text length. - The **shared**
+      convergence chart (delivered in M-041) plotting `metricMean` vs `iteration` over the full trace. No target reference
+      line (there is no target for optimize) — the y-axis label reflects the direction (\"minimizing X\" / \"maximizing X\"\
+      ). - 400 and 503 errors surfaced as inline messages using the existing analysis-page error pattern."
+    status: met
+  - id: AC-5
+    title: "**Not-converged state.** When the API returns `converged: false` with `iterations == maxIterations`, the shared
+      result card shows an amber \"did not converge\" badge (same pattern as Goal Seek's max-iterations case from M-041 AC9)
+      and the convergence chart is drawn over the full trace. When `converged: false` with `iterations == 0` (initial simplex
+      failed to satisfy tolerance in 0 iterations — a degenerate max-iterations case), the single `iteration: 0` trace point
+      is plotted and the amber badge still shows. The per-param table renders whatever final `paramValues` the response carries."
+    status: met
+  - id: AC-6
+    title: '**Session form state.** The Optimize form retains its last input values (selected param chips, per-param bounds,
+      metric, direction, advanced fields) across tab switches within the same page session (in-memory is sufficient). Form
+      values reset when the scenario (run / sample model) changes. Mirrors the Sweep + Goal Seek tab behaviour.'
+    status: met
+  - id: AC-7
+    title: "**Vitest coverage for pure logic.** Optimize-specific pure helpers live in a new sibling file `ui/src/lib/utils/optimize-helpers.ts`
+      (with `optimize-helpers.test.ts` alongside it). Do **not** pile them into `analysis-helpers.ts` — keep the optimize
+      surface's helpers modular and scoped to the surface, mirroring how each analysis surface owns its own component files.
+      Branch-covered tests: - `validateOptimizeForm({ selectedParams, bounds, metricSeriesId, objective })` — per-field error
+      map. Exercises: no params selected; missing lo or hi on any selected param; `lo >= hi`; non-finite bounds; empty metric
+      string; invalid objective. - Any per-param range-bar geometry helper extracted from `interval-bar-geometry.ts` for the
+      table's mini bars. (If the existing `intervalMarkerGeometry` from M-041 covers this unchanged, no new tests are required
+      beyond a call-site test.) - Shared cross-surface helpers (e.g. `discoverConstParams`) stay in `analysis-helpers.ts`;
+      optimize-only helpers stay in `optimize-helpers.ts`. - No mocks; no DOM."
+    status: met
+  - id: AC-8
+    title: "**Playwright coverage.** Extend `tests/ui/specs/svelte-analysis.spec.ts` (preferred) or add `svelte-analysis-optimize.spec.ts`:
+      - Optimize happy path: page loads, param chip-bar populates, multi-select toggles work, bounds inputs render per selected
+      param, direction toggle works, Run button disabled until form is complete, run against a real engine returns the shared
+      result card **with a converged badge**, a **per-param result table with one row per selected param (id, final value,
+      `[lo, hi]` bound, and a rendered range bar)**, and a rendered convergence chart with multiple iterations plotted. Uses
+      the deterministic tuple recorded in the tracking doc's Notes section (≥ 2 const params from a named bundled sample,
+      bounds that reliably converge inside `maxIterations`). - No-params-selected state: when the user opens the Optimize
+      tab with no chips toggled on, the bounds table is hidden, the Run button is disabled, and the inline hint renders. -
+      Graceful skip when Engine API (8081) or Svelte dev server (5173) is down, matching the existing probe-and-skip pattern
+      in `svelte-analysis.spec.ts`."
+    status: met
+  - id: AC-9
+    title: "**Line-by-line branch audit** before the commit-approval prompt — the new UI components / helpers only (backend
+      audit is complete from M-041). Enumerate every reachable branch in `validateOptimizeForm` (and any sibling helpers in
+      `optimize-helpers.ts`), the per-param range-bar call sites, and the Optimize tab's render conditions (happy-path / empty
+      / no-params-selected / not-converged), matching each to a test (vitest / Playwright). Record unreachable / defensive-default
+      branches in the tracking doc's Coverage Notes, following M-040's pattern."
+    status: met
 ---
 
 **Created:** 2026-04-21 (split from M-041)
@@ -67,37 +148,42 @@ Trace semantics (as delivered by M-041's backend AC2):
 
 400 / 503 behaviour unchanged.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-1. **Optimize placeholder replaced.** The `optimize` tab panel in `ui/src/routes/analysis/+page.svelte` renders live content (not the M-041 "coming in M-042" stub). `TAB_INFO` copy for Optimize stands as-is — "convergence history" now accurately describes what the UI renders.
+### AC-1 — **Optimize placeholder replaced.** The `optimize` tab panel in `ui/src/routes/analysis/+page.svelte` renders live content (not the M-041 "coming in M-042" stub). `TAB_INFO` copy for Optimize stands as-is — "convergence history" now accurately describes what the UI renders.
 
-2. **Param multi-select with bounds — layout.** Chip-bar of all discovered const params at the top (toggle to include in the optimization; same chip styling and toggle interaction as Sensitivity). Below the chip-bar, a **compact table** with one row per selected param and columns `param id`, `baseline`, `lo`, `hi`. The `lo` / `hi` cells are inline numeric inputs with defaults `0.5 × baseline` / `2 × baseline`; the table appears only when at least one chip is active. Rationale: keeps the chip-bar a pure selector (matches Sensitivity muscle memory) and groups the bounds into one aligned grid, which reads cleanly for 1–5 params (the realistic scale for a hand-driven Nelder-Mead session). **Empty state** when no const params are discoverable on the current model: render the Sweep/Goal-Seek shape string `"No const-kind parameters in this model to optimize over."` in the same `<p class="text-xs text-muted-foreground italic">` wrapper used by the Sweep (line 678) and Goal Seek (line 1004) surfaces in `ui/src/routes/analysis/+page.svelte`, with the Run button disabled. **No-params-selected state**: when the chip-bar has rendered but zero chips are toggled on, the bounds table is hidden and the Run button is disabled with an inline hint ("select at least one parameter"). Inline validation: at least one param selected; for every selected param, both bounds required and `lo < hi`.
+### AC-2 — **Param multi-select with bounds — layout.** Chip-bar of all discovered const params at the top (toggle to include in the optimization; same chip styling and toggle interaction as Sensitivity). Below the chip-bar, a **compact table** with one row per selected param and columns `param id`, `baseline`, `lo`, `hi`. The `lo` / `hi` cells are inline numeric inputs with defaults `0.5 × baseline` / `2 × baseline`; the table appears only when at least one chip is active. Rationale: keeps the chip-bar a pure selector (matches Sensitivity muscle memory) and groups the bounds into one aligned grid, which reads cleanly for 1–5 params (the realistic scale for a hand-driven Nelder-Mead session). **Empty state** when no const params are discoverable on the current model: render the Sweep/Goal-Seek shape string `"No const-kind parameters in this model to optimize over."` in the same `<p class="text-xs text-muted-foreground italic">` wrapper used by the Sweep (line 678) and Goal Seek (line 1004) surfaces in `ui/src/routes/analysis/+page.svelte`, with the Run button disabled. **No-params-selected state**: when the chip-bar has rendered but zero chips are toggled on, the bounds table is hidden and the Run button is disabled with an inline hint ("select at least one parameter"). Inline validation: at least one param selected; for every selected param, both bounds required and `lo < hi`.
 
-3. **Objective metric + direction + advanced inputs.** Free-text `metricSeriesId` with the same chip shortcuts used by Sensitivity (`served`, `queue`, `flowLatencyMs`, `utilization`). A two-option toggle for direction (`minimize` / `maximize`), defaulting to `minimize` on first render and after every scenario-change reset. A collapsed "Advanced" disclosure exposes `tolerance` (default 1e-4) and `maxIterations` (default 200). All required fields must be valid before the Run button enables.
+### AC-3 — **Objective metric + direction + advanced inputs.** Free-text `metricSeriesId` with the same chip shortcuts used by Sensitivity (`served`, `queue`, `flowLatencyMs`, `utilization`). A two-option toggle for direction (`minimize` / `maximize`), defaulting to `minimize` on first render and after every scenario-change reset. A collapsed "Advanced" disclosure exposes `tolerance` (default 1e-4) and `maxIterations` (default 200). All required fields must be valid before the Run button enables.
 
-4. **Run optimize and render results.** "Run optimize" button calls `flowtime.optimize(...)` (new API method — see Technical Notes). While running, show a spinner (`Loader2Icon`) and disable the button. On success, render:
-    - The **shared** result card (delivered in M-041) showing the objective metric + direction, final `achievedMetricMean`, converged badge, iteration count.
-    - A per-param table: `paramId`, final value, `[lo, hi]` bound (printed as `[lo, hi]` in a text cell), and a **separate** column for the mini "range bar" (SVG, reuses `interval-bar-geometry.ts` from M-041) showing where the final value landed inside its bound. The range bar is its own column — do not overlay it on the `[lo, hi]` text cell, so the text stays selectable/copyable and the bar's width is not coupled to text length.
-    - The **shared** convergence chart (delivered in M-041) plotting `metricMean` vs `iteration` over the full trace. No target reference line (there is no target for optimize) — the y-axis label reflects the direction ("minimizing X" / "maximizing X").
-    - 400 and 503 errors surfaced as inline messages using the existing analysis-page error pattern.
+### AC-4 — **Run optimize and render results.** "Run optimize" button calls `flowtime.optimize(...)` (new API method — see Technical Notes). While running, show a spinner (`Loader2Icon`) and disable the button. On success, render: - The **shared** result card (delivered in M-041) showing the objective metric + direction, final `achievedMetricMean`, converged badge, iteration count. - A per-param table: `paramId`, final value, `[lo, hi]` bound (printed as `[lo, hi]` in a text cell), and a **separate** column for the mini "range bar" (SVG, reuses `interval-bar-geometry.ts` from M-041) showing where the final value landed inside its bound. The range bar is its own column — do not overlay it on the `[lo, hi]` text cell, so the text stays selectable/copyable and the bar's width is not coupled to text length. - The **shared** convergence chart (delivered in M-041) plotting `metricMean` vs `iteration` over the full trace. No target reference line (there is no target for optimize) — the y-axis label reflects the direction ("minimizing X" / "maximizing X"). - 400 and 503 errors surfaced as inline messages using the existing analysis-page error pattern.
 
-5. **Not-converged state.** When the API returns `converged: false` with `iterations == maxIterations`, the shared result card shows an amber "did not converge" badge (same pattern as Goal Seek's max-iterations case from M-041 AC9) and the convergence chart is drawn over the full trace. When `converged: false` with `iterations == 0` (initial simplex failed to satisfy tolerance in 0 iterations — a degenerate max-iterations case), the single `iteration: 0` trace point is plotted and the amber badge still shows. The per-param table renders whatever final `paramValues` the response carries.
+**Run optimize and render results.** "Run optimize" button calls `flowtime.optimize(...)` (new API method — see Technical Notes). While running, show a spinner (`Loader2Icon`) and disable the button. On success, render:
+- The **shared** result card (delivered in M-041) showing the objective metric + direction, final `achievedMetricMean`, converged badge, iteration count.
+- A per-param table: `paramId`, final value, `[lo, hi]` bound (printed as `[lo, hi]` in a text cell), and a **separate** column for the mini "range bar" (SVG, reuses `interval-bar-geometry.ts` from M-041) showing where the final value landed inside its bound. The range bar is its own column — do not overlay it on the `[lo, hi]` text cell, so the text stays selectable/copyable and the bar's width is not coupled to text length.
+- The **shared** convergence chart (delivered in M-041) plotting `metricMean` vs `iteration` over the full trace. No target reference line (there is no target for optimize) — the y-axis label reflects the direction ("minimizing X" / "maximizing X").
+- 400 and 503 errors surfaced as inline messages using the existing analysis-page error pattern.
 
-6. **Session form state.** The Optimize form retains its last input values (selected param chips, per-param bounds, metric, direction, advanced fields) across tab switches within the same page session (in-memory is sufficient). Form values reset when the scenario (run / sample model) changes. Mirrors the Sweep + Goal Seek tab behaviour.
+### AC-5 — **Not-converged state.** When the API returns `converged: false` with `iterations == maxIterations`, the shared result card shows an amber "did not converge" badge (same pattern as Goal Seek's max-iterations case from M-041 AC9) and the convergence chart is drawn over the full trace. When `converged: false` with `iterations == 0` (initial simplex failed to satisfy tolerance in 0 iterations — a degenerate max-iterations case), the single `iteration: 0` trace point is plotted and the amber badge still shows. The per-param table renders whatever final `paramValues` the response carries.
 
-7. **Vitest coverage for pure logic.** Optimize-specific pure helpers live in a new sibling file `ui/src/lib/utils/optimize-helpers.ts` (with `optimize-helpers.test.ts` alongside it). Do **not** pile them into `analysis-helpers.ts` — keep the optimize surface's helpers modular and scoped to the surface, mirroring how each analysis surface owns its own component files. Branch-covered tests:
-    - `validateOptimizeForm({ selectedParams, bounds, metricSeriesId, objective })` — per-field error map. Exercises: no params selected; missing lo or hi on any selected param; `lo >= hi`; non-finite bounds; empty metric string; invalid objective.
-    - Any per-param range-bar geometry helper extracted from `interval-bar-geometry.ts` for the table's mini bars. (If the existing `intervalMarkerGeometry` from M-041 covers this unchanged, no new tests are required beyond a call-site test.)
-    - Shared cross-surface helpers (e.g. `discoverConstParams`) stay in `analysis-helpers.ts`; optimize-only helpers stay in `optimize-helpers.ts`.
-    - No mocks; no DOM.
+### AC-6 — **Session form state.** The Optimize form retains its last input values (selected param chips, per-param bounds, metric, direction, advanced fields) across tab switches within the same page session (in-memory is sufficient). Form values reset when the scenario (run / sample model) changes. Mirrors the Sweep + Goal Seek tab behaviour.
 
-8. **Playwright coverage.** Extend `tests/ui/specs/svelte-analysis.spec.ts` (preferred) or add `svelte-analysis-optimize.spec.ts`:
-    - Optimize happy path: page loads, param chip-bar populates, multi-select toggles work, bounds inputs render per selected param, direction toggle works, Run button disabled until form is complete, run against a real engine returns the shared result card **with a converged badge**, a **per-param result table with one row per selected param (id, final value, `[lo, hi]` bound, and a rendered range bar)**, and a rendered convergence chart with multiple iterations plotted. Uses the deterministic tuple recorded in the tracking doc's Notes section (≥ 2 const params from a named bundled sample, bounds that reliably converge inside `maxIterations`).
-    - No-params-selected state: when the user opens the Optimize tab with no chips toggled on, the bounds table is hidden, the Run button is disabled, and the inline hint renders.
-    - Graceful skip when Engine API (8081) or Svelte dev server (5173) is down, matching the existing probe-and-skip pattern in `svelte-analysis.spec.ts`.
+### AC-7 — **Vitest coverage for pure logic.** Optimize-specific pure helpers live in a new sibling file `ui/src/lib/utils/optimize-helpers.ts` (with `optimize-helpers.test.ts` alongside it). Do **not** pile them into `analysis-helpers.ts` — keep the optimize surface's helpers modular and scoped to the surface, mirroring how each analysis surface owns its own component files. Branch-covered tests: - `validateOptimizeForm({ selectedParams, bounds, metricSeriesId, objective })` — per-field error map. Exercises: no params selected; missing lo or hi on any selected param; `lo >= hi`; non-finite bounds; empty metric string; invalid objective. - Any per-param range-bar geometry helper extracted from `interval-bar-geometry.ts` for the table's mini bars. (If the existing `intervalMarkerGeometry` from M-041 covers this unchanged, no new tests are required beyond a call-site test.) - Shared cross-surface helpers (e.g. `discoverConstParams`) stay in `analysis-helpers.ts`; optimize-only helpers stay in `optimize-helpers.ts`. - No mocks; no DOM.
 
-9. **Line-by-line branch audit** before the commit-approval prompt — the new UI components / helpers only (backend audit is complete from M-041). Enumerate every reachable branch in `validateOptimizeForm` (and any sibling helpers in `optimize-helpers.ts`), the per-param range-bar call sites, and the Optimize tab's render conditions (happy-path / empty / no-params-selected / not-converged), matching each to a test (vitest / Playwright). Record unreachable / defensive-default branches in the tracking doc's Coverage Notes, following M-040's pattern.
+**Vitest coverage for pure logic.** Optimize-specific pure helpers live in a new sibling file `ui/src/lib/utils/optimize-helpers.ts` (with `optimize-helpers.test.ts` alongside it). Do **not** pile them into `analysis-helpers.ts` — keep the optimize surface's helpers modular and scoped to the surface, mirroring how each analysis surface owns its own component files. Branch-covered tests:
+- `validateOptimizeForm({ selectedParams, bounds, metricSeriesId, objective })` — per-field error map. Exercises: no params selected; missing lo or hi on any selected param; `lo >= hi`; non-finite bounds; empty metric string; invalid objective.
+- Any per-param range-bar geometry helper extracted from `interval-bar-geometry.ts` for the table's mini bars. (If the existing `intervalMarkerGeometry` from M-041 covers this unchanged, no new tests are required beyond a call-site test.)
+- Shared cross-surface helpers (e.g. `discoverConstParams`) stay in `analysis-helpers.ts`; optimize-only helpers stay in `optimize-helpers.ts`.
+- No mocks; no DOM.
 
+### AC-8 — **Playwright coverage.** Extend `tests/ui/specs/svelte-analysis.spec.ts` (preferred) or add `svelte-analysis-optimize.spec.ts`: - Optimize happy path: page loads, param chip-bar populates, multi-select toggles work, bounds inputs render per selected param, direction toggle works, Run button disabled until form is complete, run against a real engine returns the shared result card **with a converged badge**, a **per-param result table with one row per selected param (id, final value, `[lo, hi]` bound, and a rendered range bar)**, and a rendered convergence chart with multiple iterations plotted. Uses the deterministic tuple recorded in the tracking doc's Notes section (≥ 2 const params from a named bundled sample, bounds that reliably converge inside `maxIterations`). - No-params-selected state: when the user opens the Optimize tab with no chips toggled on, the bounds table is hidden, the Run button is disabled, and the inline hint renders. - Graceful skip when Engine API (8081) or Svelte dev server (5173) is down, matching the existing probe-and-skip pattern in `svelte-analysis.spec.ts`.
+
+**Playwright coverage.** Extend `tests/ui/specs/svelte-analysis.spec.ts` (preferred) or add `svelte-analysis-optimize.spec.ts`:
+- Optimize happy path: page loads, param chip-bar populates, multi-select toggles work, bounds inputs render per selected param, direction toggle works, Run button disabled until form is complete, run against a real engine returns the shared result card **with a converged badge**, a **per-param result table with one row per selected param (id, final value, `[lo, hi]` bound, and a rendered range bar)**, and a rendered convergence chart with multiple iterations plotted. Uses the deterministic tuple recorded in the tracking doc's Notes section (≥ 2 const params from a named bundled sample, bounds that reliably converge inside `maxIterations`).
+- No-params-selected state: when the user opens the Optimize tab with no chips toggled on, the bounds table is hidden, the Run button is disabled, and the inline hint renders.
+- Graceful skip when Engine API (8081) or Svelte dev server (5173) is down, matching the existing probe-and-skip pattern in `svelte-analysis.spec.ts`.
+
+### AC-9 — **Line-by-line branch audit** before the commit-approval prompt — the new UI components / helpers only (backend audit is complete from M-041). Enumerate every reachable branch in `validateOptimizeForm` (and any sibling helpers in `optimize-helpers.ts`), the per-param range-bar call sites, and the Optimize tab's render conditions (happy-path / empty / no-params-selected / not-converged), matching each to a test (vitest / Playwright). Record unreachable / defensive-default branches in the tracking doc's Coverage Notes, following M-040's pattern.
 ## Technical Notes
 
 - **API client addition** (`ui/src/lib/api/flowtime.ts`):

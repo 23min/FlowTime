@@ -6,15 +6,15 @@ _166 entities · 0 errors · 4 warnings · run `aiwf check` for details_
 
 ### E-11 — Svelte UI — Parallel Frontend Track _(active)_
 
-- ✓ **M-061** — Project Scaffold & Shell _(done)_
-- → **M-062** — Run Orchestration _(in_progress)_
+- ✓ **M-061** — Project Scaffold & Shell _(done)_ — ACs 4/4 met
+- → **M-062** — Run Orchestration _(in_progress)_ — ACs 0/7 met (7 open)
 
 ```mermaid
 flowchart LR
   E_11["E-11<br/>Svelte UI — Parallel Frontend Track"]:::epic_active
-  M_061["M-061<br/>Project Scaffold & Shell"]:::ms_done
+  M_061["M-061 (4/4)<br/>Project Scaffold & Shell"]:::ms_done
   E_11 --> M_061
-  M_062["M-062<br/>Run Orchestration"]:::ms_in_progress
+  M_062["M-062 (0/7)<br/>Run Orchestration"]:::ms_in_progress
   E_11 --> M_062
   classDef epic_active fill:#d6eaff,stroke:#1a73e8,color:#000
   classDef epic_proposed fill:#f4f4f4,stroke:#888,color:#000
@@ -26,42 +26,42 @@ flowchart LR
 
 ### E-18 — Time Machine _(active)_
 
-- ✓ **M-001** — Parameterized Evaluation _(done)_
-- ✓ **M-002** — Engine Session + Streaming Protocol _(done)_
-- ✓ **M-003** — Tiered Validation _(done)_
-- ✓ **M-004** — Generator Extraction → TimeMachine _(done)_
-- ✓ **M-005** — ITelemetrySource Contract _(done)_
-- ✓ **M-006** — Parameter Sweep _(done)_
-- ✓ **M-007** — Sensitivity Analysis _(done)_
-- ✓ **M-008** — Goal Seeking _(done)_
-- ✓ **M-009** — Multi-parameter Optimization _(done)_
-- ✓ **M-010** — SessionModelEvaluator _(done)_
-- ✓ **M-011** — .NET Time Machine CLI _(done)_
+- ✓ **M-001** — Parameterized Evaluation _(done)_ — ACs 10/10 met
+- ✓ **M-002** — Engine Session + Streaming Protocol _(done)_ — ACs 10/10 met
+- ✓ **M-003** — Tiered Validation _(done)_ — ACs 9/9 met
+- ✓ **M-004** — Generator Extraction → TimeMachine _(done)_ — ACs 6/6 met
+- ✓ **M-005** — ITelemetrySource Contract _(done)_ — ACs 8/8 met
+- ✓ **M-006** — Parameter Sweep _(done)_ — ACs 12/12 met
+- ✓ **M-007** — Sensitivity Analysis _(done)_ — ACs 13/13 met
+- ✓ **M-008** — Goal Seeking _(done)_ — ACs 10/10 met
+- ✓ **M-009** — Multi-parameter Optimization _(done)_ — ACs 11/11 met
+- ✓ **M-010** — SessionModelEvaluator _(done)_ — ACs 20/20 met
+- ✓ **M-011** — .NET Time Machine CLI _(done)_ — ACs 18/18 met
 
 ```mermaid
 flowchart LR
   E_18["E-18<br/>Time Machine"]:::epic_active
-  M_001["M-001<br/>Parameterized Evaluation"]:::ms_done
+  M_001["M-001 (10/10)<br/>Parameterized Evaluation"]:::ms_done
   E_18 --> M_001
-  M_002["M-002<br/>Engine Session + Streaming Protocol"]:::ms_done
+  M_002["M-002 (10/10)<br/>Engine Session + Streaming Protocol"]:::ms_done
   E_18 --> M_002
-  M_003["M-003<br/>Tiered Validation"]:::ms_done
+  M_003["M-003 (9/9)<br/>Tiered Validation"]:::ms_done
   E_18 --> M_003
-  M_004["M-004<br/>Generator Extraction → TimeMachine"]:::ms_done
+  M_004["M-004 (6/6)<br/>Generator Extraction → TimeMachine"]:::ms_done
   E_18 --> M_004
-  M_005["M-005<br/>ITelemetrySource Contract"]:::ms_done
+  M_005["M-005 (8/8)<br/>ITelemetrySource Contract"]:::ms_done
   E_18 --> M_005
-  M_006["M-006<br/>Parameter Sweep"]:::ms_done
+  M_006["M-006 (12/12)<br/>Parameter Sweep"]:::ms_done
   E_18 --> M_006
-  M_007["M-007<br/>Sensitivity Analysis"]:::ms_done
+  M_007["M-007 (13/13)<br/>Sensitivity Analysis"]:::ms_done
   E_18 --> M_007
-  M_008["M-008<br/>Goal Seeking"]:::ms_done
+  M_008["M-008 (10/10)<br/>Goal Seeking"]:::ms_done
   E_18 --> M_008
-  M_009["M-009<br/>Multi-parameter Optimization"]:::ms_done
+  M_009["M-009 (11/11)<br/>Multi-parameter Optimization"]:::ms_done
   E_18 --> M_009
-  M_010["M-010<br/>SessionModelEvaluator"]:::ms_done
+  M_010["M-010 (20/20)<br/>SessionModelEvaluator"]:::ms_done
   E_18 --> M_010
-  M_011["M-011<br/>.NET Time Machine CLI"]:::ms_done
+  M_011["M-011 (18/18)<br/>.NET Time Machine CLI"]:::ms_done
   E_18 --> M_011
   classDef epic_active fill:#d6eaff,stroke:#1a73e8,color:#000
   classDef epic_proposed fill:#f4f4f4,stroke:#888,color:#000

@@ -3,6 +3,37 @@ id: M-025
 title: Sim Authoring & Runtime Boundary Cleanup
 status: done
 parent: E-19
+acs:
+  - id: AC-1
+    title: Stored drafts retired (A2)
+    status: met
+  - id: AC-2
+    title: '`/api/v1/drafts/run` narrowed to inline-source only (A1, A2)'
+    status: met
+  - id: AC-3
+    title: Sim-only `/api/v1/drafts/validate` deleted (A6)
+    status: met
+  - id: AC-4
+    title: Sim-side ZIP archive layer deleted (A3)
+    status: met
+  - id: AC-5
+    title: Engine `POST /v1/runs` deleted outright (A4)
+    status: met
+  - id: AC-6
+    title: Engine debug route deleted (scope narrowed during implementation)
+    status: met
+  - id: AC-7
+    title: Catalogs retired entirely (A5)
+    status: met
+  - id: AC-8
+    title: Public contracts cleanup consolidated
+    status: met
+  - id: AC-9
+    title: Build, tests, and grep guards green
+    status: met
+  - id: AC-10
+    title: Status surfaces reconciled at wrap time
+    status: met
 ---
 
 ## Goal
@@ -24,9 +55,9 @@ Scope boundaries inherited from M-024:
 
 The default execution path for first-party UIs during and after this milestone remains `POST /api/v1/orchestration/runs` on `FlowTime.Sim.Service` per A1. Sunsetting that endpoint is an E-18 decision, not this milestone's.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-### AC1 — Stored drafts retired (A2)
+### AC-1 — Stored drafts retired (A2)
 
 Forward-only deletion of the stored-draft product surface.
 
@@ -49,7 +80,7 @@ Forward-only deletion of the stored-draft product surface.
 - `StorageKind.Draft`
 - `data/storage/drafts`
 
-### AC2 — `/api/v1/drafts/run` narrowed to inline-source only (A1, A2)
+### AC-2 — `/api/v1/drafts/run` narrowed to inline-source only (A1, A2)
 
 `POST /api/v1/drafts/run` at [src/FlowTime.Sim.Service/Program.cs:675](../../../src/FlowTime.Sim.Service/Program.cs) remains a live route but only accepts `DraftSource.type == "inline"`. Any `draftId` resolution branch is removed.
 
@@ -59,7 +90,7 @@ Forward-only deletion of the stored-draft product surface.
 
 **Grep guard:** No `draftId` reference remains in the `/api/v1/drafts/run` handler or its request shape.
 
-### AC3 — Sim-only `/api/v1/drafts/validate` deleted (A6)
+### AC-3 — Sim-only `/api/v1/drafts/validate` deleted (A6)
 
 `POST /api/v1/drafts/validate` at [src/FlowTime.Sim.Service/Program.cs:540](../../../src/FlowTime.Sim.Service/Program.cs) is removed along with its endpoint-specific tests. The library pieces that back it remain untouched (they become the tier 1/2/3 ingredients the future Time Machine composes per [D-030](../../decisions.md)):
 
@@ -74,7 +105,7 @@ Forward-only deletion of the stored-draft product surface.
 
 **Grep guard:** No `/api/v1/drafts/validate` route literal or `drafts/validate` handler remains in `src/` or `tests/`.
 
-### AC4 — Sim-side ZIP archive layer deleted (A3)
+### AC-4 — Sim-side ZIP archive layer deleted (A3)
 
 Remove the post-hoc run-bundle archive path that writes ZIPs to `data/storage/runs/<runId>` and the `BundleRef` / `StorageRef` return values that surface them.
 
@@ -89,7 +120,7 @@ Remove the post-hoc run-bundle archive path that writes ZIPs to `data/storage/ru
 
 **Grep guards:** No `StorageKind.Run`, `BundleRef`, `StorageRef`, or `data/storage/runs` reference remains in `src/` or `tests/` on the current surface.
 
-### AC5 — Engine `POST /v1/runs` deleted outright (A4)
+### AC-5 — Engine `POST /v1/runs` deleted outright (A4)
 
 `POST /v1/runs` in [src/FlowTime.API/Endpoints/RunOrchestrationEndpoints.cs:19](../../../src/FlowTime.API/Endpoints/RunOrchestrationEndpoints.cs) is removed entirely. No 410-style rejection stub remains. The read endpoints `GET /v1/runs` (line 20) and `GET /v1/runs/{runId}` (line 21) stay — they are the canonical run discovery/detail contract.
 
@@ -105,7 +136,7 @@ Remove the post-hoc run-bundle archive path that writes ZIPs to `data/storage/ru
 
 **Grep guards:** `MapPost("/runs", HandleCreateRunAsync)`, `BundlePath`, `BundleArchiveBase64`, and `BundleRef` return zero matches in `src/` and `tests/` on the current API surface.
 
-### AC6 — Engine debug route deleted (scope narrowed during implementation)
+### AC-6 — Engine debug route deleted (scope narrowed during implementation)
 
 The M-024 audit originally scheduled three Engine routes for deletion in this milestone: `GET /v1/debug/scan-directory/{dirName}`, `POST /v1/run`, and `POST /v1/graph`. During implementation, discovery showed that `POST /v1/run` is used by 50+ test call sites across the Engine Provenance, Parity, and Legacy test suites as the primary run-creation mechanism, and `POST /v1/graph` is used by `Legacy/ApiIntegrationTests.cs`. The matrix entry claim that these routes are "not used by current first-party UIs" is technically correct but underweighted the test-infrastructure coupling. Deleting them in this milestone would either regress ~50 tests of Engine-side runtime provenance coverage (forward-only test deletion — unacceptable) or pull substantial test-migration work that is out of scope for a runtime-cleanup milestone.
 
@@ -119,7 +150,7 @@ The M-024 audit originally scheduled three Engine routes for deletion in this mi
 
 **Grep guard (narrowed):** No `"/v1/debug/scan-directory"` literal remains in runtime code.
 
-### AC7 — Catalogs retired entirely (A5)
+### AC-7 — Catalogs retired entirely (A5)
 
 Catalog surfaces are zombie residue with no supported first-party caller. Delete them atomically across runtime and the Blazor catalog selector (the one UI site coupled to this server deletion).
 
@@ -135,7 +166,7 @@ Catalog surfaces are zombie residue with no supported first-party caller. Delete
 
 **Grep guards:** `/api/v1/catalogs`, `CatalogService`, `ICatalogService`, `CatalogPicker`, and the literal `CatalogId = "default"` return zero matches in `src/` and `tests/` on the current surface.
 
-### AC8 — Public contracts cleanup consolidated
+### AC-8 — Public contracts cleanup consolidated
 
 All public contract changes forced by AC1–AC7 above land in [src/FlowTime.Contracts/](../../../src/FlowTime.Contracts/) in a single consistent pass:
 
@@ -145,13 +176,13 @@ All public contract changes forced by AC1–AC7 above land in [src/FlowTime.Cont
 
 `StorageBackendOptions`, `IStorageBackend`, `StorageWriteRequest`, `StorageWriteResult`, `StorageReadResult`, `StorageListRequest`, and `StorageItemSummary` remain on the public surface — they still serve surviving storage needs (for example, series storage referenced in the supported-surfaces matrix). This milestone removes only the draft/run kinds, not the underlying storage abstraction.
 
-### AC9 — Build, tests, and grep guards green
+### AC-9 — Build, tests, and grep guards green
 
 - `dotnet build FlowTime.sln` is green with no new warnings introduced by this milestone.
 - `dotnet test FlowTime.sln` is green across all test projects (deleted tests for deleted code are acceptable; failing tests or reduced coverage for surviving code is not).
 - Every grep guard from AC1–AC7 is asserted by a simple repo-root script or CI check that `rg` returns zero matches in `src/` and `tests/` for the deleted symbols. The check can be a single shell script runnable locally; it does not need to become a full CI pipeline step in this milestone but it must exist and be documented.
 
-### AC10 — Status surfaces reconciled at wrap time
+### AC-10 — Status surfaces reconciled at wrap time
 
 At milestone wrap:
 

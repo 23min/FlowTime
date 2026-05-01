@@ -3,6 +3,41 @@ id: M-009
 title: Multi-parameter Optimization
 status: done
 parent: E-18
+acs:
+  - id: AC-1
+    title: '`OptimizeSpec` validates: non-null/whitespace ModelYaml/MetricSeriesId; non-null/non-empty ParamIds; non-null
+      SearchRanges with an entry for every ParamId (Lo < Hi for each); Tolerance > 0; MaxIterations ≥ 1'
+    status: met
+  - id: AC-2
+    title: '`Optimizer.OptimizeAsync` converges on a 1D bowl function to within tolerance'
+    status: met
+  - id: AC-3
+    title: '`Optimizer.OptimizeAsync` converges on a 2D bowl function to within tolerance'
+    status: met
+  - id: AC-4
+    title: '`Optimizer.OptimizeAsync` supports Maximize objective (maximizes a linear metric)'
+    status: met
+  - id: AC-5
+    title: '`Optimizer` returns `Converged=false` when MaxIterations exhausted before convergence'
+    status: met
+  - id: AC-6
+    title: '`Optimizer` respects `CancellationToken`'
+    status: met
+  - id: AC-7
+    title: '`POST /v1/optimize` returns 400 for missing/invalid required fields'
+    status: met
+  - id: AC-8
+    title: '`POST /v1/optimize` returns 503 when engine not enabled'
+    status: met
+  - id: AC-9
+    title: 'Unit tests pass: 29 tests (OptimizeSpec ×17, Optimizer ×12)'
+    status: met
+  - id: AC-10
+    title: 'API tests pass: 10 tests (9×400, 1×503)'
+    status: met
+  - id: AC-11
+    title: '`dotnet test FlowTime.sln` all green (192 TimeMachine, 260 API)'
+    status: met
 ---
 
 ## Goal
@@ -97,18 +132,30 @@ Objective f(v) = metricMean(v)            for Minimize
 `Optimizer` takes `IModelEvaluator` directly (not `SweepRunner`) and applies
 `ConstNodePatcher.Patch` sequentially for all parameters before each evaluation.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-- [x] `OptimizeSpec` validates: non-null/whitespace ModelYaml/MetricSeriesId; non-null/non-empty
-      ParamIds; non-null SearchRanges with an entry for every ParamId (Lo < Hi for each);
-      Tolerance > 0; MaxIterations ≥ 1
-- [x] `Optimizer.OptimizeAsync` converges on a 1D bowl function to within tolerance
-- [x] `Optimizer.OptimizeAsync` converges on a 2D bowl function to within tolerance
-- [x] `Optimizer.OptimizeAsync` supports Maximize objective (maximizes a linear metric)
-- [x] `Optimizer` returns `Converged=false` when MaxIterations exhausted before convergence
-- [x] `Optimizer` respects `CancellationToken`
-- [x] `POST /v1/optimize` returns 400 for missing/invalid required fields
-- [x] `POST /v1/optimize` returns 503 when engine not enabled
-- [x] Unit tests pass: 29 tests (OptimizeSpec ×17, Optimizer ×12)
-- [x] API tests pass: 10 tests (9×400, 1×503)
-- [x] `dotnet test FlowTime.sln` all green (192 TimeMachine, 260 API)
+### AC-1 — `OptimizeSpec` validates: non-null/whitespace ModelYaml/MetricSeriesId; non-null/non-empty ParamIds; non-null SearchRanges with an entry for every ParamId (Lo < Hi for each); Tolerance > 0; MaxIterations ≥ 1
+
+`OptimizeSpec` validates: non-null/whitespace ModelYaml/MetricSeriesId; non-null/non-empty
+ParamIds; non-null SearchRanges with an entry for every ParamId (Lo < Hi for each);
+Tolerance > 0; MaxIterations ≥ 1
+
+### AC-2 — `Optimizer.OptimizeAsync` converges on a 1D bowl function to within tolerance
+
+### AC-3 — `Optimizer.OptimizeAsync` converges on a 2D bowl function to within tolerance
+
+### AC-4 — `Optimizer.OptimizeAsync` supports Maximize objective (maximizes a linear metric)
+
+### AC-5 — `Optimizer` returns `Converged=false` when MaxIterations exhausted before convergence
+
+### AC-6 — `Optimizer` respects `CancellationToken`
+
+### AC-7 — `POST /v1/optimize` returns 400 for missing/invalid required fields
+
+### AC-8 — `POST /v1/optimize` returns 503 when engine not enabled
+
+### AC-9 — Unit tests pass: 29 tests (OptimizeSpec ×17, Optimizer ×12)
+
+### AC-10 — API tests pass: 10 tests (9×400, 1×503)
+
+### AC-11 — `dotnet test FlowTime.sln` all green (192 TimeMachine, 260 API)

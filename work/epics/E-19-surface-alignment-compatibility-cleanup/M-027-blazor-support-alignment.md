@@ -3,6 +3,37 @@ id: M-027
 title: Blazor Support Alignment
 status: done
 parent: E-19
+acs:
+  - id: AC-1
+    title: Stale `RunAsync` wrapper deleted (row 64)
+    status: met
+  - id: AC-2
+    title: Stale `GetIndexAsync` and `GetSeriesAsync` wrappers deleted (row 65)
+    status: met
+  - id: AC-3
+    title: '`FlowTimeSimService` API-mode data generation rewired to orchestration'
+    status: met
+  - id: AC-4
+    title: '`SimResultsService` run queries go through the Engine API only'
+    status: met
+  - id: AC-5
+    title: Dead Sim run-query URL construction removed from `SimulationResults.razor`
+    status: met
+  - id: AC-6
+    title: Supported Blazor Sim client surface confirmed aligned (row 63)
+    status: met
+  - id: AC-7
+    title: Svelte client surfaces confirmed aligned (rows 66, 67)
+    status: met
+  - id: AC-8
+    title: Grep-guard script codified
+    status: met
+  - id: AC-9
+    title: Build, tests, and grep guards green
+    status: met
+  - id: AC-10
+    title: Tracking doc and status surfaces reconciled
+    status: met
 ---
 
 ## Goal
@@ -33,9 +64,9 @@ The key distinction this milestone enforces:
 - **Supported Sim client call** — methods backed by live Sim routes (`HealthAsync`, `GetDetailedHealthAsync`, `GetTemplatesAsync`, `GetTemplateAsync`, `GenerateModelAsync`, `CreateRunAsync`). These are the row 63 targets. Keep, audit for drift.
 - **Engine API client** (`IFlowTimeApiClient`) — the correct surface for run queries (index, series, state, metrics). Rewired callers use this for every run query previously routed at the stale Sim wrappers.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-### AC1 — Stale `RunAsync` wrapper deleted (row 64)
+### AC-1 — Stale `RunAsync` wrapper deleted (row 64)
 
 `RunAsync(string yaml, ...)` on `IFlowTimeSimApiClient` targets `POST /api/v1/run` on the Sim service, which was removed on 2025-10-01 and does not return even when Sim is reachable. The file itself marks the method broken with a TODO comment.
 
@@ -54,7 +85,7 @@ The key distinction this milestone enforces:
 
 **Grep guard:** No declaration or use of `IFlowTimeSimApiClient.RunAsync` remains in `src/FlowTime.UI/` or `tests/FlowTime.UI.Tests/`. The literal `api/v1/run` (i.e. the Sim `/api/v1/run` path, as distinct from Sim `/api/v1/runs/...` query routes which also do not exist and are covered by AC2) must not appear anywhere in `src/FlowTime.UI/Services/FlowTimeSimApiClient.cs` or `src/FlowTime.UI/Services/FlowTimeSimApiClientWithFallback.cs`.
 
-### AC2 — Stale `GetIndexAsync` and `GetSeriesAsync` wrappers deleted (row 65)
+### AC-2 — Stale `GetIndexAsync` and `GetSeriesAsync` wrappers deleted (row 65)
 
 `GetIndexAsync` and `GetSeriesAsync` on `IFlowTimeSimApiClient` target `GET /api/v1/runs/{runId}/index` and `GET /api/v1/runs/{runId}/series/{seriesId}` on the Sim service. Neither route exists on Sim today and both files are marked broken with TODO comments pointing at Engine API as the correct target.
 
@@ -72,7 +103,7 @@ The key distinction this milestone enforces:
 
 **Grep guard:** No declaration or use of `IFlowTimeSimApiClient.GetIndexAsync` or `IFlowTimeSimApiClient.GetSeriesAsync` remains in `src/FlowTime.UI/` or `tests/FlowTime.UI.Tests/`. No literal `api/v1/runs/{` followed by `/index` or `/series/` constructed against a Sim base address remains in `src/FlowTime.UI/Services/FlowTimeSimApiClient.cs` or `src/FlowTime.UI/Services/FlowTimeSimApiClientWithFallback.cs`.
 
-### AC3 — `FlowTimeSimService` API-mode data generation rewired to orchestration
+### AC-3 — `FlowTimeSimService` API-mode data generation rewired to orchestration
 
 `FlowTimeSimService.RunApiModeSimulationAsync` at [src/FlowTime.UI/Services/TemplateServiceImplementations.cs:951-1008](../../../src/FlowTime.UI/Services/TemplateServiceImplementations.cs) currently:
 
@@ -96,7 +127,7 @@ The supported replacement path is `CreateRunAsync` (row 63) on the Sim orchestra
 
 **Grep guard:** No `simClient.RunAsync(` or `simClient.GetIndexAsync(` call site remains in `src/FlowTime.UI/Services/TemplateServiceImplementations.cs`. No `/sim/runs/` URL literal remains anywhere in `src/FlowTime.UI/`.
 
-### AC4 — `SimResultsService` run queries go through the Engine API only
+### AC-4 — `SimResultsService` run queries go through the Engine API only
 
 `SimResultsService.GetSimulationResultsAsync` at [src/FlowTime.UI/Services/SimResultsService.cs:38-124](../../../src/FlowTime.UI/Services/SimResultsService.cs) currently branches on `isEngineRun` (a `runId.StartsWith("run_")` check) and calls either `apiClient.GetRunIndexAsync`/`GetRunSeriesAsync` (for engine runs) or the stale `simClient.GetIndexAsync`/`GetSeriesAsync` (for non-engine runs). After AC3 rewires data generation onto `CreateRunAsync`, every API-mode run produces a canonical Engine-format runId, so the branch is dead.
 
@@ -113,7 +144,7 @@ The supported replacement path is `CreateRunAsync` (row 63) on the Sim orchestra
 
 **Grep guard:** No `simClient.GetIndexAsync(` or `simClient.GetSeriesAsync(` call site remains in `src/FlowTime.UI/Services/SimResultsService.cs`. `IFlowTimeSimApiClient` must no longer appear in the `SimResultsService` constructor signature.
 
-### AC5 — Dead Sim run-query URL construction removed from `SimulationResults.razor`
+### AC-5 — Dead Sim run-query URL construction removed from `SimulationResults.razor`
 
 [src/FlowTime.UI/Components/Templates/SimulationResults.razor:295-312](../../../src/FlowTime.UI/Components/Templates/SimulationResults.razor) constructs a download URL conditional on demo vs API mode:
 
@@ -133,7 +164,7 @@ After AC3 rewires API-mode data generation to produce canonical Engine run IDs, 
 
 **Grep guard:** No `/sim/runs/` literal remains in `src/FlowTime.UI/Components/`. No `{apiConfig.ApiVersion}/runs/{runId}/series/` literal that does not match the canonical Engine route shape remains in `src/FlowTime.UI/Components/Templates/SimulationResults.razor`.
 
-### AC6 — Supported Blazor Sim client surface confirmed aligned (row 63)
+### AC-6 — Supported Blazor Sim client surface confirmed aligned (row 63)
 
 Row 63 of the supported-surfaces matrix lists `HealthAsync`, `GetDetailedHealthAsync`, `GetTemplatesAsync`, `GetTemplateAsync`, `GenerateModelAsync`, `CreateRunAsync` as the supported Blazor Sim client surface. After AC1 and AC2 complete, those are the only methods remaining on `IFlowTimeSimApiClient`.
 
@@ -147,7 +178,7 @@ Row 63 of the supported-surfaces matrix lists `HealthAsync`, `GetDetailedHealthA
 
 **Grep guard:** `IFlowTimeSimApiClient` at [src/FlowTime.UI/Services/FlowTimeSimApiClient.cs](../../../src/FlowTime.UI/Services/FlowTimeSimApiClient.cs) exposes exactly the row 63 supported set after this milestone. No method names outside `{BaseAddress, HealthAsync, GetDetailedHealthAsync, GetTemplatesAsync, GetTemplateAsync, GenerateModelAsync, CreateRunAsync}` remain on the interface.
 
-### AC7 — Svelte client surfaces confirmed aligned (rows 66, 67)
+### AC-7 — Svelte client surfaces confirmed aligned (rows 66, 67)
 
 Rows 66 and 67 of the matrix list the Svelte `Sim` client at [ui/src/lib/api/sim.ts](../../../ui/src/lib/api/sim.ts) and Engine client at [ui/src/lib/api/flowtime.ts](../../../ui/src/lib/api/flowtime.ts) as supported first-party surfaces. M-027 is the owning milestone for their alignment audit.
 
@@ -161,7 +192,7 @@ Rows 66 and 67 of the matrix list the Svelte `Sim` client at [ui/src/lib/api/sim
 
 **Grep guard:** `ui/src/lib/api/sim.ts` must not contain literals matching `catalogs`, `drafts`, `bundle`, `bundlePath`, `bundleArchiveBase64`, or `bundleRef`. `ui/src/lib/api/flowtime.ts` must not contain literals matching `POST /v1/runs`, `bundlePath`, `bundleArchiveBase64`, `bundleRef`, or `/v1/debug/`.
 
-### AC8 — Grep-guard script codified
+### AC-8 — Grep-guard script codified
 
 Create `scripts/m-E19-04-grep-guards.sh` mirroring the structure of `scripts/m-E19-03-grep-guards.sh`. Every guard listed in AC1–AC7 becomes a named test in the script. The script must exit 0 when all guards pass.
 
@@ -181,14 +212,14 @@ Create `scripts/m-E19-04-grep-guards.sh` mirroring the structure of `scripts/m-E
 
 Scoped searches are limited to `src/FlowTime.UI/`, `ui/src/lib/api/`, and `tests/FlowTime.UI.Tests/` by default. The script runs locally and in the wrap pass. CI wiring stays deferred, matching the pattern in `scripts/m-E19-02-grep-guards.sh` and `scripts/m-E19-03-grep-guards.sh`.
 
-### AC9 — Build, tests, and grep guards green
+### AC-9 — Build, tests, and grep guards green
 
 - `dotnet build FlowTime.sln` is green with no new warnings introduced by this milestone.
 - `dotnet test FlowTime.sln` is green across all test projects. Test deletions for deleted code are acceptable; failing tests or reduced coverage for surviving code are not. In particular, `tests/FlowTime.UI.Tests/TimeTravelDataServiceTests.cs`, `DashboardTests.cs`, and `ArtifactListRenderTests.cs` define mock implementations of an `IFlowTimeApiClient`-like interface whose method names happen to include `RunAsync` and `GetSeriesAsync` — those are Engine-client members, not Sim-client members, and must remain untouched. Only the `IFlowTimeSimApiClient` declarations and implementations are in scope.
 - The Svelte `ui/` project's existing `npm`/`pnpm` build (if wired) is green after the alignment audit.
 - `scripts/m-E19-04-grep-guards.sh` exits 0 from the repo root.
 
-### AC10 — Tracking doc and status surfaces reconciled
+### AC-10 — Tracking doc and status surfaces reconciled
 
 - Create `work/epics/E-19-surface-alignment-and-compatibility-cleanup/m-E19-04-blazor-support-alignment-tracking.md` at milestone start and update it after each AC lands. Tracking doc records: per-AC file changes, grep-guard results, test counts, alignment-audit findings (drift or no drift), and deviations from the spec (if any).
 - Flip milestone status in a single reconciliation pass at wrap time:

@@ -3,6 +3,19 @@ id: M-065
 title: MCP Dependency Pattern Enforcement
 status: done
 parent: E-12
+acs:
+  - id: AC-1
+    title: MCP emits only Option A or Option B dependency patterns.
+    status: met
+  - id: AC-2
+    title: Unsupported dependency behaviors are rejected with actionable guidance.
+    status: met
+  - id: AC-3
+    title: Dependency warnings are treated as hard errors in MCP modeling workflows.
+    status: met
+  - id: AC-4
+    title: Tests confirm deterministic output and rejection behavior.
+    status: met
 ---
 
 > This milestone was deferred from E-12 wrap and absorbed into the new draft `ai-assisted-authoring` unplanned epic. The MCP-server-side pattern-enforcement scope captured here is the seed of that epic; Plans 3–5 (resource pooling, compiler expansion, feedback loops) referenced as out-of-scope below also move with it. AI-assisted authoring is being treated as a server-side surface consumed by external authoring callers (Claude as a tool, future agent harnesses, scripted authoring pipelines), not a FlowTime-UI feature.
@@ -87,9 +100,12 @@ MCP must treat the following engine warnings as **hard errors** for model genera
 3. Implement selection + validation enforcement
 4. Update docs and release notes
 
-## Acceptance Criteria
+## Acceptance criteria
 
-- MCP emits only Option A or Option B dependency patterns.
-- Unsupported dependency behaviors are rejected with actionable guidance.
-- Dependency warnings are treated as hard errors in MCP modeling workflows.
-- Tests confirm deterministic output and rejection behavior.
+### AC-1 — MCP emits only Option A or Option B dependency patterns.
+
+### AC-2 — Unsupported dependency behaviors are rejected with actionable guidance.
+
+### AC-3 — Dependency warnings are treated as hard errors in MCP modeling workflows.
+
+### AC-4 — Tests confirm deterministic output and rejection behavior.

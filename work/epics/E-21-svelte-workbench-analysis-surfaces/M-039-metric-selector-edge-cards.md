@@ -3,6 +3,53 @@ id: M-039
 title: Metric Selector & Edge Cards
 status: done
 parent: E-21
+acs:
+  - id: AC-1
+    title: '**Chip bar renders below the toolbar.** A horizontal row of metric chips: Utilization, Queue Depth, Arrivals,
+      Served, Errors, Flow Latency. One active at a time (radio behavior). Default: Utilization.'
+    status: met
+  - id: AC-2
+    title: '**Selecting a metric changes the topology heatmap coloring.** Each chip maps to a specific field in the state
+      API response (`derived.utilization`, `metrics.queueDepth`, `metrics.arrivals`, `metrics.served`, `metrics.errors`, `derived.flowLatencyMs`).
+      Selecting a chip re-extracts metrics from the current state data and passes them to DagMapView. Node metric labels update
+      accordingly (e.g., "85%" for utilization, "14.5" for queue depth).'
+    status: met
+  - id: AC-3
+    title: "**Workbench card sparklines reflect the selected metric.** When the selected metric changes, the sparkline in
+      each pinned workbench card updates to show that metric's values over the full time window (requires fetching state window
+      data or caching per-bin values)."
+    status: met
+  - id: AC-4
+    title: '**Clicking an edge in the topology pins it to the workbench.** Uses the `bindEvents` `onEdgeClick` callback. Pinned
+      edges appear as cards in the workbench alongside node cards. Clicking a pinned edge again unpins it.'
+    status: met
+  - id: AC-5
+    title: '**Edge card content.** Each edge workbench card shows: - Source and target node IDs - Flow volume at current bin
+      (from state API edge data if available, or from node-level served/arrivals) - Sparkline of flow volume over time (if
+      data available) - Compact layout matching node cards'
+    status: met
+  - id: AC-6
+    title: "**Edge selection indicator in DAG.** Pinned edges get a visual highlight in the topology (e.g., brighter color,
+      thicker stroke, or glow). This uses a CSS class approach since dag-map doesn't have an `selectedEdges` option — the
+      Svelte wrapper applies the class after render."
+    status: met
+  - id: AC-7
+    title: "**Class filter dropdown appears when classes exist.** If the current run has per-class data (any node's state
+      includes `byClass` entries), a dropdown/chip filter appears in the toolbar area. Lists all class IDs found in the data.
+      Multi-select: toggle individual classes on/off."
+    status: met
+  - id: AC-8
+    title: '**Class filter controls topology visibility.** When classes are filtered, the topology heatmap shows metrics for
+      only the selected classes (using `byClass[classId]` data instead of aggregate). If no class filter is active, show aggregate
+      (default behavior).'
+    status: met
+  - id: AC-9
+    title: '**Vitest coverage for new helpers.** Metric extraction by selected metric, edge data extraction, class discovery
+      from state data — all have vitest tests.'
+    status: met
+  - id: AC-10
+    title: '**Existing Playwright specs still pass.** The M-038 workbench specs and E-17 what-if specs continue to work.'
+    status: met
 ---
 
 ## Goal
@@ -15,40 +62,33 @@ M-038 delivered the workbench foundation: density system, dag-map click/hover ev
 
 This milestone adds the remaining "what am I looking at?" controls that the Blazor feature bar provided (15+ toggles) — but in the simplified workbench paradigm: one metric selector, one class filter, and edge inspection via pinning.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-### Metric selector (AC1-AC3)
+### AC-1 — **Chip bar renders below the toolbar.** A horizontal row of metric chips: Utilization, Queue Depth, Arrivals, Served, Errors, Flow Latency. One active at a time (radio behavior). Default: Utilization.
 
-1. **Chip bar renders below the toolbar.** A horizontal row of metric chips: Utilization, Queue Depth, Arrivals, Served, Errors, Flow Latency. One active at a time (radio behavior). Default: Utilization.
+### AC-2 — **Selecting a metric changes the topology heatmap coloring.** Each chip maps to a specific field in the state API response (`derived.utilization`, `metrics.queueDepth`, `metrics.arrivals`, `metrics.served`, `metrics.errors`, `derived.flowLatencyMs`). Selecting a chip re-extracts metrics from the current state data and passes them to DagMapView. Node metric labels update accordingly (e.g., "85%" for utilization, "14.5" for queue depth).
 
-2. **Selecting a metric changes the topology heatmap coloring.** Each chip maps to a specific field in the state API response (`derived.utilization`, `metrics.queueDepth`, `metrics.arrivals`, `metrics.served`, `metrics.errors`, `derived.flowLatencyMs`). Selecting a chip re-extracts metrics from the current state data and passes them to DagMapView. Node metric labels update accordingly (e.g., "85%" for utilization, "14.5" for queue depth).
+### AC-3 — **Workbench card sparklines reflect the selected metric.** When the selected metric changes, the sparkline in each pinned workbench card updates to show that metric's values over the full time window (requires fetching state window data or caching per-bin values).
 
-3. **Workbench card sparklines reflect the selected metric.** When the selected metric changes, the sparkline in each pinned workbench card updates to show that metric's values over the full time window (requires fetching state window data or caching per-bin values).
+### AC-4 — **Clicking an edge in the topology pins it to the workbench.** Uses the `bindEvents` `onEdgeClick` callback. Pinned edges appear as cards in the workbench alongside node cards. Clicking a pinned edge again unpins it.
 
-### Edge cards (AC4-AC6)
+### AC-5 — **Edge card content.** Each edge workbench card shows: - Source and target node IDs - Flow volume at current bin (from state API edge data if available, or from node-level served/arrivals) - Sparkline of flow volume over time (if data available) - Compact layout matching node cards
 
-4. **Clicking an edge in the topology pins it to the workbench.** Uses the `bindEvents` `onEdgeClick` callback. Pinned edges appear as cards in the workbench alongside node cards. Clicking a pinned edge again unpins it.
+**Edge card content.** Each edge workbench card shows:
+- Source and target node IDs
+- Flow volume at current bin (from state API edge data if available, or from node-level served/arrivals)
+- Sparkline of flow volume over time (if data available)
+- Compact layout matching node cards
 
-5. **Edge card content.** Each edge workbench card shows:
-   - Source and target node IDs
-   - Flow volume at current bin (from state API edge data if available, or from node-level served/arrivals)
-   - Sparkline of flow volume over time (if data available)
-   - Compact layout matching node cards
+### AC-6 — **Edge selection indicator in DAG.** Pinned edges get a visual highlight in the topology (e.g., brighter color, thicker stroke, or glow). This uses a CSS class approach since dag-map doesn't have an `selectedEdges` option — the Svelte wrapper applies the class after render.
 
-6. **Edge selection indicator in DAG.** Pinned edges get a visual highlight in the topology (e.g., brighter color, thicker stroke, or glow). This uses a CSS class approach since dag-map doesn't have an `selectedEdges` option — the Svelte wrapper applies the class after render.
+### AC-7 — **Class filter dropdown appears when classes exist.** If the current run has per-class data (any node's state includes `byClass` entries), a dropdown/chip filter appears in the toolbar area. Lists all class IDs found in the data. Multi-select: toggle individual classes on/off.
 
-### Class filter (AC7-AC8)
+### AC-8 — **Class filter controls topology visibility.** When classes are filtered, the topology heatmap shows metrics for only the selected classes (using `byClass[classId]` data instead of aggregate). If no class filter is active, show aggregate (default behavior).
 
-7. **Class filter dropdown appears when classes exist.** If the current run has per-class data (any node's state includes `byClass` entries), a dropdown/chip filter appears in the toolbar area. Lists all class IDs found in the data. Multi-select: toggle individual classes on/off.
+### AC-9 — **Vitest coverage for new helpers.** Metric extraction by selected metric, edge data extraction, class discovery from state data — all have vitest tests.
 
-8. **Class filter controls topology visibility.** When classes are filtered, the topology heatmap shows metrics for only the selected classes (using `byClass[classId]` data instead of aggregate). If no class filter is active, show aggregate (default behavior).
-
-### Cross-cutting (AC9-AC10)
-
-9. **Vitest coverage for new helpers.** Metric extraction by selected metric, edge data extraction, class discovery from state data — all have vitest tests.
-
-10. **Existing Playwright specs still pass.** The M-038 workbench specs and E-17 what-if specs continue to work.
-
+### AC-10 — **Existing Playwright specs still pass.** The M-038 workbench specs and E-17 what-if specs continue to work.
 ## Technical Notes
 
 - The metric selector state lives in the workbench store (or a co-located topology store) — persists across bin scrubs but resets on run change.

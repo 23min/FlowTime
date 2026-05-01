@@ -3,6 +3,37 @@ id: M-026
 title: Schema, Template & Example Retirement
 status: done
 parent: E-19
+acs:
+  - id: AC-1
+    title: UI demo template generators emit current schema (schema-migration residue)
+    status: met
+  - id: AC-2
+    title: UI sample fixture uses current schema
+    status: met
+  - id: AC-3
+    title: CLI verbose output label uses current schema
+    status: met
+  - id: AC-4
+    title: Active architecture docs use current schema in YAML examples
+    status: met
+  - id: AC-5
+    title: Schema-migration example fixtures archived
+    status: met
+  - id: AC-6
+    title: Stale template-integration spec archived
+    status: met
+  - id: AC-7
+    title: Catalog-stale phrasing in active docs updated
+    status: met
+  - id: AC-8
+    title: Test fixtures with stale parameter keys cleaned
+    status: met
+  - id: AC-9
+    title: Grep-guard script codified
+    status: met
+  - id: AC-10
+    title: Tracking doc and status surfaces reconciled
+    status: met
 ---
 
 ## Goal
@@ -28,9 +59,9 @@ The distinction this milestone enforces:
 - **`binMinutes` as a YAML authoring schema field** — deprecated. Engine's `ModelValidator` rejects it at parse time. Current authoring schema is `binSize` + `binUnit`. Any active surface emitting `binMinutes` in an authored YAML shape is in scope for this milestone.
 - **`binMinutes` as the derived internal concept** (bin duration in minutes) — still live. `TimeGrid.BinMinutes`, `MetricsContracts.MetricsGrid.BinMinutes`, internal analytical math, and mathematical notation in architecture docs are out of scope.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-### AC1 — UI demo template generators emit current schema (schema-migration residue)
+### AC-1 — UI demo template generators emit current schema (schema-migration residue)
 
 `src/FlowTime.UI/Services/TemplateServiceImplementations.cs` is the Blazor mock template service used by demo mode. It currently declares two `JsonSchemaProperty` entries keyed `"binMinutes"` and emits three demo YAML strings with `grid: binMinutes: 60` / `binMinutes: 1440`. These are active surfaces promoting the deprecated YAML authoring shape.
 
@@ -50,7 +81,7 @@ The distinction this milestone enforces:
 
 **Grep guard:** No `binMinutes` literal remains anywhere under `src/FlowTime.UI/Services/TemplateServiceImplementations.cs`. Broader `src/FlowTime.UI/` check is deferred to AC7 (grep guard script).
 
-### AC2 — UI sample fixture uses current schema
+### AC-2 — UI sample fixture uses current schema
 
 [src/FlowTime.UI/wwwroot/sample/run-example.json](../../../src/FlowTime.UI/wwwroot/sample/run-example.json) currently reads:
 
@@ -66,7 +97,7 @@ This is a static authoring fixture shipped with the Blazor UI and is not a wire-
 
 **Grep guard:** No `binMinutes` literal remains under `src/FlowTime.UI/wwwroot/`.
 
-### AC3 — CLI verbose output label uses current schema
+### AC-3 — CLI verbose output label uses current schema
 
 [src/FlowTime.Cli/Program.cs:98](../../../src/FlowTime.Cli/Program.cs) currently prints:
 
@@ -84,7 +115,7 @@ The computed `TimeGrid.BinMinutes` property itself stays — it is the live inte
 
 **Grep guard:** No `binMinutes` literal remains under `src/FlowTime.Cli/`.
 
-### AC4 — Active architecture docs use current schema in YAML examples
+### AC-4 — Active architecture docs use current schema in YAML examples
 
 Two active architecture docs contain YAML authoring examples still using the deprecated grid shape. Rewrite every YAML example; leave mathematical notation that uses `binMinutes` as the live derived concept (AC4 is about authoring shapes, not math).
 
@@ -103,7 +134,7 @@ Two active architecture docs contain YAML authoring examples still using the dep
 
 **Grep guard:** No `binMinutes` literal remains in `docs/architecture/whitepaper.md` or `docs/architecture/retry-modeling.md` **except** lines containing the marker `m-E19-03:allow-binminutes-notation`. The marker is an HTML comment that Markdown renderers strip from display; it lets the grep-guard script allowlist legitimate derived-concept notation without depending on drift-prone line numbers.
 
-### AC5 — Schema-migration example fixtures archived
+### AC-5 — Schema-migration example fixtures archived
 
 The three schema-migration example YAMLs under `examples/` exist solely as back-compat coverage fixtures, not as current user-facing examples. Per M-024's supported-surfaces matrix (row for schema-migration compatibility examples), their decision is `archive`.
 
@@ -124,7 +155,7 @@ The three schema-migration example YAMLs under `examples/` exist solely as back-
 
 **Grep guard:** No path `examples/test-old-schema.yaml`, `examples/test-no-schema.yaml`, or `examples/test-new-schema.yaml` remains referenced anywhere in `src/`, `tests/`, or active `docs/` content. Matches under `examples/archive/` and `docs/archive/` are allowed.
 
-### AC6 — Stale template-integration spec archived
+### AC-6 — Stale template-integration spec archived
 
 [docs/ui/template-integration-spec.md](../../../docs/ui/template-integration-spec.md) is a pre-v1 UI spec that references `/api/templates/{templateId}/schema` and `/api/templates/generate` routes (pre-v1 template surface), contains `binMinutes` references, and carries its own `⚠️ SCHEMA MIGRATION IN PROGRESS` warning. Per M-024's matrix (`archive/update`), move it to the archive tree:
 
@@ -138,7 +169,7 @@ The three schema-migration example YAMLs under `examples/` exist solely as back-
 
 **Grep guard:** No active docs (outside `docs/archive/`) reference `docs/ui/template-integration-spec.md` or the pre-v1 routes `/api/templates/{id}/schema` or `/api/templates/generate`.
 
-### AC7 — Catalog-stale phrasing in active docs updated
+### AC-7 — Catalog-stale phrasing in active docs updated
 
 M-025 deleted all catalog routes, services, UI components, and DTOs per A5. Two active docs still carry leftover phrasing describing Sim as owning "template/catalog" endpoints. Rewrite the phrasing:
 
@@ -156,7 +187,7 @@ M-025 deleted all catalog routes, services, UI components, and DTOs per A5. Two 
 
 **Grep guard:** No `template/catalog` literal remains in `docs/guides/UI.md` or `docs/reference/contracts.md`. No `catalog/export/import/registry` phrasing remains in `docs/reference/engine-capabilities.md`.
 
-### AC8 — Test fixtures with stale parameter keys cleaned
+### AC-8 — Test fixtures with stale parameter keys cleaned
 
 [tests/FlowTime.UI.Tests/ParameterConversionIntegrationTests.cs](../../../tests/FlowTime.UI.Tests/ParameterConversionIntegrationTests.cs) uses `["binMinutes"] = 60` as a template parameter key in three test dictionaries (lines 23, 51, 107). Active templates expose `binSize` (not `binMinutes`) — see [templates/transportation-basic.yaml:23](../../../templates/transportation-basic.yaml) — so the test key references a template parameter that does not exist. The test itself is about parameter type conversion (string arrays vs number arrays being serialized to `demandPattern` / `capacityPattern`) and does not assert anything about the grid parameter key, so a rename preserves semantic meaning.
 
@@ -177,7 +208,7 @@ M-025 deleted all catalog routes, services, UI components, and DTOs per A5. Two 
 
 **Grep guard:** No `["binMinutes"]` dictionary-key literal remains in `tests/FlowTime.UI.Tests/ParameterConversionIntegrationTests.cs`.
 
-### AC9 — Grep-guard script codified
+### AC-9 — Grep-guard script codified
 
 Create `scripts/m-E19-03-grep-guards.sh` mirroring the structure of `scripts/m-E19-02-grep-guards.sh`. Every guard listed in AC1–AC8 becomes a line in the script. The script must exit 0 when all guards pass.
 
@@ -199,7 +230,7 @@ Scoped searches are limited to `src/`, `tests/`, `docs/`, `examples/`, and `temp
 
 The script runs locally and in the wrap pass. It is not wired into CI in this milestone — `scripts/m-E19-02-grep-guards.sh` remains the pattern, and CI wiring is deferred.
 
-### AC10 — Tracking doc and status surfaces reconciled
+### AC-10 — Tracking doc and status surfaces reconciled
 
 - Create `work/epics/E-19-surface-alignment-and-compatibility-cleanup/m-E19-03-schema-template-example-retirement-tracking.md` at milestone start and update it after each AC lands. Tracking doc records: per-AC file changes, grep-guard results, test counts, and deviations from the spec (if any).
 - Flip milestone status in a single reconciliation pass at wrap time:

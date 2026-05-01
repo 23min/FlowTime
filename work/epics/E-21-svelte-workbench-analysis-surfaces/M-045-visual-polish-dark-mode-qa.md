@@ -3,6 +3,128 @@ id: M-045
 title: Visual Polish & Dark Mode QA
 status: done
 parent: E-21
+acs:
+  - id: AC-1
+    title: "**Topology keyboard navigation + ARIA structure (a11y parity with heatmap).** The topology DAG container exposes
+      `role=\"application\"` (or equivalent — settle in tracking doc) with an `aria-label` describing the surface as a topology
+      graph. Each rendered node carries `tabindex=\"0\"`, `role=\"button\"`, and an `aria-label` containing at minimum the
+      node id + class (when known) + the current metric value (matching the heatmap's `id + bin + metric + value` pattern
+      from M-043). Tab + Shift-Tab walks the node set; Enter / Space activates pin (matching mouse click). A visible focus
+      ring renders on the focused node — chrome-token, not data-viz, distinct from `--ft-pin` and `--ft-highlight`. Edges
+      keep keyboard-reachability via the same scheme (`tabindex` + `role=\"button\"` + `aria-label` \"edge from X to Y\")
+      so click-to-pin-edge has a keyboard equivalent. Implementation may live in the topology Svelte component (post-render
+      `$effect` injecting attributes onto the dag-map-emitted SVG) or in dag-map itself (library option) — settle in tracking
+      doc; either is acceptable so long as the external contract is met."
+    status: met
+  - id: AC-2
+    title: '**Topology node selection stroke rule (closes one-way cross-link for nodes).** A new `.node-selected` global CSS
+      rule applies a chrome-token stroke to topology nodes when the node id matches `viewState.selectedCell?.nodeId`. Token:
+      `--ft-highlight` (matches the existing card-title turquoise convention from M-043). A `$effect` in `+page.svelte` toggles
+      the class on the dag-map-emitted node group whenever `viewState.selectedCell` changes, mirroring the existing `.edge-selected`
+      effect at `+page.svelte:156-172`. Visible on Topology view; not rendered on Heatmap view (the dag-map SVG is unmounted
+      there). Cross-link directions covered: - Click a topology node (existing path at `+page.svelte:127-141`) → node strokes
+      turquoise + card title turquoise. - Click a workbench card body (existing path at `+page.svelte:774`) → node strokes
+      turquoise on the topology DAG. - Click a heatmap cell (existing path) → node strokes turquoise on the topology DAG when
+      the user switches to Topology view. - Click a validation panel row with `nodeId` (existing path from M-044) → node strokes
+      turquoise on the topology DAG.'
+    status: met
+  - id: AC-3
+    title: "**Bidirectional edge cross-link via new `selectedEdge` field.** A new field `selectedEdge: { from: string; to:
+      string } | null` on the shared view-state store, with `setSelectedEdge(from, to)` and `clearSelectedEdge()` setters.
+      Semantics: - **Edge selection is independent of edge pinning.** A pinned edge is not necessarily selected; a selected
+      edge is not necessarily pinned. Both can be true at once. Clicking a topology edge pins it (existing behaviour) *and*
+      sets it as the `selectedEdge` (new behaviour). - **Topology rendering split into `pinned` and `selected` chrome.** The
+      existing `.edge-selected` class (applied to every pinned edge today via `workbench.pinnedEdges`) is **renamed** to `.edge-pinned`
+      with the same visual treatment it has today (`--ft-viz-amber` stroke). A new `.edge-selected` class with a distinct
+      chrome treatment (settle in tracking doc — recommend `--ft-highlight` stroke + slightly heavier weight to distinguish
+      from `.edge-pinned`) applies only to the single edge whose `from`/`to` matches `viewState.selectedEdge`. Both effects
+      live side-by-side in `+page.svelte`; an edge can render both classes simultaneously (pinned + selected). - **Edge card
+      `selected` prop driven from `selectedEdge`.** Replace the `edgeIdx === workbench.pinnedEdges.length - 1` heuristic at
+      `+page.svelte:794` with `viewState.selectedEdge?.from === edge.from && viewState.selectedEdge?.to === edge.to`. - **Edge
+      card body click sets the edge as selected.** Change `onSelect` at `+page.svelte:795` from `workbench.bringEdgeToFront(...)`
+      to `viewState.setSelectedEdge(edge.from, edge.to)`. The `bringEdgeToFront` helper is preserved on the workbench store
+      (other call sites may still rely on stack-ordering semantics) but is no longer wired to the edge-card body click. -
+      **Validation panel edge rows wire `setSelectedEdge`.** When the user clicks a validation row whose identity is an edge
+      (the `edgeWarnings`-keyed rows from M-044 AC9), the existing pin path is preserved *and* `viewState.setSelectedEdge(from,
+      to)` is called — symmetric to the node path that already calls `setSelectedCell`. Edge rows whose edge id does not parse
+      as `from→to` (rare; mismatched analyser output) preserve today's pin-only behaviour. - **Selection-clear on unpin.**
+      When the selected edge is unpinned (via the edge card's ✕ button or any other unpin path), `clearSelectedEdge()` fires
+      automatically — same shape as the M-043 `unpinAndClearSelection` helper for nodes."
+    status: met
+  - id: AC-4
+    title: "**Dark-mode audit across all E-21 surfaces.** Run a single sweep over the workbench, analysis, validation, and
+      chrome surfaces in dark mode looking for token-resolution bugs, contrast issues, and breakage of M-044's transparent
+      severity-row backgrounds. Surfaces in scope: - `/time-travel/topology` — workbench cards, validation panel (rows + chips
+      + severity tints), topology indicators (`--ft-warn` / `--ft-err` / `--ft-info` / `--ft-pin` / `--ft-highlight`), heatmap
+      (cells, focus ring, selected overlay, fit-width toggle), run-selector dropdown, view-switcher, metric chip bar, class
+      filter, timeline scrubber. - `/analysis` — sweep / sensitivity / goal-seek / optimize panels (config forms, result tables,
+      charts), shared `AnalysisResultCard` + `ConvergenceChart` + `interval-bar-geometry` siblings. - `/run` and `/what-if`
+      — confirmed not regressed (touch only if dark-mode breakage is found). Findings catalogued in the tracking doc; fixes
+      land inline with the AC. Playwright dark-mode smoke spec asserts at minimum that (a) the topology page renders with
+      `data-theme=\"dark\"` (or whatever the theme attribute uses), (b) at least one severity-row tint reads correctly against
+      the dark background, (c) at least one topology indicator dot is visible. Deeper visual regression is out of scope (no
+      pixel-snapshotting in this milestone)."
+    status: met
+  - id: AC-5
+    title: '**Loading skeletons on workbench + analysis surfaces.** Replace the empty→populated flicker with `Skeleton` placeholders
+      matching the eventual content geometry. Surfaces: - `/time-travel/topology`: while the `state_window` request for the
+      selected run is in flight, the canvas region (topology *or* heatmap, whichever is active) renders a skeleton matching
+      its eventual geometry; the workbench panel renders a row of skeleton cards proportional to the eventual pinned-card
+      count (or a single placeholder if no pins yet). - `/analysis` sweep / sensitivity / goal-seek / optimize: while the
+      corresponding compute call is in flight (`loading === true` already exists in the page state per `+page.svelte:86`),
+      the result region renders a skeleton matching the eventual chart / table geometry. The "no result yet" empty state remains
+      a separate concern (not a skeleton — matches current behaviour). - The `Skeleton` shadcn-svelte component is added under
+      `ui/src/lib/components/ui/skeleton/` if not already shipped (verify at start-milestone; add if missing). - Vitest covers
+      the loading-state classifier helper that decides skeleton-vs-content for each surface; Playwright smoke asserts a skeleton
+      is present during a deliberately-slow run.'
+    status: met
+  - id: AC-6
+    title: '**Transitions rule applied across the workbench.** Audit and document a single transition rule in the tracking
+      doc, then apply it consistently. Initial proposal: - **Card insert / remove:** 220 ms FLIP + 160 ms fade-in / 120 ms
+      fade-out (already shipped in M-044; ratify here). - **`/analysis` result swap:** 160 ms cross-fade when re-running sweep
+      / sensitivity / goal-seek / optimize replaces the previous result with a new one. - **Run-selector dropdown content
+      swap:** 160 ms cross-fade. - **View-switcher topology ↔ heatmap:** **no transition** (context change; instant is correct).
+      - **Validation row highlight on selection (M-044 AC10 cross-link):** **no transition** (selection feedback should be
+      instant). The exact durations and easing land in the tracking doc; the contract is that the rule is documented and applied
+      consistently to every result-swap surface. Playwright covers at minimum one cross-fade assertion (compute-finished →
+      result-rendered) on `/analysis` to prove the transition is wired.'
+    status: met
+  - id: AC-7
+    title: '**Elevation audit + token normalization.** Single pass over the shadow / border / layering tokens used across
+      the E-21 surfaces. Catalogue the current uses (border-only, `shadow-sm`, `shadow-md`, custom `box-shadow`, ring-1, …)
+      in the tracking doc; pick a small canonical set (recommend: flat / `shadow-sm` for cards / `shadow-md` for popovers
+      and dropdowns / no shadow on the topology canvas); apply consistently. Out of scope: introducing new elevation tokens;
+      this is a normalization-to-existing pass.'
+    status: met
+  - id: AC-8
+    title: "**`validation-panel.svelte:157` cosmetic collapse.** Replace `{#if row.kind === 'node'}{row.key}{:else}{row.key}{/if}`
+      with `{row.key}`. Verify no behavioural change via the existing M-044 vitest tests on the panel."
+    status: met
+  - id: AC-9
+    title: "**\"Indicators absent on heatmap\" Playwright assertion.** Add an explicit assertion to `tests/ui/specs/svelte-validation.spec.ts`
+      (or a sibling spec) confirming that when `viewState.activeView === 'heatmap'`, no `[data-warning-indicator]` elements
+      are present in the canvas region. Closes the contract guard the M-044 wrap audit identified as covered indirectly today."
+    status: met
+  - id: AC-10
+    title: "**Testing — Playwright + vitest, every reachable branch covered.** Per the project's UI-testing hard rule. **Vitest:**
+      - Topology a11y attribute helper (AC1) — node label assembly, edge label assembly, fallback when class / metric is unknown.
+      - View-state `setSelectedEdge` / `clearSelectedEdge` — set, replace, clear, no-op-when-already-cleared, equality on
+      existing selection. - Bidirectional matchers — \"is this edge currently selected\" (`isSelectedEdge(viewState, from,
+      to)`) helper; covers both null and present cases. - Loading-state classifier (AC5) — skeleton-vs-content branch per
+      surface. **Playwright** (extending or siblinging existing E-21 specs; graceful-skip on dev-server / API unavailability):
+      - **AC1** — topology node receives focus via Tab; Enter pins the node. - **AC1** — focus ring visible on focused node
+      (data attribute or computed style assertion). - **AC2** — clicking a workbench card body strokes the matching topology
+      node turquoise (`.node-selected` present). - **AC2** — clicking a heatmap cell, then switching to Topology view, shows
+      the matching node strokes turquoise. - **AC3** — clicking an edge card body sets `viewState.selectedEdge` and the topology
+      edge gains `.edge-selected` chrome distinct from `.edge-pinned`. - **AC3** — clicking an edge-attributed validation
+      row pins the edge, sets `selectedEdge`, edge card and topology edge both light up; unpin clears `selectedEdge`. - **AC4**
+      — dark-mode smoke: topology page renders, severity tints + indicator dots are visible. - **AC5** — `/analysis` sweep
+      run: skeleton visible during compute, result visible after. - **AC5** — `/time-travel/topology` run-switch: skeleton
+      visible during `state_window` load. - **AC6** — `/analysis` re-run cross-fade asserted via element-level transition
+      state. - **AC9** — heatmap view shows zero `[data-warning-indicator]` elements (explicit assertion). A line-by-line
+      branch audit of the new UI + helpers against tests is recorded in the tracking doc's Coverage Notes section, matching
+      the M-042 / M-043 / M-044 audit structure."
+    status: met
 ---
 
 **Created:** 2026-04-28
@@ -47,73 +169,84 @@ Three deferred items in `work/gaps.md` are explicitly tagged for this milestone:
 
 The E-21 epic spec lists eight milestones; M-038 through M-044 are merged. M-045 is the last item on the table. It is the "Visual Polish & Dark Mode QA" milestone in the epic spec, and the deferred-gap items above (topology a11y, full bidirectional cross-link) are the substantive work that makes the epic honest at close. Loading skeletons, transitions, elevation, dark-mode audit, and the two cheap follow-ups are the polish work the milestone name implies. After M-045 lands, E-21 wraps.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-1. **Topology keyboard navigation + ARIA structure (a11y parity with heatmap).** The topology DAG container exposes `role="application"` (or equivalent — settle in tracking doc) with an `aria-label` describing the surface as a topology graph. Each rendered node carries `tabindex="0"`, `role="button"`, and an `aria-label` containing at minimum the node id + class (when known) + the current metric value (matching the heatmap's `id + bin + metric + value` pattern from M-043). Tab + Shift-Tab walks the node set; Enter / Space activates pin (matching mouse click). A visible focus ring renders on the focused node — chrome-token, not data-viz, distinct from `--ft-pin` and `--ft-highlight`. Edges keep keyboard-reachability via the same scheme (`tabindex` + `role="button"` + `aria-label` "edge from X to Y") so click-to-pin-edge has a keyboard equivalent. Implementation may live in the topology Svelte component (post-render `$effect` injecting attributes onto the dag-map-emitted SVG) or in dag-map itself (library option) — settle in tracking doc; either is acceptable so long as the external contract is met.
+### AC-1 — **Topology keyboard navigation + ARIA structure (a11y parity with heatmap).** The topology DAG container exposes `role="application"` (or equivalent — settle in tracking doc) with an `aria-label` describing the surface as a topology graph. Each rendered node carries `tabindex="0"`, `role="button"`, and an `aria-label` containing at minimum the node id + class (when known) + the current metric value (matching the heatmap's `id + bin + metric + value` pattern from M-043). Tab + Shift-Tab walks the node set; Enter / Space activates pin (matching mouse click). A visible focus ring renders on the focused node — chrome-token, not data-viz, distinct from `--ft-pin` and `--ft-highlight`. Edges keep keyboard-reachability via the same scheme (`tabindex` + `role="button"` + `aria-label` "edge from X to Y") so click-to-pin-edge has a keyboard equivalent. Implementation may live in the topology Svelte component (post-render `$effect` injecting attributes onto the dag-map-emitted SVG) or in dag-map itself (library option) — settle in tracking doc; either is acceptable so long as the external contract is met.
 
-2. **Topology node selection stroke rule (closes one-way cross-link for nodes).** A new `.node-selected` global CSS rule applies a chrome-token stroke to topology nodes when the node id matches `viewState.selectedCell?.nodeId`. Token: `--ft-highlight` (matches the existing card-title turquoise convention from M-043). A `$effect` in `+page.svelte` toggles the class on the dag-map-emitted node group whenever `viewState.selectedCell` changes, mirroring the existing `.edge-selected` effect at `+page.svelte:156-172`. Visible on Topology view; not rendered on Heatmap view (the dag-map SVG is unmounted there). Cross-link directions covered:
-    - Click a topology node (existing path at `+page.svelte:127-141`) → node strokes turquoise + card title turquoise.
-    - Click a workbench card body (existing path at `+page.svelte:774`) → node strokes turquoise on the topology DAG.
-    - Click a heatmap cell (existing path) → node strokes turquoise on the topology DAG when the user switches to Topology view.
-    - Click a validation panel row with `nodeId` (existing path from M-044) → node strokes turquoise on the topology DAG.
+### AC-2 — **Topology node selection stroke rule (closes one-way cross-link for nodes).** A new `.node-selected` global CSS rule applies a chrome-token stroke to topology nodes when the node id matches `viewState.selectedCell?.nodeId`. Token: `--ft-highlight` (matches the existing card-title turquoise convention from M-043). A `$effect` in `+page.svelte` toggles the class on the dag-map-emitted node group whenever `viewState.selectedCell` changes, mirroring the existing `.edge-selected` effect at `+page.svelte:156-172`. Visible on Topology view; not rendered on Heatmap view (the dag-map SVG is unmounted there). Cross-link directions covered: - Click a topology node (existing path at `+page.svelte:127-141`) → node strokes turquoise + card title turquoise. - Click a workbench card body (existing path at `+page.svelte:774`) → node strokes turquoise on the topology DAG. - Click a heatmap cell (existing path) → node strokes turquoise on the topology DAG when the user switches to Topology view. - Click a validation panel row with `nodeId` (existing path from M-044) → node strokes turquoise on the topology DAG.
 
-3. **Bidirectional edge cross-link via new `selectedEdge` field.** A new field `selectedEdge: { from: string; to: string } | null` on the shared view-state store, with `setSelectedEdge(from, to)` and `clearSelectedEdge()` setters. Semantics:
-    - **Edge selection is independent of edge pinning.** A pinned edge is not necessarily selected; a selected edge is not necessarily pinned. Both can be true at once. Clicking a topology edge pins it (existing behaviour) *and* sets it as the `selectedEdge` (new behaviour).
-    - **Topology rendering split into `pinned` and `selected` chrome.** The existing `.edge-selected` class (applied to every pinned edge today via `workbench.pinnedEdges`) is **renamed** to `.edge-pinned` with the same visual treatment it has today (`--ft-viz-amber` stroke). A new `.edge-selected` class with a distinct chrome treatment (settle in tracking doc — recommend `--ft-highlight` stroke + slightly heavier weight to distinguish from `.edge-pinned`) applies only to the single edge whose `from`/`to` matches `viewState.selectedEdge`. Both effects live side-by-side in `+page.svelte`; an edge can render both classes simultaneously (pinned + selected).
-    - **Edge card `selected` prop driven from `selectedEdge`.** Replace the `edgeIdx === workbench.pinnedEdges.length - 1` heuristic at `+page.svelte:794` with `viewState.selectedEdge?.from === edge.from && viewState.selectedEdge?.to === edge.to`.
-    - **Edge card body click sets the edge as selected.** Change `onSelect` at `+page.svelte:795` from `workbench.bringEdgeToFront(...)` to `viewState.setSelectedEdge(edge.from, edge.to)`. The `bringEdgeToFront` helper is preserved on the workbench store (other call sites may still rely on stack-ordering semantics) but is no longer wired to the edge-card body click.
-    - **Validation panel edge rows wire `setSelectedEdge`.** When the user clicks a validation row whose identity is an edge (the `edgeWarnings`-keyed rows from M-044 AC9), the existing pin path is preserved *and* `viewState.setSelectedEdge(from, to)` is called — symmetric to the node path that already calls `setSelectedCell`. Edge rows whose edge id does not parse as `from→to` (rare; mismatched analyser output) preserve today's pin-only behaviour.
-    - **Selection-clear on unpin.** When the selected edge is unpinned (via the edge card's ✕ button or any other unpin path), `clearSelectedEdge()` fires automatically — same shape as the M-043 `unpinAndClearSelection` helper for nodes.
+**Topology node selection stroke rule (closes one-way cross-link for nodes).** A new `.node-selected` global CSS rule applies a chrome-token stroke to topology nodes when the node id matches `viewState.selectedCell?.nodeId`. Token: `--ft-highlight` (matches the existing card-title turquoise convention from M-043). A `$effect` in `+page.svelte` toggles the class on the dag-map-emitted node group whenever `viewState.selectedCell` changes, mirroring the existing `.edge-selected` effect at `+page.svelte:156-172`. Visible on Topology view; not rendered on Heatmap view (the dag-map SVG is unmounted there). Cross-link directions covered:
+- Click a topology node (existing path at `+page.svelte:127-141`) → node strokes turquoise + card title turquoise.
+- Click a workbench card body (existing path at `+page.svelte:774`) → node strokes turquoise on the topology DAG.
+- Click a heatmap cell (existing path) → node strokes turquoise on the topology DAG when the user switches to Topology view.
+- Click a validation panel row with `nodeId` (existing path from M-044) → node strokes turquoise on the topology DAG.
 
-4. **Dark-mode audit across all E-21 surfaces.** Run a single sweep over the workbench, analysis, validation, and chrome surfaces in dark mode looking for token-resolution bugs, contrast issues, and breakage of M-044's transparent severity-row backgrounds. Surfaces in scope:
-    - `/time-travel/topology` — workbench cards, validation panel (rows + chips + severity tints), topology indicators (`--ft-warn` / `--ft-err` / `--ft-info` / `--ft-pin` / `--ft-highlight`), heatmap (cells, focus ring, selected overlay, fit-width toggle), run-selector dropdown, view-switcher, metric chip bar, class filter, timeline scrubber.
-    - `/analysis` — sweep / sensitivity / goal-seek / optimize panels (config forms, result tables, charts), shared `AnalysisResultCard` + `ConvergenceChart` + `interval-bar-geometry` siblings.
-    - `/run` and `/what-if` — confirmed not regressed (touch only if dark-mode breakage is found).
-    
-    Findings catalogued in the tracking doc; fixes land inline with the AC. Playwright dark-mode smoke spec asserts at minimum that (a) the topology page renders with `data-theme="dark"` (or whatever the theme attribute uses), (b) at least one severity-row tint reads correctly against the dark background, (c) at least one topology indicator dot is visible. Deeper visual regression is out of scope (no pixel-snapshotting in this milestone).
+### AC-3 — **Bidirectional edge cross-link via new `selectedEdge` field.** A new field `selectedEdge: { from: string; to: string } | null` on the shared view-state store, with `setSelectedEdge(from, to)` and `clearSelectedEdge()` setters. Semantics: - **Edge selection is independent of edge pinning.** A pinned edge is not necessarily selected; a selected edge is not necessarily pinned. Both can be true at once. Clicking a topology edge pins it (existing behaviour) *and* sets it as the `selectedEdge` (new behaviour). - **Topology rendering split into `pinned` and `selected` chrome.** The existing `.edge-selected` class (applied to every pinned edge today via `workbench.pinnedEdges`) is **renamed** to `.edge-pinned` with the same visual treatment it has today (`--ft-viz-amber` stroke). A new `.edge-selected` class with a distinct chrome treatment (settle in tracking doc — recommend `--ft-highlight` stroke + slightly heavier weight to distinguish from `.edge-pinned`) applies only to the single edge whose `from`/`to` matches `viewState.selectedEdge`. Both effects live side-by-side in `+page.svelte`; an edge can render both classes simultaneously (pinned + selected). - **Edge card `selected` prop driven from `selectedEdge`.** Replace the `edgeIdx === workbench.pinnedEdges.length - 1` heuristic at `+page.svelte:794` with `viewState.selectedEdge?.from === edge.from && viewState.selectedEdge?.to === edge.to`. - **Edge card body click sets the edge as selected.** Change `onSelect` at `+page.svelte:795` from `workbench.bringEdgeToFront(...)` to `viewState.setSelectedEdge(edge.from, edge.to)`. The `bringEdgeToFront` helper is preserved on the workbench store (other call sites may still rely on stack-ordering semantics) but is no longer wired to the edge-card body click. - **Validation panel edge rows wire `setSelectedEdge`.** When the user clicks a validation row whose identity is an edge (the `edgeWarnings`-keyed rows from M-044 AC9), the existing pin path is preserved *and* `viewState.setSelectedEdge(from, to)` is called — symmetric to the node path that already calls `setSelectedCell`. Edge rows whose edge id does not parse as `from→to` (rare; mismatched analyser output) preserve today's pin-only behaviour. - **Selection-clear on unpin.** When the selected edge is unpinned (via the edge card's ✕ button or any other unpin path), `clearSelectedEdge()` fires automatically — same shape as the M-043 `unpinAndClearSelection` helper for nodes.
 
-5. **Loading skeletons on workbench + analysis surfaces.** Replace the empty→populated flicker with `Skeleton` placeholders matching the eventual content geometry. Surfaces:
-    - `/time-travel/topology`: while the `state_window` request for the selected run is in flight, the canvas region (topology *or* heatmap, whichever is active) renders a skeleton matching its eventual geometry; the workbench panel renders a row of skeleton cards proportional to the eventual pinned-card count (or a single placeholder if no pins yet).
-    - `/analysis` sweep / sensitivity / goal-seek / optimize: while the corresponding compute call is in flight (`loading === true` already exists in the page state per `+page.svelte:86`), the result region renders a skeleton matching the eventual chart / table geometry. The "no result yet" empty state remains a separate concern (not a skeleton — matches current behaviour).
-    - The `Skeleton` shadcn-svelte component is added under `ui/src/lib/components/ui/skeleton/` if not already shipped (verify at start-milestone; add if missing).
-    - Vitest covers the loading-state classifier helper that decides skeleton-vs-content for each surface; Playwright smoke asserts a skeleton is present during a deliberately-slow run.
+**Bidirectional edge cross-link via new `selectedEdge` field.** A new field `selectedEdge: { from: string; to: string } | null` on the shared view-state store, with `setSelectedEdge(from, to)` and `clearSelectedEdge()` setters. Semantics:
+- **Edge selection is independent of edge pinning.** A pinned edge is not necessarily selected; a selected edge is not necessarily pinned. Both can be true at once. Clicking a topology edge pins it (existing behaviour) *and* sets it as the `selectedEdge` (new behaviour).
+- **Topology rendering split into `pinned` and `selected` chrome.** The existing `.edge-selected` class (applied to every pinned edge today via `workbench.pinnedEdges`) is **renamed** to `.edge-pinned` with the same visual treatment it has today (`--ft-viz-amber` stroke). A new `.edge-selected` class with a distinct chrome treatment (settle in tracking doc — recommend `--ft-highlight` stroke + slightly heavier weight to distinguish from `.edge-pinned`) applies only to the single edge whose `from`/`to` matches `viewState.selectedEdge`. Both effects live side-by-side in `+page.svelte`; an edge can render both classes simultaneously (pinned + selected).
+- **Edge card `selected` prop driven from `selectedEdge`.** Replace the `edgeIdx === workbench.pinnedEdges.length - 1` heuristic at `+page.svelte:794` with `viewState.selectedEdge?.from === edge.from && viewState.selectedEdge?.to === edge.to`.
+- **Edge card body click sets the edge as selected.** Change `onSelect` at `+page.svelte:795` from `workbench.bringEdgeToFront(...)` to `viewState.setSelectedEdge(edge.from, edge.to)`. The `bringEdgeToFront` helper is preserved on the workbench store (other call sites may still rely on stack-ordering semantics) but is no longer wired to the edge-card body click.
+- **Validation panel edge rows wire `setSelectedEdge`.** When the user clicks a validation row whose identity is an edge (the `edgeWarnings`-keyed rows from M-044 AC9), the existing pin path is preserved *and* `viewState.setSelectedEdge(from, to)` is called — symmetric to the node path that already calls `setSelectedCell`. Edge rows whose edge id does not parse as `from→to` (rare; mismatched analyser output) preserve today's pin-only behaviour.
+- **Selection-clear on unpin.** When the selected edge is unpinned (via the edge card's ✕ button or any other unpin path), `clearSelectedEdge()` fires automatically — same shape as the M-043 `unpinAndClearSelection` helper for nodes.
 
-6. **Transitions rule applied across the workbench.** Audit and document a single transition rule in the tracking doc, then apply it consistently. Initial proposal:
-    - **Card insert / remove:** 220 ms FLIP + 160 ms fade-in / 120 ms fade-out (already shipped in M-044; ratify here).
-    - **`/analysis` result swap:** 160 ms cross-fade when re-running sweep / sensitivity / goal-seek / optimize replaces the previous result with a new one.
-    - **Run-selector dropdown content swap:** 160 ms cross-fade.
-    - **View-switcher topology ↔ heatmap:** **no transition** (context change; instant is correct).
-    - **Validation row highlight on selection (M-044 AC10 cross-link):** **no transition** (selection feedback should be instant).
-    
-    The exact durations and easing land in the tracking doc; the contract is that the rule is documented and applied consistently to every result-swap surface. Playwright covers at minimum one cross-fade assertion (compute-finished → result-rendered) on `/analysis` to prove the transition is wired.
+### AC-4 — **Dark-mode audit across all E-21 surfaces.** Run a single sweep over the workbench, analysis, validation, and chrome surfaces in dark mode looking for token-resolution bugs, contrast issues, and breakage of M-044's transparent severity-row backgrounds. Surfaces in scope: - `/time-travel/topology` — workbench cards, validation panel (rows + chips + severity tints), topology indicators (`--ft-warn` / `--ft-err` / `--ft-info` / `--ft-pin` / `--ft-highlight`), heatmap (cells, focus ring, selected overlay, fit-width toggle), run-selector dropdown, view-switcher, metric chip bar, class filter, timeline scrubber. - `/analysis` — sweep / sensitivity / goal-seek / optimize panels (config forms, result tables, charts), shared `AnalysisResultCard` + `ConvergenceChart` + `interval-bar-geometry` siblings. - `/run` and `/what-if` — confirmed not regressed (touch only if dark-mode breakage is found). Findings catalogued in the tracking doc; fixes land inline with the AC. Playwright dark-mode smoke spec asserts at minimum that (a) the topology page renders with `data-theme="dark"` (or whatever the theme attribute uses), (b) at least one severity-row tint reads correctly against the dark background, (c) at least one topology indicator dot is visible. Deeper visual regression is out of scope (no pixel-snapshotting in this milestone).
 
-7. **Elevation audit + token normalization.** Single pass over the shadow / border / layering tokens used across the E-21 surfaces. Catalogue the current uses (border-only, `shadow-sm`, `shadow-md`, custom `box-shadow`, ring-1, …) in the tracking doc; pick a small canonical set (recommend: flat / `shadow-sm` for cards / `shadow-md` for popovers and dropdowns / no shadow on the topology canvas); apply consistently. Out of scope: introducing new elevation tokens; this is a normalization-to-existing pass.
+**Dark-mode audit across all E-21 surfaces.** Run a single sweep over the workbench, analysis, validation, and chrome surfaces in dark mode looking for token-resolution bugs, contrast issues, and breakage of M-044's transparent severity-row backgrounds. Surfaces in scope:
+- `/time-travel/topology` — workbench cards, validation panel (rows + chips + severity tints), topology indicators (`--ft-warn` / `--ft-err` / `--ft-info` / `--ft-pin` / `--ft-highlight`), heatmap (cells, focus ring, selected overlay, fit-width toggle), run-selector dropdown, view-switcher, metric chip bar, class filter, timeline scrubber.
+- `/analysis` — sweep / sensitivity / goal-seek / optimize panels (config forms, result tables, charts), shared `AnalysisResultCard` + `ConvergenceChart` + `interval-bar-geometry` siblings.
+- `/run` and `/what-if` — confirmed not regressed (touch only if dark-mode breakage is found).
 
-8. **`validation-panel.svelte:157` cosmetic collapse.** Replace `{#if row.kind === 'node'}{row.key}{:else}{row.key}{/if}` with `{row.key}`. Verify no behavioural change via the existing M-044 vitest tests on the panel.
+Findings catalogued in the tracking doc; fixes land inline with the AC. Playwright dark-mode smoke spec asserts at minimum that (a) the topology page renders with `data-theme="dark"` (or whatever the theme attribute uses), (b) at least one severity-row tint reads correctly against the dark background, (c) at least one topology indicator dot is visible. Deeper visual regression is out of scope (no pixel-snapshotting in this milestone).
 
-9. **"Indicators absent on heatmap" Playwright assertion.** Add an explicit assertion to `tests/ui/specs/svelte-validation.spec.ts` (or a sibling spec) confirming that when `viewState.activeView === 'heatmap'`, no `[data-warning-indicator]` elements are present in the canvas region. Closes the contract guard the M-044 wrap audit identified as covered indirectly today.
+### AC-5 — **Loading skeletons on workbench + analysis surfaces.** Replace the empty→populated flicker with `Skeleton` placeholders matching the eventual content geometry. Surfaces: - `/time-travel/topology`: while the `state_window` request for the selected run is in flight, the canvas region (topology *or* heatmap, whichever is active) renders a skeleton matching its eventual geometry; the workbench panel renders a row of skeleton cards proportional to the eventual pinned-card count (or a single placeholder if no pins yet). - `/analysis` sweep / sensitivity / goal-seek / optimize: while the corresponding compute call is in flight (`loading === true` already exists in the page state per `+page.svelte:86`), the result region renders a skeleton matching the eventual chart / table geometry. The "no result yet" empty state remains a separate concern (not a skeleton — matches current behaviour). - The `Skeleton` shadcn-svelte component is added under `ui/src/lib/components/ui/skeleton/` if not already shipped (verify at start-milestone; add if missing). - Vitest covers the loading-state classifier helper that decides skeleton-vs-content for each surface; Playwright smoke asserts a skeleton is present during a deliberately-slow run.
 
-10. **Testing — Playwright + vitest, every reachable branch covered.** Per the project's UI-testing hard rule. **Vitest:**
-    - Topology a11y attribute helper (AC1) — node label assembly, edge label assembly, fallback when class / metric is unknown.
-    - View-state `setSelectedEdge` / `clearSelectedEdge` — set, replace, clear, no-op-when-already-cleared, equality on existing selection.
-    - Bidirectional matchers — "is this edge currently selected" (`isSelectedEdge(viewState, from, to)`) helper; covers both null and present cases.
-    - Loading-state classifier (AC5) — skeleton-vs-content branch per surface.
-    
-    **Playwright** (extending or siblinging existing E-21 specs; graceful-skip on dev-server / API unavailability):
-    - **AC1** — topology node receives focus via Tab; Enter pins the node.
-    - **AC1** — focus ring visible on focused node (data attribute or computed style assertion).
-    - **AC2** — clicking a workbench card body strokes the matching topology node turquoise (`.node-selected` present).
-    - **AC2** — clicking a heatmap cell, then switching to Topology view, shows the matching node strokes turquoise.
-    - **AC3** — clicking an edge card body sets `viewState.selectedEdge` and the topology edge gains `.edge-selected` chrome distinct from `.edge-pinned`.
-    - **AC3** — clicking an edge-attributed validation row pins the edge, sets `selectedEdge`, edge card and topology edge both light up; unpin clears `selectedEdge`.
-    - **AC4** — dark-mode smoke: topology page renders, severity tints + indicator dots are visible.
-    - **AC5** — `/analysis` sweep run: skeleton visible during compute, result visible after.
-    - **AC5** — `/time-travel/topology` run-switch: skeleton visible during `state_window` load.
-    - **AC6** — `/analysis` re-run cross-fade asserted via element-level transition state.
-    - **AC9** — heatmap view shows zero `[data-warning-indicator]` elements (explicit assertion).
-    
-    A line-by-line branch audit of the new UI + helpers against tests is recorded in the tracking doc's Coverage Notes section, matching the M-042 / M-043 / M-044 audit structure.
+**Loading skeletons on workbench + analysis surfaces.** Replace the empty→populated flicker with `Skeleton` placeholders matching the eventual content geometry. Surfaces:
+- `/time-travel/topology`: while the `state_window` request for the selected run is in flight, the canvas region (topology *or* heatmap, whichever is active) renders a skeleton matching its eventual geometry; the workbench panel renders a row of skeleton cards proportional to the eventual pinned-card count (or a single placeholder if no pins yet).
+- `/analysis` sweep / sensitivity / goal-seek / optimize: while the corresponding compute call is in flight (`loading === true` already exists in the page state per `+page.svelte:86`), the result region renders a skeleton matching the eventual chart / table geometry. The "no result yet" empty state remains a separate concern (not a skeleton — matches current behaviour).
+- The `Skeleton` shadcn-svelte component is added under `ui/src/lib/components/ui/skeleton/` if not already shipped (verify at start-milestone; add if missing).
+- Vitest covers the loading-state classifier helper that decides skeleton-vs-content for each surface; Playwright smoke asserts a skeleton is present during a deliberately-slow run.
 
+### AC-6 — **Transitions rule applied across the workbench.** Audit and document a single transition rule in the tracking doc, then apply it consistently. Initial proposal: - **Card insert / remove:** 220 ms FLIP + 160 ms fade-in / 120 ms fade-out (already shipped in M-044; ratify here). - **`/analysis` result swap:** 160 ms cross-fade when re-running sweep / sensitivity / goal-seek / optimize replaces the previous result with a new one. - **Run-selector dropdown content swap:** 160 ms cross-fade. - **View-switcher topology ↔ heatmap:** **no transition** (context change; instant is correct). - **Validation row highlight on selection (M-044 AC10 cross-link):** **no transition** (selection feedback should be instant). The exact durations and easing land in the tracking doc; the contract is that the rule is documented and applied consistently to every result-swap surface. Playwright covers at minimum one cross-fade assertion (compute-finished → result-rendered) on `/analysis` to prove the transition is wired.
+
+**Transitions rule applied across the workbench.** Audit and document a single transition rule in the tracking doc, then apply it consistently. Initial proposal:
+- **Card insert / remove:** 220 ms FLIP + 160 ms fade-in / 120 ms fade-out (already shipped in M-044; ratify here).
+- **`/analysis` result swap:** 160 ms cross-fade when re-running sweep / sensitivity / goal-seek / optimize replaces the previous result with a new one.
+- **Run-selector dropdown content swap:** 160 ms cross-fade.
+- **View-switcher topology ↔ heatmap:** **no transition** (context change; instant is correct).
+- **Validation row highlight on selection (M-044 AC10 cross-link):** **no transition** (selection feedback should be instant).
+
+The exact durations and easing land in the tracking doc; the contract is that the rule is documented and applied consistently to every result-swap surface. Playwright covers at minimum one cross-fade assertion (compute-finished → result-rendered) on `/analysis` to prove the transition is wired.
+
+### AC-7 — **Elevation audit + token normalization.** Single pass over the shadow / border / layering tokens used across the E-21 surfaces. Catalogue the current uses (border-only, `shadow-sm`, `shadow-md`, custom `box-shadow`, ring-1, …) in the tracking doc; pick a small canonical set (recommend: flat / `shadow-sm` for cards / `shadow-md` for popovers and dropdowns / no shadow on the topology canvas); apply consistently. Out of scope: introducing new elevation tokens; this is a normalization-to-existing pass.
+
+### AC-8 — **`validation-panel.svelte:157` cosmetic collapse.** Replace `{#if row.kind === 'node'}{row.key}{:else}{row.key}{/if}` with `{row.key}`. Verify no behavioural change via the existing M-044 vitest tests on the panel.
+
+### AC-9 — **"Indicators absent on heatmap" Playwright assertion.** Add an explicit assertion to `tests/ui/specs/svelte-validation.spec.ts` (or a sibling spec) confirming that when `viewState.activeView === 'heatmap'`, no `[data-warning-indicator]` elements are present in the canvas region. Closes the contract guard the M-044 wrap audit identified as covered indirectly today.
+
+### AC-10 — **Testing — Playwright + vitest, every reachable branch covered.** Per the project's UI-testing hard rule. **Vitest:** - Topology a11y attribute helper (AC1) — node label assembly, edge label assembly, fallback when class / metric is unknown. - View-state `setSelectedEdge` / `clearSelectedEdge` — set, replace, clear, no-op-when-already-cleared, equality on existing selection. - Bidirectional matchers — "is this edge currently selected" (`isSelectedEdge(viewState, from, to)`) helper; covers both null and present cases. - Loading-state classifier (AC5) — skeleton-vs-content branch per surface. **Playwright** (extending or siblinging existing E-21 specs; graceful-skip on dev-server / API unavailability): - **AC1** — topology node receives focus via Tab; Enter pins the node. - **AC1** — focus ring visible on focused node (data attribute or computed style assertion). - **AC2** — clicking a workbench card body strokes the matching topology node turquoise (`.node-selected` present). - **AC2** — clicking a heatmap cell, then switching to Topology view, shows the matching node strokes turquoise. - **AC3** — clicking an edge card body sets `viewState.selectedEdge` and the topology edge gains `.edge-selected` chrome distinct from `.edge-pinned`. - **AC3** — clicking an edge-attributed validation row pins the edge, sets `selectedEdge`, edge card and topology edge both light up; unpin clears `selectedEdge`. - **AC4** — dark-mode smoke: topology page renders, severity tints + indicator dots are visible. - **AC5** — `/analysis` sweep run: skeleton visible during compute, result visible after. - **AC5** — `/time-travel/topology` run-switch: skeleton visible during `state_window` load. - **AC6** — `/analysis` re-run cross-fade asserted via element-level transition state. - **AC9** — heatmap view shows zero `[data-warning-indicator]` elements (explicit assertion). A line-by-line branch audit of the new UI + helpers against tests is recorded in the tracking doc's Coverage Notes section, matching the M-042 / M-043 / M-044 audit structure.
+
+**Testing — Playwright + vitest, every reachable branch covered.** Per the project's UI-testing hard rule. **Vitest:**
+- Topology a11y attribute helper (AC1) — node label assembly, edge label assembly, fallback when class / metric is unknown.
+- View-state `setSelectedEdge` / `clearSelectedEdge` — set, replace, clear, no-op-when-already-cleared, equality on existing selection.
+- Bidirectional matchers — "is this edge currently selected" (`isSelectedEdge(viewState, from, to)`) helper; covers both null and present cases.
+- Loading-state classifier (AC5) — skeleton-vs-content branch per surface.
+
+**Playwright** (extending or siblinging existing E-21 specs; graceful-skip on dev-server / API unavailability):
+- **AC1** — topology node receives focus via Tab; Enter pins the node.
+- **AC1** — focus ring visible on focused node (data attribute or computed style assertion).
+- **AC2** — clicking a workbench card body strokes the matching topology node turquoise (`.node-selected` present).
+- **AC2** — clicking a heatmap cell, then switching to Topology view, shows the matching node strokes turquoise.
+- **AC3** — clicking an edge card body sets `viewState.selectedEdge` and the topology edge gains `.edge-selected` chrome distinct from `.edge-pinned`.
+- **AC3** — clicking an edge-attributed validation row pins the edge, sets `selectedEdge`, edge card and topology edge both light up; unpin clears `selectedEdge`.
+- **AC4** — dark-mode smoke: topology page renders, severity tints + indicator dots are visible.
+- **AC5** — `/analysis` sweep run: skeleton visible during compute, result visible after.
+- **AC5** — `/time-travel/topology` run-switch: skeleton visible during `state_window` load.
+- **AC6** — `/analysis` re-run cross-fade asserted via element-level transition state.
+- **AC9** — heatmap view shows zero `[data-warning-indicator]` elements (explicit assertion).
+
+A line-by-line branch audit of the new UI + helpers against tests is recorded in the tracking doc's Coverage Notes section, matching the M-042 / M-043 / M-044 audit structure.
 ## Constraints
 
 - **No new analytical capability.** This is a polish milestone. No new analysis modes, no new data fields on responses, no new endpoints. AC3 introduces a new field on the *client-side* shared store (`selectedEdge`) but does not change any wire shape.

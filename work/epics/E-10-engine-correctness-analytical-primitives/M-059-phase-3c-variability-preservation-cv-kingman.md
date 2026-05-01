@@ -3,6 +3,34 @@ id: M-059
 title: Phase 3c — Variability Preservation (Cv + Kingman)
 status: done
 parent: E-10
+acs:
+  - id: AC-1
+    title: "**AC-1: Cv computed from two sources.** - **PMF compilation:** When `PmfCompiler` compiles a PMF to a series,
+      compute alongside `E[X]`: - `σ` (standard deviation) from the PMF distribution - `Cv = σ / μ` (coefficient of variation,
+      where μ = E[X]) - Store Cv per bin in a companion structure. When μ = 0, Cv = 0 (no variation around zero). - **Observed
+      series statistics:** For non-PMF series (telemetry replay, constants, expressions), compute sample Cv from the series
+      values over a configurable sliding window (default: full series). `σ_sample = std(values[window])`, `μ_sample = mean(values[window])`,
+      `Cv = σ_sample / μ_sample`. Constant series produce Cv = 0 by construction. This enables Kingman's approximation for
+      telemetry-driven models, not only synthetic/PMF models."
+    status: met
+  - id: AC-2
+    title: '**AC-2: Cv accessible in evaluation context.** The Cv data is stored alongside the compiled series values so downstream
+      analysis (Kingman, future DSL) can access it. A `CvMetadata` record or similar wraps `{ CoefficientOfVariation: double[],
+      Source: Pmf | Observed | Constant }`. The source tag distinguishes PMF-derived Cv (exact, per-bin from distribution
+      shape) from observed Cv (sample statistic, approximate) and constant Cv (zero by definition).'
+    status: met
+  - id: AC-3
+    title: "**AC-3: Kingman's approximation per node.** For ServiceWithBuffer nodes where Cv data is available for both arrivals
+      and service, compute per-bin: ``` E[Wq] ≈ (ρ/(1-ρ)) × ((Ca² + Cs²)/2) × E[S] ``` Where: - ρ = utilization (served/capacity)
+      - Ca = Cv of arrivals series - Cs = Cv of service series - E[S] = mean service time (serviceTimeMs) Exposed as `kingmanPredictedWaitMs`
+      in state responses. Null when any input is unavailable or ρ >= 1.0 (formula diverges)."
+    status: met
+  - id: AC-4
+    title: '**AC-4: Tests and gate.** Tests cover: Cv computation from known PMFs (Cv=0 for deterministic, Cv=1 for exponential),
+      Cv computation from observed series (known sample statistics), Cv source tagging (Pmf vs Observed vs Constant), Kingman
+      approximation with known inputs (both PMF and observed Cv), graceful null when inputs missing, ρ >= 1.0 returns null.
+      Full test suite green.'
+    status: met
 ---
 
 ## Goal
@@ -21,31 +49,34 @@ Two nodes at identical utilization can have wildly different queue behavior if t
 
 FlowTime is domain-agnostic and must support stochastic models across any domain. Variability preservation is essential for meaningful flow analysis.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-1. **AC-1: Cv computed from two sources.**
-   - **PMF compilation:** When `PmfCompiler` compiles a PMF to a series, compute alongside `E[X]`:
-     - `σ` (standard deviation) from the PMF distribution
-     - `Cv = σ / μ` (coefficient of variation, where μ = E[X])
-     - Store Cv per bin in a companion structure. When μ = 0, Cv = 0 (no variation around zero).
-   - **Observed series statistics:** For non-PMF series (telemetry replay, constants, expressions), compute sample Cv from the series values over a configurable sliding window (default: full series). `σ_sample = std(values[window])`, `μ_sample = mean(values[window])`, `Cv = σ_sample / μ_sample`. Constant series produce Cv = 0 by construction. This enables Kingman's approximation for telemetry-driven models, not only synthetic/PMF models.
+### AC-1 — **AC-1: Cv computed from two sources.** - **PMF compilation:** When `PmfCompiler` compiles a PMF to a series, compute alongside `E[X]`: - `σ` (standard deviation) from the PMF distribution - `Cv = σ / μ` (coefficient of variation, where μ = E[X]) - Store Cv per bin in a companion structure. When μ = 0, Cv = 0 (no variation around zero). - **Observed series statistics:** For non-PMF series (telemetry replay, constants, expressions), compute sample Cv from the series values over a configurable sliding window (default: full series). `σ_sample = std(values[window])`, `μ_sample = mean(values[window])`, `Cv = σ_sample / μ_sample`. Constant series produce Cv = 0 by construction. This enables Kingman's approximation for telemetry-driven models, not only synthetic/PMF models.
 
-2. **AC-2: Cv accessible in evaluation context.** The Cv data is stored alongside the compiled series values so downstream analysis (Kingman, future DSL) can access it. A `CvMetadata` record or similar wraps `{ CoefficientOfVariation: double[], Source: Pmf | Observed | Constant }`. The source tag distinguishes PMF-derived Cv (exact, per-bin from distribution shape) from observed Cv (sample statistic, approximate) and constant Cv (zero by definition).
+**AC-1: Cv computed from two sources.**
+- **PMF compilation:** When `PmfCompiler` compiles a PMF to a series, compute alongside `E[X]`:
+- `σ` (standard deviation) from the PMF distribution
+- `Cv = σ / μ` (coefficient of variation, where μ = E[X])
+- Store Cv per bin in a companion structure. When μ = 0, Cv = 0 (no variation around zero).
+- **Observed series statistics:** For non-PMF series (telemetry replay, constants, expressions), compute sample Cv from the series values over a configurable sliding window (default: full series). `σ_sample = std(values[window])`, `μ_sample = mean(values[window])`, `Cv = σ_sample / μ_sample`. Constant series produce Cv = 0 by construction. This enables Kingman's approximation for telemetry-driven models, not only synthetic/PMF models.
 
-3. **AC-3: Kingman's approximation per node.** For ServiceWithBuffer nodes where Cv data is available for both arrivals and service, compute per-bin:
-   ```
-   E[Wq] ≈ (ρ/(1-ρ)) × ((Ca² + Cs²)/2) × E[S]
-   ```
-   Where:
-   - ρ = utilization (served/capacity)
-   - Ca = Cv of arrivals series
-   - Cs = Cv of service series
-   - E[S] = mean service time (serviceTimeMs)
-   
-   Exposed as `kingmanPredictedWaitMs` in state responses. Null when any input is unavailable or ρ >= 1.0 (formula diverges).
+### AC-2 — **AC-2: Cv accessible in evaluation context.** The Cv data is stored alongside the compiled series values so downstream analysis (Kingman, future DSL) can access it. A `CvMetadata` record or similar wraps `{ CoefficientOfVariation: double[], Source: Pmf | Observed | Constant }`. The source tag distinguishes PMF-derived Cv (exact, per-bin from distribution shape) from observed Cv (sample statistic, approximate) and constant Cv (zero by definition).
 
-4. **AC-4: Tests and gate.** Tests cover: Cv computation from known PMFs (Cv=0 for deterministic, Cv=1 for exponential), Cv computation from observed series (known sample statistics), Cv source tagging (Pmf vs Observed vs Constant), Kingman approximation with known inputs (both PMF and observed Cv), graceful null when inputs missing, ρ >= 1.0 returns null. Full test suite green.
+### AC-3 — **AC-3: Kingman's approximation per node.** For ServiceWithBuffer nodes where Cv data is available for both arrivals and service, compute per-bin: ``` E[Wq] ≈ (ρ/(1-ρ)) × ((Ca² + Cs²)/2) × E[S] ``` Where: - ρ = utilization (served/capacity) - Ca = Cv of arrivals series - Cs = Cv of service series - E[S] = mean service time (serviceTimeMs) Exposed as `kingmanPredictedWaitMs` in state responses. Null when any input is unavailable or ρ >= 1.0 (formula diverges).
 
+**AC-3: Kingman's approximation per node.** For ServiceWithBuffer nodes where Cv data is available for both arrivals and service, compute per-bin:
+```
+E[Wq] ≈ (ρ/(1-ρ)) × ((Ca² + Cs²)/2) × E[S]
+```
+Where:
+- ρ = utilization (served/capacity)
+- Ca = Cv of arrivals series
+- Cs = Cv of service series
+- E[S] = mean service time (serviceTimeMs)
+
+Exposed as `kingmanPredictedWaitMs` in state responses. Null when any input is unavailable or ρ >= 1.0 (formula diverges).
+
+### AC-4 — **AC-4: Tests and gate.** Tests cover: Cv computation from known PMFs (Cv=0 for deterministic, Cv=1 for exponential), Cv computation from observed series (known sample statistics), Cv source tagging (Pmf vs Observed vs Constant), Kingman approximation with known inputs (both PMF and observed Cv), graceful null when inputs missing, ρ >= 1.0 returns null. Full test suite green.
 ## Technical Notes
 
 - **Cv from PMF:** For a discrete PMF `{(v₁, p₁), (v₂, p₂), ...}`:

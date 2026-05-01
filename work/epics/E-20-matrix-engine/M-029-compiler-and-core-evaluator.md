@@ -3,6 +3,47 @@ id: M-029
 title: Compiler and Core Evaluator
 status: done
 parent: E-20
+acs:
+  - id: AC-1
+    title: '**AC-1: ColumnMap.** Bidirectional mapping between series names (strings) and column indices (usize). `name_to_index()`
+      and `index_to_name()`. Constructed during compilation.'
+    status: met
+  - id: AC-2
+    title: '**AC-2: Op enum and evaluator.** `Op` enum with variants for the element-wise operations needed by const + expr
+      models: - `Const { out, values }` — write constant values to a column - `VecAdd { out, a, b }`, `VecSub`, `VecMul`,
+      `VecDiv` — element-wise binary ops - `ScalarMul { out, input, k }`, `ScalarAdd { out, input, k }` — scalar ops - `VecMin
+      { out, a, b }`, `VecMax { out, a, b }` — element-wise min/max - `Clamp { out, val, lo, hi }` — clamp to range - `Mod
+      { out, a, b }` — modulo - `Floor { out, input }`, `Ceil { out, input }`, `Round { out, input }` — rounding - `Step {
+      out, input, threshold }` — step function - `Pulse { out, period, phase, amplitude }` — periodic pulse Evaluator function:
+      `fn evaluate(plan: &[Op], bins: usize, series_count: usize) -> Vec<f64>` — allocates matrix, iterates ops, returns filled
+      matrix.'
+    status: met
+  - id: AC-3
+    title: '**AC-3: Expression compiler.** Compile an expression AST (`Expr`) into a sequence of `Op`s given a `ColumnMap`.
+      Each binary op and function call emits one or more ops, using temporary columns for intermediate results. Node references
+      resolve to column indices via the ColumnMap.'
+    status: met
+  - id: AC-4
+    title: "**AC-4: Model compiler (const + expr).** `fn compile(model: &ModelDefinition) -> Result<(Plan, ColumnMap), CompileError>`:
+      - Assigns a column index to each node's output series. - Topological sort based on expression dependencies. - Emits
+      `Const` ops for `kind: \"const\"` nodes. - Emits expression ops for `kind: \"expr\"` nodes. - Returns the plan (ordered
+      ops) and column map."
+    status: met
+  - id: AC-5
+    title: '**AC-5: End-to-end evaluation.** `fn eval_model(model: &ModelDefinition) -> Result<EvalResult, Error>` that compiles
+      and evaluates, returning named series. Test with the `hello.yaml` fixture: - `demand` = [10, 10, 10, 10, 10, 10, 10,
+      10] - `served` = demand * 0.8 = [8, 8, 8, 8, 8, 8, 8, 8]'
+    status: met
+  - id: AC-6
+    title: '**AC-6: Parity with C# on simple models.** Create a parity test that evaluates a model with both the Rust engine
+      and the C# engine (via pre-computed reference outputs) and compares series values. At minimum: - Const-only model: all
+      series match - Const + expr model: expression results match (binary ops, scalar multiply) - Nested expressions: `MIN(a,
+      b)`, `MAX(a, b)`, `CLAMP(x, lo, hi)` - Multiple dependent expressions (chain: a → b → c)'
+    status: met
+  - id: AC-7
+    title: '**AC-7: Plan inspection.** `fn format_plan(plan: &Plan, column_map: &ColumnMap) -> String` that prints a human-readable
+      plan. The CLI `flowtime-engine plan <model.yaml>` command uses this. Output shows op type, column names (not just indices).'
+    status: met
 ---
 
 ## Goal
@@ -22,44 +63,51 @@ The matrix engine replaces this with:
 1. Compiler: assign column indices, emit ops from node definitions
 2. Evaluator: iterate ops, execute against flat `f64[]` matrix
 
-## Acceptance Criteria
+## Acceptance criteria
 
-1. **AC-1: ColumnMap.** Bidirectional mapping between series names (strings) and column indices (usize). `name_to_index()` and `index_to_name()`. Constructed during compilation.
+### AC-1 — **AC-1: ColumnMap.** Bidirectional mapping between series names (strings) and column indices (usize). `name_to_index()` and `index_to_name()`. Constructed during compilation.
 
-2. **AC-2: Op enum and evaluator.** `Op` enum with variants for the element-wise operations needed by const + expr models:
-   - `Const { out, values }` — write constant values to a column
-   - `VecAdd { out, a, b }`, `VecSub`, `VecMul`, `VecDiv` — element-wise binary ops
-   - `ScalarMul { out, input, k }`, `ScalarAdd { out, input, k }` — scalar ops
-   - `VecMin { out, a, b }`, `VecMax { out, a, b }` — element-wise min/max
-   - `Clamp { out, val, lo, hi }` — clamp to range
-   - `Mod { out, a, b }` — modulo
-   - `Floor { out, input }`, `Ceil { out, input }`, `Round { out, input }` — rounding
-   - `Step { out, input, threshold }` — step function
-   - `Pulse { out, period, phase, amplitude }` — periodic pulse
-   
-   Evaluator function: `fn evaluate(plan: &[Op], bins: usize, series_count: usize) -> Vec<f64>` — allocates matrix, iterates ops, returns filled matrix.
+### AC-2 — **AC-2: Op enum and evaluator.** `Op` enum with variants for the element-wise operations needed by const + expr models: - `Const { out, values }` — write constant values to a column - `VecAdd { out, a, b }`, `VecSub`, `VecMul`, `VecDiv` — element-wise binary ops - `ScalarMul { out, input, k }`, `ScalarAdd { out, input, k }` — scalar ops - `VecMin { out, a, b }`, `VecMax { out, a, b }` — element-wise min/max - `Clamp { out, val, lo, hi }` — clamp to range - `Mod { out, a, b }` — modulo - `Floor { out, input }`, `Ceil { out, input }`, `Round { out, input }` — rounding - `Step { out, input, threshold }` — step function - `Pulse { out, period, phase, amplitude }` — periodic pulse Evaluator function: `fn evaluate(plan: &[Op], bins: usize, series_count: usize) -> Vec<f64>` — allocates matrix, iterates ops, returns filled matrix.
 
-3. **AC-3: Expression compiler.** Compile an expression AST (`Expr`) into a sequence of `Op`s given a `ColumnMap`. Each binary op and function call emits one or more ops, using temporary columns for intermediate results. Node references resolve to column indices via the ColumnMap.
+**AC-2: Op enum and evaluator.** `Op` enum with variants for the element-wise operations needed by const + expr models:
+- `Const { out, values }` — write constant values to a column
+- `VecAdd { out, a, b }`, `VecSub`, `VecMul`, `VecDiv` — element-wise binary ops
+- `ScalarMul { out, input, k }`, `ScalarAdd { out, input, k }` — scalar ops
+- `VecMin { out, a, b }`, `VecMax { out, a, b }` — element-wise min/max
+- `Clamp { out, val, lo, hi }` — clamp to range
+- `Mod { out, a, b }` — modulo
+- `Floor { out, input }`, `Ceil { out, input }`, `Round { out, input }` — rounding
+- `Step { out, input, threshold }` — step function
+- `Pulse { out, period, phase, amplitude }` — periodic pulse
 
-4. **AC-4: Model compiler (const + expr).** `fn compile(model: &ModelDefinition) -> Result<(Plan, ColumnMap), CompileError>`:
-   - Assigns a column index to each node's output series.
-   - Topological sort based on expression dependencies.
-   - Emits `Const` ops for `kind: "const"` nodes.
-   - Emits expression ops for `kind: "expr"` nodes.
-   - Returns the plan (ordered ops) and column map.
+Evaluator function: `fn evaluate(plan: &[Op], bins: usize, series_count: usize) -> Vec<f64>` — allocates matrix, iterates ops, returns filled matrix.
 
-5. **AC-5: End-to-end evaluation.** `fn eval_model(model: &ModelDefinition) -> Result<EvalResult, Error>` that compiles and evaluates, returning named series. Test with the `hello.yaml` fixture:
-   - `demand` = [10, 10, 10, 10, 10, 10, 10, 10]
-   - `served` = demand * 0.8 = [8, 8, 8, 8, 8, 8, 8, 8]
+### AC-3 — **AC-3: Expression compiler.** Compile an expression AST (`Expr`) into a sequence of `Op`s given a `ColumnMap`. Each binary op and function call emits one or more ops, using temporary columns for intermediate results. Node references resolve to column indices via the ColumnMap.
 
-6. **AC-6: Parity with C# on simple models.** Create a parity test that evaluates a model with both the Rust engine and the C# engine (via pre-computed reference outputs) and compares series values. At minimum:
-   - Const-only model: all series match
-   - Const + expr model: expression results match (binary ops, scalar multiply)
-   - Nested expressions: `MIN(a, b)`, `MAX(a, b)`, `CLAMP(x, lo, hi)`
-   - Multiple dependent expressions (chain: a → b → c)
+### AC-4 — **AC-4: Model compiler (const + expr).** `fn compile(model: &ModelDefinition) -> Result<(Plan, ColumnMap), CompileError>`: - Assigns a column index to each node's output series. - Topological sort based on expression dependencies. - Emits `Const` ops for `kind: "const"` nodes. - Emits expression ops for `kind: "expr"` nodes. - Returns the plan (ordered ops) and column map.
 
-7. **AC-7: Plan inspection.** `fn format_plan(plan: &Plan, column_map: &ColumnMap) -> String` that prints a human-readable plan. The CLI `flowtime-engine plan <model.yaml>` command uses this. Output shows op type, column names (not just indices).
+**AC-4: Model compiler (const + expr).** `fn compile(model: &ModelDefinition) -> Result<(Plan, ColumnMap), CompileError>`:
+- Assigns a column index to each node's output series.
+- Topological sort based on expression dependencies.
+- Emits `Const` ops for `kind: "const"` nodes.
+- Emits expression ops for `kind: "expr"` nodes.
+- Returns the plan (ordered ops) and column map.
 
+### AC-5 — **AC-5: End-to-end evaluation.** `fn eval_model(model: &ModelDefinition) -> Result<EvalResult, Error>` that compiles and evaluates, returning named series. Test with the `hello.yaml` fixture: - `demand` = [10, 10, 10, 10, 10, 10, 10, 10] - `served` = demand * 0.8 = [8, 8, 8, 8, 8, 8, 8, 8]
+
+**AC-5: End-to-end evaluation.** `fn eval_model(model: &ModelDefinition) -> Result<EvalResult, Error>` that compiles and evaluates, returning named series. Test with the `hello.yaml` fixture:
+- `demand` = [10, 10, 10, 10, 10, 10, 10, 10]
+- `served` = demand * 0.8 = [8, 8, 8, 8, 8, 8, 8, 8]
+
+### AC-6 — **AC-6: Parity with C# on simple models.** Create a parity test that evaluates a model with both the Rust engine and the C# engine (via pre-computed reference outputs) and compares series values. At minimum: - Const-only model: all series match - Const + expr model: expression results match (binary ops, scalar multiply) - Nested expressions: `MIN(a, b)`, `MAX(a, b)`, `CLAMP(x, lo, hi)` - Multiple dependent expressions (chain: a → b → c)
+
+**AC-6: Parity with C# on simple models.** Create a parity test that evaluates a model with both the Rust engine and the C# engine (via pre-computed reference outputs) and compares series values. At minimum:
+- Const-only model: all series match
+- Const + expr model: expression results match (binary ops, scalar multiply)
+- Nested expressions: `MIN(a, b)`, `MAX(a, b)`, `CLAMP(x, lo, hi)`
+- Multiple dependent expressions (chain: a → b → c)
+
+### AC-7 — **AC-7: Plan inspection.** `fn format_plan(plan: &Plan, column_map: &ColumnMap) -> String` that prints a human-readable plan. The CLI `flowtime-engine plan <model.yaml>` command uses this. Output shows op type, column names (not just indices).
 ## Technical Notes
 
 - **Matrix layout:** Row-major `Vec<f64>` of size `series_count * bins`. Column `c` at bin `t` is at index `c * bins + t`. All bins for one series are contiguous.

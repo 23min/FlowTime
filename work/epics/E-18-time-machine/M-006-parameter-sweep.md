@@ -3,6 +3,43 @@ id: M-006
 title: Parameter Sweep
 status: done
 parent: E-18
+acs:
+  - id: AC-1
+    title: '`IModelEvaluator` interface exists in `FlowTime.TimeMachine.Sweep`'
+    status: met
+  - id: AC-2
+    title: '`SweepSpec` validates: non-null/whitespace ModelYaml, non-null/whitespace ParamId, non-null/non-empty Values'
+    status: met
+  - id: AC-3
+    title: '`ConstNodePatcher.Patch` correctly replaces const node values; returns original YAML for unknown/non-const nodes'
+    status: met
+  - id: AC-4
+    title: '`SweepRunner.RunAsync` returns one `SweepPoint` per input value, with correct ParamValue and Series'
+    status: met
+  - id: AC-5
+    title: '`SweepRunner` respects `CaptureSeriesIds` filter (null = all series)'
+    status: met
+  - id: AC-6
+    title: '`SweepRunner` respects `CancellationToken` between evaluation points'
+    status: met
+  - id: AC-7
+    title: '`RustModelEvaluator` wraps `RustEngineRunner` and maps series list to dictionary'
+    status: met
+  - id: AC-8
+    title: '`POST /v1/sweep` returns 400 for missing yaml / paramId / empty values'
+    status: met
+  - id: AC-9
+    title: '`POST /v1/sweep` returns 503 when Rust engine not enabled'
+    status: met
+  - id: AC-10
+    title: 'Unit tests pass: 28 sweep unit tests (SweepSpec ×9, ConstNodePatcher ×7, SweepRunner ×12)'
+    status: met
+  - id: AC-11
+    title: 'API validation tests pass: 7 tests (6×400, 1×503)'
+    status: met
+  - id: AC-12
+    title: '`dotnet test FlowTime.sln` all green (105 TimeMachine, 235 API — pre-existing integration failures unrelated)'
+    status: met
 ---
 
 ## Goal
@@ -74,17 +111,28 @@ session-based evaluator can be dropped in without changing the sweep domain mode
 - Returns the original YAML unchanged if the node is not found or is not a const node
 - Uses `InvariantCulture` formatting for decimal precision
 
-## Acceptance Criteria
+## Acceptance criteria
 
-- [x] `IModelEvaluator` interface exists in `FlowTime.TimeMachine.Sweep`
-- [x] `SweepSpec` validates: non-null/whitespace ModelYaml, non-null/whitespace ParamId, non-null/non-empty Values
-- [x] `ConstNodePatcher.Patch` correctly replaces const node values; returns original YAML for unknown/non-const nodes
-- [x] `SweepRunner.RunAsync` returns one `SweepPoint` per input value, with correct ParamValue and Series
-- [x] `SweepRunner` respects `CaptureSeriesIds` filter (null = all series)
-- [x] `SweepRunner` respects `CancellationToken` between evaluation points
-- [x] `RustModelEvaluator` wraps `RustEngineRunner` and maps series list to dictionary
-- [x] `POST /v1/sweep` returns 400 for missing yaml / paramId / empty values
-- [x] `POST /v1/sweep` returns 503 when Rust engine not enabled
-- [x] Unit tests pass: 28 sweep unit tests (SweepSpec ×9, ConstNodePatcher ×7, SweepRunner ×12)
-- [x] API validation tests pass: 7 tests (6×400, 1×503)
-- [x] `dotnet test FlowTime.sln` all green (105 TimeMachine, 235 API — pre-existing integration failures unrelated)
+### AC-1 — `IModelEvaluator` interface exists in `FlowTime.TimeMachine.Sweep`
+
+### AC-2 — `SweepSpec` validates: non-null/whitespace ModelYaml, non-null/whitespace ParamId, non-null/non-empty Values
+
+### AC-3 — `ConstNodePatcher.Patch` correctly replaces const node values; returns original YAML for unknown/non-const nodes
+
+### AC-4 — `SweepRunner.RunAsync` returns one `SweepPoint` per input value, with correct ParamValue and Series
+
+### AC-5 — `SweepRunner` respects `CaptureSeriesIds` filter (null = all series)
+
+### AC-6 — `SweepRunner` respects `CancellationToken` between evaluation points
+
+### AC-7 — `RustModelEvaluator` wraps `RustEngineRunner` and maps series list to dictionary
+
+### AC-8 — `POST /v1/sweep` returns 400 for missing yaml / paramId / empty values
+
+### AC-9 — `POST /v1/sweep` returns 503 when Rust engine not enabled
+
+### AC-10 — Unit tests pass: 28 sweep unit tests (SweepSpec ×9, ConstNodePatcher ×7, SweepRunner ×12)
+
+### AC-11 — API validation tests pass: 7 tests (6×400, 1×503)
+
+### AC-12 — `dotnet test FlowTime.sln` all green (105 TimeMachine, 235 API — pre-existing integration failures unrelated)

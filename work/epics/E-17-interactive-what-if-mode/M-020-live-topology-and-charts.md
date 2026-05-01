@@ -4,7 +4,69 @@ title: Live Topology and Charts
 status: done
 parent: E-17
 depends_on:
-    - M-019
+  - M-019
+acs:
+  - id: AC-1
+    title: "**AC-1: Topology graph renders.** When a compiled model has 2+ nodes, the What-If page shows a DAG-style graph
+      alongside the parameter panel and series list. Uses the existing `dag-map-view.svelte` component. Graph structure is
+      derived from the compiled model's nodes + dependencies (not from a separate HTTP call)."
+    status: met
+  - id: AC-2
+    title: "**AC-2: Graph structure from compile response.** The engine session `compile` command's response includes a `graph`
+      field: `{ nodes: [{id, kind}], edges: [{from, to}] }`. The server derives this from the parsed model definition. The
+      Svelte client stores it in state and passes it to the graph renderer."
+    status: met
+  - id: AC-3
+    title: "**AC-3: Layout stability on value changes.** Dragging a slider does NOT trigger a graph re-layout. The dag-map-view's
+      computed positions are preserved across evals. This is verified by a Playwright test that checks node positions are
+      identical before and after a parameter tweak."
+    status: met
+  - id: AC-4
+    title: '**AC-4: Reactive heatmap.** Each topology node is colored by its current series value (e.g., `served` for expression
+      nodes, `queue_depth` for queue nodes). Colors update when the series store updates. A Svelte-derived store maps series
+      → `Map<nodeId, NodeMetric>` for the graph overlay.'
+    status: met
+  - id: AC-5
+    title: '**AC-5: Metric selection.** A small dropdown above the graph lets the user pick which metric drives the heatmap
+      (e.g., "served", "queue_depth", "utilization"). The dropdown lists all non-internal series. Default selection is the
+      first primary output series.'
+    status: met
+  - id: AC-6
+    title: '**AC-6: Time-series chart component.** A new `<Chart>` component replaces the inline sparkline usage in the series
+      panel: - SVG-based, no external library - Configurable width/height, default 300×120 - X-axis: bin index labels - Y-axis:
+      min/max labels (auto-scaled) - Hover: shows bin index + exact value at mouse position - Smooth line with optional point
+      markers'
+    status: met
+  - id: AC-7
+    title: '**AC-7: Chart updates are reactive.** When series data changes, the chart re-renders in place. The axis auto-scales
+      to the new range. No flicker, no re-mount.'
+    status: met
+  - id: AC-8
+    title: '**AC-8: Multi-series overlay (optional per chart).** A chart can render multiple series as overlapping lines with
+      different colors and a legend. Default: one series per chart. Overlay mode is used for related metrics (e.g., arrivals
+      vs served).'
+    status: met
+  - id: AC-9
+    title: '**AC-9: Chart hover tooltip.** On mouseover, a crosshair line shows the current bin index, and a tooltip displays
+      `{name}: {value}` for each series rendered in that chart. The tooltip follows the cursor and does not cause layout shift.'
+    status: met
+  - id: AC-10
+    title: '**AC-10: Pure unit tests.** Vitest unit tests cover: - Graph derivation from compile response (node/edge mapping)
+      - Metric map computation (series → heatmap metric) - Chart path computation (extending sparkline-path tests to include
+      axis-aware layout) - Hover bin index resolution (cursor x → nearest bin) No DOM-level component tests required; pure
+      functions only.'
+    status: met
+  - id: AC-11
+    title: "**AC-11: Playwright E2E.** Extend `tests/ui/specs/svelte-what-if.spec.ts` with: - Topology graph renders when
+      model is loaded - Drag slider → graph colors change (verify a specific node's fill attribute changes) - Drag slider
+      → node positions don't change (layout stability) - Model switch → graph re-layouts (new structure) - Chart hover → tooltip
+      appears with correct values"
+    status: met
+  - id: AC-12
+    title: '**AC-12: Visual latency unchanged.** Tweaking a parameter to seeing the graph/chart update should still feel instant.
+      Reuse the existing `Last eval: N µs` badge — it should stay under 1000 µs for the simple-pipeline model even with the
+      new rendering.'
+    status: met
 ---
 
 ## Goal
@@ -22,48 +84,53 @@ M-020 replaces both: a proper topology graph (using the existing `dag-map-view` 
 
 **Layout stability is critical.** The graph must re-layout only on *structural* changes (model switch, new parameters). On *value* changes (slider drag), only colors and chart data update — nodes don't move, edges don't rewire. This preserves the user's mental map and makes the experience feel alive rather than jittery.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-1. **AC-1: Topology graph renders.** When a compiled model has 2+ nodes, the What-If page shows a DAG-style graph alongside the parameter panel and series list. Uses the existing `dag-map-view.svelte` component. Graph structure is derived from the compiled model's nodes + dependencies (not from a separate HTTP call).
+### AC-1 — **AC-1: Topology graph renders.** When a compiled model has 2+ nodes, the What-If page shows a DAG-style graph alongside the parameter panel and series list. Uses the existing `dag-map-view.svelte` component. Graph structure is derived from the compiled model's nodes + dependencies (not from a separate HTTP call).
 
-2. **AC-2: Graph structure from compile response.** The engine session `compile` command's response includes a `graph` field: `{ nodes: [{id, kind}], edges: [{from, to}] }`. The server derives this from the parsed model definition. The Svelte client stores it in state and passes it to the graph renderer.
+### AC-2 — **AC-2: Graph structure from compile response.** The engine session `compile` command's response includes a `graph` field: `{ nodes: [{id, kind}], edges: [{from, to}] }`. The server derives this from the parsed model definition. The Svelte client stores it in state and passes it to the graph renderer.
 
-3. **AC-3: Layout stability on value changes.** Dragging a slider does NOT trigger a graph re-layout. The dag-map-view's computed positions are preserved across evals. This is verified by a Playwright test that checks node positions are identical before and after a parameter tweak.
+### AC-3 — **AC-3: Layout stability on value changes.** Dragging a slider does NOT trigger a graph re-layout. The dag-map-view's computed positions are preserved across evals. This is verified by a Playwright test that checks node positions are identical before and after a parameter tweak.
 
-4. **AC-4: Reactive heatmap.** Each topology node is colored by its current series value (e.g., `served` for expression nodes, `queue_depth` for queue nodes). Colors update when the series store updates. A Svelte-derived store maps series → `Map<nodeId, NodeMetric>` for the graph overlay.
+### AC-4 — **AC-4: Reactive heatmap.** Each topology node is colored by its current series value (e.g., `served` for expression nodes, `queue_depth` for queue nodes). Colors update when the series store updates. A Svelte-derived store maps series → `Map<nodeId, NodeMetric>` for the graph overlay.
 
-5. **AC-5: Metric selection.** A small dropdown above the graph lets the user pick which metric drives the heatmap (e.g., "served", "queue_depth", "utilization"). The dropdown lists all non-internal series. Default selection is the first primary output series.
+### AC-5 — **AC-5: Metric selection.** A small dropdown above the graph lets the user pick which metric drives the heatmap (e.g., "served", "queue_depth", "utilization"). The dropdown lists all non-internal series. Default selection is the first primary output series.
 
-6. **AC-6: Time-series chart component.** A new `<Chart>` component replaces the inline sparkline usage in the series panel:
-   - SVG-based, no external library
-   - Configurable width/height, default 300×120
-   - X-axis: bin index labels
-   - Y-axis: min/max labels (auto-scaled)
-   - Hover: shows bin index + exact value at mouse position
-   - Smooth line with optional point markers
+### AC-6 — **AC-6: Time-series chart component.** A new `<Chart>` component replaces the inline sparkline usage in the series panel: - SVG-based, no external library - Configurable width/height, default 300×120 - X-axis: bin index labels - Y-axis: min/max labels (auto-scaled) - Hover: shows bin index + exact value at mouse position - Smooth line with optional point markers
 
-7. **AC-7: Chart updates are reactive.** When series data changes, the chart re-renders in place. The axis auto-scales to the new range. No flicker, no re-mount.
+**AC-6: Time-series chart component.** A new `<Chart>` component replaces the inline sparkline usage in the series panel:
+- SVG-based, no external library
+- Configurable width/height, default 300×120
+- X-axis: bin index labels
+- Y-axis: min/max labels (auto-scaled)
+- Hover: shows bin index + exact value at mouse position
+- Smooth line with optional point markers
 
-8. **AC-8: Multi-series overlay (optional per chart).** A chart can render multiple series as overlapping lines with different colors and a legend. Default: one series per chart. Overlay mode is used for related metrics (e.g., arrivals vs served).
+### AC-7 — **AC-7: Chart updates are reactive.** When series data changes, the chart re-renders in place. The axis auto-scales to the new range. No flicker, no re-mount.
 
-9. **AC-9: Chart hover tooltip.** On mouseover, a crosshair line shows the current bin index, and a tooltip displays `{name}: {value}` for each series rendered in that chart. The tooltip follows the cursor and does not cause layout shift.
+### AC-8 — **AC-8: Multi-series overlay (optional per chart).** A chart can render multiple series as overlapping lines with different colors and a legend. Default: one series per chart. Overlay mode is used for related metrics (e.g., arrivals vs served).
 
-10. **AC-10: Pure unit tests.** Vitest unit tests cover:
-    - Graph derivation from compile response (node/edge mapping)
-    - Metric map computation (series → heatmap metric)
-    - Chart path computation (extending sparkline-path tests to include axis-aware layout)
-    - Hover bin index resolution (cursor x → nearest bin)
-    No DOM-level component tests required; pure functions only.
+### AC-9 — **AC-9: Chart hover tooltip.** On mouseover, a crosshair line shows the current bin index, and a tooltip displays `{name}: {value}` for each series rendered in that chart. The tooltip follows the cursor and does not cause layout shift.
 
-11. **AC-11: Playwright E2E.** Extend `tests/ui/specs/svelte-what-if.spec.ts` with:
-    - Topology graph renders when model is loaded
-    - Drag slider → graph colors change (verify a specific node's fill attribute changes)
-    - Drag slider → node positions don't change (layout stability)
-    - Model switch → graph re-layouts (new structure)
-    - Chart hover → tooltip appears with correct values
+### AC-10 — **AC-10: Pure unit tests.** Vitest unit tests cover: - Graph derivation from compile response (node/edge mapping) - Metric map computation (series → heatmap metric) - Chart path computation (extending sparkline-path tests to include axis-aware layout) - Hover bin index resolution (cursor x → nearest bin) No DOM-level component tests required; pure functions only.
 
-12. **AC-12: Visual latency unchanged.** Tweaking a parameter to seeing the graph/chart update should still feel instant. Reuse the existing `Last eval: N µs` badge — it should stay under 1000 µs for the simple-pipeline model even with the new rendering.
+**AC-10: Pure unit tests.** Vitest unit tests cover:
+- Graph derivation from compile response (node/edge mapping)
+- Metric map computation (series → heatmap metric)
+- Chart path computation (extending sparkline-path tests to include axis-aware layout)
+- Hover bin index resolution (cursor x → nearest bin)
+No DOM-level component tests required; pure functions only.
 
+### AC-11 — **AC-11: Playwright E2E.** Extend `tests/ui/specs/svelte-what-if.spec.ts` with: - Topology graph renders when model is loaded - Drag slider → graph colors change (verify a specific node's fill attribute changes) - Drag slider → node positions don't change (layout stability) - Model switch → graph re-layouts (new structure) - Chart hover → tooltip appears with correct values
+
+**AC-11: Playwright E2E.** Extend `tests/ui/specs/svelte-what-if.spec.ts` with:
+- Topology graph renders when model is loaded
+- Drag slider → graph colors change (verify a specific node's fill attribute changes)
+- Drag slider → node positions don't change (layout stability)
+- Model switch → graph re-layouts (new structure)
+- Chart hover → tooltip appears with correct values
+
+### AC-12 — **AC-12: Visual latency unchanged.** Tweaking a parameter to seeing the graph/chart update should still feel instant. Reuse the existing `Last eval: N µs` badge — it should stay under 1000 µs for the simple-pipeline model even with the new rendering.
 ## Technical Notes
 
 ### Graph in compile response

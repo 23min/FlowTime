@@ -4,7 +4,56 @@ title: Engine Session + Streaming Protocol
 status: done
 parent: E-18
 depends_on:
-    - M-001
+  - M-001
+acs:
+  - id: AC-1
+    title: '**AC-1: `session` CLI command.** `flowtime-engine session` enters a persistent loop reading from stdin and writing
+      to stdout. No file arguments required. Exits cleanly on stdin EOF or SIGTERM.'
+    status: met
+  - id: AC-2
+    title: '**AC-2: Length-prefixed MessagePack framing.** Each message is `[4-byte big-endian length][MessagePack payload]`.
+      Both requests (stdin) and responses (stdout) use this framing. Stderr is reserved for human-readable log messages (not
+      protocol).'
+    status: met
+  - id: AC-3
+    title: '**AC-3: `compile` command.** Request: `{ method: "compile", params: { yaml: "<model YAML>" } }`. Response: `{
+      result: { params: [{ id, kind, default }], series: [{ id, bins, values }], bins, grid } }`. Compiles the model, holds
+      the Plan in session state, evaluates with defaults, returns the parameter schema and initial series.'
+    status: met
+  - id: AC-4
+    title: '**AC-4: `eval` command.** Request: `{ method: "eval", params: { overrides: { "arrivals": 15.0, "Queue.wipLimit":
+      30.0 } } }`. Response: `{ result: { series: { "arrivals": <f64 array>, "served": <f64 array>, ... }, elapsed_us } }`.
+      Re-evaluates with overrides, returns updated series. Must not recompile. Series values are MessagePack binary arrays
+      (not JSON text arrays).'
+    status: met
+  - id: AC-5
+    title: '**AC-5: `get_params` command.** Request: `{ method: "get_params" }`. Response: `{ result: { params: [{ id, kind,
+      default }] } }`. Returns the current parameter table from the compiled Plan.'
+    status: met
+  - id: AC-6
+    title: '**AC-6: `get_series` command.** Request: `{ method: "get_series", params: { names: ["arrivals", "served"] } }`.
+      Response: `{ result: { series: { "arrivals": <f64 array>, "served": <f64 array> } } }`. Returns specific series from
+      the current evaluation state. If no names provided, returns all non-internal series.'
+    status: met
+  - id: AC-7
+    title: '**AC-7: Error handling.** Invalid requests return `{ error: { code, message } }`. Specific errors: `not_compiled`
+      (eval before compile), `compile_error` (bad YAML), `unknown_method`. The session continues after errors — it does not
+      exit.'
+    status: met
+  - id: AC-8
+    title: '**AC-8: Session state.** The session holds: compiled Plan, current parameter overrides, current state matrix (from
+      most recent eval). `compile` replaces the entire session state. `eval` updates overrides and state. Multiple `eval`
+      calls are independent (no accumulation).'
+    status: met
+  - id: AC-9
+    title: '**AC-9: Performance.** For a model with 8 bins and ~10 series, `eval` with scalar overrides completes in under
+      1ms (excluding I/O). A Rust benchmark test evaluates 1,000 times in a loop and asserts total < 1 second.'
+    status: met
+  - id: AC-10
+    title: '**AC-10: Integration test.** A Rust integration test spawns `flowtime-engine session` as a subprocess, sends compile
+      + eval + eval (with different overrides) + get_params via the MessagePack protocol over stdin/stdout, and verifies all
+      responses are correct.'
+    status: met
 ---
 
 ## Goal
@@ -31,28 +80,27 @@ stdin → [compile] → hold Plan → [eval overrides] → stdout
 - **Cross-language.** Native libraries: Rust (`rmp-serde`), JavaScript (`@msgpack/msgpack`), C# (`MessagePack-CSharp`), Python (`msgpack`).
 - **Pipe-friendly.** Works over stdin/stdout for CLI composition, over WebSocket for UI.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-1. **AC-1: `session` CLI command.** `flowtime-engine session` enters a persistent loop reading from stdin and writing to stdout. No file arguments required. Exits cleanly on stdin EOF or SIGTERM.
+### AC-1 — **AC-1: `session` CLI command.** `flowtime-engine session` enters a persistent loop reading from stdin and writing to stdout. No file arguments required. Exits cleanly on stdin EOF or SIGTERM.
 
-2. **AC-2: Length-prefixed MessagePack framing.** Each message is `[4-byte big-endian length][MessagePack payload]`. Both requests (stdin) and responses (stdout) use this framing. Stderr is reserved for human-readable log messages (not protocol).
+### AC-2 — **AC-2: Length-prefixed MessagePack framing.** Each message is `[4-byte big-endian length][MessagePack payload]`. Both requests (stdin) and responses (stdout) use this framing. Stderr is reserved for human-readable log messages (not protocol).
 
-3. **AC-3: `compile` command.** Request: `{ method: "compile", params: { yaml: "<model YAML>" } }`. Response: `{ result: { params: [{ id, kind, default }], series: [{ id, bins, values }], bins, grid } }`. Compiles the model, holds the Plan in session state, evaluates with defaults, returns the parameter schema and initial series.
+### AC-3 — **AC-3: `compile` command.** Request: `{ method: "compile", params: { yaml: "<model YAML>" } }`. Response: `{ result: { params: [{ id, kind, default }], series: [{ id, bins, values }], bins, grid } }`. Compiles the model, holds the Plan in session state, evaluates with defaults, returns the parameter schema and initial series.
 
-4. **AC-4: `eval` command.** Request: `{ method: "eval", params: { overrides: { "arrivals": 15.0, "Queue.wipLimit": 30.0 } } }`. Response: `{ result: { series: { "arrivals": <f64 array>, "served": <f64 array>, ... }, elapsed_us } }`. Re-evaluates with overrides, returns updated series. Must not recompile. Series values are MessagePack binary arrays (not JSON text arrays).
+### AC-4 — **AC-4: `eval` command.** Request: `{ method: "eval", params: { overrides: { "arrivals": 15.0, "Queue.wipLimit": 30.0 } } }`. Response: `{ result: { series: { "arrivals": <f64 array>, "served": <f64 array>, ... }, elapsed_us } }`. Re-evaluates with overrides, returns updated series. Must not recompile. Series values are MessagePack binary arrays (not JSON text arrays).
 
-5. **AC-5: `get_params` command.** Request: `{ method: "get_params" }`. Response: `{ result: { params: [{ id, kind, default }] } }`. Returns the current parameter table from the compiled Plan.
+### AC-5 — **AC-5: `get_params` command.** Request: `{ method: "get_params" }`. Response: `{ result: { params: [{ id, kind, default }] } }`. Returns the current parameter table from the compiled Plan.
 
-6. **AC-6: `get_series` command.** Request: `{ method: "get_series", params: { names: ["arrivals", "served"] } }`. Response: `{ result: { series: { "arrivals": <f64 array>, "served": <f64 array> } } }`. Returns specific series from the current evaluation state. If no names provided, returns all non-internal series.
+### AC-6 — **AC-6: `get_series` command.** Request: `{ method: "get_series", params: { names: ["arrivals", "served"] } }`. Response: `{ result: { series: { "arrivals": <f64 array>, "served": <f64 array> } } }`. Returns specific series from the current evaluation state. If no names provided, returns all non-internal series.
 
-7. **AC-7: Error handling.** Invalid requests return `{ error: { code, message } }`. Specific errors: `not_compiled` (eval before compile), `compile_error` (bad YAML), `unknown_method`. The session continues after errors — it does not exit.
+### AC-7 — **AC-7: Error handling.** Invalid requests return `{ error: { code, message } }`. Specific errors: `not_compiled` (eval before compile), `compile_error` (bad YAML), `unknown_method`. The session continues after errors — it does not exit.
 
-8. **AC-8: Session state.** The session holds: compiled Plan, current parameter overrides, current state matrix (from most recent eval). `compile` replaces the entire session state. `eval` updates overrides and state. Multiple `eval` calls are independent (no accumulation).
+### AC-8 — **AC-8: Session state.** The session holds: compiled Plan, current parameter overrides, current state matrix (from most recent eval). `compile` replaces the entire session state. `eval` updates overrides and state. Multiple `eval` calls are independent (no accumulation).
 
-9. **AC-9: Performance.** For a model with 8 bins and ~10 series, `eval` with scalar overrides completes in under 1ms (excluding I/O). A Rust benchmark test evaluates 1,000 times in a loop and asserts total < 1 second.
+### AC-9 — **AC-9: Performance.** For a model with 8 bins and ~10 series, `eval` with scalar overrides completes in under 1ms (excluding I/O). A Rust benchmark test evaluates 1,000 times in a loop and asserts total < 1 second.
 
-10. **AC-10: Integration test.** A Rust integration test spawns `flowtime-engine session` as a subprocess, sends compile + eval + eval (with different overrides) + get_params via the MessagePack protocol over stdin/stdout, and verifies all responses are correct.
-
+### AC-10 — **AC-10: Integration test.** A Rust integration test spawns `flowtime-engine session` as a subprocess, sends compile + eval + eval (with different overrides) + get_params via the MessagePack protocol over stdin/stdout, and verifies all responses are correct.
 ## Technical Notes
 
 ### Dependencies to add

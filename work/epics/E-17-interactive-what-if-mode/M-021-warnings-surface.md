@@ -4,7 +4,63 @@ title: Warnings Surface
 status: done
 parent: E-17
 depends_on:
-    - M-020
+  - M-020
+acs:
+  - id: AC-1
+    title: "**AC-1: Warnings in protocol — compile response.** `CompileResult` (Rust `protocol.rs`, TS `engine-session.ts`)
+      includes a `warnings: WarningInfo[]` field. The session handler populates it from the initial eval's `result.warnings`.
+      Each entry carries `node_id`, `code`, `message`, `bins`, `severity`."
+    status: met
+  - id: AC-2
+    title: "**AC-2: Warnings in protocol — eval response.** `EvalResultMsg` includes the same `warnings: WarningInfo[]` field,
+      populated from the eval's `result.warnings`. The field is **always present** — empty array means \"no warnings,\" not
+      \"unknown\"."
+    status: met
+  - id: AC-3
+    title: '**AC-3: Example model that triggers a warning.** A new example model `capacity-constrained.yaml` is added to `ui/src/lib/api/example-models.ts`:
+      - `arrivals` const (default 15, tweakable) - `capacity` const (default 10, tweakable) - `served` expression forcing
+      served equal to arrivals - Topology node with `semantics.capacity = capacity` - With defaults: `served=15 > capacity=10`
+      → `served_exceeds_capacity` warning fires on bins 0..N - Dropping `arrivals` below `capacity` clears the warning - Raising
+      `capacity` above `arrivals` clears the warning'
+    status: met
+  - id: AC-4
+    title: '**AC-4: Warnings banner.** When the warnings array is non-empty, the What-If page shows a colored alert banner
+      near the top (below the model picker). The banner shows: - Warning count - Compact list of `{node_id} · {code}` entries
+      (up to 5, then "…and N more") - A severity color (amber for `warning`, red for future `error`) When the array is empty,
+      the banner is hidden entirely (no empty state).'
+    status: met
+  - id: AC-5
+    title: '**AC-5: Warning details panel.** Below the topology panel (or as a collapsible section within it), a `Warnings`
+      list shows every warning: - Each row: severity icon, `node_id`, `code`, full `message`, affected bin count - Rows are
+      grouped by `node_id` - The panel is hidden when there are no warnings'
+    status: met
+  - id: AC-6
+    title: '**AC-6: Node badge on topology graph.** Each topology node with at least one warning is visually flagged: - A
+      small ⚠ icon overlay in the top-right of the node, OR - A red/amber outline around the node - Implementation: Svelte-level
+      SVG overlay on top of the dag-map-view SVG, using node positions exposed by dag-map-view (or computed from the DOM)
+      - When the node has no warnings, no badge is rendered - Badges update reactively as the warnings array changes'
+    status: met
+  - id: AC-7
+    title: '**AC-7: Warnings update reactively on eval.** When a parameter change clears a warning, the banner, panel, and
+      node badge all disappear. When a change introduces a warning, they all appear. No page reload.'
+    status: met
+  - id: AC-8
+    title: '**AC-8: Pure unit tests.** - `format.ts` or new `warnings.ts`: group-by-node helper, severity-to-class mapping
+      (8+ tests) - Tests use fixtures with 0, 1, N warnings across multiple nodes - Unknown warning codes fall back to a default
+      icon/color'
+    status: met
+  - id: AC-9
+    title: '**AC-9: Playwright E2E.** New spec cases: - Load `capacity-constrained` model → warnings banner visible, panel
+      has ≥1 entry, `Service` node shows the badge - Tweak `capacity` from 10 to 20 → banner disappears within 500ms, panel
+      empty, badge gone - Tweak `capacity` back to 10 → banner returns - Load `simple-pipeline` → **no** banner, **no** panel
+      (no topology warnings possible)'
+    status: met
+  - id: AC-10
+    title: '**AC-10: Compile error surface unchanged.** Compile errors (invalid YAML, missing grid) still flow through the
+      existing `error` field on the Response envelope — not the `warnings` array. Warnings are a separate, orthogonal channel.
+      A model with compile errors produces an error response with no warnings; a valid model produces a result response with
+      a (possibly empty) warnings array.'
+    status: met
 ---
 
 ## Goal
@@ -34,54 +90,65 @@ Each warning has a `node_id`, `code`, `message`, `bins` (the affected bin indice
 
 **Key property:** because warnings are computed in the post-eval pipeline (which runs on every `eval` call), they are already recomputed per parameter override. The only thing missing is transport + rendering.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-1. **AC-1: Warnings in protocol — compile response.** `CompileResult` (Rust `protocol.rs`, TS `engine-session.ts`) includes a `warnings: WarningInfo[]` field. The session handler populates it from the initial eval's `result.warnings`. Each entry carries `node_id`, `code`, `message`, `bins`, `severity`.
+### AC-1 — **AC-1: Warnings in protocol — compile response.** `CompileResult` (Rust `protocol.rs`, TS `engine-session.ts`) includes a `warnings: WarningInfo[]` field. The session handler populates it from the initial eval's `result.warnings`. Each entry carries `node_id`, `code`, `message`, `bins`, `severity`.
 
-2. **AC-2: Warnings in protocol — eval response.** `EvalResultMsg` includes the same `warnings: WarningInfo[]` field, populated from the eval's `result.warnings`. The field is **always present** — empty array means "no warnings," not "unknown".
+### AC-2 — **AC-2: Warnings in protocol — eval response.** `EvalResultMsg` includes the same `warnings: WarningInfo[]` field, populated from the eval's `result.warnings`. The field is **always present** — empty array means "no warnings," not "unknown".
 
-3. **AC-3: Example model that triggers a warning.** A new example model `capacity-constrained.yaml` is added to `ui/src/lib/api/example-models.ts`:
-   - `arrivals` const (default 15, tweakable)
-   - `capacity` const (default 10, tweakable)
-   - `served` expression forcing served equal to arrivals
-   - Topology node with `semantics.capacity = capacity`
-   - With defaults: `served=15 > capacity=10` → `served_exceeds_capacity` warning fires on bins 0..N
-   - Dropping `arrivals` below `capacity` clears the warning
-   - Raising `capacity` above `arrivals` clears the warning
+### AC-3 — **AC-3: Example model that triggers a warning.** A new example model `capacity-constrained.yaml` is added to `ui/src/lib/api/example-models.ts`: - `arrivals` const (default 15, tweakable) - `capacity` const (default 10, tweakable) - `served` expression forcing served equal to arrivals - Topology node with `semantics.capacity = capacity` - With defaults: `served=15 > capacity=10` → `served_exceeds_capacity` warning fires on bins 0..N - Dropping `arrivals` below `capacity` clears the warning - Raising `capacity` above `arrivals` clears the warning
 
-4. **AC-4: Warnings banner.** When the warnings array is non-empty, the What-If page shows a colored alert banner near the top (below the model picker). The banner shows:
-   - Warning count
-   - Compact list of `{node_id} · {code}` entries (up to 5, then "…and N more")
-   - A severity color (amber for `warning`, red for future `error`)
-   When the array is empty, the banner is hidden entirely (no empty state).
+**AC-3: Example model that triggers a warning.** A new example model `capacity-constrained.yaml` is added to `ui/src/lib/api/example-models.ts`:
+- `arrivals` const (default 15, tweakable)
+- `capacity` const (default 10, tweakable)
+- `served` expression forcing served equal to arrivals
+- Topology node with `semantics.capacity = capacity`
+- With defaults: `served=15 > capacity=10` → `served_exceeds_capacity` warning fires on bins 0..N
+- Dropping `arrivals` below `capacity` clears the warning
+- Raising `capacity` above `arrivals` clears the warning
 
-5. **AC-5: Warning details panel.** Below the topology panel (or as a collapsible section within it), a `Warnings` list shows every warning:
-   - Each row: severity icon, `node_id`, `code`, full `message`, affected bin count
-   - Rows are grouped by `node_id`
-   - The panel is hidden when there are no warnings
+### AC-4 — **AC-4: Warnings banner.** When the warnings array is non-empty, the What-If page shows a colored alert banner near the top (below the model picker). The banner shows: - Warning count - Compact list of `{node_id} · {code}` entries (up to 5, then "…and N more") - A severity color (amber for `warning`, red for future `error`) When the array is empty, the banner is hidden entirely (no empty state).
 
-6. **AC-6: Node badge on topology graph.** Each topology node with at least one warning is visually flagged:
-   - A small ⚠ icon overlay in the top-right of the node, OR
-   - A red/amber outline around the node
-   - Implementation: Svelte-level SVG overlay on top of the dag-map-view SVG, using node positions exposed by dag-map-view (or computed from the DOM)
-   - When the node has no warnings, no badge is rendered
-   - Badges update reactively as the warnings array changes
+**AC-4: Warnings banner.** When the warnings array is non-empty, the What-If page shows a colored alert banner near the top (below the model picker). The banner shows:
+- Warning count
+- Compact list of `{node_id} · {code}` entries (up to 5, then "…and N more")
+- A severity color (amber for `warning`, red for future `error`)
+When the array is empty, the banner is hidden entirely (no empty state).
 
-7. **AC-7: Warnings update reactively on eval.** When a parameter change clears a warning, the banner, panel, and node badge all disappear. When a change introduces a warning, they all appear. No page reload.
+### AC-5 — **AC-5: Warning details panel.** Below the topology panel (or as a collapsible section within it), a `Warnings` list shows every warning: - Each row: severity icon, `node_id`, `code`, full `message`, affected bin count - Rows are grouped by `node_id` - The panel is hidden when there are no warnings
 
-8. **AC-8: Pure unit tests.**
-   - `format.ts` or new `warnings.ts`: group-by-node helper, severity-to-class mapping (8+ tests)
-   - Tests use fixtures with 0, 1, N warnings across multiple nodes
-   - Unknown warning codes fall back to a default icon/color
+**AC-5: Warning details panel.** Below the topology panel (or as a collapsible section within it), a `Warnings` list shows every warning:
+- Each row: severity icon, `node_id`, `code`, full `message`, affected bin count
+- Rows are grouped by `node_id`
+- The panel is hidden when there are no warnings
 
-9. **AC-9: Playwright E2E.** New spec cases:
-   - Load `capacity-constrained` model → warnings banner visible, panel has ≥1 entry, `Service` node shows the badge
-   - Tweak `capacity` from 10 to 20 → banner disappears within 500ms, panel empty, badge gone
-   - Tweak `capacity` back to 10 → banner returns
-   - Load `simple-pipeline` → **no** banner, **no** panel (no topology warnings possible)
+### AC-6 — **AC-6: Node badge on topology graph.** Each topology node with at least one warning is visually flagged: - A small ⚠ icon overlay in the top-right of the node, OR - A red/amber outline around the node - Implementation: Svelte-level SVG overlay on top of the dag-map-view SVG, using node positions exposed by dag-map-view (or computed from the DOM) - When the node has no warnings, no badge is rendered - Badges update reactively as the warnings array changes
 
-10. **AC-10: Compile error surface unchanged.** Compile errors (invalid YAML, missing grid) still flow through the existing `error` field on the Response envelope — not the `warnings` array. Warnings are a separate, orthogonal channel. A model with compile errors produces an error response with no warnings; a valid model produces a result response with a (possibly empty) warnings array.
+**AC-6: Node badge on topology graph.** Each topology node with at least one warning is visually flagged:
+- A small ⚠ icon overlay in the top-right of the node, OR
+- A red/amber outline around the node
+- Implementation: Svelte-level SVG overlay on top of the dag-map-view SVG, using node positions exposed by dag-map-view (or computed from the DOM)
+- When the node has no warnings, no badge is rendered
+- Badges update reactively as the warnings array changes
 
+### AC-7 — **AC-7: Warnings update reactively on eval.** When a parameter change clears a warning, the banner, panel, and node badge all disappear. When a change introduces a warning, they all appear. No page reload.
+
+### AC-8 — **AC-8: Pure unit tests.** - `format.ts` or new `warnings.ts`: group-by-node helper, severity-to-class mapping (8+ tests) - Tests use fixtures with 0, 1, N warnings across multiple nodes - Unknown warning codes fall back to a default icon/color
+
+**AC-8: Pure unit tests.**
+- `format.ts` or new `warnings.ts`: group-by-node helper, severity-to-class mapping (8+ tests)
+- Tests use fixtures with 0, 1, N warnings across multiple nodes
+- Unknown warning codes fall back to a default icon/color
+
+### AC-9 — **AC-9: Playwright E2E.** New spec cases: - Load `capacity-constrained` model → warnings banner visible, panel has ≥1 entry, `Service` node shows the badge - Tweak `capacity` from 10 to 20 → banner disappears within 500ms, panel empty, badge gone - Tweak `capacity` back to 10 → banner returns - Load `simple-pipeline` → **no** banner, **no** panel (no topology warnings possible)
+
+**AC-9: Playwright E2E.** New spec cases:
+- Load `capacity-constrained` model → warnings banner visible, panel has ≥1 entry, `Service` node shows the badge
+- Tweak `capacity` from 10 to 20 → banner disappears within 500ms, panel empty, badge gone
+- Tweak `capacity` back to 10 → banner returns
+- Load `simple-pipeline` → **no** banner, **no** panel (no topology warnings possible)
+
+### AC-10 — **AC-10: Compile error surface unchanged.** Compile errors (invalid YAML, missing grid) still flow through the existing `error` field on the Response envelope — not the `warnings` array. Warnings are a separate, orthogonal channel. A model with compile errors produces an error response with no warnings; a valid model produces a result response with a (possibly empty) warnings array.
 ## Technical Notes
 
 ### Rust protocol extension

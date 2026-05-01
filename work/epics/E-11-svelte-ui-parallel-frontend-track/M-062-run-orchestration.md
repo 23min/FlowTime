@@ -3,6 +3,29 @@ id: M-062
 title: Run Orchestration
 status: in_progress
 parent: E-11
+acs:
+  - id: AC-1
+    title: Templates render as cards in a responsive grid with title, description, domain icon, and version badge
+    status: open
+  - id: AC-2
+    title: Search input filters cards by name/description in real-time
+    status: open
+  - id: AC-3
+    title: 'Selecting a card fetches template detail and shows a configuration panel with: bundle reuse mode (Reuse/Regenerate/Fresh),
+      RNG seed input, and collapsible "Advanced Parameters" section'
+    status: open
+  - id: AC-4
+    title: Can execute a model run and see results (run ID, metadata, warnings, navigation links) when complete
+    status: open
+  - id: AC-5
+    title: Preview/dry-run mode shows the execution plan without creating a run
+    status: open
+  - id: AC-6
+    title: Loading, error, and empty states handled gracefully (skeletons, error cards, empty message)
+    status: open
+  - id: AC-7
+    title: No raw JSON parameter field visible by default (hidden in Advanced section)
+    status: open
 ---
 
 ## Goal
@@ -13,16 +36,21 @@ Add card-based template selection, run configuration, and model execution to the
 
 M1-M4 delivered the SvelteKit scaffold, API clients, topology rendering with dag-map, and timeline with heatmap scrubbing. The `/run` route is currently a stub. The Sim API already exposes template listing (`GET /api/v1/templates`), template detail with parameters (`GET /api/v1/templates/{id}`), and run orchestration (`POST /api/v1/orchestration/runs`) including dry-run preview. The Engine API lists completed runs (`GET /v1/runs`). This milestone wires the Svelte UI to those endpoints.
 
-## Acceptance Criteria
+## Acceptance criteria
 
-1. Templates render as cards in a responsive grid with title, description, domain icon, and version badge
-2. Search input filters cards by name/description in real-time
-3. Selecting a card fetches template detail and shows a configuration panel with: bundle reuse mode (Reuse/Regenerate/Fresh), RNG seed input, and collapsible "Advanced Parameters" section
-4. Can execute a model run and see results (run ID, metadata, warnings, navigation links) when complete
-5. Preview/dry-run mode shows the execution plan without creating a run
-6. Loading, error, and empty states handled gracefully (skeletons, error cards, empty message)
-7. No raw JSON parameter field visible by default (hidden in Advanced section)
+### AC-1 — Templates render as cards in a responsive grid with title, description, domain icon, and version badge
 
+### AC-2 — Search input filters cards by name/description in real-time
+
+### AC-3 — Selecting a card fetches template detail and shows a configuration panel with: bundle reuse mode (Reuse/Regenerate/Fresh), RNG seed input, and collapsible "Advanced Parameters" section
+
+### AC-4 — Can execute a model run and see results (run ID, metadata, warnings, navigation links) when complete
+
+### AC-5 — Preview/dry-run mode shows the execution plan without creating a run
+
+### AC-6 — Loading, error, and empty states handled gracefully (skeletons, error cards, empty message)
+
+### AC-7 — No raw JSON parameter field visible by default (hidden in Advanced section)
 ## Technical Notes
 
 - Single page with state phases (selecting → configuring → running → success/error/preview), not sub-routes

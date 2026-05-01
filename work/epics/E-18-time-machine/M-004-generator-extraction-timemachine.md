@@ -3,6 +3,25 @@ id: M-004
 title: Generator Extraction → TimeMachine
 status: done
 parent: E-18
+acs:
+  - id: AC-1
+    title: '`src/FlowTime.TimeMachine/` exists; `src/FlowTime.Generator/` is gone'
+    status: met
+  - id: AC-2
+    title: '`tests/FlowTime.TimeMachine.Tests/` exists; `tests/FlowTime.Generator.Tests/` is gone'
+    status: met
+  - id: AC-3
+    title: '`dotnet build FlowTime.sln` succeeds with zero errors'
+    status: met
+  - id: AC-4
+    title: '`dotnet test FlowTime.sln` passes with the same test count'
+    status: met
+  - id: AC-5
+    title: '`rg "FlowTime\.Generator" src/ tests/ --include="*.cs" --include="*.csproj"` returns zero matches'
+    status: met
+  - id: AC-6
+    title: Solution file contains TimeMachine entry; Generator entry is absent
+    status: met
 ---
 
 ## Goal
@@ -27,15 +46,19 @@ Pure structural refactor — no behavior change, all tests green, no coexistence
 - Tiered validation (M-003)
 - Any behavior changes whatsoever
 
-## Acceptance Criteria
+## Acceptance criteria
 
-- [x] `src/FlowTime.TimeMachine/` exists; `src/FlowTime.Generator/` is gone
-- [x] `tests/FlowTime.TimeMachine.Tests/` exists; `tests/FlowTime.Generator.Tests/` is gone
-- [x] `dotnet build FlowTime.sln` succeeds with zero errors
-- [x] `dotnet test FlowTime.sln` passes with the same test count
-- [x] `rg "FlowTime\.Generator" src/ tests/ --include="*.cs" --include="*.csproj"` returns zero matches
-- [x] Solution file contains TimeMachine entry; Generator entry is absent
+### AC-1 — `src/FlowTime.TimeMachine/` exists; `src/FlowTime.Generator/` is gone
 
+### AC-2 — `tests/FlowTime.TimeMachine.Tests/` exists; `tests/FlowTime.Generator.Tests/` is gone
+
+### AC-3 — `dotnet build FlowTime.sln` succeeds with zero errors
+
+### AC-4 — `dotnet test FlowTime.sln` passes with the same test count
+
+### AC-5 — `rg "FlowTime\.Generator" src/ tests/ --include="*.cs" --include="*.csproj"` returns zero matches
+
+### AC-6 — Solution file contains TimeMachine entry; Generator entry is absent
 ## Namespace Mapping
 
 | Old | New |
