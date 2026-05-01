@@ -413,6 +413,42 @@ def parse_gaps(path: Path, findings: list[str]) -> list[GapEntity]:
     return out_items
 
 
+def rewrite_body_text(text: str, id_map: dict[str, str]) -> str:
+    """Substitute v1 ids → v3 ids in body prose. Skip fenced code blocks and
+    inline code spans (their content is historical / executable and shouldn't be
+    rewritten). Match both bare-id and full-slug forms; collapse both to bare new id.
+
+    Order substitutions by len(old) DESC so prefix collisions can't cause partial
+    over-matches even though word-boundary lookarounds also guard against them.
+    """
+    if not id_map:
+        return text
+
+    fenced: list[str] = []
+    def _save_fenced(m: re.Match) -> str:
+        fenced.append(m.group(0))
+        return f"\x00FENCED{len(fenced) - 1}\x00"
+    work = re.sub(r"```[\s\S]*?```", _save_fenced, text)
+
+    inline: list[str] = []
+    def _save_inline(m: re.Match) -> str:
+        inline.append(m.group(0))
+        return f"\x00INLINE{len(inline) - 1}\x00"
+    work = re.sub(r"`[^`\n]+`", _save_inline, work)
+
+    for old in sorted(id_map.keys(), key=len, reverse=True):
+        new = id_map[old]
+        escaped = re.escape(old)
+        pattern = re.compile(rf"(?<![\w-]){escaped}(?:-[a-z0-9-]+)?(?![\w-])")
+        work = pattern.sub(new, work)
+
+    for i, code in enumerate(inline):
+        work = work.replace(f"\x00INLINE{i}\x00", code)
+    for i, code in enumerate(fenced):
+        work = work.replace(f"\x00FENCED{i}\x00", code)
+    return work
+
+
 def derive_title_from_h1(h1: str) -> str:
     """Strip a leading `Milestone:` and any embedded milestone-id prefix from an H1
     line, returning the title."""
@@ -680,6 +716,21 @@ def main() -> int:
 
     # Pass 5: gaps
     gaps = parse_gaps(GAPS_PATH, findings) if GAPS_PATH.exists() else []
+
+    # Pass G: body-text rewriting. Build full id-map (milestones + decisions),
+    # then substitute old ids → new ids in every entity body (skipping fenced
+    # code + inline code). Epics keep their original ids; gaps have no v1 id.
+    full_id_map = dict(id_map)
+    for d in decisions:
+        full_id_map[d.old_id] = d.new_id
+    for e in epics:
+        e.body = rewrite_body_text(e.body, full_id_map)
+    for m in milestones:
+        m.body = rewrite_body_text(m.body, full_id_map)
+    for d in decisions:
+        d.body = rewrite_body_text(d.body, full_id_map)
+    for g in gaps:
+        g.body = rewrite_body_text(g.body, full_id_map)
 
     manifest = build_manifest(epics, milestones, decisions, gaps)
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
