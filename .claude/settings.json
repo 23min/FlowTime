@@ -1,21 +1,4 @@
 {
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "startup",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .ai/tools/scratch-audit.sh"
-          },
-          {
-            "type": "command",
-            "command": "[ -x .ai-repo/bin/wf-graph ] && .ai-repo/bin/wf-graph report --graph work/graph.yaml --status 2>/dev/null || true"
-          }
-        ]
-      }
-    ]
-  },
   "statusLine": {
     "type": "command",
     "command": "bash .claude/statusline.sh"
