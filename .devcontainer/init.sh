@@ -37,6 +37,30 @@ if ! command -v roslynator >/dev/null 2>&1; then
   export PATH="$HOME/.dotnet/tools:$PATH"
 fi
 
+# Install Go (avoids the devcontainer Go feature, which fails on the .NET base
+# image's stale yarn apt source — NO_PUBKEY 62D54FD4003F6525)
+if ! command -v go >/dev/null 2>&1; then
+  echo "Installing Go..."
+  GO_VERSION=1.22.10
+  curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" \
+    | sudo tar -C /usr/local -xz
+  export PATH="/usr/local/go/bin:$PATH"
+fi
+
+# Install aiwf (AI workflow framework v3, branch-tip pin during PoC).
+# `go install` rejects branch names containing slashes, so resolve the branch
+# tip to a commit SHA via git ls-remote and install that.
+if ! command -v aiwf >/dev/null 2>&1; then
+  echo "Installing aiwf..."
+  export PATH="$HOME/go/bin:/usr/local/go/bin:$PATH"
+  aiwf_sha=$(git ls-remote https://github.com/23min/ai-workflow-v2.git refs/heads/poc/aiwf-v3 | awk '{print $1}')
+  if [ -z "$aiwf_sha" ]; then
+    echo "Failed to resolve aiwf branch tip" >&2
+    exit 1
+  fi
+  go install "github.com/23min/ai-workflow-v2/tools/cmd/aiwf@${aiwf_sha}"
+fi
+
 echo "Restoring solution..."
 dotnet restore >/dev/null
 
