@@ -296,10 +296,10 @@ Coverage gaps and mitigations:
 
 ### Phase 3 — pre-process source
 
-- [ ] Branch off migration/aiwf-v3 if useful (`migration/aiwf-v3-preprocess`)
-- [ ] Fill missing required fields in active epic specs (status:, parent:, etc.) so projector reads them mechanically
-- [ ] Resolve any source ambiguities flagged by projector
-- [ ] Decide and apply: archive `work/epics/completed/` to `archive-prior-planning/` (lean: yes, per question 1) or leave in place if projecting full history
+- [x] Stayed on migration/aiwf-v3 (no separate preprocess branch needed; commits are scoped)
+- [x] Fill missing required fields in active epic specs: E-13 added `**Status:** proposed`; E-11 added `**Status:** paused` (maps to active)
+- [x] Resolve source ambiguities: the only real skip-log finding remaining is m-E18-01's `**Depends on:** E-20` (epic-target) — accepted as projected since aiwf milestone.depends_on requires milestone targets and body prose retains the dep
+- [x] Apply Q1 decision: 17 non-id'd `work/epics/completed/` dirs relocated to `work/archived-epics/` via `git mv` (history preserved); `completed/` now contains only the 9 E-NN dirs
 
 ### Phase 4 — dry-run loop
 
@@ -369,3 +369,4 @@ Append-only record of dry-run iterations, decisions taken mid-flight, and findin
 - 2026-05-01 — phase 2 — Pass E landed. **Full coverage of Phase 2 scope achieved.** Projector extended to outliers via generalized id pattern alternation: `M-10\.NN` (E-12) | `m-ec-pN[a-z]?\d?` (E-10) | `m-svui-NN` (E-11) | `m-E\d+-\d+` (generic). Filename filter adds `-review` exclusion (E-10 has review docs). H1 parsing handles `# Milestone: <id-with-slug> — <Title>` shapes via `\S*` after id pattern. Final: **15 epics + 65 milestones = 80 writes, 0 errors, exit 0.** id-map.csv 65 entries. 25 findings (~22 noise from `**Epic:**` field carrying title; ~3 real).
 - 2026-05-01 — phase 2 — Pass F landed. Decisions + gaps. `parse_decisions` splits monolithic `work/decisions.md` by `## D-YYYY-MM-DD-NNN:` headings → 53 entities sorted chronologically as D-001..D-053. `parse_gaps` splits `work/gaps.md` by H2 (skipping "Open Questions" footer) using `git blame --date=short` to recover per-line creation dates → 33 entities sorted chronologically as G-001..G-033. Status: decision `active → accepted`; gap title-suffix `(resolved YYYY-MM-DD) → addressed`. **Final: 166 entities (15 + 65 + 53 + 33), 166 writes, 0 errors, exit 0.** id-map.csv now 118 entries (65 milestones + 53 decisions).
 - 2026-05-01 — phase 2 — Pass G landed. Body-text rewrite via id-map (settled Q&A: targeted, inline, skip-code-blocks). `rewrite_body_text` segments fenced and inline code as placeholders, substitutes old ids → new ids on remaining prose with `(?<![\w-]){escaped}(?:-[a-z0-9-]+)?(?![\w-])` regex (matches both bare id and full-slug forms; collapses both to bare new id). Substitutions applied in length-DESC order. Verified: every old m-EXX-NN and D-YYYY-MM-DD-NNN occurrence in body prose now points to its new M-NNN/D-NNN. `aiwf import --dry-run`: 166 plans, 0 errors, exit 0. **Phase 2 (projector) complete — manifest is import-ready.**
+- 2026-05-01 — phase 3 — pre-process source. (1) 17 non-id'd `work/epics/completed/` dirs relocated to `work/archived-epics/` via `git mv` (preserves history); `completed/` now contains only 9 E-NN dirs. (2) E-13 source spec gets `**Status:** proposed`; E-11 source spec gets `**Status:** paused`. (3) m-E18-01 epic-target dep accepted-as-projected (aiwf invariant; body retains prose). Re-projection: 166 entities unchanged, skip-log shrunk to 1 real + 22 noise findings, `aiwf import --dry-run` exit 0. **Phase 3 complete.**

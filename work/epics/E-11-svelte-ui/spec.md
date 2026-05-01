@@ -1,6 +1,7 @@
 # Epic: Svelte UI — Parallel Frontend Track
 
 **ID:** E-11
+**Status:** paused
 
 ## Goal
 

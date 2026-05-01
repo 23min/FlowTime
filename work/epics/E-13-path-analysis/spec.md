@@ -1,6 +1,7 @@
 # Epic: Path Analysis & Subgraph Queries
 
 **ID:** E-13
+**Status:** proposed
 
 ## 1. Summary
 

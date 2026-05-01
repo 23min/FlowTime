@@ -2079,7 +2079,7 @@ entities:
     id: E-11
     frontmatter:
       title: Svelte UI — Parallel Frontend Track
-      status: proposed
+      status: active
     body: |
       ## Goal
 
