@@ -70,8 +70,6 @@ _(none)_
 | G-024 | Data-viz palette not validated for color-blindness (m-E21-06 AC12 homework) |  |
 | G-025 | Bidirectional card ↔ view selection (reverse cross-link) |  |
 | G-026 | Heatmap sliding-window scrubber (Blazor-parity zoom-and-pan) |  |
-| G-030 | FFI-based engine evaluator (alternative to subprocess) |  |
-| G-031 | Backend language choice for session service |  |
 | G-032 | \`transportation-basic\` regressed: \`edge_flow_mismatch_incoming\` × 3 after E-24 unification |  |
 | G-033 | Tests are too weak: surveyed-output-only canaries cannot detect drift; need deterministic golden-output assertions |  |
 
