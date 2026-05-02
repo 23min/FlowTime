@@ -83,6 +83,7 @@ _(none)_
 
 | Date | Actor | Verb | Detail |
 |------|-------|------|--------|
+| 2026-05-02 | human/peter | promote | aiwf promote G-034 open -> addressed |
 | 2026-05-02 | human/peter | add | aiwf add gap G-034 'Sim orchestration silently demotes dryRun:true when full parameter set is provided' |
 | 2026-05-02 | human/peter | rename | aiwf rename E-18 slug -> headless-pipeline-and-optimization |
 | 2026-05-01 | human/peter | import | import(spike): 15 epics + 65 milestones + 53 decisions + 33 gaps |

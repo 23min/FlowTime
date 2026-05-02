@@ -376,6 +376,48 @@ public class RunOrchestrationServiceTests
         Assert.True(second.WasReused);
     }
 
+    // Regression for G-034 — Sim orchestration silently demoted dryRun:true
+    // to a real run whenever a deterministic run with the same id already
+    // existed on disk. The reuse short-circuit must not run for dry-runs;
+    // dryRun is authoritative and must always produce a plan.
+    [Fact]
+    public async Task CreateRunAsync_DryRun_DoesNotReuseExistingDeterministicRun()
+    {
+        using var temp = new TempDirectory();
+        var templatesDir = Path.Combine(temp.Path, "templates");
+        Directory.CreateDirectory(templatesDir);
+        await File.WriteAllTextAsync(Path.Combine(templatesDir, "sim-order.yaml"), simulationTemplate);
+
+        var templateService = new TemplateService(templatesDir, NullLogger<TemplateService>.Instance);
+        var bundleBuilder = new TelemetryBundleBuilder();
+        var orchestration = new RunOrchestrationService(templateService, bundleBuilder, NullLogger<RunOrchestrationService>.Instance);
+
+        var realRequest = new RunOrchestrationRequest
+        {
+            TemplateId = "sim-order",
+            Mode = "simulation",
+            Parameters = new Dictionary<string, object?>(),
+            OutputRoot = Path.Combine(temp.Path, "runs"),
+            DeterministicRunId = true,
+            DryRun = false
+        };
+
+        // First land a real run so the deterministic run id exists on disk.
+        var realOutcome = await orchestration.CreateRunAsync(realRequest);
+        Assert.False(realOutcome.IsDryRun);
+        Assert.NotNull(realOutcome.Result);
+
+        // Now request a dry-run with the same inputs. dryRun must be honored
+        // even though a real run with the same deterministic id already
+        // exists; the response must carry a plan, not a reused result.
+        var dryRunRequest = realRequest with { DryRun = true };
+        var dryOutcome = await orchestration.CreateRunAsync(dryRunRequest);
+
+        Assert.True(dryOutcome.IsDryRun);
+        Assert.NotNull(dryOutcome.Plan);
+        Assert.Null(dryOutcome.Result);
+    }
+
     [Fact]
     public async Task CreateRunAsync_DeterministicSimulation_OverwriteRegeneratesBundle()
     {
