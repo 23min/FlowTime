@@ -2,6 +2,8 @@
 id: G-027
 title: '`ProvenanceEmbedder` parallel CLI path (Sim, dead code)'
 status: addressed
+addressed_by:
+  - E-24
 ---
 
 ### Why this was a gap

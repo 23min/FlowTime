@@ -2,6 +2,8 @@
 id: G-015
 title: Silent no-op + self-match false positives in m-E19-02 and m-E19-03 grep-guard scripts
 status: addressed
+addressed_by:
+  - E-19
 ---
 
 ### Why this was a gap

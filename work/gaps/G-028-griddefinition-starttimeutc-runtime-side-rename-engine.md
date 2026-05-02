@@ -2,6 +2,8 @@
 id: G-028
 title: '`GridDefinition.StartTimeUtc` runtime-side rename (Engine)'
 status: addressed
+addressed_by:
+  - E-24
 ---
 
 ### Why this was a gap

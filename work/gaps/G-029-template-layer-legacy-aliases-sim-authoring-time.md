@@ -2,6 +2,8 @@
 id: G-029
 title: Template-layer `Legacy*` aliases (Sim authoring-time)
 status: addressed
+addressed_by:
+  - E-24
 ---
 
 ### Why this was a gap

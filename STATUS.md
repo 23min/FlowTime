@@ -1,6 +1,6 @@
 # aiwf status — 2026-05-02
 
-_166 entities · 0 errors · 4 warnings · run `aiwf check` for details_
+_166 entities · 0 errors · 0 warnings_
 
 ## In flight
 
@@ -78,16 +78,12 @@ _(none)_
 
 ## Warnings
 
-| Code | Entity | Path | Message |
-|------|--------|------|---------|
-| gap-resolved-has-resolver | G-015 | work/gaps/G-015-silent-no-op-self-match-false-positives-in-m-e19-02-and-m-e19-03-grep-guard-scripts.md | gap is marked addressed but addressed_by is empty |
-| gap-resolved-has-resolver | G-027 | work/gaps/G-027-provenanceembedder-parallel-cli-path-sim-dead-code.md | gap is marked addressed but addressed_by is empty |
-| gap-resolved-has-resolver | G-028 | work/gaps/G-028-griddefinition-starttimeutc-runtime-side-rename-engine.md | gap is marked addressed but addressed_by is empty |
-| gap-resolved-has-resolver | G-029 | work/gaps/G-029-template-layer-legacy-aliases-sim-authoring-time.md | gap is marked addressed but addressed_by is empty |
+_(none)_
 
 ## Recent activity
 
 | Date | Actor | Verb | Detail |
 |------|-------|------|--------|
+| 2026-05-02 | human/peter | rename | aiwf rename E-18 slug -> headless-pipeline-and-optimization |
 | 2026-05-01 | human/peter | import | import(spike): 15 epics + 65 milestones + 53 decisions + 33 gaps |
 
