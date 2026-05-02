@@ -1,7 +1,7 @@
 ---
 id: G-021
 title: '`.codex/` missing from framework adapter-ignore list (2026-04-20)'
-status: open
+status: wontfix
 ---
 
 ### Why this is a gap

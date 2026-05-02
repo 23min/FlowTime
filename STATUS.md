@@ -65,7 +65,6 @@ _(none)_
 | G-018 | \`IModelEvaluator\` Series-Key Shape Divergence |  |
 | G-019 | Sim-generated model shape vs. Rust engine compiler expectations |  |
 | G-020 | Ultrareview findings on \`epic/E-21-svelte-workbench-and-analysis\` (2026-04-20) |  |
-| G-021 | \`.codex/\` missing from framework adapter-ignore list (2026-04-20) |  |
 | G-022 | Heatmap view — deferred enhancements (m-E21-06 Q&A, 2026-04-23) |  |
 | G-023 | Topology DAG has no keyboard nav or ARIA structure (m-E21-06 AC12 homework) |  |
 | G-024 | Data-viz palette not validated for color-blindness (m-E21-06 AC12 homework) |  |
