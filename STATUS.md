@@ -67,9 +67,9 @@ _(none)_
 
 | Date | Actor | Verb | Detail |
 |------|-------|------|--------|
+| 2026-05-02 | human/peter | add | aiwf add epic E-25 'Engine Truth Gate — Edge-Flow Authority + Golden-Output Canary' |
 | 2026-05-02 | human/peter | promote | aiwf promote M-062/AC-7 open -> met |
 | 2026-05-02 | human/peter | promote | aiwf promote M-062/AC-6 open -> met |
 | 2026-05-02 | human/peter | promote | aiwf promote M-062/AC-5 open -> met |
 | 2026-05-02 | human/peter | promote | aiwf promote M-062/AC-4 open -> met |
-| 2026-05-02 | human/peter | promote | aiwf promote M-062/AC-3 open -> met |
 
