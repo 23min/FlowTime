@@ -22,7 +22,7 @@ acs:
       status: met
     - id: AC-6
       title: Loading, error, and empty states handled gracefully (skeletons, error
-      status: open
+      status: met
     - id: AC-7
       title: No raw JSON parameter field visible by default (hidden in Advanced section)
       status: open
