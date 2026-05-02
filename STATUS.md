@@ -1,4 +1,4 @@
-# aiwf status — 2026-05-01
+# aiwf status — 2026-05-02
 
 _166 entities · 0 errors · 4 warnings · run `aiwf check` for details_
 
