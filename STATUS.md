@@ -1,6 +1,6 @@
 # aiwf status — 2026-05-02
 
-_167 entities · 0 errors · 0 warnings_
+_167 entities · 0 errors · 1 warnings · run `aiwf check` for details_
 
 ## In flight
 
@@ -72,16 +72,18 @@ _(none)_
 | G-026 | Heatmap sliding-window scrubber (Blazor-parity zoom-and-pan) |  |
 | G-032 | \`transportation-basic\` regressed: \`edge_flow_mismatch_incoming\` × 3 after E-24 unification |  |
 | G-033 | Tests are too weak: surveyed-output-only canaries cannot detect drift; need deterministic golden-output assertions |  |
-| G-034 | Sim orchestration silently demotes dryRun:true when full parameter set is provided | M-062 |
 
 ## Warnings
 
-_(none)_
+| Code | Entity | Path | Message |
+|------|--------|------|---------|
+| gap-resolved-has-resolver | G-034 | work/gaps/G-034-sim-orchestration-silently-demotes-dryrun.md | gap is marked addressed but addressed_by is empty |
 
 ## Recent activity
 
 | Date | Actor | Verb | Detail |
 |------|-------|------|--------|
+| 2026-05-02 | human/peter | add | aiwf add gap G-034 'Sim orchestration silently demotes dryRun:true when full parameter set is provided' |
 | 2026-05-02 | human/peter | rename | aiwf rename E-18 slug -> headless-pipeline-and-optimization |
 | 2026-05-01 | human/peter | import | import(spike): 15 epics + 65 milestones + 53 decisions + 33 gaps |
 
