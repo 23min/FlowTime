@@ -19,7 +19,7 @@ acs:
       status: met
     - id: AC-5
       title: Preview/dry-run mode shows the execution plan without creating a run
-      status: open
+      status: met
     - id: AC-6
       title: Loading, error, and empty states handled gracefully (skeletons, error
       status: open
