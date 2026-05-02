@@ -57,7 +57,7 @@ Role agents ship via the `aiwf-extensions` plugin (loaded into Claude Code from 
 
 `aiwf` verbs: `init`, `add <kind>`, `promote`, `cancel`, `rename`, `reallocate`, `move`, `check`, `history`, `status`, `render roadmap`, `doctor`, `import`, `schema`, `template`, `contract verify`. Run `aiwf help` for the full list. Don't edit entity frontmatter status by hand — use `aiwf promote` so the FSM check + commit trailer happen.
 
-Tracking docs (per the `aiwfx-track` skill) are advisory free-form markdown alongside a milestone spec; not aiwf entities, not validated. Older `*-log.md` / `*-tracking.md` files in `work/archived-epics/` are pre-aiwf residue.
+Milestone work is tracked **inside the milestone spec itself** — the `M-NNN-<slug>.md` file is the single home for goal, ACs, design notes, working analysis, and work log. There is no separate tracking-doc convention in aiwf v3. The older `*-log.md` / `*-tracking.md` files in `work/archived-epics/` are pre-aiwf v1 residue.
 
 ## Coding Conventions
 

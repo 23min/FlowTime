@@ -85,9 +85,9 @@ _(none)_
 
 | Date | Actor | Verb | Detail |
 |------|-------|------|--------|
+| 2026-05-02 | human/peter | add | aiwf add gap G-035 'Pre-aiwf v1 framework docs survived migration and contradict the v3 model' |
 | 2026-05-02 | human/peter | promote | aiwf promote M-066 draft -> in_progress |
 | 2026-05-02 | human/peter | render-roadmap | aiwf render roadmap |
 | 2026-05-02 | human/peter | add | aiwf add milestone M-068 'Golden-Output Canary' |
 | 2026-05-02 | human/peter | add | aiwf add milestone M-067 'Engine + Template Alignment' |
-| 2026-05-02 | human/peter | add | aiwf add milestone M-066 'Edge-Flow Authority Decision' |
 

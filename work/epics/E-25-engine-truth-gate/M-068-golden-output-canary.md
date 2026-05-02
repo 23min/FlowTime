@@ -164,7 +164,6 @@ On merge to main: the epic frontmatter is promoted to `status: done` via `aiwf p
 - `tests/FlowTime.Integration.Tests/GoldenOutputCoverageEquivalenceTests.cs` (new, optional — the coverage-equivalence assertion if it lives separately)
 - `tests/fixtures/golden-templates/<template-id>/` × 12 (new — one directory per shipped template, each with the serialized fixture and a README)
 - `docs/testing/golden-output-canary.md` (new — the canary contract doc)
-- `work/epics/E-25-engine-truth-gate/m-E25-03-golden-output-canary-tracking.md` (new — branch-coverage audit, fixture-format decision rationale, perturbation-test catalogue)
 - `work/gaps/G-033-tests-are-too-weak-…md` (status to `done`, reference this milestone)
 - `work/epics/E-25-engine-truth-gate/epic.md` (small edit — supersedes/closes update)
 - `work/epics/E-25-engine-truth-gate/wrap.md` (new — epic closure artefact)

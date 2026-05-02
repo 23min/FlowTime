@@ -88,7 +88,7 @@ After the engine + template + baseline + val-warn-gate changes are merged, `Surv
 
 ### AC-7 — No coexistence of old and new authority paths
 
-Per the epic's Constraints — "no coexistence window for the chosen authority". After this milestone, `grep -rn "<old-authority-marker>"` (where `<old-authority-marker>` is the symbol or feature flag specific to the rejected approach, named in M-066's decision) returns zero hits in production code. The engine has one authority, not two with a switch. Any compatibility shim retained must have an explicit deletion criterion captured in the milestone tracking doc — the project's truth-discipline rule against tolerated alternate paths applies in full.
+Per the epic's Constraints — "no coexistence window for the chosen authority". After this milestone, `grep -rn "<old-authority-marker>"` (where `<old-authority-marker>` is the symbol or feature flag specific to the rejected approach, named in M-066's decision) returns zero hits in production code. The engine has one authority, not two with a switch. Any compatibility shim retained must have an explicit deletion criterion captured inline in this milestone spec's Work log — the project's truth-discipline rule against tolerated alternate paths applies in full.
 
 ### AC-8 — `edge_flow_mismatch_*` warnings are zero across shipped templates
 
@@ -128,7 +128,7 @@ The existing `run-warn` baseline gate is never loosened. Baselines transition fr
 
 - **`val-warn` delta gate baseline shape.** If the engine + template change reaches `val-warn == 0` for all 12 templates, the gate is a hard zero — the test asserts `valWarnCount == 0` for every template with no baseline dictionary needed. If any template legitimately retains a non-zero `val-warn` count after the engine + template change (e.g., a deliberate validator warning that survives the authority change), introduce an `ExpectedValWarnings` dictionary mirroring `ExpectedRunWarnings`'s shape, with each non-zero entry carrying a one-line rationale comment. Decision lives inside this milestone; either shape is acceptable.
 - **Coordinated-commit shape.** A clean shape is: commit 1 — engine code + TDD test (AC-9); commit 2 — first batch of template edits + corresponding `ExpectedRunWarnings` resets (e.g., `transportation-basic` and its `-classes` sibling); commit 3 — second batch, etc.; final commit — `val-warn` delta gate + branch-coverage tests. The constraint AC-4 enforces is *test-suite green at every boundary*, not "single commit". Splitting across commits is encouraged for reviewability.
-- **D-NNN id substitution.** This spec carries the placeholder `D-NNN (the m-E25-01 outcome)`; before milestone start, replace every occurrence with the actual ratified id from M-066. The replacement is part of the milestone start phase, not part of body-fill — at planning time the id does not yet exist.
+- **D-NNN id substitution.** This spec carries the placeholder `D-NNN (the m-E25-01 outcome)`; at milestone start, replace every occurrence with the actual ratified id from M-066. At planning time the id does not yet exist.
 - **Template edit pattern.** For option 1 (edge weights win), each affected template moves its expr-layer split arithmetic into edge weights. For option 2 (expr authority wins), no template edits land at all (the engine change makes the templates correct as-is) — and the AC-2 list collapses to empty. For option 3 (both-must-agree), templates may need both surfaces explicit; the M-066 footprint analysis specifies exactly which templates change. Review the footprint analysis before starting edits.
 - **Smoke run for AC-8.** A simple `dotnet run --project src/FlowTime.Cli` invocation against `templates/transportation-basic.yaml` at default parameters, reading the produced `data/runs/<run-id>/run.json` for an empty `warnings[]` shape, is sufficient evidence. The existing survey test is the structural authority; the smoke is for human verification.
 
@@ -138,7 +138,6 @@ The existing `run-warn` baseline gate is never loosened. Baselines transition fr
 - `templates/*.yaml` (under option 1 or 3 — the affected subset from G-032's table)
 - `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs` (`ExpectedRunWarnings` reset; `val-warn` delta gate)
 - `tests/FlowTime.Core.Tests/Analysis/` (new TDD test for the engine change)
-- `work/epics/E-25-engine-truth-gate/m-E25-02-engine-template-alignment-tracking.md` (new — branch-coverage audit, per-template edit log)
 - `work/gaps/G-032-…md` (status to `done`, reference this milestone)
 - `work/epics/E-25-engine-truth-gate/epic.md` (small edit — supersedes/closes update)
 - `ROADMAP.md` (regenerated via `aiwf render roadmap --write`)
