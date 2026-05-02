@@ -16,7 +16,7 @@ acs:
       status: met
     - id: AC-4
       title: Can execute a model run and see results (run ID, metadata, warnings
-      status: open
+      status: met
     - id: AC-5
       title: Preview/dry-run mode shows the execution plan without creating a run
       status: open
