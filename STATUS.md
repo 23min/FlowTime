@@ -7,14 +7,14 @@ _167 entities · 0 errors · 1 warnings · run `aiwf check` for details_
 ### E-11 — Svelte UI — Parallel Frontend Track _(active)_
 
 - ✓ **M-061** — Project Scaffold & Shell _(done)_ — ACs 4/4 met
-- → **M-062** — Run Orchestration _(in_progress)_ — ACs 0/7 met (7 open)
+- → **M-062** — Run Orchestration _(in_progress)_ — ACs 2/7 met (5 open)
 
 ```mermaid
 flowchart LR
   E_11["E-11<br/>Svelte UI — Parallel Frontend Track"]:::epic_active
   M_061["M-061 (4/4)<br/>Project Scaffold & Shell"]:::ms_done
   E_11 --> M_061
-  M_062["M-062 (0/7)<br/>Run Orchestration"]:::ms_in_progress
+  M_062["M-062 (2/7)<br/>Run Orchestration"]:::ms_in_progress
   E_11 --> M_062
   classDef epic_active fill:#d6eaff,stroke:#1a73e8,color:#000
   classDef epic_proposed fill:#f4f4f4,stroke:#888,color:#000

@@ -4,27 +4,28 @@ title: Run Orchestration
 status: in_progress
 parent: E-11
 acs:
-  - id: AC-1
-    title: Templates render as cards in a responsive grid with title
-    status: open
-  - id: AC-2
-    title: Search input filters cards by name/description in real-time
-    status: open
-  - id: AC-3
-    title: Selecting a card fetches template detail and shows a configuration
-    status: open
-  - id: AC-4
-    title: Can execute a model run and see results (run ID, metadata, warnings
-    status: open
-  - id: AC-5
-    title: Preview/dry-run mode shows the execution plan without creating a run
-    status: open
-  - id: AC-6
-    title: Loading, error, and empty states handled gracefully (skeletons, error
-    status: open
-  - id: AC-7
-    title: No raw JSON parameter field visible by default (hidden in Advanced section)
-    status: open
+    - id: AC-1
+      title: Templates render as cards in a responsive grid with title
+      status: met
+      tdd_phase: red
+    - id: AC-2
+      title: Search input filters cards by name/description in real-time
+      status: met
+    - id: AC-3
+      title: Selecting a card fetches template detail and shows a configuration
+      status: open
+    - id: AC-4
+      title: Can execute a model run and see results (run ID, metadata, warnings
+      status: open
+    - id: AC-5
+      title: Preview/dry-run mode shows the execution plan without creating a run
+      status: open
+    - id: AC-6
+      title: Loading, error, and empty states handled gracefully (skeletons, error
+      status: open
+    - id: AC-7
+      title: No raw JSON parameter field visible by default (hidden in Advanced section)
+      status: open
 ---
 
 ## Goal
