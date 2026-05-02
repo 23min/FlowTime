@@ -86,9 +86,9 @@ _(none)_
 
 | Date | Actor | Verb | Detail |
 |------|-------|------|--------|
+| 2026-05-02 | human/peter | render-roadmap | aiwf render roadmap |
 | 2026-05-02 | human/peter | add | aiwf add milestone M-068 'Golden-Output Canary' |
 | 2026-05-02 | human/peter | add | aiwf add milestone M-067 'Engine + Template Alignment' |
 | 2026-05-02 | human/peter | add | aiwf add milestone M-066 'Edge-Flow Authority Decision' |
 | 2026-05-02 | human/peter | rename | aiwf rename E-25 slug -> engine-truth-gate |
-| 2026-05-02 | human/peter | add | aiwf add epic E-25 'Engine Truth Gate — Edge-Flow Authority + Golden-Output Canary' |
 

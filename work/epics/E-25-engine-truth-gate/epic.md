@@ -83,7 +83,7 @@ The aiwf v3 planning tree currently has zero in-flight epics (E-21 closed 2026-0
 - [ ] `Survey_Templates_For_Warnings` is extended to fail on `val-warn` delta as well as `run-warn` delta; both gates active simultaneously.
 - [ ] Documentation: an architecture note captures the edge-flow authority decision; a testing note captures the golden-output canary, the regeneration workflow, and the meaning of a green build.
 - [ ] Full repo test suite is green at epic close; no skipped tests added by this work that aren't explicitly gated on infrastructure (e.g. `FLOWTIME_E2E_TEST_RUNS=1` style).
-- [ ] On epic completion, `ROADMAP.md` is regenerated; epic dir is moved to `work/epics/completed/E-25-…/` per project convention; a wrap artefact under that dir captures what shipped, the pinned-fixture catalog state, and any deferred follow-ups.
+- [ ] On epic completion, the epic frontmatter is promoted to `status: done` via `aiwf promote E-25 done`; `ROADMAP.md` is regenerated via `aiwf render roadmap --write`; a wrap artefact at `work/epics/E-25-engine-truth-gate/wrap.md` captures what shipped, the pinned-fixture catalog state, and any deferred follow-ups. (Epic dirs stay in place under `work/epics/E-NN-<slug>/` regardless of status — aiwf v3's truth surface is the frontmatter, not the path.)
 
 ## Open questions
 
@@ -113,11 +113,12 @@ The aiwf v3 planning tree currently has zero in-flight epics (E-21 closed 2026-0
 
 <!-- Sequencing rationale: design call first (decision before implementation, per the constraint). Engine + template + baseline reset second (the change-set whose validity the design call defines). Golden canary third — built on top of an engine whose output is now trustworthy, so the pinned fixtures capture truth-as-decided rather than truth-with-known-asterisks. The design milestone can be small (a focused investigation + decision record); the implementation milestone is the largest. The canary milestone has its own depth in fixture authoring and regeneration tooling. -->
 
-- m-E25-01 — **Edge-flow authority decision** — gather signal, write the `D-NNN`, ratify. Closes the G-032 design question. · depends on: —
-- m-E25-02 — **Engine + template alignment** — implement the chosen authority in the engine, edit affected shipped templates, reset `ExpectedRunWarnings` entries to zero, add `val-warn` delta gate to the existing canary. · depends on: m-E25-01
-- m-E25-03 — **Golden-output canary** — fixture infrastructure, regeneration workflow, initial pinning across the shipped template set, documentation. Closes G-033. · depends on: m-E25-02
+- [M-066 — **Edge-flow authority decision**](M-066-edge-flow-authority-decision.md) — gather signal, write the `D-NNN`, ratify. Closes the G-032 design question. · depends on: —
+- [M-067 — **Engine + template alignment**](M-067-engine-template-alignment.md) — implement the chosen authority in the engine, edit affected shipped templates, reset `ExpectedRunWarnings` entries to zero, add `val-warn` delta gate to the existing canary. · depends on: M-066
+- [M-068 — **Golden-output canary**](M-068-golden-output-canary.md) — fixture infrastructure, regeneration workflow, initial pinning across the shipped template set, documentation. Closes G-033. · depends on: M-067
 
-Milestones will be sequenced in detail (with per-milestone ACs) via `aiwfx-plan-milestones` after this epic spec is reviewed.
+Detailed per-milestone acceptance criteria are filled in the milestone specs above; sequenced via `aiwfx-plan-milestones` on 2026-05-02.
+
 
 ## ADRs produced
 
