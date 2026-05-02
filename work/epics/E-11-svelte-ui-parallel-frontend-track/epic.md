@@ -1,7 +1,7 @@
 ---
 id: E-11
 title: Svelte UI — Parallel Frontend Track
-status: active
+status: done
 ---
 
 ## Goal

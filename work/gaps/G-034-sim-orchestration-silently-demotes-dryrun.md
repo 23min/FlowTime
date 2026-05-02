@@ -3,6 +3,7 @@ id: G-034
 title: Sim orchestration silently demotes dryRun:true when deterministic run already exists
 status: addressed
 discovered_in: M-062
+addressed_by: [M-062]
 ---
 
 ## What's missing
