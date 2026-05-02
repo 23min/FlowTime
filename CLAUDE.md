@@ -53,6 +53,12 @@ Role agents ship via the `aiwf-extensions` plugin (loaded into Claude Code from 
 
 `aiwf` verbs: `init` (one-time setup), `add <kind>`, `promote`, `cancel`, `rename`, `reallocate`, `move`, `check`, `history`, `status`, `render roadmap`, `doctor`, `import`, `schema`, `template`, `contract verify` etc. Run `aiwf help` for the full list.
 
+## Deferred follow-ups
+
+Out-of-band items that aren't repo-internal FlowTime work but shouldn't be forgotten. Each entry should name a clear trigger and the action to take when the trigger fires. Remove the entry once acted on.
+
+- **Gap discovered_by / discovered_in archeology backfill.** During the v1→v3 migration we discovered aiwf's gap schema has `discovered_in` (entity context, optional) but no `discovered_by` field for actor. All 33 gaps were created via `aiwf import`'s single bulk commit, which collapses per-entity provenance into one undifferentiated `aiwf-actor:` trailer — losing the original gap-author signal. Archeology in `work/migration/scripts/gap_archeology.py` recovers both signals from `git blame` on the deleted v1 `work/gaps.md`. **Trigger:** aiwf ships an improved provenance model (e.g. `discovered_by` on gap, or a `--actor-from-frontmatter` flag for `aiwf import`, or per-entity provenance trailers within bulk imports). **Action:** re-run `gap_archeology.py`; backfill `discovered_in` (and `discovered_by` if available) on the 28 gaps where archeology found a signal (6 high-confidence, 22 med-low; see report). The 5 silent gaps (G-001/2/4/5/6/7/21) stay unset.
+
 ## Project-Specific Rules
 
 # FlowTime Project Rules
