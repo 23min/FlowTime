@@ -25,7 +25,7 @@ acs:
       status: met
     - id: AC-7
       title: No raw JSON parameter field visible by default (hidden in Advanced section)
-      status: open
+      status: met
 ---
 
 ## Goal

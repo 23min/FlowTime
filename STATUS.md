@@ -7,14 +7,14 @@ _167 entities · 0 errors · 1 warnings · run `aiwf check` for details_
 ### E-11 — Svelte UI — Parallel Frontend Track _(active)_
 
 - ✓ **M-061** — Project Scaffold & Shell _(done)_ — ACs 4/4 met
-- → **M-062** — Run Orchestration _(in_progress)_ — ACs 6/7 met (1 open)
+- → **M-062** — Run Orchestration _(in_progress)_ — ACs 7/7 met
 
 ```mermaid
 flowchart LR
   E_11["E-11<br/>Svelte UI — Parallel Frontend Track"]:::epic_active
   M_061["M-061 (4/4)<br/>Project Scaffold & Shell"]:::ms_done
   E_11 --> M_061
-  M_062["M-062 (6/7)<br/>Run Orchestration"]:::ms_in_progress
+  M_062["M-062 (7/7)<br/>Run Orchestration"]:::ms_in_progress
   E_11 --> M_062
   classDef epic_active fill:#d6eaff,stroke:#1a73e8,color:#000
   classDef epic_proposed fill:#f4f4f4,stroke:#888,color:#000
@@ -83,9 +83,9 @@ _(none)_
 
 | Date | Actor | Verb | Detail |
 |------|-------|------|--------|
+| 2026-05-02 | human/peter | promote | aiwf promote M-062/AC-6 open -> met |
 | 2026-05-02 | human/peter | promote | aiwf promote M-062/AC-5 open -> met |
 | 2026-05-02 | human/peter | promote | aiwf promote M-062/AC-4 open -> met |
 | 2026-05-02 | human/peter | promote | aiwf promote M-062/AC-3 open -> met |
 | 2026-05-02 | human/peter | promote | aiwf promote M-062/AC-2 open -> met |
-| 2026-05-02 | human/peter | promote | aiwf promote G-034 open -> addressed |
 
