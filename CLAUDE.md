@@ -24,12 +24,12 @@ Role agents ship via the `aiwf-extensions` plugin (loaded into Claude Code from 
 
 | Intent | Agent | Drives |
 |--------|-------|--------|
-| build, implement, code, start, fix, patch | **builder** | `aiwfx-start-milestone` → `wf-tdd-cycle` → `aiwfx-wrap-milestone`; `wf-patch` for one-offs |
+| build, implement, code, start, fix, patch | **builder** | `aiwfx-start-milestone` → `wf-tdd-cycle` → `aiwfx-wrap-milestone`; `wf-patch` for one-offs; `aiwfx-record-decision` mid-implementation |
 | plan, design, scope, epic, architecture | **planner** | `aiwfx-plan-epic`, `aiwfx-plan-milestones`, `aiwfx-record-decision` |
-| review, check, validate, wrap, finish | **reviewer** | `wf-review-code`; status promotions via `aiwf promote` |
-| release, deploy, tag, publish | **deployer** | `aiwfx-release` |
+| review, check, validate, wrap, finish | **reviewer** | `wf-review-code`, `wf-doc-lint`, `aiwfx-record-decision` |
+| release, deploy, tag, publish | **deployer** | `aiwfx-release`; `wf-patch` for hotfixes between wrap and tag; `aiwfx-record-decision` |
 
-After a wrap, builder/reviewer should also invoke the repo-private `dead-code-audit` skill (the upstream `aiwfx-wrap-milestone` skill does not chain it).
+`aiwfx-wrap-epic` is shipped by the plugin but unclaimed by any agent's skill list; in practice the reviewer drives it (its description includes "verifies milestone or epic wrap"). After a milestone wrap, builder/reviewer should also invoke the repo-private `dead-code-audit` skill (the upstream `aiwfx-wrap-milestone` skill does not chain it).
 
 ## Project Layout
 
