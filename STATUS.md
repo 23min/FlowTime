@@ -22,18 +22,18 @@ _(no milestones)_
 
 ### E-25 — Engine Truth Gate — Edge-Flow Authority + Golden-Output Canary _(proposed)_
 
-- **M-066** — Edge-Flow Authority Decision _(draft)_
-- **M-067** — Engine + Template Alignment _(draft)_
-- **M-068** — Golden-Output Canary _(draft)_
+- **M-066** — Edge-Flow Authority Decision _(draft)_ — ACs 0/9 met (9 open)
+- **M-067** — Engine + Template Alignment _(draft)_ — ACs 0/13 met (13 open)
+- **M-068** — Golden-Output Canary _(draft)_ — ACs 0/14 met (14 open)
 
 ```mermaid
 flowchart LR
   E_25["E-25<br/>Engine Truth Gate — Edge-Flow Authority + Golden-Output Canary"]:::epic_proposed
-  M_066["M-066<br/>Edge-Flow Authority Decision"]:::ms_draft
+  M_066["M-066 (0/9)<br/>Edge-Flow Authority Decision"]:::ms_draft
   E_25 --> M_066
-  M_067["M-067<br/>Engine + Template Alignment"]:::ms_draft
+  M_067["M-067 (0/13)<br/>Engine + Template Alignment"]:::ms_draft
   E_25 --> M_067
-  M_068["M-068<br/>Golden-Output Canary"]:::ms_draft
+  M_068["M-068 (0/14)<br/>Golden-Output Canary"]:::ms_draft
   E_25 --> M_068
   classDef epic_active fill:#d6eaff,stroke:#1a73e8,color:#000
   classDef epic_proposed fill:#f4f4f4,stroke:#888,color:#000
@@ -86,9 +86,9 @@ _(none)_
 
 | Date | Actor | Verb | Detail |
 |------|-------|------|--------|
+| 2026-05-02 | human/peter | add | aiwf add milestone M-068 'Golden-Output Canary' |
 | 2026-05-02 | human/peter | add | aiwf add milestone M-067 'Engine + Template Alignment' |
 | 2026-05-02 | human/peter | add | aiwf add milestone M-066 'Edge-Flow Authority Decision' |
 | 2026-05-02 | human/peter | rename | aiwf rename E-25 slug -> engine-truth-gate |
 | 2026-05-02 | human/peter | add | aiwf add epic E-25 'Engine Truth Gate — Edge-Flow Authority + Golden-Output Canary' |
-| 2026-05-02 | human/peter | promote | aiwf promote M-062/AC-7 open -> met |
 
