@@ -1,36 +1,36 @@
 ---
 id: M-066
 title: Edge-Flow Authority Decision
-status: draft
+status: in_progress
 parent: E-25
 acs:
-  - id: AC-1
-    title: Footprint analysis documented for all three options
-    status: open
-  - id: AC-2
-    title: Option survey covers all affected shipped templates
-    status: open
-  - id: AC-3
-    title: D-NNN drafted naming chosen authority
-    status: open
-  - id: AC-4
-    title: Rejected options recorded with rationale
-    status: open
-  - id: AC-5
-    title: Implementation footprint estimate captured in the decision
-    status: open
-  - id: AC-6
-    title: Deferred follow-ups filed as gaps where needed
-    status: open
-  - id: AC-7
-    title: D-NNN ratified with status accepted
-    status: open
-  - id: AC-8
-    title: Epic spec and gap G-032 reference the ratified D-NNN
-    status: open
-  - id: AC-9
-    title: aiwf check clean
-    status: open
+    - id: AC-1
+      title: Footprint analysis documented for all three options
+      status: open
+    - id: AC-2
+      title: Option survey covers all affected shipped templates
+      status: open
+    - id: AC-3
+      title: D-NNN drafted naming chosen authority
+      status: open
+    - id: AC-4
+      title: Rejected options recorded with rationale
+      status: open
+    - id: AC-5
+      title: Implementation footprint estimate captured in the decision
+      status: open
+    - id: AC-6
+      title: Deferred follow-ups filed as gaps where needed
+      status: open
+    - id: AC-7
+      title: D-NNN ratified with status accepted
+      status: open
+    - id: AC-8
+      title: Epic spec and gap G-032 reference the ratified D-NNN
+      status: open
+    - id: AC-9
+      title: aiwf check clean
+      status: open
 ---
 
 ## Goal

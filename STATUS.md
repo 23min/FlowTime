@@ -22,14 +22,14 @@ _(no milestones)_
 
 ### E-25 — Engine Truth Gate — Edge-Flow Authority + Golden-Output Canary _(proposed)_
 
-- **M-066** — Edge-Flow Authority Decision _(draft)_ — ACs 0/9 met (9 open)
+- → **M-066** — Edge-Flow Authority Decision _(in_progress)_ — ACs 0/9 met (9 open)
 - **M-067** — Engine + Template Alignment _(draft)_ — ACs 0/13 met (13 open)
 - **M-068** — Golden-Output Canary _(draft)_ — ACs 0/14 met (14 open)
 
 ```mermaid
 flowchart LR
   E_25["E-25<br/>Engine Truth Gate — Edge-Flow Authority + Golden-Output Canary"]:::epic_proposed
-  M_066["M-066 (0/9)<br/>Edge-Flow Authority Decision"]:::ms_draft
+  M_066["M-066 (0/9)<br/>Edge-Flow Authority Decision"]:::ms_in_progress
   E_25 --> M_066
   M_067["M-067 (0/13)<br/>Engine + Template Alignment"]:::ms_draft
   E_25 --> M_067
