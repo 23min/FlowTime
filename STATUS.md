@@ -1,6 +1,6 @@
 # aiwf status — 2026-05-02
 
-_167 entities · 0 errors · 0 warnings_
+_168 entities · 0 errors · 0 warnings_
 
 ## In flight
 
@@ -17,6 +17,10 @@ _(no milestones)_
 _(no milestones)_
 
 ### E-22 — Time Machine — Model Fit & Chunked Evaluation _(proposed)_
+
+_(no milestones)_
+
+### E-25 — Engine Truth Gate — Edge-Flow Authority + Golden-Output Canary _(proposed)_
 
 _(no milestones)_
 
