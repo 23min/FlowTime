@@ -1,7 +1,7 @@
 ---
 id: E-18
 title: Time Machine
-status: active
+status: done
 ---
 
 > **Naming note.** This epic was originally filed as "Headless Pipeline and Optimization." The component is now named `FlowTime.TimeMachine` (the Time Machine). The directory path `work/epics/E-18-headless-pipeline-and-optimization/` is preserved for historical stability; cross-doc references use that path. The decision is recorded in `work/decisions.md` and in `work/epics/E-19-surface-alignment-and-compatibility-cleanup/m-E19-01-supported-surface-inventory.md` (A6 + shared framing).
