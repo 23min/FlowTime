@@ -1,6 +1,6 @@
 # aiwf status — 2026-05-02
 
-_168 entities · 0 errors · 0 warnings_
+_169 entities · 0 errors · 0 warnings_
 
 ## In flight
 
@@ -22,7 +22,20 @@ _(no milestones)_
 
 ### E-25 — Engine Truth Gate — Edge-Flow Authority + Golden-Output Canary _(proposed)_
 
-_(no milestones)_
+- **M-066** — Edge-Flow Authority Decision _(draft)_
+
+```mermaid
+flowchart LR
+  E_25["E-25<br/>Engine Truth Gate — Edge-Flow Authority + Golden-Output Canary"]:::epic_proposed
+  M_066["M-066<br/>Edge-Flow Authority Decision"]:::ms_draft
+  E_25 --> M_066
+  classDef epic_active fill:#d6eaff,stroke:#1a73e8,color:#000
+  classDef epic_proposed fill:#f4f4f4,stroke:#888,color:#000
+  classDef ms_done fill:#d8f5d8,stroke:#2a8a2a,color:#000
+  classDef ms_in_progress fill:#fff3c4,stroke:#caa400,color:#000
+  classDef ms_draft fill:#f4f4f4,stroke:#888,color:#000
+  classDef ms_cancelled fill:#fbeaea,stroke:#c33,color:#000
+```
 
 ## Open decisions
 
