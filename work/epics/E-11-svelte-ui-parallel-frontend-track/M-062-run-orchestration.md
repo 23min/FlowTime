@@ -13,7 +13,7 @@ acs:
       status: met
     - id: AC-3
       title: Selecting a card fetches template detail and shows a configuration
-      status: open
+      status: met
     - id: AC-4
       title: Can execute a model run and see results (run ID, metadata, warnings
       status: open
