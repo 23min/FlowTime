@@ -1,378 +1,250 @@
 ---
 id: M-066
-title: Edge-Flow Authority Decision
+title: Flow-Authority Policy Spike
 status: in_progress
 parent: E-25
 acs:
     - id: AC-1
-      title: Footprint analysis documented for all three options
+      title: Three-class flow taxonomy documented
       status: open
     - id: AC-2
-      title: Option survey covers all affected shipped templates
+      title: Footprint analysis preserved for the three G-032 options
       status: open
     - id: AC-3
-      title: D-NNN drafted naming chosen authority
+      title: Repo-wide doc sweep classifies every routing-relevant document
       status: open
     - id: AC-4
-      title: Rejected options recorded with rationale
+      title: Conflicting docs are revised or marked needs-revision
       status: open
     - id: AC-5
-      title: Implementation footprint estimate captured in the decision
+      title: ADR drafted naming the flow-authority policy
       status: open
     - id: AC-6
-      title: Deferred follow-ups filed as gaps where needed
+      title: ADR names the schema/compile/analyse enforcement points
       status: open
     - id: AC-7
-      title: D-NNN ratified with status accepted
+      title: Class-2 capacity-aware allocator deferred-follow-up gap filed
       status: open
     - id: AC-8
-      title: Epic spec and gap G-032 reference the ratified D-NNN
+      title: Other deferred follow-ups filed as gaps where needed
       status: open
     - id: AC-9
+      title: ADR ratified with status accepted
+      status: open
+    - id: AC-10
+      title: Epic spec and G-032 reference the ratified ADR
+      status: open
+    - id: AC-11
       title: aiwf check clean
       status: open
 ---
 
 ## Goal
 
-Produce a ratified project-scoped decision (`D-NNN`) that names the **edge-flow authority** for the FlowTime engine — i.e., which surface (expr nodes, topology edge weights, or a mandated agreement of both) is canonical for incoming-edge flow volumes. The deliverable is the decision record and the footprint analysis that supports it; no engine code, no template edits, no test changes ship from this milestone.
+Produce a ratified architectural decision record (ADR) that names the **flow-authority policy** for the FlowTime engine — the rules that govern how flow flows from producers to consumers in the model. The policy must cleanly accommodate the three classes of physical systems FlowTime exists to model (static-share fan-out, dynamic routing, capacity-aware allocation), make routing authority unambiguous at every fan-out point, and name the enforcement layers (schema, compile, analyse) where the policy gets teeth. The deliverable is the ADR plus a doc-sweep tracking artefact that classifies every routing-relevant document in the repo against the policy; no engine code, no template edits, no test changes ship from this milestone.
 
 ## Context
 
-E-21 M-045 dogfooding (2026-04-28) caught three `edge_flow_mismatch_incoming` warnings on `transportation-basic`. The patch investigation `patch/edge-flow-mismatch` (2026-05-01) diagnosed the warnings as **improved analyser coverage**: pre-E-24 the engine wasn't emitting per-edge `flowVolume` series, so the conservation check at `src/FlowTime.Core/Analysis/InvariantAnalyzer.cs:323-335` silently skipped; post-E-24 the series exists, the check runs, and it correctly detects expr-layer arrivals (`hub_dispatch * splitAirport`, parameter-driven splits) diverging from the engine's edge-weight-uniform apportionment (every queue→line edge declared with `weight: 1`).
+This milestone began life as "edge-flow authority decision" — pick one of three options listed in G-032 (edge weights win / expr authority wins / both-must-agree) and ratify a `D-NNN`. During M-066's working session the framing widened: the question is not just "which surface is normative for class-3 fan-outs" but **"what is FlowTime's flow-authority policy across the three classes of physical systems we exist to model, and how do we enforce it at every layer of the engine"**.
 
-Per G-032 the divergence affects **9 of the 12 shipped templates** and has three resolution options with materially different blast radii:
+The three classes of physical systems, named:
 
-1. **Edge weights win.** Templates must encode splits in edge weights, not in expr arithmetic. ~9 templates need editing; engine semantics unchanged.
-2. **Expr authority wins.** The engine should not auto-derive edge flow from weights when an expr node already produces the receiver's `arrivals` series. Engine semantics change for an entire class of models; templates as-is are correct.
-3. **Both surfaces are normative; the template makes them agree.** Templates use parameters in BOTH places (expr splits AND edge weights); tooling helps keep them in sync. More verbose templates; tooling needed.
+1. **Class 1 — producer-side push routing.** Producer (or a routing actor immediately after it) computes per-consumer volumes from its own state and a routing rule. Examples: load balancers in front of stateless workers, conveyor diverters, broadcast trees. The router node (`kind: router`) implements this today.
+2. **Class 2 — consumer-side pull / capacity-aware allocation.** Producer offers `served(t)` units; an allocator considers all consumers' available capacity this bin and apportions accordingly. Examples: schedulers dispatching jobs to free workers, warehouse pickers assigning bins to free pickers, admission controllers matching requests to backend health. **The engine does not surface this today**; templates that need it must currently fake it via expr arithmetic, which is a modeling error.
+3. **Class 3 — edge-as-channel / static-weight routing.** Each producer→consumer edge has a static weight that means "this is the channel's share of this producer's outflow when no other information is available." Examples: percentage-split routing rules, demand-probability splits, PMF-style fan-outs. Edge weights are the routing rule; consumer demand/capacity is irrelevant to *which* consumer gets *what share* (it only affects whether the routed volume queues or serves at the consumer).
 
-Picking wrong here costs an epic-scale rework. The epic constraint requires this decision to be **ratified before m-E25-02 starts**. This milestone owns the call and the footprint analysis that justifies it; it does not own implementation.
+**Why "consumer-side expr arithmetic" (option 2 of the original G-032 framing) is wrong on flow-purity grounds, regardless of footprint cost:** a consumer that hard-codes `arrivals = served * 0.25` embeds peer knowledge in an actor that, by the actor model above, must not have peer knowledge. Such a model is not telemetry-replayable (replay substitutes telemetry-observed arrivals; there is no `*0.25` to substitute), is not invariant under peer addition (add a fifth consumer and every existing consumer's arithmetic is wrong), and is not robust to capacity-aware allocation (cannot express "1/3 each across the three live peers when one is saturated" without reaching into peer state, at which point the consumer is a router masquerading as one). This is structural, not preferential.
 
-The decision form is a `D-NNN` per repo convention (D-053 is the most recent comparable architectural call; `docs/adr/` is empty). Promotion to ADR is allowed if the team flags it as needing a more permanent record, but the default is `D-NNN`. The milestone deliberately scopes that promotion-or-not as a closeout question, not a blocker.
+The reframe collapses the original three options:
+
+- **Original option 2 — expr authority wins on the consumer side — is rejected on flow-purity grounds, not footprint cost.** Pre-empts class 1, breaks class 2's future surfacing, and embeds peer knowledge where it must not live.
+- **Original option 1 — edge weights win — is the right answer for class-3 fan-outs**, which is the case all 9 affected templates from G-032 actually instantiate. Edge weights ARE the routing rule for class 3.
+- **Original option 3 — both must agree — is structurally redundant for class 3.** Forces the author to encode the same fact twice and tooling to verify they agree. Adds tax with no expressive gain.
+
+The chosen policy, expressed crisply: **routing authority is declared at the producer's outgoing edges; for static-share fan-outs (class 3) edge weights are normative; router nodes (class 1) are required when routing is dynamic; class-2 capacity-aware allocation is not surfaced in the engine today and must be filed as a deferred gap; consumer-side expr arithmetic must not encode peer-relative splits — consumer arrivals come from edge flow and any other arithmetic on the consumer side is a modeling error and must be rejected by the engine's gates**.
+
+This milestone documents the policy, sweeps the repo for docs that contradict it, ratifies the policy as an ADR, and names the enforcement layers (schema/compile/analyse) where the policy must be enforced. The actual enforcement implementation is the new M-NNN-enforcement milestone (the next milestone in the epic). The actual engine + template alignment is the milestone after that. The actual golden canary is the milestone after that.
 
 ## Acceptance criteria
 
-### AC-1 — Footprint analysis documented for all three options
+### AC-1 — Three-class flow taxonomy documented
 
-For each of the three options enumerated in G-032 (edge weights win / expr authority wins / both-must-agree), the decision record captures:
+A taxonomy document under `docs/architecture/` (e.g. `docs/architecture/flow-authority-policy.md` — milestone may revisit name) names the three classes of physical systems the engine models, with one paragraph per class describing: the routing actor's responsibilities, what role each of {producer, consumer, routing} plays, the canonical examples, and the authority surface the policy assigns to that class. The taxonomy is the prose backbone the ADR references; it is also the document a future template author reads to know which class their model belongs in.
 
-- **Engine-LOC magnitude** — which files in `src/FlowTime.Core/` change, with rough line-count estimate (small / medium / large; concrete file list).
-- **Affected-templates count** — exact number of shipped templates that need editing under each option, sourced from G-032's "Affected templates" table (the 9 listed) and confirmed against `ExpectedRunWarnings` in `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs:79`.
-- **Expected baseline-zero achievability** — does the option produce `ExpectedRunWarnings == 0` for every shipped template, or are there templates where the option does not eliminate the conservation warning?
-- **User-facing template-form impact** — does the option change the template authoring contract for templates outside the shipped set (i.e., user-authored templates in the wild)?
+### AC-2 — Footprint analysis preserved for the three G-032 options
 
-This footprint analysis is the technical evidence the chosen option stands on. It is independent of which option ultimately wins.
+The footprint analysis already produced during this milestone (currently inline in this spec under "Footprint analysis (M-066's working artefact)") is preserved as evidence in either the ADR body or the doc-sweep tracking artefact. It documents engine-LOC magnitude, per-template diff estimates, and baseline-zero achievability for each of the original three G-032 options. The preserved analysis lets a future reader see why the chosen authority won on flow-purity grounds *and* on engineering-cost grounds.
 
-### AC-2 — Option survey covers all affected shipped templates
+### AC-3 — Repo-wide doc sweep classifies every routing-relevant document
 
-The survey explicitly walks the 9 affected templates from G-032's table — `transportation-basic`, `transportation-basic-classes`, `supply-chain-multi-tier`, `supply-chain-multi-tier-classes`, `it-system-microservices`, `manufacturing-line`, `network-reliability`, `supply-chain-incident-retry`, `warehouse-picker-waves` — and confirms whether each option resolves the conservation warning for each template, or notes any template where the option leaves residual warnings (which would need a per-template addendum).
+A doc-sweep tracking artefact at `work/epics/E-25-engine-truth-gate/m-E25-01-flow-authority-doc-sweep.md` classifies every routing-relevant document in the repo against the policy. Search axes:
 
-### AC-3 — D-NNN drafted naming chosen authority
+- **Axis 1 — explicit routing-semantics discussions.** `docs/architecture/headless-engine-architecture.md`, `docs/architecture/time-machine-analysis-modes.md`, `docs/templates/template-authoring.md`, `docs/modeling.md`, `docs/flowtime-engine-charter.md`, plus any architecture doc that names "arrivals", "served", "fan-out", "split", "routing", "edge", "weight", "downstream", "upstream", "consumer", "producer".
+- **Axis 2 — implicit routing assumptions.** Documents that talk about how flow flows without naming routing authority. The danger: documents correct under one class but presented as universal.
+- **Axis 3 — ADRs and decision records.** `docs/adr/` is empty today. Decision records: D-046 (`GET /v1/runs/{runId}/model`), D-047 (`trace` field on goal-seek/optimize), D-051 (E-24 schema-alignment closure), D-053 (testing rigor). Read each for routing-semantic implications.
+- **Axis 4 — gaps that may need revision.** G-032 (already addressed by this milestone), G-016 (Rust Engine Parity), G-018 (`IModelEvaluator` Series-Key Shape Divergence), G-019 (Sim-generated model shape vs. Rust engine compiler expectations), G-003 (Dependency Constraint Enforcement — touches capacity → class 2), G-011, G-013 (fit/calibration → routing model assumptions).
 
-A `D-NNN` is added under `work/decisions/` via `aiwf add decision` (allocates the next `D-NNN` id). The decision body names the chosen authority unambiguously. The title is in the form `D-NNN — Edge-flow authority: <chosen option>`. The decision references G-032 and this epic.
+For each hit, classify into one of: **aligned**, **silent**, **conflicting**, **ambiguous**. Output is one section per hit in the tracking artefact, with a one-sentence note on what (if anything) needs to change.
 
-### AC-4 — Rejected options recorded with rationale
+### AC-4 — Conflicting docs are revised or marked needs-revision
 
-The two rejected options are named explicitly in the decision body, each with a one-paragraph rationale citing the footprint analysis from AC-1. "Rejected because too expensive" without footprint citation is not sufficient. Future readers should be able to read the decision and reconstruct why option A beat options B and C without needing to hunt through patch notes.
+For every doc classified as **conflicting** in AC-3, either:
 
-### AC-5 — Implementation footprint estimate captured in the decision
+- **Revise it in this milestone** if the change is small (a paragraph or section); or
+- **Mark it `[needs revision per ADR-NNNN]`** at the top of the document with a one-line note, and file a deferred follow-up gap if the revision is substantial enough to warrant its own work.
 
-The chosen option's footprint estimate from AC-1 is restated inline in the decision (engine-LOC magnitude, affected-templates count, expected baseline-zero achievability). m-E25-02's planning starts from this number. If the implementation overruns the estimate by more than a milestone's worth of work, that triggers a re-scope conversation per the epic's risk table mitigation for "engine work exceeds an implementation-milestone scope".
+The point: no doc classified as conflicting may survive M-066 close in its current state without an explicit pointer to the ADR.
 
-### AC-6 — Deferred follow-ups filed as gaps where needed
+### AC-5 — ADR drafted naming the flow-authority policy
 
-If the chosen authority creates user-facing template breakage outside the shipped set (e.g., the chosen option changes the template authoring contract in a way that obsoletes existing user-authored templates), a deferred-follow-up gap is filed via `aiwf add gap` capturing the migration concern. The decision references the gap by id. If no user-facing breakage exists, the decision states that explicitly. The point is to make the user-impact analysis explicit either way.
+An ADR is added under `docs/adr/` via `aiwf add adr` (allocates the next `ADR-NNNN` id; if the kind isn't supported, the ADR is allocated as a numbered file under `docs/adr/` per the repo's ADR convention from CLAUDE.md). The ADR:
 
-### AC-7 — D-NNN ratified with status accepted
+- Names the policy explicitly: routing authority lives at producer-fan-out; edge weights are normative for class-3; router nodes for class-1; class-2 not currently surfaced (filed as deferred gap); consumer-side expr arithmetic must not encode peer-relative splits.
+- References the three-class taxonomy doc (AC-1) and the doc sweep (AC-3).
+- Records the rejected framings (original consumer-side-expr-wins, original both-must-agree) with rationale citing both the flow-purity argument and the footprint analysis (AC-2).
+- States the constraint that exactly one routing authority lives at any producer-fan-out point; nothing else may inject routing information.
 
-The decision is promoted from `proposed` to `accepted` via `aiwf promote D-NNN accepted` after user review. The ratified status is the gate that unlocks m-E25-02; m-E25-02's planning AC explicitly cites the ratified `D-NNN`.
+### AC-6 — ADR names the schema/compile/analyse enforcement points
 
-### AC-8 — Epic spec and gap G-032 reference the ratified D-NNN
+The ADR explicitly names the layers where the policy gets teeth, and what each layer is responsible for enforcing. At minimum:
 
-The epic spec at `work/epics/E-25-engine-truth-gate/epic.md` is updated so its "Open questions" table marks the edge-flow authority question as resolved with a link to the `D-NNN`. G-032's status moves to `addressed` with a reference to the `D-NNN` (the gap is fully closed only when m-E25-02 lands the implementation; this milestone closes the design portion).
+- **Schema** (`docs/schemas/model.schema.yaml` + `ModelSchemaValidator`) — rejects models that encode peer-relative splits in consumer expr arithmetic (e.g., expr nodes whose formula references the producer's `served` series and a `split*` parameter directly).
+- **Compile** (`ModelCompiler` / `TimeMachineValidator`) — fan-out detection: any producer with >1 outgoing edge must have exactly one routing authority declared (weights, router, or — once surfaced — capacity-aware allocator). Compile-time error if zero or more than one authority is detected.
+- **Analyse** (`InvariantAnalyzer.cs`) — new warnings: `routing_authority_ambiguous` (producer with conflicting authority surfaces), `consumer_side_peer_split_detected` (consumer expr that looks peer-relative). The existing `edge_flow_mismatch_incoming` / `_outgoing` warnings stay as they are.
 
-### AC-9 — aiwf check clean
+The ADR names *what* each layer enforces; the next milestone (Schema + Compile + Analyse Enforcement) lands the implementation.
 
-After the decision is added and statuses are updated, `aiwf check` reports `ok — no findings`. No frontmatter drift, no orphaned references.
+### AC-7 — Class-2 capacity-aware allocator deferred-follow-up gap filed
 
-## Constraints
+A gap is filed via `aiwf add gap` capturing class-2 (consumer-side pull / capacity-aware allocation) as a future engine concern. The gap names: the modeling cases that require it (warehouse pickers, schedulers, admission control), why expr arithmetic cannot fake it correctly, the proposed surface (a capacity-aware router actor distinct from the static-weight router), and explicit "deferred — future capability, not current correctness" framing. The ADR references the gap.
 
-- **No engine code change.** This milestone delivers a decision, not an implementation. Any code touched in `src/FlowTime.Core/` is out of scope.
-- **No template edits.** No file under `templates/` is modified by this milestone. Template surveys may *read* templates to compute footprint estimates, but no edits land.
-- **No `ExpectedRunWarnings` changes.** The Phase 2 baseline canary stays exactly as committed by the patch on 2026-05-01 throughout this milestone. Resetting baselines is m-E25-02's job, conditional on the engine + template change landing.
-- **`D-NNN` preferred; ADR allowed if explicitly flagged.** The default is `D-NNN` for project-scoped decisions per repo convention. If during the milestone's review the team decides the authority call deserves the more permanent ADR home (`docs/adr/ADR-NNNN-…`), promote then; do not pre-empt the choice. Either way, the AC-3 deliverable is one ratified record — not both.
-- **Footprint analysis is honest, not advocacy.** AC-1 documents all three options with comparable rigor. The footprint table should let a reader who hasn't been part of the conversation see why the chosen option won. Stacking the deck (e.g., "rejected option B has unbounded scope" without supporting evidence) defeats the purpose.
-- **Project rules.** .NET 9 / C# 13 (no code in this milestone, but the conventions apply to any code-cited line ranges); invariant culture; no time or effort estimates in the decision body.
+### AC-8 — Other deferred follow-ups filed as gaps where needed
 
-## Design Notes
+If the doc sweep (AC-3) or the policy ratification (AC-5) surfaces follow-up work that doesn't fit in M-066 and isn't already absorbed into the next epic milestones, file each as a separate gap. Examples that may surface: template-authoring guide rewrite, Rust engine alignment work that mirrors the .NET engine policy, telemetry-replay protocol changes that depend on the policy. Each gap names trigger and action.
 
-- **Footprint estimation methodology.** For each option, walk one representative template under that option's resolution (e.g., for option 1 on `transportation-basic`, draft what the edited template would look like and count the diff). Extrapolate across the 9 affected templates. Do not full-spec all 9 edits in this milestone — that's m-E25-02's work. Goal here is order-of-magnitude estimation.
-- **Engine-LOC magnitude bands.** Use coarse buckets: `small` (< 50 LOC, single file), `medium` (50–300 LOC, 1–3 files), `large` (300+ LOC or multi-subsystem). Anything `large` triggers the epic risk-table mitigation per AC-5.
-- **Survey artifact format.** A simple markdown table in the decision body with columns `option | engine-LOC | templates-edited | baseline-zero achievable? | user-facing impact`. Three rows.
+### AC-9 — ADR ratified with status accepted
+
+The ADR is promoted from `proposed` to `accepted` (via the ADR's frontmatter status field, or via `aiwf promote` if ADR is a tracked aiwf entity in this repo's `aiwf.yaml`). If ADR is not aiwf-tracked, ratification is a manual frontmatter edit recorded in a conventional commit. The ratified status is the gate that unlocks the next epic milestone.
+
+### AC-10 — Epic spec and G-032 reference the ratified ADR
+
+The epic spec at `work/epics/E-25-engine-truth-gate/epic.md` is updated so its "Open questions" table marks the edge-flow authority question as resolved with a link to the ADR. G-032's status moves to `addressed` with a reference to the ADR (the gap is fully closed only when the engine + template alignment milestone lands; this milestone closes the design portion).
+
+### AC-11 — aiwf check clean
+
+After all updates, `aiwf check` reports `ok — no findings`. No frontmatter drift, no orphaned references.
 
 ## Footprint analysis (M-066's working artefact)
 
+<!-- Preserved per AC-2. Original work product from before the framing widened to a flow-purity policy spike. The footprint cost evidence is independently valid; the policy framing makes the chosen direction also right on first principles. -->
+
 ### Methodology
 
-For each option, the analysis answers four questions:
+For each of the three G-032 options (edge weights win / expr authority wins / both-must-agree), one representative template is walked under that option's resolution; the diff is counted; the per-template cost is extrapolated across the 9 affected shipped templates listed in G-032. Engine-LOC magnitude is bucketed: `small` (< 50 LOC, single file), `medium` (50–300 LOC, 1–3 files), `large` (300+ LOC or multi-subsystem). Anything `large` triggers the epic risk-table mitigation (split into a multi-milestone implementation phase rather than extending E-25 indefinitely).
 
-1. **Engine-LOC magnitude** — which `src/FlowTime.Core/` files change, with magnitude band: `small` (< 50 LOC, single file), `medium` (50–300 LOC, 1–3 files), `large` (300+ LOC or multi-subsystem).
-2. **Affected-templates count** — exact templates needing edits, sourced from G-032's table and confirmed against `ExpectedRunWarnings`.
-3. **Baseline-zero achievability** — does the option drop every entry in `ExpectedRunWarnings` (sourced from G-032) to `0`, or are there templates where residual warnings persist?
-4. **User-facing impact** — does the option change the template authoring contract for templates outside the shipped set?
+### Affected templates
 
-Per AC-2 the survey explicitly walks all 9 affected shipped templates from G-032's table. The footprint estimate is order-of-magnitude only — not a full implementation spec; that is M-067's job.
+Sourced from G-032's "Affected templates" table and confirmed against `ExpectedRunWarnings` in `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs:79`. Nine templates are affected:
 
-### Affected templates (G-032 baseline, captured 2026-05-01)
-
-Sourced from `ExpectedRunWarnings` and G-032's "Affected templates" table:
-
-| Template | Run-warn baseline | Mismatch source typology |
-|---|---|---|
-| `transportation-basic` | 1 | Parameter-driven 3-way split: `hub_dispatch_{airport,industrial,downtown} = hub_dispatch * splitX`. Three queue→line edges, all `weight: 1` (default, implicit). |
-| `transportation-basic-classes` | 8 | Worst offender. Has explicit `kind: router` on `HubDispatchRouter` plus three downstream `*DispatchQueue` nodes; uses class-aware route splits **and** post-router weight-1 edges to lines. Eight-fan-out warning count comes from per-edge mismatch on multiple node hops. |
-| `supply-chain-multi-tier` | 2 | Multi-tier supplier→DC→retailer flow with expr-driven tier-share splits, edges left at `weight: 1`. Two mismatches at the two split-receiver nodes. |
-| `supply-chain-multi-tier-classes` | 2 | Same shape as multi-tier, with class segmentation. |
-| `it-system-microservices` | 1 | One service node where expr-derived arrivals diverge from edge-weight-uniform apportionment. |
-| `manufacturing-line` | 1 | WIP queue → quality control → packaging chain; expr-driven scrap fractions on output mean the inflow to packaging is computed in expr, not derivable from edge weights. |
-| `network-reliability` | 1 | Single-edge `RequestQueue → CorePlatform`, but `CorePlatform.arrivals` is wired to `request_queue_served` via an expr (`MIN(server_capacity, request_queue_demand)`), so the edge-weight-derived materializer flow (`request_queue_served * 1`) and the analyser-observed `arrivals` series can drift inside the lag/CONV semantics. |
-| `supply-chain-incident-retry` | 1 | Incident-spike retry path where retry attempts feed back into a service whose `arrivals` is computed in expr. |
-| `warehouse-picker-waves` | 1 | Wave-driven dispatch where picker capacity gates served, but downstream wave-completion `arrivals` is expr-derived. |
-
-The remaining shipped templates (`dependency-constraints-attached`, `dependency-constraints-minimal`, `it-document-processing-continuous`) are at baseline 0 today and stay at 0 under all three options (no expr/edge-weight authority conflict in their topology).
+| Template | Run-warn baseline |
+|---|---|
+| `transportation-basic-classes` | 8 |
+| `supply-chain-multi-tier` | 2 |
+| `supply-chain-multi-tier-classes` | 2 |
+| `it-system-microservices` | 1 |
+| `manufacturing-line` | 1 |
+| `network-reliability` | 1 |
+| `supply-chain-incident-retry` | 1 |
+| `transportation-basic` | 1 |
+| `warehouse-picker-waves` | 1 |
 
 ### Option footprint summary
 
 | Option | Engine-LOC | Templates edited | Baseline-zero achievable? | User-facing impact |
 |---|---|---|---|---|
-| **1 — Edge weights win** | `small` (< 50 LOC; doc-only adjustments to message text + an analyser comment block) | 9 | **Yes** — for 8/9 cleanly. `network-reliability` may need verification (residual analyser tolerance margin under CONV-driven lag); see footnote. | **Yes** — user templates that encode splits via expr arithmetic on a fan-out node will fire the warning. Migration is mechanical: move the split fraction from the expr math into the edge `weight:` field. |
-| **2 — Expr authority wins** | `medium` (50–300 LOC; 2-3 files: `EdgeFlowMaterializer.cs` plus `InvariantAnalyzer.cs` skip-when-expr-authoritative branch, possibly `RouterSpecificationBuilder.cs`) | 0 | **Yes** for all 9 — the analyser stops flagging the case it can no longer detect; the materializer emits expr-derived series. | **No** breakage to existing templates. But: changes engine semantics for an entire class of models — edge weights become advisory when the target's `arrivals` series is expr-computed. |
-| **3 — Both must agree** | `medium` (50–150 LOC; new analyser warning code + new template-validator rule that detects redundancy/disagreement; possibly a tooling helper) | 9 (additions only, ~45-60 LOC total) | Conditional — depends on tolerance and parameter-expression reproducibility | New authoring discipline (declare both surfaces); tooling required; more verbose templates |
-
-> **Footnote on `network-reliability` under option 1:** This template's mismatch is not a fan-out split; it is a single-edge `RequestQueue → CorePlatform` whose mismatch is driven by expr-layer CONV/lag semantics on `request_queue_served`, not by missing weight encoding. Setting `weight: 1` (already the default) on a single edge does not change the materializer output. Resolving this template's warning under option 1 may require either a small per-template expr restructure (route via the materializer's arithmetic, not via expr re-derivation) or accepting it as a residual warning with an explicit `ExpectedRunWarnings` entry. Verifying whether option 1 cleans this template to zero requires actually running the edited template — out of scope for this decision milestone but flagged for M-067 as a likely per-template addendum.
-
-### Per-option deep dive
-
-#### Option 1 — Edge weights win
-
-**Authority statement.** Edge weights in the `topology.edges[].weight` field are canonical for incoming-edge flow volumes. When an expr node's arithmetic produces a value that a downstream node consumes as `arrivals`, the expr is documentation; the edge weight is what the engine apportions against. Templates must encode their splits in edge weights.
-
-**Engine change.**
-
-- **No semantic change.** The `EdgeFlowMaterializer` already does weight-based apportionment (`Routing/EdgeFlowMaterializer.cs:172-188, 235-251`). The materializer produces `flowVolume` per edge by `weight / totalWeight * source_served`. That is the chosen authority's output today — nothing to change.
-- **Analyser comment update.** `InvariantAnalyzer.cs:323-335` already does the right thing — it asserts `arrivals == sum(incoming_edges_after_lag)`. Update the surrounding doc comment to name the chosen authority (edge weights) so future readers don't reverse-engineer it.
-- **Optional message text refinement.** The warning message at `:330` (`"Arrivals do not match sum of incoming edge flows"`) can be made more diagnostic.
-
-Estimate: < 30 LOC, single file, doc-only. Magnitude **`small`**.
-
-**Critical sub-question for option 1.** Does the engine expose `edge_<id>_flowVolume` as a node reference that an expr can consume? If yes, the rewrite below works directly. If not, the engine needs a small addition to make per-edge `flowVolume` series referenceable from `expr` nodes. The materializer at `Routing/EdgeFlowMaterializer.cs:54` already builds a `flowVolumes` dictionary keyed by edgeId; surfacing this as a referenceable namespace is a small engine change (~30-60 LOC, one file). M-067 should answer this for sure; for footprint purposes it nudges option 1's engine LOC from `small` to **upper-bound `medium`** if the wiring isn't already there. Worth flagging as the option's primary engine risk.
-
-**Template change worked example (`transportation-basic`).** Today (excerpt):
-
-```yaml
-- id: hub_dispatch_airport
-  kind: expr
-  expr: "hub_dispatch * ${splitAirport}"   # 0.3
-- id: hub_dispatch_industrial
-  kind: expr
-  expr: "hub_dispatch * ${splitIndustrial}"  # 0.2
-- id: hub_dispatch_downtown
-  kind: expr
-  expr: "hub_dispatch - hub_dispatch_airport - hub_dispatch_industrial"
-
-- id: arrivals_airport
-  kind: expr
-  expr: "hub_dispatch_airport"
-# ...
-```
-
-Edges:
-
-```yaml
-- id: queue_to_airport
-  from: HubQueue:out
-  to: LineAirport:in
-- id: queue_to_downtown
-  from: HubQueue:out
-  to: LineDowntown:in
-- id: queue_to_industrial
-  from: HubQueue:out
-  to: LineIndustrial:in
-```
-
-Under option 1:
-
-```yaml
-# topology edges
-- id: queue_to_airport
-  from: HubQueue:out
-  to: LineAirport:in
-  weight: ${splitAirport}    # 0.3
-- id: queue_to_downtown
-  from: HubQueue:out
-  to: LineDowntown:in
-  weight: 0.5
-- id: queue_to_industrial
-  from: HubQueue:out
-  to: LineIndustrial:in
-  weight: ${splitIndustrial}  # 0.2
-
-# nodes — arrivals_X reference materializer-emitted edge flow
-- id: arrivals_airport
-  kind: expr
-  expr: "edge_queue_to_airport_flowVolume"
-- id: arrivals_industrial
-  kind: expr
-  expr: "edge_queue_to_industrial_flowVolume"
-- id: arrivals_downtown
-  kind: expr
-  expr: "edge_queue_to_downtown_flowVolume"
-```
-
-Diff size: ~10-15 lines per template. The `hub_dispatch_{airport,industrial,downtown}` intermediate nodes either become aliases or are deleted. Outputs that referenced them need their arithmetic updated.
-
-**Templates edited.**
-
-| Template | Estimated diff size | Notes |
-|---|---|---|
-| `transportation-basic` | ~15 LOC | Fan-out 3, parameter-driven splits. Mechanical. |
-| `transportation-basic-classes` | ~30-40 LOC | Worst case: `kind: router` plus three downstream queues plus class-aware splits. Need to verify router-arm weights interact correctly with class assignments. |
-| `supply-chain-multi-tier` | ~20 LOC | Tier-share split fan-out. Mechanical. |
-| `supply-chain-multi-tier-classes` | ~25 LOC | Same as multi-tier with class layer. |
-| `it-system-microservices` | ~10 LOC | Single split node. |
-| `manufacturing-line` | ~10 LOC | Quality scrap fraction → edge weight. |
-| `network-reliability` | **TBD** | Possibly residual under option 1; see footnote. May need expr restructure rather than weight edit. |
-| `supply-chain-incident-retry` | ~10-15 LOC | Incident-retry feedback loop. |
-| `warehouse-picker-waves` | ~10 LOC | Wave-completion fan-out. |
-
-Total: ~150-180 LOC of template changes across 9 files. Each template's `ExpectedRunWarnings` entry resets to 0 in the same commit per epic constraint.
-
-**Baseline-zero achievability:** Yes for 8 templates with high confidence; `network-reliability` flagged as possibly needing addendum.
-
-**User-facing impact:** Real but bounded. User-authored templates that encode splits in expr arithmetic will start emitting `edge_flow_mismatch_incoming` warnings. Migration is mechanical: identify the expr split node feeding `arrivals_X`; move the split fraction onto the corresponding edge as `weight:`; replace the `arrivals_X` expr to reference the materialized edge flow series (or simplify to consume the upstream's `served`). This warrants a deferred-follow-up gap per AC-6 — a migration helper or template-linter rule.
-
-#### Option 2 — Expr authority wins
-
-**Authority statement.** When a target node's `arrivals` is computed by an expr that consumes the source node's `served` (directly or via a chain), the expr is canonical. The engine should not auto-derive edge `flowVolume` from edge weights in that case; instead, it should emit the expr-derived value as the edge series. Edge weights become advisory metadata for visualization but do not own the numeric flow.
-
-**Engine change.**
-
-1. **`Routing/EdgeFlowMaterializer.cs` (764 lines today).** Currently the non-router weight-driven block at `:155-265` does `series = ScaleSeries(baseSeries, fraction)` where `fraction = weight / totalWeight`. Option 2 replaces this with a lookup: for each edge, determine if the target node's `arrivals` semantic series is expr-defined and references a known source; if so, emit that expr-derived series directly. If not, fall back to weight-fraction. The "is expr authoritative" detection requires walking the target node's `arrivals` series and tracing its expr dependency tree. Estimated 80-150 new LOC plus dependency-tree-walk helper.
-2. **`Analysis/InvariantAnalyzer.cs` (1864 lines today).** The conservation check at `:323-335` would need to know that the target's `arrivals` is expr-authoritative against this set of edges, and either skip the check or verify a different invariant. Estimated 30-60 LOC.
-3. **Possibly `Compiler/RouterSpecificationBuilder.cs`.** If option 2 makes router weights also advisory, the router builder may need adjustment. Likely 0-50 LOC depending on how far the change reaches.
-
-Total estimate: **`medium`**, 150-300 LOC, 2-3 files. Not `large` (the change doesn't ripple into the runtime evaluator or storage layer), but the materializer change is non-trivial — it changes how the engine apportions volume on a class of edges.
-
-**Template changes.** Zero. Templates as authored today are correct under option 2. The 9 templates' `ExpectedRunWarnings` entries reset to 0 because the divergence stops existing once the materializer outputs expr-derived edge flows.
-
-**Baseline-zero achievability:** Yes, all 9, by definition.
-
-**User-facing impact:**
-
-- No template breakage. User-authored templates continue to work without edits.
-- Engine-semantics shift, with downstream consequences. Edge weights become advisory for any edge whose target has an expr-driven `arrivals`. This is a real semantic change:
-  - Telemetry-replay (E-15) needs to know which authority applies when comparing observed flow to model flow.
-  - Model fit (E-22) needs to know whether to fit edge weights or expr parameters when residuals appear.
-  - The `weight: 1` defaults that pervade existing templates become essentially documentation; the engine ignores them when expr authority kicks in.
-- No migration tooling needed.
-
-#### Option 3 — Both must agree
-
-**Authority statement.** Edge weights and expr-derived arrivals are both normative. Templates must author both surfaces and ensure they agree (modulo tolerance). The engine validates the agreement at compile time (template-validator) or at run time (analyser); the existing `edge_flow_mismatch_incoming` warning is repurposed as the agreement-check signal.
-
-**Engine change.**
-
-- **`Analysis/InvariantAnalyzer.cs` adjustments.** The conservation check at `:323-335` is already the agreement-check; option 3 keeps it but tightens its meaning. Possibly add a complementary `edge_flow_redundancy_missing` warning when only one authority is present. Estimated 30-80 LOC.
-- **`ModelSchemaValidator.cs`** (or a new analyser pass) needs a redundancy-presence check: every fan-out edge whose target has an expr-driven `arrivals` must also have an explicit `weight:`. Estimated 30-60 LOC.
-- No materializer change. Materializer continues weight-based flow; analyser ensures the expr matches.
-
-Total estimate: **`medium`**, 50-150 LOC, 1-2 files.
-
-**Template changes.** Add explicit `weight:` declarations on every fan-out edge that the expr layer encodes a split for. The expr arithmetic stays. Diff size: ~6 LOC added per simple template, ~12-15 LOC for `transportation-basic-classes`. Across 9 templates: ~45-60 LOC of additions.
-
-**Baseline-zero achievability:** Conditional. If the analyser's tolerance is appropriate and the template author authors the agreement correctly, yes. The risk: parameter expressions on both sides may not evaluate identically under all parameter combinations, especially with floating-point. Tolerance widening may be needed. `network-reliability` may not benefit — its mismatch is not a fan-out shape.
-
-**User-facing impact:**
-
-- New authoring discipline. User-authored templates must declare both surfaces. A user who only writes expr arithmetic and leaves `weight: 1` (today's pattern) gets warnings.
-- More verbose templates. The split fraction is expressed twice. Tooling can help.
-- Tooling required. A template-linter rule that detects the missing-`weight:` pattern is part of the option 3 deliverable.
-- Cognitive cost. "Which side is the source of truth?" becomes the perennial question; the honest answer is "both, and the engine checks they agree".
+| 1 — Edge weights win | `small` (< 50 LOC; doc + possibly `flowVolume` series referenceability bumps to upper-bound `medium` ~30-60 LOC if expr nodes need to consume the `flowVolume` namespace) | 9 | Yes for 8/9; `network-reliability` flagged as possible residual (mismatch is single-edge CONV/lag, not fan-out) | Yes — user templates encoding splits in expr will fire warnings; mechanical migration; deferred-follow-up gap for tooling per AC-7/AC-8 |
+| 2 — Expr authority wins | `medium` (150-300 LOC; `EdgeFlowMaterializer.cs` + `InvariantAnalyzer.cs` + possibly `RouterSpecificationBuilder.cs`) | 0 | Yes for all 9 by definition | No template breakage, but edge weights become advisory for a class of edges — semantic shift with E-15 / E-22 downstream consequences |
+| 3 — Both must agree | `medium` (50-150 LOC; analyser + schema-validator) | 9 (additions only, ~45-60 LOC total) | Conditional — depends on tolerance and parameter-expression reproducibility | New authoring discipline (declare both surfaces); tooling required; more verbose templates |
 
 ### Engineering observations
 
-1. **Today's behavior is already option 1 in the materializer, option 2 in the analyser-skip pre-E-24, option-undecided in the templates.** The materializer apportions by weight (option 1's authority output). The analyser, pre-E-24, silently skipped because `flowVolume` series weren't emitted (option 2's runtime behavior, accidentally). The templates encode splits in expr (option-2-or-3 authoring style). E-24's correct emission of `flowVolume` series exposed the latent inconsistency.
-2. **Option 1 is the smallest engine change but the largest template change.** Validates the materializer's existing behavior as canonical; ~150-180 LOC of template changes.
-3. **Option 2 is the biggest engine change and zero template change.** Makes edge weights second-class for a class of edges — a real semantic shift with downstream consequences for E-15 / E-22.
-4. **Option 3 is medium engine and medium template (in additions).** Preserves both authorities but mandates redundancy. Most verbose authoring contract; needs tooling.
-5. **None of the options dispute the conservation invariant itself.** All three keep `arrivals == sum(incoming_edges_after_lag)` as the invariant; they differ on which side is canonical when divergence is found.
-6. **`network-reliability` is unique.** Its mismatch is not a fan-out split; it is a single-edge `RequestQueue → CorePlatform` where the `arrivals` is `request_queue_served`, itself an expr `MIN(server_capacity, request_queue_demand)` consuming `request_queue_carry` (which uses `CONV` for lag). Worth a focused diagnostic in M-067 regardless of which option wins; flagged as a per-template addendum.
+1. **`network-reliability` is unique among the 9.** Its mismatch is not a fan-out split — it's a single-edge `RequestQueue → CorePlatform` whose `arrivals` is an expr (`MIN(server_capacity, request_queue_demand)`) consuming `request_queue_carry` (CONV-driven lag). Setting `weight: 1` on the edge does not change materializer output. Under option 1 it may need a small per-template expr restructure or accept residual under an `ExpectedRunWarnings` entry. Under option 2 it cleans automatically. Under option 3 the parameter-expression equality may be tolerance-sensitive. Worth flagging as a per-template addendum for the engine + template alignment milestone regardless of which option wins.
 
-### Reads of the evidence
+2. **Option 1 has a hidden engine sub-question.** Can `expr` nodes reference per-edge `flowVolume` series (e.g., `arrivals_airport = edge_queue_to_airport_flowVolume`)? The materializer at `Routing/EdgeFlowMaterializer.cs:54` builds a `flowVolumes` dictionary, but whether expr nodes consume it as a referenceable namespace is unverified by this analysis. If they cannot, option 1's engine LOC moves from `small` (~30 LOC, doc-only) toward upper-bound `medium` (~30-60 LOC for series-referenceability plumbing). The engine + template alignment milestone must answer this; for footprint purposes it is the option's primary engine risk.
 
-> Per the milestone constraint ("Footprint analysis is honest, not advocacy"), this section names what the evidence supports without prescribing a choice. The user makes the authority call.
+3. **`transportation-basic-classes` (8 warnings, worst offender) has a `kind: router` node plus three downstream `*DispatchQueue` serviceWithBuffer nodes.** Under option 1, the rewrite needs to reconcile router-arm class assignments with edge weights — possibly the single hardest per-template edit at ~30-40 LOC. Worth noting in the engine + template alignment milestone plan as the longest-pole template.
 
-**Option 1 (edge weights win) is favored when:**
+### Read of the evidence (cost dimension)
 
-- Edge weights are considered the canonical structural language of the topology layer and the team wants one normative authority.
-- Telemetry replay (E-15) and model fit (E-22) can rely on edge weights as the single dial to fit against.
-- The team is willing to absorb a one-time template-rewrite cost (~150-180 LOC across 9 templates) in exchange for engine simplicity.
-- Migration tooling for user-authored templates is acceptable as a follow-up gap.
+The cost evidence leans toward option 1 (edge weights win): smallest engine LOC, conservation invariant becomes single-direction truth (easier reasoning for E-15 telemetry replay and E-22 model fit), avoids option 2's "weights are advisory under condition X" semantic asterisk that propagates to telemetry replay's authority story, avoids option 3's perpetual redundancy-maintenance tax. The cost-strongest argument *against* option 1 is user-facing template breakage outside the shipped set; mitigation is a deferred-follow-up gap for migration tooling / template-linter rule.
 
-**Option 2 (expr authority wins) is favored when:**
+The flow-purity reframe (see Context above) reaches the same conclusion through a stronger argument: option 2 (consumer-side expr authority) is structurally wrong because it embeds peer knowledge in an actor that must not have peer knowledge. Option 3 (both must agree) is structurally redundant for class 3. Option 1 (edge weights win) is the right answer for class 3 on first principles.
 
-- Authoring ergonomics (existing templates work without edits) outweighs engine simplicity.
-- The team is comfortable with edge weights becoming advisory for a class of edges.
-- The downstream cost of "which authority?" entering E-15 and E-22 is acceptable.
+The cost evidence and the purity argument agree. The ADR can cite both.
 
-**Option 3 (both must agree) is favored when:**
+## Constraints
 
-- The team values defense-in-depth and wants the engine to validate authoring intent.
-- Tooling can carry the burden of redundancy maintenance.
-- A more verbose authoring contract is acceptable.
+- **No engine code change.** This milestone delivers a policy + ADR + sweep, not an implementation. Any code touched in `src/FlowTime.Core/` outside the milestone artefacts is out of scope.
+- **No template edits.** No file under `templates/` is modified by this milestone. Template surveys may *read* templates to compute footprint estimates and to check that the policy classification holds, but no edits land.
+- **No `ExpectedRunWarnings` changes.** The Phase 2 baseline canary stays exactly as committed by the patch on 2026-05-01 throughout this milestone. Resetting baselines is the engine + template alignment milestone's job, conditional on the engine + template change landing.
+- **No test code changes.** `Survey_Templates_For_Warnings` is not modified. New analyser warnings are *named* in the ADR (AC-6) but not implemented here; that's the next milestone.
+- **ADR-class, not D-NNN.** This is durable architectural truth, not a project-bound decision. The repo's `docs/adr/` directory is empty; this ADR seeds it. Recording the decision as `D-NNN` is rejected because the policy outlives this project's planning context.
+- **Footprint analysis is preserved verbatim.** The footprint analysis section in this spec is M-066's working artefact and is preserved per AC-2. Editing it is out of scope unless a factual error is discovered; the framing-widening (flow-purity reframe) does not invalidate the cost evidence.
+- **Exactly one routing authority per producer-fan-out.** The policy itself is the binding rule the milestone ratifies. The schema/compile/analyse enforcement layers (named by AC-6) are not implemented here but their *existence and responsibilities* are pinned by this milestone.
+- **Project rules.** .NET 9 / C# 13 (no code in this milestone, but the conventions apply to any code-cited line ranges); invariant culture; no time or effort estimates in the ADR body.
 
-**The evidence leans toward option 1.** Reasons:
+## Design Notes
 
-- The engine already implements option 1 in the materializer; it is the path of least engine change.
-- The conservation invariant becomes a hard, single-direction truth: `arrivals == sum(weight-derived flows)`. Easier to reason about for telemetry replay and model fit.
-- Option 2's "advisory weights" semantic is harder to explain than "weights are canonical, and the expr is wrong if they disagree".
-- Option 3's redundancy maintenance is a long-term cost paid by every future template author for a problem that option 1 makes structurally impossible.
-
-The strongest argument against option 1 is the user-facing breakage: every user-authored template that encodes splits via expr will start emitting warnings until the user migrates. A deferred-follow-up gap for migration tooling is the mitigation.
-
-## Work log
-
-- **2026-05-02 — milestone start.** Branch `milestone/M-066-edge-flow-authority-decision` created from `main`. `aiwf promote M-066 in_progress` — atomic commit `5554ed5`. Read milestone spec, epic spec, gap G-032, decision precedent D-053. Read analyser source (`InvariantAnalyzer.cs:307-336, 878-918, 1012-1056`). Read materializer source (`Routing/EdgeFlowMaterializer.cs:155-265`) — confirmed weight-fraction logic locations. Inspected `transportation-basic.yaml`, `transportation-basic-classes.yaml`, `network-reliability.yaml`, `manufacturing-line.yaml` (sampling across the typology spectrum). Confirmed the `ExpectedRunWarnings` baseline at `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs:79`.
-- **2026-05-02 — footprint analysis filled into this spec.** Three options walked, per-template diff estimates produced, `network-reliability` flagged as a per-template addendum candidate, the engine sub-question on `flowVolume`-series referenceability flagged as the option-1 primary engine risk. Awaiting user's authority call.
+- **ADR allocation mechanics.** The repo's `docs/adr/` is empty. CLAUDE.md's planning-tree table includes `docs/adr/ADR-NNNN-<slug>.md` as a recognized location. Whether `aiwf add adr` is supported is unknown — try it first; if not, allocate the ADR as a numbered file `docs/adr/ADR-0001-flow-authority-policy.md` (next-free numbered) per the repo's ADR convention, and surface the convention's mechanics as part of M-066's deliverable.
+- **Doc-sweep classification convention.** Use four labels: `aligned` / `silent` / `conflicting` / `ambiguous`. For each hit, the tracking artefact records: filepath, the routing-relevant excerpt, the classification, a one-sentence note. Sort by classification severity (conflicting first). The summary at the top of the artefact gives counts per label.
+- **What "revise in this milestone" means for AC-4.** A "small" revision is a paragraph or section that can be replaced or rewritten without changing the doc's overall structure. Anything larger gets the `[needs revision per ADR-NNNN]` mark and a deferred follow-up gap. Goal: cap M-066's doc-edit scope so the milestone closes promptly; the heavy doc-rewrite work belongs to a future milestone or wf-patch.
+- **The doc-sweep methodology favors greppable patterns.** Use `rg` to find candidate documents, then read each candidate in full before classifying. Don't classify based on the grep snippet alone — context matters and a doc that mentions "edge weight" once may be aligned, silent, or conflicting depending on what surrounds the mention.
+- **Class-2 deferred-gap framing.** The gap (AC-7) must explicitly say *deferred — future capability, not current correctness*. The point is to make the deferral honest: nothing in the current shipped template set needs class-2; the policy says class-2 isn't currently surfaced; the gap captures the future-engine work.
+- **G-035 already names some of the doc-sweep hits.** During M-066's working session a sibling gap G-035 was filed: "Pre-aiwf v1 framework docs survived migration and contradict the v3 model." It enumerates several `docs/development/*.md` files with v1 conventions that contradict the v3 model. The doc sweep (AC-3) should pick up where G-035 leaves off — those v1 docs may also contain routing-semantic claims that need the same classification pass.
 
 ## Surfaces touched
 
-- `work/decisions/D-NNN-<slug>.md` (new — the ratified decision)
-- `work/epics/E-25-engine-truth-gate/epic.md` (small edit — open-questions table update)
-- `work/gaps/G-032-…md` (status promotion to `addressed`; reference the D-NNN)
+- `docs/adr/ADR-NNNN-<slug>.md` (new — the ratified ADR)
+- `docs/architecture/flow-authority-policy.md` (new — the three-class taxonomy doc; name may revisit during the milestone)
+- `work/epics/E-25-engine-truth-gate/m-E25-01-flow-authority-doc-sweep.md` (new — the doc-sweep tracking artefact)
+- `work/epics/E-25-engine-truth-gate/M-066-edge-flow-authority-decision.md` (this file; small frontmatter status updates as ACs land, footprint section preserved verbatim)
+- `work/epics/E-25-engine-truth-gate/epic.md` (small edit — open-questions table update; success-criteria refresh per the new milestone shape)
+- `work/gaps/G-032-…md` (status promotion to `addressed`; reference the ADR)
+- `work/gaps/G-NNN-class-2-capacity-aware-allocator.md` (new — the deferred-follow-up gap from AC-7)
+- `work/gaps/G-NNN-…md` (any other deferred-follow-up gaps from AC-8)
+- Any docs revised in AC-4 (in-place edits with conventional commit; or `[needs revision per ADR-NNNN]` marker added at the top)
 - `ROADMAP.md` (regenerated via `aiwf render roadmap --write`)
 
 ## Out of scope
 
-- Engine code change (m-E25-02).
-- Template edits (m-E25-02).
-- `ExpectedRunWarnings` baseline reset (m-E25-02).
-- Golden-output canary infrastructure or fixtures (m-E25-03).
-- Migration tooling for user-authored templates affected by the chosen authority — flagged as a deferred follow-up per AC-6 if applicable; the tool itself is not built here.
-- Any change to the `Survey_Templates_For_Warnings` test (m-E25-02 owns the val-warn delta gate addition).
-- Engine-team architecture review pass beyond what is needed to ratify the chosen option. If the review surfaces broader engine-architecture questions (e.g., conservation tolerance reshaping, new analyser warning families), those are filed as deferred gaps and not absorbed into this milestone.
+- Engine code change (next milestone — Schema + Compile + Analyse Enforcement).
+- Template edits (the milestone after that — Engine + Template Alignment).
+- `ExpectedRunWarnings` baseline reset (Engine + Template Alignment).
+- Golden-output canary infrastructure or fixtures (the final milestone — Golden-Output Canary).
+- Class-2 capacity-aware allocator implementation (filed as deferred gap per AC-7; future engine work, not E-25 scope).
+- Any change to the `Survey_Templates_For_Warnings` test (Engine + Template Alignment owns the val-warn delta gate addition).
+- Heavyweight rewrites of pre-aiwf v1 documentation (G-035's territory; M-066 marks conflicting docs but does not rewrite them past the small-revision threshold defined in AC-4).
+- Engine-team architecture review pass beyond what is needed to ratify the chosen policy. If the review surfaces broader engine-architecture questions (e.g., conservation tolerance reshaping, new analyser warning families beyond the two named in AC-6), those are filed as deferred gaps and not absorbed into this milestone.
 
 ## Dependencies
 
 - E-25 epic spec ratified (in place — see `work/epics/E-25-engine-truth-gate/epic.md`).
 - Patch `patch/edge-flow-mismatch` merged (in place — Phase 2 baseline canary committed 2026-05-01).
-- G-032 in `addressed` status pending this decision's resolution.
+- G-032 in `addressed` status pending this milestone's resolution.
+- G-035 (sibling gap; documents the v1-residue contradicting v3) — informs the doc sweep but does not block.
 
 ## References
 
 - Epic spec: `work/epics/E-25-engine-truth-gate/epic.md`
-- Gap: `work/gaps/G-032-transportation-basic-regressed-edge-flow-mismatch-incoming-3-after-e-24-unification.md` — the three options and their per-template impact table
+- Gap: `work/gaps/G-032-transportation-basic-regressed-edge-flow-mismatch-incoming-3-after-e-24-unification.md` — the three options and per-template impact table
+- Gap: `work/gaps/G-035-pre-aiwf-v1-framework-docs-survived-migration-and-contradict-the-v3-model.md` — sibling gap; doc-sweep input
 - Phase 2 baseline canary: `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs:79` (the `ExpectedRunWarnings` dictionary)
-- Decision precedent: `work/decisions/D-053-testing-rigor-approach-phase-2-baseline-canary-first-full-golden-output-canon-deferred.md`
-- Analyser source: `src/FlowTime.Core/Analysis/InvariantAnalyzer.cs:323-335` (incoming-edge conservation; the rule the authority decision binds)
+- Decision precedent for project-scoped calls: `work/decisions/D-053-testing-rigor-approach-phase-2-baseline-canary-first-full-golden-output-canon-deferred.md`
+- Analyser source: `src/FlowTime.Core/Analysis/InvariantAnalyzer.cs:323-335` (incoming-edge conservation; the rule the policy binds)
+- Materializer source: `src/FlowTime.Core/Routing/EdgeFlowMaterializer.cs:54` (the `flowVolumes` dictionary; option 1's engine sub-question)
+- Conversation framing: this milestone widened from "decision-only D-NNN" to "policy spike + ADR" during M-066's working session on 2026-05-02. The flow-purity argument that collapsed the original three options is the framing-widening rationale.
+
+## Work log
+
+- **2026-05-02** — milestone-start ritual ran on branch `milestone/M-066-edge-flow-authority-decision`. Status promoted draft→in_progress (commit `5554ed5`). Footprint analysis filled in (commit `8bf15ed`). Sibling gap G-035 filed (commit `95e4b18`).
+- **2026-05-02** — milestone scope widened: from "edge-flow authority decision" (option 1/2/3 pick) to "flow-authority policy spike + ADR + repo-wide doc sweep". Reframe rationale: G-032's option 2 (consumer-side expr authority) is structurally wrong on flow-purity grounds independent of footprint cost; the policy needs to accommodate three classes of physical systems (class-1 dynamic routing, class-2 capacity-aware allocation, class-3 static-weight); enforcement must be named at schema/compile/analyse layers. New milestone added to E-25 to land the enforcement work; M-067/M-068 scopes adjusted.

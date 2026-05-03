@@ -3,10 +3,10 @@ id: M-067
 title: Engine + Template Alignment
 status: draft
 parent: E-25
-depends_on: [M-066]
+depends_on: [M-069]
 acs:
   - id: AC-1
-    title: Engine reflects the m-E25-01 chosen authority
+    title: Engine reflects the M-066 ADR chosen authority
     status: open
   - id: AC-2
     title: Affected shipped templates edited under default parameters
@@ -48,23 +48,27 @@ acs:
 
 ## Goal
 
-Implement the edge-flow authority chosen in M-066 inside the engine, edit every affected shipped template so the conservation invariant produces no warnings under default parameters, reset the corresponding `ExpectedRunWarnings` entries to zero, and extend `Survey_Templates_For_Warnings` to gate on `val-warn` delta in addition to its existing `run-warn` gate. After this milestone, every shipped template runs warning-clean and both survey gates are active simultaneously, locking the engine into the new authority before m-E25-03 pins golden fixtures on top.
+Implement the flow-authority policy chosen in M-066's ADR inside the engine, edit every affected shipped template so the conservation invariant produces no warnings under default parameters, reset the corresponding `ExpectedRunWarnings` entries to zero, and extend `Survey_Templates_For_Warnings` to gate on `val-warn` delta in addition to its existing `run-warn` gate. After this milestone, every shipped template runs warning-clean **and passes the M-069 enforcement gates without modification**; both survey gates are active simultaneously, locking the engine into the new authority before M-068 pins golden fixtures on top.
 
 ## Context
 
-M-066 ratifies a `D-NNN` (referenced below as `D-NNN (the m-E25-01 outcome)` until the actual id is allocated and filled into this spec at start time) that names one of three options for edge-flow authority: edge weights win, expr authority wins, or both-must-agree. This milestone implements that choice. The engine implementation footprint is the AC-5 estimate from M-066's decision; if the implementation overruns that estimate by more than a milestone's worth of work, the epic risk mitigation triggers a re-scope conversation rather than allowing this milestone to balloon.
+M-066 ratifies an ADR (referenced below as `ADR-NNNN (the M-066 outcome)` until the actual id is allocated and filled into this spec at start time) naming the **flow-authority policy** across three classes of physical systems FlowTime models. The ADR commits to: routing authority lives at producer-fan-out points, edge weights are normative for static-share fan-outs (class 3), router nodes for dynamic routing (class 1), class-2 capacity-aware allocation is filed as a deferred gap, consumer-side expr arithmetic must not encode peer-relative splits.
+
+M-069 lands the enforcement layers — the schema rule that rejects consumer-side peer-split patterns, the compile-time fan-out routing-authority detector, the two new analyser warnings (`routing_authority_ambiguous`, `consumer_side_peer_split_detected`). After M-069 the engine **rejects** policy-violating models at `POST /v1/run`. After this milestone (M-067), the existing 9 affected shipped templates from G-032 are edited so they conform to the policy and pass the M-069 gates. The transition is: M-069 makes the gates real (templates fail), M-067 fixes the templates (templates pass).
+
+The engine implementation footprint of M-067 is the AC-5 estimate from M-066's footprint analysis; if the implementation overruns that estimate by more than a milestone's worth of work, the epic risk mitigation triggers a re-scope conversation rather than allowing this milestone to balloon.
 
 The shipped-template set is enumerated by `Survey_Templates_For_Warnings` in `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs` and totals 12 templates today. The 9 affected templates with non-zero `ExpectedRunWarnings` baselines are: `it-system-microservices` (1), `manufacturing-line` (1), `network-reliability` (1), `supply-chain-incident-retry` (1), `supply-chain-multi-tier` (2), `supply-chain-multi-tier-classes` (2), `transportation-basic` (1), `transportation-basic-classes` (8), `warehouse-picker-waves` (1). After this milestone all nine baselines are zero.
 
 The Phase 2 baseline canary committed on 2026-05-01 hard-asserts `run-warn` count drift (upward or downward) per template. This milestone takes baselines downward to zero in deliberate, reviewed commits. The canary stays green throughout because each baseline change accompanies the engine + template change that justifies it in the same commit (the canary is designed for exactly this workflow — see the test's xmldoc).
 
-The `val-warn` delta gate is a small extension to the existing test: track validator warnings per template alongside the analyser-warning baseline, and fail the build on any change. This gate addition is the bridge canary the epic calls out as keeping the surface honest until m-E25-03 lands the full golden canary.
+The `val-warn` delta gate is a small extension to the existing test: track validator warnings per template alongside the analyser-warning baseline, and fail the build on any change. This gate addition is the bridge canary the epic calls out as keeping the surface honest until M-068 lands the full golden canary.
 
 ## Acceptance criteria
 
-### AC-1 — Engine reflects the m-E25-01 chosen authority
+### AC-1 — Engine reflects the M-066 ADR chosen authority
 
-The engine code change implements the authority specified in `D-NNN (the m-E25-01 outcome)`. The cited decision id is filled into this spec, into the implementing PR's description, and into the relevant code comments at the changed sites in `src/FlowTime.Core/`. The change is *exactly* what the decision authorizes — no opportunistic refactoring of `InvariantAnalyzer`, no conservation-tolerance reshaping, no new analyser warning families. Per the epic's "Out of scope" — engine evolution beyond what the design call requires belongs to other epics.
+The engine code change implements the authority specified in `ADR-NNNN (the M-066 outcome)`. The cited ADR id is filled into this spec, into the implementing PR's description, and into the relevant code comments at the changed sites in `src/FlowTime.Core/`. The change is *exactly* what the ADR authorizes — no opportunistic refactoring of `InvariantAnalyzer`, no conservation-tolerance reshaping, no new analyser warning families (those are M-069's territory). Per the epic's "Out of scope" — engine evolution beyond what the policy requires belongs to other epics.
 
 ### AC-2 — Affected shipped templates edited under default parameters
 
@@ -116,7 +120,7 @@ The existing `run-warn` baseline gate is never loosened. Baselines transition fr
 
 ## Constraints
 
-- **D-NNN cite-or-fail.** Every code site in `src/FlowTime.Core/` changed by this milestone carries a comment naming the `D-NNN` that authorized the change. The point is to make the engine self-explain its authority choice to a future reader who walks `git blame`.
+- **ADR cite-or-fail.** Every code site in `src/FlowTime.Core/` changed by this milestone carries a comment naming the ADR that authorized the change. The point is to make the engine self-explain its authority choice to a future reader who walks `git blame`.
 - **Forward-only template regeneration.** All affected shipped templates land their edits in this milestone — no "some templates new form, some old form" coexistence. Per the epic Constraints.
 - **No coexistence window for the chosen authority.** Per AC-7, the rejected option is not retained as a tolerated alternate path. No feature flag, no compile-time switch, no "preserve for backwards compat" mode unless the decision explicitly authorizes it (and even then with a stated deletion milestone).
 - **Phase 2 baseline canary stays green throughout.** Per AC-12 and the epic Constraints.
@@ -128,7 +132,7 @@ The existing `run-warn` baseline gate is never loosened. Baselines transition fr
 
 - **`val-warn` delta gate baseline shape.** If the engine + template change reaches `val-warn == 0` for all 12 templates, the gate is a hard zero — the test asserts `valWarnCount == 0` for every template with no baseline dictionary needed. If any template legitimately retains a non-zero `val-warn` count after the engine + template change (e.g., a deliberate validator warning that survives the authority change), introduce an `ExpectedValWarnings` dictionary mirroring `ExpectedRunWarnings`'s shape, with each non-zero entry carrying a one-line rationale comment. Decision lives inside this milestone; either shape is acceptable.
 - **Coordinated-commit shape.** A clean shape is: commit 1 — engine code + TDD test (AC-9); commit 2 — first batch of template edits + corresponding `ExpectedRunWarnings` resets (e.g., `transportation-basic` and its `-classes` sibling); commit 3 — second batch, etc.; final commit — `val-warn` delta gate + branch-coverage tests. The constraint AC-4 enforces is *test-suite green at every boundary*, not "single commit". Splitting across commits is encouraged for reviewability.
-- **D-NNN id substitution.** This spec carries the placeholder `D-NNN (the m-E25-01 outcome)`; at milestone start, replace every occurrence with the actual ratified id from M-066. At planning time the id does not yet exist.
+- **ADR id substitution.** This spec carries the placeholder `ADR-NNNN (the M-066 outcome)`; at milestone start, replace every occurrence with the actual ratified id from M-066. At planning time the id does not yet exist.
 - **Template edit pattern.** For option 1 (edge weights win), each affected template moves its expr-layer split arithmetic into edge weights. For option 2 (expr authority wins), no template edits land at all (the engine change makes the templates correct as-is) — and the AC-2 list collapses to empty. For option 3 (both-must-agree), templates may need both surfaces explicit; the M-066 footprint analysis specifies exactly which templates change. Review the footprint analysis before starting edits.
 - **Smoke run for AC-8.** A simple `dotnet run --project src/FlowTime.Cli` invocation against `templates/transportation-basic.yaml` at default parameters, reading the produced `data/runs/<run-id>/run.json` for an empty `warnings[]` shape, is sufficient evidence. The existing survey test is the structural authority; the smoke is for human verification.
 
@@ -155,7 +159,8 @@ The existing `run-warn` baseline gate is never loosened. Baselines transition fr
 
 ## Dependencies
 
-- **M-066 ratified `D-NNN`** with status `accepted`. Hard prerequisite — this milestone cannot start without the decision in place.
+- **M-069 enforcement gates landed.** Hard prerequisite — this milestone edits templates so they pass the M-069 gates; without the gates real, the templates have nothing concrete to pass.
+- **M-066 ratified ADR** with status `accepted`. Hard prerequisite — this milestone cannot start without the policy in place. M-069 also depends on M-066, so this is transitive.
 - E-25 epic spec ratified.
 - Phase 2 baseline canary committed (2026-05-01) — provides the `run-warn` gate this milestone extends.
 - E-24 Schema Alignment closed (2026-04-25) — provides per-edge `flowVolume` series emission that the conservation invariant now reads.
@@ -163,7 +168,8 @@ The existing `run-warn` baseline gate is never loosened. Baselines transition fr
 ## References
 
 - Epic spec: `work/epics/E-25-engine-truth-gate/epic.md`
-- Decision: `D-NNN (the m-E25-01 outcome)` — replace with actual id at milestone start
+- ADR: `ADR-NNNN (the M-066 outcome)` — replace with actual id at milestone start
+- Enforcement milestone: `work/epics/E-25-engine-truth-gate/M-069-schema-compile-analyse-enforcement.md` — gates that this milestone's template edits pass under
 - Gap: `work/gaps/G-032-transportation-basic-regressed-edge-flow-mismatch-incoming-3-after-e-24-unification.md` — affected-templates table; canonical source for AC-2 and AC-3 enumerations
 - Survey canary: `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs:79` (the `ExpectedRunWarnings` dictionary) and `:340-358` (the assertion shape this milestone extends)
 - Analyser source: `src/FlowTime.Core/Analysis/InvariantAnalyzer.cs:323-335` (incoming-edge conservation), `:309-321` (outgoing-edge conservation)

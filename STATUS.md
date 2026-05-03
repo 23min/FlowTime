@@ -9,7 +9,7 @@ _173 entities · 0 errors · 0 warnings_
 - → **M-066** — Flow-Authority Policy Spike _(in_progress)_ — ACs 0/11 met (11 open)
 - **M-067** — Engine + Template Alignment _(draft)_ — ACs 0/13 met (13 open)
 - **M-068** — Golden-Output Canary _(draft)_ — ACs 0/14 met (14 open)
-- **M-069** — Schema + Compile + Analyse Enforcement _(draft)_
+- **M-069** — Schema + Compile + Analyse Enforcement _(draft)_ — ACs 0/10 met (10 open)
 
 ```mermaid
 flowchart LR
@@ -20,7 +20,7 @@ flowchart LR
   E_25 --> M_067
   M_068["M-068 (0/14)<br/>Golden-Output Canary"]:::ms_draft
   E_25 --> M_068
-  M_069["M-069<br/>Schema + Compile + Analyse Enforcement"]:::ms_draft
+  M_069["M-069 (0/10)<br/>Schema + Compile + Analyse Enforcement"]:::ms_draft
   E_25 --> M_069
   classDef epic_active fill:#d6eaff,stroke:#1a73e8,color:#000
   classDef epic_proposed fill:#f4f4f4,stroke:#888,color:#000
@@ -88,9 +88,9 @@ _(none)_
 
 | Date | Actor | Verb | Detail |
 |------|-------|------|--------|
+| 2026-05-03 | human/peter | add | aiwf add milestone M-069 'Schema + Compile + Analyse Enforcement' |
 | 2026-05-02 | human/peter | add | aiwf add gap G-035 'Pre-aiwf v1 framework docs survived migration and contradict the v3 model' |
 | 2026-05-02 | human/peter | promote | aiwf promote M-066 draft -> in_progress |
 | 2026-05-02 | human/peter | render-roadmap | aiwf render roadmap |
 | 2026-05-02 | human/peter | add | aiwf add milestone M-068 'Golden-Output Canary' |
-| 2026-05-02 | human/peter | add | aiwf add milestone M-067 'Engine + Template Alignment' |
 

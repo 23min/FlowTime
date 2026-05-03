@@ -182,7 +182,7 @@ On merge to main: the epic frontmatter is promoted to `status: done` via `aiwf p
 ## Dependencies
 
 - **M-067 merged**, with both survey gates green and the engine + template state warning-clean across all 12 shipped templates. Hard prerequisite — fixtures captured against pre-M-067 state would pin known-bad output.
-- M-066 ratified `D-NNN`. (Inherited via M-067 dependency.)
+- M-066 ratified ADR; M-069 enforcement gates landed. (Inherited via M-067 dependency.)
 - E-25 epic spec ratified.
 - E-24 Schema Alignment closed (provides the per-edge `flowVolume` series the conservation invariant reads; the same series the golden canary pins).
 
