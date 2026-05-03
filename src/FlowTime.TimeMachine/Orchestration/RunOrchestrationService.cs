@@ -132,10 +132,7 @@ public sealed class RunOrchestrationService
             ? effectiveRequest.RunId
             : (effectiveRequest.DeterministicRunId ? inputContext.DeterministicRunId : null);
 
-        // G-034: dryRun is authoritative. Skip the reuse short-circuit for
-        // dry-runs so a pre-existing deterministic run never silently demotes
-        // a dryRun:true request to a "reused real run" response with no plan.
-        if (!effectiveRequest.DryRun && !string.IsNullOrWhiteSpace(targetRunId))
+        if (!string.IsNullOrWhiteSpace(targetRunId))
         {
             var reuseOutcome = await TryReuseExistingRunAsync(targetRunId!, outputRoot, effectiveRequest.OverwriteExisting, cancellationToken).ConfigureAwait(false);
             if (reuseOutcome is not null)
