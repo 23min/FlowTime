@@ -6,29 +6,36 @@ parent: E-25
 depends_on: [M-066]
 acs:
   - id: AC-1
-    title: Engine reflects the m-E25-01 chosen authority
+    title: Engine reflects the authority chosen in M-066
     status: open
+    tdd_phase: red
   - id: AC-2
     title: Affected shipped templates edited under default parameters
     status: open
+    tdd_phase: red
   - id: AC-3
     title: ExpectedRunWarnings entries reset to zero
     status: open
+    tdd_phase: red
   - id: AC-4
     title: Engine + template + baseline reset land in coordinated commits
     status: open
   - id: AC-5
     title: val-warn delta gate added alongside existing run-warn gate
     status: open
+    tdd_phase: red
   - id: AC-6
     title: Both survey gates green simultaneously
     status: open
+    tdd_phase: red
   - id: AC-7
     title: No coexistence of old and new authority paths
     status: open
+    tdd_phase: red
   - id: AC-8
     title: edge_flow_mismatch warnings are zero across shipped templates
     status: open
+    tdd_phase: red
   - id: AC-9
     title: TDD red-green for engine change
     status: open
@@ -62,7 +69,7 @@ The `val-warn` delta gate is a small extension to the existing test: track valid
 
 ## Acceptance criteria
 
-### AC-1 — Engine reflects the m-E25-01 chosen authority
+### AC-1 — Engine reflects the authority chosen in M-066
 
 The engine code change implements the authority specified in `D-NNN (the m-E25-01 outcome)`. The cited decision id is filled into this spec, into the implementing PR's description, and into the relevant code comments at the changed sites in `src/FlowTime.Core/`. The change is *exactly* what the decision authorizes — no opportunistic refactoring of `InvariantAnalyzer`, no conservation-tolerance reshaping, no new analyser warning families. Per the epic's "Out of scope" — engine evolution beyond what the design call requires belongs to other epics.
 

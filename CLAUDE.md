@@ -14,6 +14,7 @@ After `/compact` or a fresh session, this file is re-available via the system pr
 
 - **NEVER commit or push without explicit human approval** — "continue" / "ok" do not count
 - **TDD by default** for logic, API, and data code — red → green → refactor
+- **TDD phase tracking** — logic-bearing ACs in `draft` and `in_progress` milestones carry a `tdd_phase: red|green|refactor` field, advanced via `aiwf promote M-NNN/AC-N --phase <p>`. Non-logic ACs (doc-only, gap-closure, full-suite gates, branch-coverage audit, process discipline) omit the field. Every red-tagged AC must reach green before the milestone wraps.
 - **Branch coverage** — every reachable conditional branch needs a test before declaring done; perform a line-by-line audit before the commit-approval prompt
 - **Branch discipline** — do NOT commit milestone work directly to `main`
 - Conventional Commits format: `feat(api):`, `fix(sim):`, `chore:`, `docs:`, `test:`, `refactor:` — no icons/emoji; subject + short bullet body capturing the milestone and key work/tests touched
@@ -55,7 +56,9 @@ Role agents ship via the `aiwf-extensions` plugin (loaded into Claude Code from 
 | `work/archived-epics/<slug>/` | pre-aiwf historical epics (no E-NN id; out of aiwf's walked roots) |
 | `.claude/skills/aiwf-*/` | gitignored, materialized by `aiwf init` / `aiwf update` |
 
-`aiwf` verbs: `init`, `add <kind>`, `promote`, `cancel`, `rename`, `reallocate`, `move`, `check`, `history`, `status`, `render roadmap`, `doctor`, `import`, `schema`, `template`, `contract verify`. Run `aiwf help` for the full list. Don't edit entity frontmatter status by hand — use `aiwf promote` so the FSM check + commit trailer happen.
+`aiwf` verbs: `init`, `update`, `upgrade`, `add <kind>`, `promote`, `cancel`, `rename`, `reallocate`, `move`, `check`, `history`, `status`, `show <id>`, `render roadmap`, `doctor`, `import`, `schema`, `template`, `whoami`, `authorize`, `contract verify|bind|unbind|recipes|recipe show|recipe install|recipe remove`. Run `aiwf help` for the full list. Don't edit entity frontmatter status by hand — use `aiwf promote` so the FSM check + commit trailer happen. Use `aiwf promote/cancel <id> --audit-only --reason "..."` to backfill an audit trail for a state already reached via a manual commit (empty-diff audit commit, no FSM transition).
+
+Provenance: human verbs need no extra flags. Non-human actors (ai/..., bot/...) must pass `--principal human/<id>` and operate inside an active `aiwf authorize <id> --to <agent>` scope; the kernel adds `aiwf-principal:`, `aiwf-on-behalf-of:`, and `aiwf-authorized-by:` trailers automatically. `aiwf authorize` is human-only.
 
 Tracking docs (per the `aiwfx-track` skill) are advisory free-form markdown alongside a milestone spec; not aiwf entities, not validated. Older `*-log.md` / `*-tracking.md` files in `work/archived-epics/` are pre-aiwf residue.
 

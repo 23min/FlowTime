@@ -8,27 +8,33 @@ acs:
   - id: AC-1
     title: Canary infrastructure lands as a sibling test class
     status: open
+    tdd_phase: red
   - id: AC-2
     title: Fixture serialization format chosen and documented
     status: open
   - id: AC-3
-    title: Per-fixture directory layout and README
+    title: Per-fixture directory layout documented in docs/testing/golden-output-canary.md
     status: open
   - id: AC-4
     title: Numeric tolerance documented and applied
     status: open
+    tdd_phase: red
   - id: AC-5
     title: Initial pinning across all 12 shipped templates
     status: open
+    tdd_phase: red
   - id: AC-6
     title: Coverage equivalence with Survey_Templates_For_Warnings enforced
     status: open
+    tdd_phase: red
   - id: AC-7
     title: Sanctioned regeneration workflow exists and is documented
     status: open
+    tdd_phase: red
   - id: AC-8
     title: Deliberate-perturbation failure-mode test fires
     status: open
+    tdd_phase: red
   - id: AC-9
     title: docs/testing/golden-output-canary.md committed
     status: open
@@ -75,7 +81,7 @@ A new test class lives in `tests/FlowTime.Integration.Tests/` (sibling to `Templ
 
 The canary's fixture serialization format is decided inside this milestone and documented in `docs/testing/golden-output-canary.md`. The decision honors the epic Constraint: *fixtures produce reviewable PR diffs*. JSON-with-stable-key-order is the strawman; alternatives (CSV+JSON-warnings, separate-file-per-series, etc.) are acceptable if reviewability is preserved and the choice is justified. The format choice is recorded in the testing note with a short rationale paragraph.
 
-### AC-3 — Per-fixture directory layout and README
+### AC-3 — Per-fixture directory layout documented in `docs/testing/golden-output-canary.md`
 
 Each pinned template gets a directory at `tests/fixtures/golden-templates/<template-id>/` containing the serialized fixture (per AC-2's chosen format) plus a `README.md` naming **the parameter set used at capture, the capture date, the capture commit hash**. The README is human-readable and stands alone — a future engineer browsing the fixtures directory understands what each fixture pins without external context. The directory naming uses the same `<template-id>` convention as the survey canary's enumeration.
 
