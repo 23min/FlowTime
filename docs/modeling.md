@@ -89,4 +89,3 @@ Notes are allowed to be essay-like. When a Note becomes stable and broadly appli
 
 - `work/epics/E-{NN}-<slug>/M-NNN-<slug>.md` – Concrete implementation slices (aiwf v3 milestone specs) that move Architecture forward.
 - `ROADMAP.md` – High-level roadmap view.
-- `work/epics/epic-roadmap.md` – Architecture-focused epic index.
