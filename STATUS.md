@@ -1,24 +1,27 @@
-# aiwf status — 2026-05-02
+# aiwf status — 2026-05-03
 
-_172 entities · 0 errors · 0 warnings_
+_173 entities · 0 errors · 0 warnings_
 
 ## In flight
 
 ### E-25 — Engine Truth Gate — Edge-Flow Authority + Golden-Output Canary _(active)_
 
-- → **M-066** — Edge-Flow Authority Decision _(in_progress)_ — ACs 0/9 met (9 open)
+- → **M-066** — Flow-Authority Policy Spike _(in_progress)_ — ACs 0/11 met (11 open)
 - **M-067** — Engine + Template Alignment _(draft)_ — ACs 0/13 met (13 open)
 - **M-068** — Golden-Output Canary _(draft)_ — ACs 0/14 met (14 open)
+- **M-069** — Schema + Compile + Analyse Enforcement _(draft)_
 
 ```mermaid
 flowchart LR
   E_25["E-25<br/>Engine Truth Gate — Edge-Flow Authority + Golden-Output Canary"]:::epic_active
-  M_066["M-066 (0/9)<br/>Edge-Flow Authority Decision"]:::ms_in_progress
+  M_066["M-066 (0/11)<br/>Flow-Authority Policy Spike"]:::ms_in_progress
   E_25 --> M_066
   M_067["M-067 (0/13)<br/>Engine + Template Alignment"]:::ms_draft
   E_25 --> M_067
   M_068["M-068 (0/14)<br/>Golden-Output Canary"]:::ms_draft
   E_25 --> M_068
+  M_069["M-069<br/>Schema + Compile + Analyse Enforcement"]:::ms_draft
+  E_25 --> M_069
   classDef epic_active fill:#d6eaff,stroke:#1a73e8,color:#000
   classDef epic_proposed fill:#f4f4f4,stroke:#888,color:#000
   classDef ms_done fill:#d8f5d8,stroke:#2a8a2a,color:#000
