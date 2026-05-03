@@ -8,27 +8,34 @@ acs:
   - id: AC-1
     title: Engine reflects the M-066 ADR chosen authority
     status: open
+    tdd_phase: red
   - id: AC-2
     title: Affected shipped templates edited under default parameters
     status: open
+    tdd_phase: red
   - id: AC-3
     title: ExpectedRunWarnings entries reset to zero
     status: open
+    tdd_phase: red
   - id: AC-4
     title: Engine + template + baseline reset land in coordinated commits
     status: open
   - id: AC-5
     title: val-warn delta gate added alongside existing run-warn gate
     status: open
+    tdd_phase: red
   - id: AC-6
     title: Both survey gates green simultaneously
     status: open
+    tdd_phase: red
   - id: AC-7
     title: No coexistence of old and new authority paths
     status: open
+    tdd_phase: red
   - id: AC-8
     title: edge_flow_mismatch warnings are zero across shipped templates
     status: open
+    tdd_phase: red
   - id: AC-9
     title: TDD red-green for engine change
     status: open
