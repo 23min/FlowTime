@@ -37,7 +37,7 @@ acs:
     status: open
     tdd_phase: red
   - id: AC-9
-    title: Engine change is introduced via a failing test first; the same test passes in the commit that lands the engine change
+    title: TDD red-green for engine change
     status: open
   - id: AC-10
     title: Branch coverage on val-warn delta gate
@@ -69,7 +69,7 @@ The `val-warn` delta gate is a small extension to the existing test: track valid
 
 ## Acceptance criteria
 
-### AC-1 — Engine reflects the m-E25-01 chosen authority
+### AC-1 — Engine reflects the authority chosen in M-066
 
 The engine code change implements the authority specified in `D-NNN (the m-E25-01 outcome)`. The cited decision id is filled into this spec, into the implementing PR's description, and into the relevant code comments at the changed sites in `src/FlowTime.Core/`. The change is *exactly* what the decision authorizes — no opportunistic refactoring of `InvariantAnalyzer`, no conservation-tolerance reshaping, no new analyser warning families. Per the epic's "Out of scope" — engine evolution beyond what the design call requires belongs to other epics.
 

@@ -51,7 +51,7 @@ acs:
     title: G-033 closes
     status: open
   - id: AC-14
-    title: Epic E-25 spec references docs/testing/golden-output-canary.md as the canary contract
+    title: Epic closure housekeeping complete
     status: open
 ---
 
@@ -81,7 +81,7 @@ A new test class lives in `tests/FlowTime.Integration.Tests/` (sibling to `Templ
 
 The canary's fixture serialization format is decided inside this milestone and documented in `docs/testing/golden-output-canary.md`. The decision honors the epic Constraint: *fixtures produce reviewable PR diffs*. JSON-with-stable-key-order is the strawman; alternatives (CSV+JSON-warnings, separate-file-per-series, etc.) are acceptable if reviewability is preserved and the choice is justified. The format choice is recorded in the testing note with a short rationale paragraph.
 
-### AC-3 — Per-fixture directory layout and README
+### AC-3 — Per-fixture directory layout documented in `docs/testing/golden-output-canary.md`
 
 Each pinned template gets a directory at `tests/fixtures/golden-templates/<template-id>/` containing the serialized fixture (per AC-2's chosen format) plus a `README.md` naming **the parameter set used at capture, the capture date, the capture commit hash**. The README is human-readable and stands alone — a future engineer browsing the fixtures directory understands what each fixture pins without external context. The directory naming uses the same `<template-id>` convention as the survey canary's enumeration.
 
