@@ -1,6 +1,6 @@
 # aiwf status — 2026-05-03
 
-_172 entities · 0 errors · 0 warnings_
+_173 entities · 0 errors · 0 warnings_
 
 ## In flight
 
@@ -78,6 +78,7 @@ _(none)_
 | G-032 | \`transportation-basic\` regressed: \`edge_flow_mismatch_incoming\` × 3 after E-24 unification |  |
 | G-033 | Tests are too weak: surveyed-output-only canaries cannot detect drift; need deterministic golden-output assertions |  |
 | G-035 | Promote InvariantAnalyzer warnings to CI gate |  |
+| G-036 | Refresh docs/development/versioning.md to current FlowTime versioning state |  |
 
 ## Warnings
 
@@ -87,9 +88,9 @@ _(none)_
 
 | Date | Actor | Verb | Detail |
 |------|-------|------|--------|
+| 2026-05-03 | human/peter | add | aiwf add gap G-035 'Promote InvariantAnalyzer warnings to CI gate' |
 | 2026-05-02 | human/peter | render-roadmap | aiwf render roadmap |
 | 2026-05-02 | human/peter | add | aiwf add milestone M-068 'Golden-Output Canary' |
 | 2026-05-02 | human/peter | add | aiwf add milestone M-067 'Engine + Template Alignment' |
 | 2026-05-02 | human/peter | add | aiwf add milestone M-066 'Edge-Flow Authority Decision' |
-| 2026-05-02 | human/peter | rename | aiwf rename E-25 slug -> engine-truth-gate |
 
