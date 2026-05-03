@@ -1,6 +1,6 @@
 # Development Setup: FlowTime Services
 
-> **📋 Charter Context**: This setup supports both legacy and charter workflows. For current development patterns, see [ROADMAP.md](../ROADMAP.md) and milestone-specific documentation.
+> This setup supports FlowTime development on aiwf v3. For workflow guidance, see `CLAUDE.md` and the `aiwf-extensions` plugin.
 
 ## **Service Port Assignments**
 

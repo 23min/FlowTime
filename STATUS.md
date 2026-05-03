@@ -88,9 +88,9 @@ _(none)_
 
 | Date | Actor | Verb | Detail |
 |------|-------|------|--------|
+| 2026-05-03 | human/peter | add | aiwf add gap G-036 'Refresh docs/development/versioning.md to current FlowTime versioning state' |
 | 2026-05-03 | human/peter | add | aiwf add gap G-035 'Promote InvariantAnalyzer warnings to CI gate' |
 | 2026-05-02 | human/peter | render-roadmap | aiwf render roadmap |
 | 2026-05-02 | human/peter | add | aiwf add milestone M-068 'Golden-Output Canary' |
 | 2026-05-02 | human/peter | add | aiwf add milestone M-067 'Engine + Template Alignment' |
-| 2026-05-02 | human/peter | add | aiwf add milestone M-066 'Edge-Flow Authority Decision' |
 

@@ -1,5 +1,9 @@
 # Milestone Session Guide
 
+> **Archived 2026-05-03.** This document describes a pre-aiwf-v3 workflow (session-prompt template for milestone work). For current authority, see `CLAUDE.md` and the `aiwf-extensions` plugin skills (`aiwfx-plan-milestones`, `aiwfx-start-milestone`, `aiwfx-wrap-milestone`, `aiwfx-release`). Kept for historical reference only — do not follow as current guidance.
+
+---
+
 Use this guide when starting or continuing a milestone session with Codex. It complements
 `docs/development/milestone-documentation-guide.md` and `.github/copilot-instructions.md`.
 

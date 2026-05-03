@@ -1,5 +1,9 @@
 # Release Ceremony
 
+> **Archived 2026-05-03.** This document describes a pre-aiwf-v3 workflow (post-merge release ceremony (versioning, tagging, release notes)). For current authority, see `CLAUDE.md` and the `aiwf-extensions` plugin skills (`aiwfx-plan-milestones`, `aiwfx-start-milestone`, `aiwfx-wrap-milestone`, `aiwfx-release`). Kept for historical reference only — do not follow as current guidance.
+
+---
+
 This document describes the step-by-step process for completing a release after merging to `main`.
 
 ## Purpose

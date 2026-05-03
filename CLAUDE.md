@@ -109,6 +109,11 @@ Tracking docs (per the `aiwfx-track` skill) are advisory free-form markdown alon
 - Sim tests: `tests/FlowTime.Sim.Tests` — covers CLI, template parsing, provenance, service behaviours.
 - Integration tests: `tests/FlowTime.Integration.Tests` for cross-surface scenarios.
 
+### Testing tactics
+
+- **Per-project test runs with hang detection.** The full `dotnet test FlowTime.sln` can hit suite-wide timeouts on slow setups. When that happens, run per-project with `--blame-hang --blame-hang-timeout 60s` in this order: `tests/FlowTime.Expressions.Tests`, `tests/FlowTime.Core.Tests`, `tests/FlowTime.Tests`, `tests/FlowTime.Adapters.Synthetic.Tests`, `tests/FlowTime.Sim.Tests`, `tests/FlowTime.UI.Tests`, `tests/FlowTime.Api.Tests`, `tests/FlowTime.Integration.Tests`, `tests/FlowTime.Cli.Tests`. CI (`.github/workflows/build.yml`) already uses this layout.
+- **Invariant analyzer warnings.** `InvariantAnalyzer` (Engine) and `TemplateInvariantAnalyzer` (Sim) run inside every model evaluation and emit `InvariantWarning[]` into the run artifact (see `RunArtifactWriter`, `GraphService`, `TimeMachineValidator`). Milestones touching model semantics, topology, or evaluation should add `InvariantAnalyzerTests` cases for the new shape and confirm representative templates evaluate warning-free at wrap. Promoting these warnings to a build-failing CI gate is tracked under gap `G-035`.
+
 ### UI testing (hard rule)
 
 - **UI work must be eval'd end-to-end in a real browser.** Every milestone that ships new or changed UI (Blazor or Svelte) must include Playwright tests that drive the feature in a real browser and verify the rendered outcome. Type checks and unit tests on pure helpers are necessary but not sufficient — they do not catch broken event handlers, state leaks, reactive glitches, or CSS-driven breakage. The user experience is the contract; a passing test must prove the user experience works.

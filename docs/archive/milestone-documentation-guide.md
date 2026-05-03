@@ -1,5 +1,9 @@
 # Milestone Documentation Guide
 
+> **Archived 2026-05-03.** This document describes a pre-aiwf-v3 workflow (milestone-doc structure and tracking-doc model). For current authority, see `CLAUDE.md` and the `aiwf-extensions` plugin skills (`aiwfx-plan-milestones`, `aiwfx-start-milestone`, `aiwfx-wrap-milestone`, `aiwfx-release`). Kept for historical reference only — do not follow as current guidance.
+
+---
+
 **Purpose:** Establish clear standards for milestone documentation to ensure consistency, completeness, and actionability.
 
 ---

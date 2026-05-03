@@ -87,6 +87,6 @@ Notes are allowed to be essay-like. When a Note becomes stable and broadly appli
 
 ## 6. Milestones and Roadmap
 
-- `work/milestones/` – Concrete implementation slices (e.g., CL-M-04.03.02, SB-M-01) that move Architecture forward.
+- `work/epics/E-{NN}-<slug>/M-NNN-<slug>.md` – Concrete implementation slices (aiwf v3 milestone specs) that move Architecture forward.
 - `ROADMAP.md` – High-level roadmap view.
 - `work/epics/epic-roadmap.md` – Architecture-focused epic index.

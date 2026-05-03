@@ -1,5 +1,9 @@
 # Milestone Documentation Rules Summary
 
+> **Archived 2026-05-03.** This document describes a pre-aiwf-v3 workflow (milestone rules quick reference). For current authority, see `CLAUDE.md` and the `aiwf-extensions` plugin skills (`aiwfx-plan-milestones`, `aiwfx-start-milestone`, `aiwfx-wrap-milestone`, `aiwfx-release`). Kept for historical reference only — do not follow as current guidance.
+
+---
+
 **Created:** 2025-10-06  
 **Purpose:** Quick reference for milestone creation and maintenance
 
