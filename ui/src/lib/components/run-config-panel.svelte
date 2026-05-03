@@ -35,11 +35,31 @@
 	const Icon = $derived(getDomainIcon(template));
 	const inferredMode = 'simulation';
 
-	// Initialize parameter defaults when template changes
+	const NUMERIC_TYPES = ['number', 'integer', 'float', 'double'];
+
+	function coerceDefault(p: TemplateDetail['parameters'][number]): unknown {
+		const raw = p.defaultValue;
+		if (NUMERIC_TYPES.includes(p.type)) {
+			if (raw == null || raw === '') return 0;
+			const n = parseFloat(String(raw));
+			return Number.isFinite(n) ? n : 0;
+		}
+		if (p.type === 'boolean') {
+			return String(raw).toLowerCase() === 'true';
+		}
+		// String types: the Sim API double-encodes empty defaults as the
+		// 2-char literal "\"\"". Strip a single layer of surrounding quotes.
+		const s = String(raw ?? '');
+		return s.length >= 2 && s.startsWith('"') && s.endsWith('"') ? s.slice(1, -1) : s;
+	}
+
+	// Initialize parameter defaults when template changes. Defaults are
+	// coerced to the declared type so the request body carries proper number /
+	// boolean values rather than the strings the templates API hands back.
 	$effect(() => {
 		const defaults: Record<string, unknown> = {};
 		for (const p of template.parameters) {
-			defaults[p.name] = p.defaultValue ?? (p.type === 'number' ? 0 : '');
+			defaults[p.name] = coerceDefault(p);
 		}
 		paramValues = defaults;
 	});

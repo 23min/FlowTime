@@ -1,320 +1,209 @@
-# FlowTime Roadmap — Updated 2026-04-07
+# Roadmap
 
-This roadmap reflects the current state of FlowTime Engine + Sim and the strategic direction established during the E-16 planning cycle. Architecture **epics** and milestone docs provide the implementation detail (see `work/epics/epic-roadmap.md`).
+## E-10 — Engine Correctness & Analytical Primitives (done)
 
-## Scope & Assumptions
-- Engine remains responsible for deterministic execution, artifact generation, and `/state` APIs (see `docs/flowtime-engine-charter.md`).
-- FlowTime.Sim owns template authoring, stochastic inputs, and template catalog endpoints.
-- Product-level scope is summarized in `docs/flowtime-charter.md`.
-- The engine deep review (`docs/architecture/reviews/engine-deep-review-2026-03.md`) is the primary input for correctness priorities.
+### Goal
 
-## Thesis: Pure Engine, Then Power
+Fix known correctness bugs, harden engineering quality, and build the analytical primitives layer that enables downstream epics (Path Analysis, Anomaly Detection, Scenario Overlays, UI Analytical Views) to deliver their full value.
 
-FlowTime is a **spreadsheet for flow dynamics** — a deterministic graph of pure transforms over named time series. Queueing theory made executable.
+| Milestone | Title | Status |
+|---|---|---|
+| M-054 | Engineering Foundation (Phase 1) | done |
+| M-055 | Phase 2 — Documentation Honesty | done |
+| M-056 | Phase 3a — Cycle Time & Flow Efficiency | done |
+| M-057 | Phase 3a.1 — Analytical Projection Hardening | done |
+| M-058 | Phase 3b — WIP Limits | done |
+| M-059 | Phase 3c — Variability Preservation (Cv + Kingman) | done |
+| M-060 | Phase 3d — Constraint Enforcement | done |
 
-The strategic arc is three phases:
+## E-11 — Svelte UI — Parallel Frontend Track (done)
 
-1. **Make it pure (E-16).** The engine's analytical identity and semantic meaning are still reconstructed late from strings in the API and UI. E-16 moves all of that into the compiled Core: typed references, compiled analytical descriptors, pure evaluation. After E-16, the engine is an honest formula evaluator — the compiler owns meaning, evaluation is pure, consumers read facts.
+### Goal
 
-2. **Make it interactive (E-17).** Once the engine is pure and evaluation takes microseconds, live what-if becomes possible. Change a parameter, see every metric update instantly. The spreadsheet comes alive. This needs runtime parameter identification, server-side sessions, and a push channel to the UI.
+Build a SvelteKit + shadcn-svelte application in parallel with the Blazor WebAssembly frontend, delivering a polished, modern UI for demos and future evaluation while keeping the existing .NET backend APIs untouched.
 
-3. **Make it programmable (E-18).** Once the engine is a callable pure function, embed it in pipelines. Parameter sweeps, optimization loops, model fitting against real telemetry, sensitivity analysis, digital twin architectures. FlowTime becomes an instrument, not just a simulator.
+| Milestone | Title | Status |
+|---|---|---|
+| M-061 | Project Scaffold & Shell | done |
+| M-062 | Run Orchestration | done |
 
-This arc describes the product capability ladder, not strict implementation order. In implementation, the shared runtime parameter foundation lands first in the E-18 Time Machine foundation and is then consumed by E-17's session/push UX. E-16 completes first, then E-10 resumes, then E-12-E-15 build on the analytical layer.
+## E-12 — Dependency Constraints & Shared Resources (done)
 
-## Delivered (Completed Epics)
+### Goal
 
-9 epics completed. See `work/epics/completed/` for full specs.
+Model downstream dependencies (databases, caches, external APIs, shared services) as **constraints** that can limit throughput and introduce hidden backlog/latency. Preserve FlowTime’s minimal basis (arrivals/served/queue depth) while making coupling and bottlenecks visible.
 
-- **Time Travel V1** — `/state`, `/state_window` APIs, telemetry capture/bundles, DLQ/backlog semantics.
-- **Evaluation Integrity** — Compile-to-DAG contract, centralized model compiler.
-- **Edge Time Bins** — Per-edge throughput/attempt volumes, conservation checks, UI overlays.
-- **Classes & Routing** — Multi-class flows with class-aware routing and visualization.
-- **Service With Buffer** — First-class `serviceWithBuffer` node type replacing legacy backlog.
-- **MCP Modeling & Analysis** — Draft/validate/run/inspect loop, data intake, profile fitting, storage.
-- **Engine Semantics Layer** — Stable `/state`, `/state_window`, `/graph` contracts.
-- **UI Performance** — Input/paint/data lane separation, eliminated main-thread stalls.
-- **Package Updates** — .NET 9 dependencies and MudBlazor updated (M-11.01, M-11.02).
+| Milestone | Title | Status |
+|---|---|---|
+| M-063 | Dependency Constraints Foundations | done |
+| M-064 | Dependency Constraints (Attached to Services) | done |
+| M-065 | MCP Dependency Pattern Enforcement | done |
 
-## E-10 — Engine Correctness & Analytical Primitives (completed)
+## E-13 — Path Analysis & Subgraph Queries (proposed)
 
-**Epic:** `work/epics/completed/E-10-engine-correctness-and-analytics/spec.md`
-**Status:** Complete — all 8 milestones delivered
+_No milestones yet._
 
-The engine deep review found 3 P0 correctness bugs, engineering debt, documentation drift, and a missing analytical layer. All phases delivered: Phases 0-2 (bugs, engineering, docs), Phase 3 analytical primitives (cycle time, projection hardening, constraint enforcement, variability, WIP limits with overflow routing and SHIFT-based backpressure feedback).
+## E-14 — Visualizations (Chart Gallery / Demo Lab) (cancelled)
 
-## E-16 — Formula-First Core Purification (completed)
+_No milestones yet._
 
-**Epic:** `work/epics/completed/E-16-formula-first-core-purification/spec.md` | **Status:** completed (`m-E16-06` completed on `milestone/m-E16-06-analytical-contract-and-consumer-purification`)
+## E-15 — Telemetry Ingestion, Topology Inference, and Canonical Bundles (proposed)
 
-The architecture gate is complete. Semantic meaning and analytical truth are now compiled into Core once and consumed as facts everywhere else.
+### Goal
 
-Six milestones in sequence:
-1. **m-E16-01** — Compiled Semantic References (typed refs replace raw string parsing, Parallelism typing) — completed on `milestone/m-E16-01-compiled-semantic-references`
-2. **m-E16-02** — Class Truth Boundary (real by-class data vs wildcard fallback made explicit) — completed on `milestone/m-E16-01-compiled-semantic-references`
-3. **m-E16-03** — Runtime Analytical Descriptor (absorbs AnalyticalCapabilities, compiled by compiler not resolved from strings) — completed on `milestone/m-E16-01-compiled-semantic-references`
-4. **m-E16-04** — Core Analytical Evaluation (all analytical math moves to Core including flowLatencyMs graph propagation) — completed on `milestone/m-E16-01-compiled-semantic-references`
-5. **m-E16-05** — Warning Facts & Primitive Cleanup (backlog/stationarity/overload warnings move to Core analyzers) — completed on `milestone/m-E16-05-analytical-warning-facts-and-primitive-cleanup`
-6. **m-E16-06** — Contract & Consumer Purification (publish facts in API, delete IsServiceLike/Classify heuristics from UI) — completed on `milestone/m-E16-06-analytical-contract-and-consumer-purification`
+Build the pipeline that takes real-world data — event logs, traces, sensor feeds — and produces the two things FlowTime needs: a `/graph` topology and Gold-format time-binned series. This epic owns ingestion, topology inference, validation, and bundle assembly.
 
-Key decisions: D-2026-04-03-005 (flowLatencyMs to Core), D-2026-04-03-006 (descriptor absorbs AnalyticalCapabilities), D-2026-04-03-007 (Parallelism typing in E-16). See `work/decisions.md`.
+_No milestones yet._
 
-Migration is forward-only. Existing runs, fixtures, and approved snapshots are regenerated, not compatibility-layered.
+## E-16 — Formula-First Core Purification (done)
 
-## E-11 — Svelte UI (Parallel Frontend Track)
+### Goal
 
-**Epic:** `work/epics/E-11-svelte-ui/spec.md` | **Status:** paused after M6; absorbed into E-21 (M1-M4 + M6 done; M5 → E-21 workbench, M7 deferred, M8 → E-21 m-E21-08)
+Purify FlowTime's execution boundary so semantic meaning and analytical truth are compiled into Core once and consumed as facts everywhere else. This epic turns the existing "spreadsheet for flows" mental model into an enforceable architecture: parser/compiler resolve references, the core evaluates pure vector formulas, and adapters and clients stop reconstructing domain meaning from strings.
 
-Build a parallel SvelteKit + shadcn-svelte UI surface for demos and future evaluation while keeping the Blazor UI supported and in sync. Independent of engine work — both UIs consume existing APIs with zero backend changes.
+| Milestone | Title | Status |
+|---|---|---|
+| M-012 | Compiled Semantic References | done |
+| M-013 | Class Truth Boundary | done |
+| M-014 | Runtime Analytical Descriptor | done |
+| M-015 | Core Analytical Evaluation | done |
+| M-016 | Analytical Warning Facts and Primitive Cleanup | done |
+| M-017 | Analytical Contract and Consumer Purification | done |
 
-Superseded on 2026-04-15 (fork decision): Svelte becomes the platform for all new surfaces and Blazor enters maintenance mode. Remaining work moved to **E-21 — Svelte Workbench & Analysis Surfaces** below.
+## E-17 — Interactive What-If Mode (done)
 
-## E-24 — Schema Alignment (completed)
+### Goal
 
-**Epic:** `work/epics/completed/E-24-schema-alignment/spec.md` | **Status:** completed — all five milestones merged to main (2026-04-25)
+Enable live, interactive recalculation in FlowTime — change a parameter and see results update instantly across the entire model, like a spreadsheet.
 
-Unified FlowTime's post-substitution model representation. One C# type (`ModelDto` + `ProvenanceDto` in `FlowTime.Contracts`), one YAML schema (`docs/schemas/model.schema.yaml` rewritten against the unified type), one validator. `SimModelArtifact` and its six satellites deleted; Sim emits the unified type directly; Engine parses it directly. `Template` (authoring-time) stays distinct. Forward-only — no migration of stored bundles. camelCase throughout. The `TemplateWarningSurveyTests.Survey_Templates_For_Warnings` canary is now a hard `val-err == 0` build-time gate at `ValidationTier.Analyse` across all twelve shipped templates.
+| Milestone | Title | Status |
+|---|---|---|
+| M-018 | WebSocket Engine Bridge | done |
+| M-019 | Svelte Parameter Panel | done |
+| M-020 | Live Topology and Charts | done |
+| M-021 | Warnings Surface | done |
+| M-022 | Edge Heatmap | done |
+| M-023 | Time Scrubber | done |
 
-**Five milestones:** m-E24-01 Inventory & Design Decisions (doc-only) → m-E24-02 Unify Model Type (`SimModelArtifact` + 6 satellites deleted; YamlDotNet 17.0.1) → m-E24-03 Schema Unification (schema rewritten top-to-bottom; nested 7-field camelCase provenance; consumer citations on every property) → m-E24-04 Parser/Validator Scalar-Style Fix (mirrored `ParseScalar` `ScalarStyle.Plain` guard in both validators + sibling `QuotedAmbiguousStringEmitter` for round-trip symmetry) → m-E24-05 Canary Green + Hard Assertion (regression-catching verified end-to-end).
+## E-18 — Time Machine (done)
 
-**ADRs:** ADR-E-24-01 Unify the post-substitution model type · ADR-E-24-02 Forward-only regeneration · ADR-E-24-03 Schema declares only consumed fields · ADR-E-24-04 `ScalarStyle.Plain` gates `ParseScalar` coercion · ADR-E-24-05 `QuotedAmbiguousStringEmitter` round-trip symmetry.
+### Goal
 
-**Decisions:** `D-2026-04-24-036` (E-23 paused, E-24 created) · `D-2026-04-24-037` (Option E ratified; 5-milestone plan) · `D-2026-04-25-038` (E-24 closed; E-23 ready to resume).
+Make FlowTime usable as a pure callable function — embeddable in pipelines, optimization loops, model discovery workflows, and digital twin architectures. The **Time Machine** (`FlowTime.TimeMachine`) is a new first-class execution component that scripts, UIs, MCP servers, and AI agents can drive programmatically. It owns compile, tiered validation, evaluate, reevaluate with parameter overrides, and canonical artifact write.
 
-**Unblocks:** E-23 m-E23-02 (call-site migration) and m-E23-03 (`ModelValidator` delete) become byte-trivial mechanical cleanup; m-E21-07 Validation Surface eventually; E-15 Telemetry Ingestion `nodes[].source` forward contract.
+FlowTime's execution component is an abstract machine in the BEAM / JVM sense: instructions (the compiled graph), state (the time grid plus accumulating series), deterministic topological stepping through time. "Time Machine" also aligns with the existing Blazor "Time Travel" UI feature — the Time Travel UI navigates runs the Time Machine produces — and the reevaluation semantics (rewind a compiled model, run it forward with different parameters) are literally time travel.
 
-## E-23 — Model Validation Consolidation (completed and merged to main 2026-04-26)
+| Milestone | Title | Status |
+|---|---|---|
+| M-001 | Parameterized Evaluation | done |
+| M-002 | Engine Session + Streaming Protocol | done |
+| M-003 | Tiered Validation | done |
+| M-004 | Generator Extraction → TimeMachine | done |
+| M-005 | ITelemetrySource Contract | done |
+| M-006 | Parameter Sweep | done |
+| M-007 | Sensitivity Analysis | done |
+| M-008 | Goal Seeking | done |
+| M-009 | Multi-parameter Optimization | done |
+| M-010 | SessionModelEvaluator | done |
+| M-011 | .NET Time Machine CLI | done |
 
-**Epic:** `work/epics/completed/E-23-model-validation-consolidation/spec.md` | **Status:** completed and merged to main 2026-04-26; archived. Rescoped 2026-04-26 — E-24 Schema Alignment closed (all five milestones landed on `epic/E-24-schema-alignment`). E-23's spirit reframed: make `model.schema.yaml` the only declarative source of structural truth and `ModelSchemaValidator` the only runtime evaluator — eliminate every "embedded schema" outside the canonical schema (`ModelValidator.cs` hand-rolled rules, parser tolerations, silent emission defaults, post-parse orchestration checks). E-24 fixed type + schema-document embedment; E-23 closed the rule-evaluator embedment. **`ModelSchemaValidator.Validate` is now the single model-YAML validator in the codebase.**
+## E-19 — Surface Alignment & Compatibility Cleanup (done)
 
-Mini-epic (3 milestones). Collapses the codebase's two silently-disagreeing model validators to one: `ModelValidator` is **deleted**, `ModelSchemaValidator` is the single schema-driven entry point. Directly enforces the 2026-04-23 Truth Discipline guard *"'API stability' does not mean 'keep old functions around.'"*
+### Goal
 
-**Milestone slate (3 milestones):**
-- m-E23-01 Rule-Coverage Audit — **status: completed (2026-04-26).** 94 rules audited across `ModelValidator.cs`, `ModelParser.cs`, `SimModelBuilder.cs`, `ModelCompiler.cs`, `RunOrchestrationService.cs`, and DTO/`ModelService` shims. Per-rule disposition assigned. **16 schema-add edits** landed on `model.schema.yaml` (with `# rule from <file>:<line> — added m-E23-01` citations). **Schema restructure** to a 5-arm `oneOf` at `nodes[].items` closes the JsonEverything `not`-keyword silent-error class structurally. **Validator silent-error fallback** (`SynthesizePathOnlyError`) closes the residual blind spot. **12 named adjunct methods** on `ModelSchemaValidator` (`ValidateNodeIdUniqueness`, `ValidateOutputSeriesReferences`, `ValidateExpressionNodeReferences`, `ValidateConstNodeValueCount`, `ValidatePmfArrayLengths`, `ValidatePmfValueUniqueness`, `ValidatePmfProbabilitySum`, `ValidateSelfShiftRequiresInitialCondition`, `ValidateTopologySeriesReferences`, `ValidateWipOverflowTarget`, `ValidateWipOverflowAcyclic`, `ValidateDateTimeFormats`) for cross-reference / cross-array rules JSON Schema draft-07 cannot express. **Mode-specific simulation rules** (`grid.start` non-empty + `topology.nodes` non-empty) stay at the orchestration layer per parser-justified disposition. **Negative-case canary catalogue** (26 tests in `RuleCoverageRegressionTests.cs` + 6 silent-error regression tests) locks coverage in. Canary `Survey_Templates_For_Warnings` stays green at `val-err == 0`. Full suite **1,846 / 0 / 9**. AC1-AC9 closed.
-- m-E23-02 Call-Site Migration — **status: completed (2026-04-26).** 3 production sites (`POST /v1/run`, Engine CLI, `TimeMachineValidator` tier-1) + 28 test calls across 4 files migrated to `ModelSchemaValidator.Validate`. `TimeMachineValidator`'s redundant dual-validator block removed. Error-phrasing audit recorded across 6 representative invalid-model fixtures + UI/CLI consumer scan (no regex-parse consumers). Scope-expansion close-out: real `ProvenanceService.StripProvenance` round-trip bug fixed (Dictionary-based round-trip → YamlStream surgical removal preserving scalar styles); 2 stale test fixtures dropped legacy `generator:` field; 1 test flip from `OK` → `BadRequest` for the now-arrived "future" of malformed-provenance rejection. **+16 net new tests** (10 strip branch-coverage + 2 integration regression at the `/v1/run` API surface + 4 strip sub-case). Suite **1862 / 0 / 9** vs the m-E23-01 baseline of 1846 / 0 / 9. Both canaries green. `ModelValidator.cs` left on disk as single-revert safety net (deletion in m-E23-03). AC1-AC8 closed; AC9 (latency delta) deferred — optional.
-- m-E23-03 Delete `ModelValidator` — **status: completed (2026-04-26).** `src/FlowTime.Core/Models/ModelValidator.cs` deleted via `git rm`. `ValidationResult` (14 lines) relocated to `src/FlowTime.Core/Models/ValidationResult.cs`, namespace stays `FlowTime.Core`, no API change. AC3 grep clean: 7 hits remain, all explanatory comments documenting m-E23-01 / m-E23-02 migration history; zero live references. Build: 0 errors, 1 pre-existing xUnit-analyzer warning unrelated. Full suite **1862 / 0 / 9** — identical to m-E23-02 tip. Both canaries green. Epic-folder archive lands when E-23 merges to main.
+Tighten the remaining non-analytical legacy and compatibility surfaces after E-16 so FlowTime exposes current Engine/Sim contracts consistently across first-party UI, Sim, docs, schemas, and examples without carrying stale fallback layers or stripping supported Blazor capability.
 
-**Out of scope (firm):** Sim's emission shape (E-24 territory; E-23 only revisits if the audit shows an unwritten emission rule), Blazor/Svelte UI code, active validation UI (lives in m-E21-07 after E-21 resumes), new validator features, `Template`-layer validation (`TemplateSchemaValidator` stays distinct for pre-substitution authoring templates).
+| Milestone | Title | Status |
+|---|---|---|
+| M-024 | Supported Surface Inventory, Boundary ADR & Exit Criteria | done |
+| M-025 | Sim Authoring & Runtime Boundary Cleanup | done |
+| M-026 | Schema, Template & Example Retirement | done |
+| M-027 | Blazor Support Alignment | done |
 
-**Stashed input material:** branch `milestone/m-E23-01-schema-alignment` + `stash@{0}` hold pre-pivot m-E23-01 work. Most absorbed by E-24; should be retired when E-23 resumes — the rule audit starts fresh from post-E-24 `main`.
+## E-20 — Matrix Engine (done)
 
-**Dependencies:** E-24 Schema Alignment (cleared 2026-04-25). After E-23 lands, m-E21-07 Validation Surface resumes with a single consolidated validator to render.
+### Goal
 
-## E-21 — Svelte Workbench & Analysis Surfaces (all milestones complete — ready for epic wrap)
+Replace the C# object-graph evaluation engine with a Rust-based column-store + evaluation-plan engine. The new engine reads the same YAML model files, produces identical output artifacts, and ships as a standalone CLI binary (`flowtime-engine`). This is the foundation for E-17 (Interactive What-If) and E-18 (Time Machine).
 
-**Epic:** `work/epics/completed/E-21-svelte-workbench-and-analysis/spec.md` | **Status:** all 8 milestones complete (m-E21-08 Polish completed 2026-04-28). Ready for epic wrap and merge to main.
+| Milestone | Title | Status |
+|---|---|---|
+| M-028 | Scaffold, Types, and Parsers | done |
+| M-029 | Compiler and Core Evaluator | done |
+| M-030 | Topology and Sequential Ops | done |
+| M-031 | Routing and Constraints | done |
+| M-032 | Derived Metrics and Analysis | done |
+| M-033 | Artifacts, CLI, and Integration | done |
+| M-034 | .NET Subprocess Bridge | done |
+| M-035 | Full Parity Harness | done |
+| M-036 | Per-Class Decomposition and Edge Series | done |
+| M-037 | Artifact Sink Parity | done |
 
-Transform the Svelte UI from a Blazor-parallel clone into the primary platform for expert flow analysis and Time Machine surfaces. Workbench paradigm: topology as navigation + click-to-pin inspection panel; `/analysis` route with tabbed Time Machine surfaces (sweep, sensitivity, goal-seek, optimize); heatmap view; validation surface; compact density with calm chrome + vivid data-viz palette.
+## E-21 — Svelte Workbench & Analysis Surfaces (done)
 
-**Depends on:** E-11 (M1-M4 + M6), E-17, E-18 analysis endpoints.
+### Goal
 
-**Completed milestones:**
-- m-E21-01: Workbench Foundation — density tokens, dag-map `bindEvents`/`selected` (library), click-to-pin node cards (merged 2026-04-17)
-- m-E21-02: Metric Selector & Edge Cards — metric chip bar, edge cards, class filter, custom TimelineScrubber (merged 2026-04-17)
-- m-E21-03: Sweep & Sensitivity Surfaces — `/analysis` route with tabs, sweep config + results, sensitivity bar chart (merged 2026-04-17; ultrareview follow-ups 2026-04-20)
-- m-E21-04: Goal Seek Surface — goal-seek panel on `/analysis`, shared `AnalysisResultCard` + `ConvergenceChart` components, additive `trace` on `/v1/goal-seek` and `/v1/optimize` per D-2026-04-21-034 (completed 2026-04-22)
-- m-E21-05: Optimize Surface — live `/v1/optimize` wired to the `/analysis` Optimize tab, N-param Nelder-Mead under bounds, per-param result table with range bars, new `flowtime.optimize(...)` client, sibling `optimize-helpers.ts` module (completed 2026-04-22)
-- m-E21-06: Heatmap View — nodes-x-bins grid as sibling of topology under `/time-travel/topology`, typed `<ViewSwitcher>` (inline views, no registry per ADR-m-E21-06-01), shared view-state store, shared full-window 99p-clipped color-scale normalization (topology straight-swaps from per-bin per ADR-m-E21-06-02), shared-toolbar `[ Operational | Full ]` node-mode toggle reaching Blazor parity. 15/15 ACs; 770 ui-vitest (+269) across 32 suites; 16 Playwright specs on `svelte-heatmap.spec.ts`; zero backend work (completed 2026-04-24)
+Transform the Svelte UI from a Blazor-parallel clone into the primary platform for expert flow analysis and Time Machine surfaces, using a workbench paradigm (topology as navigation + inspection panel) instead of the Blazor overlay approach.
 
-- m-E21-07: Validation Surface (Svelte) — consumer-side type widening on `state_window` warnings; validation panel as left column inside workbench panel; topology node + edge warning indicators; workbench-card warning surfaces; bidirectional cross-link via shared view-state store; Playwright real-bytes fixture (`FLOWTIME_E2E_TEST_RUNS=1` + sandboxed `data/test-runs/`) covering the AC1 wire-format round-trip, mocked specs covering UI-behaviour edge cases. New chrome tokens `--ft-warn` / `--ft-err` / `--ft-info`. Zero backend work. 897 ui-vitest passing across the suite; 9/9 Playwright in `svelte-validation.spec.ts`; svelte-check 413/2 baseline unchanged (completed 2026-04-28)
+| Milestone | Title | Status |
+|---|---|---|
+| M-038 | Workbench Foundation | done |
+| M-039 | Metric Selector & Edge Cards | done |
+| M-040 | Sweep & Sensitivity Surfaces | done |
+| M-041 | Goal Seek Surface | done |
+| M-042 | Optimize Surface | done |
+| M-043 | Heatmap View | done |
+| M-044 | Validation Surface (Svelte) | done |
+| M-045 | Visual Polish & Dark Mode QA | done |
 
-- m-E21-08: Visual Polish & Dark Mode QA — topology keyboard + ARIA retrofit (a11y bar parity with heatmap), full bidirectional cross-link (node `.node-selected` stroke + new `selectedEdge` field on view-state with `.edge-pinned` rename + new `.edge-selected` chrome), dark-mode audit (zero token-resolution gaps), loading skeletons on `/time-travel/topology` + `/analysis` tabs, transitions rule documented + 160 ms cross-fades, elevation token audit (zero remediation; chrome already canonical), validation-panel cosmetic collapse, heatmap-side absence assertion. 919 ui-vitest (+22 from baseline); svelte-check 413/2 unchanged; 6 new Playwright specs. New chrome token `--ft-focus`. Color-blind validation + pattern encoding deferred to a follow-up by user decision 2026-04-28 (completed 2026-04-28)
+## E-22 — Time Machine — Model Fit & Chunked Evaluation (proposed)
 
-**Remaining:** none. E-21 ready for epic wrap.
+### Goal
 
-## E-19 — Surface Alignment & Compatibility Cleanup (completed)
+Close out the remaining Time Machine analysis modes — **model fitting** against real telemetry and **chunked evaluation** for feedback simulation — and crystallize the resulting surface as a clean embeddable **`FlowTime.Pipeline` SDK**. These are the last two analysis modes in the E-18 Time Machine architecture; delivering them completes the "FlowTime as a callable function" arc.
 
-**Epic:** `work/epics/completed/E-19-surface-alignment-and-compatibility-cleanup/spec.md` | **Status:** completed — all four milestones merged to main (2026-04-08)
+_No milestones yet._
 
-After E-16 purifies analytical truth, FlowTime still carries broader non-analytical compatibility debt across first-party UI, Sim, docs, examples, and schema surfaces. E-19 removes stale fallback layers and clarifies supported surfaces in a forward-only cut while keeping Blazor current as a supported parallel UI.
+## E-23 — Model Validation Consolidation (done)
 
-This cleanup lane also draws the boundary between today's Sim authoring/orchestration residue and the future E-18 Time Machine foundation, so the current Sim path does not harden into the default programmable contract.
+### Goal
 
-This epic starts immediately after E-16 as a cleanup lane, but it does not replace E-10 Phase 3 resume. Runtime/schema/doc cleanup can run in parallel with resumed analytical work, and Blazor alignment runs alongside the E-11 Svelte track rather than behind a replacement cutoff.
+Make `docs/schemas/model.schema.yaml` the **only declarative source of structural truth** about the post-substitution model, and `ModelSchemaValidator` the **only runtime evaluator**. Eliminate every "embedded schema" — every place outside the canonical schema where model rules are re-encoded. After E-23 closes:
 
-## Near-Term Epics
+- One schema. Declared in `model.schema.yaml`.
+- One validator. `ModelSchemaValidator.Validate`, with named adjuncts (alongside `ValidateClassReferences`) for any rule JSON Schema draft-07 cannot express.
+- Zero parallel imperative validators. `ModelValidator.cs` is deleted.
+- Every rule has exactly one canonical home. No silent rules in parsers, emitters, or post-parse orchestration paths.
 
-These depend on the analytical primitives from E-10 Phase 3 (except E-15 which is independent):
+| Milestone | Title | Status |
+|---|---|---|
+| M-046 | Rule-Coverage Audit | done |
+| M-047 | Call-Site Migration | done |
+| M-048 | Delete `ModelValidator` | done |
 
-1. **E-12 — Dependency Constraints & Shared Resources** (`work/epics/E-12-dependency-constraints/`)
-   - Runtime constraint enforcement (depends on Phase 3 p3d). M-10.01/02 complete. M-10.03 deferred.
+## E-24 — Schema Alignment (done)
 
-2. **E-13 — Path Analysis & Subgraph Queries** (`work/epics/E-13-path-analysis/`)
-   - Path-level queries, bottleneck attribution, dominant routes, path pain.
+### Goal
 
-3. **E-14 — Visualizations** (`work/epics/E-14-visualizations/`)
-   - Absorbed into UI Analytical Views epic. See `work/epics/ui-analytical-views/spec.md`.
+Unify FlowTime's post-substitution model representation. One C# type. One YAML schema. One validator. `SimModelArtifact` is **deleted**. Sim builds the unified model type directly; the Engine accepts and parses the same type. Every field has exactly one declaration site. `TemplateWarningSurveyTests` reports `val-err=0` across all twelve templates at `ValidationTier.Analyse`, promoted to a hard build-time assertion. `ModelValidator` deletion (E-23) then becomes a mechanical cleanup.
 
-4. **E-15 — Telemetry Ingestion, Topology Inference + Canonical Bundles** (`work/epics/E-15-telemetry-ingestion/`)
-   - Gold Builder + Graph Builder + bundle assembly. Independent of Phase 3.
+| Milestone | Title | Status |
+|---|---|---|
+| M-049 | Inventory and Design Decisions | done |
+| M-050 | Unify Model Type | done |
+| M-051 | Schema Unification | done |
+| M-052 | Parser/Validator Scalar-Style Fix | done |
+| M-053 | Canary Green and Hard Assertion | done |
 
-## Bridge Work (recommended before advanced leverage)
+## E-25 — Engine Truth Gate — Edge-Flow Authority + Golden-Output Canary (proposed)
 
-These are the lowest-risk leverage layers after purification. They make the pure engine more useful without forcing live sessions, streaming state, or optimization frameworks too early.
+### Goal
 
-1. **Scenario Overlays & What-If Runs** (`work/epics/overlays/overlays.md`)
-   - Deterministic derived runs created from a baseline via validated input patches. Recommended after p3c + p3b so variability- and WIP-aware experiments have a clean execution path.
+Resolve the engine-correctness investigation surfaced during E-21 dogfooding (G-032 + G-033) and lock down testing rigor before further engine evolution. Concretely: make a defensible design call on edge-flow authority (expr nodes vs. topology edge weights), align engine + shipped templates so the conservation invariant is clean, and promote the lightweight `Survey_Templates_For_Warnings` baseline canary into a strict per-template **golden-output** canary that compares numeric series + warning sets at a sanctioned baseline.
 
-2. **Telemetry Loop & Parity** (`work/epics/telemetry-loop-parity/spec.md`)
-   - Automated parity harness between baseline synthetic runs and telemetry replay runs. Recommended immediately after the first E-15 dataset path and before model fitting, optimization, or anomaly automation.
+| Milestone | Title | Status |
+|---|---|---|
+| M-066 | Edge-Flow Authority Decision | draft |
+| M-067 | Engine + Template Alignment | draft |
+| M-068 | Golden-Output Canary | draft |
 
-## E-20 — Matrix Engine (complete)
-
-**Epic:** `work/epics/E-20-matrix-engine/spec.md` | **Status:** complete (m-E20-01–10 all complete)
-
-Replace the C# object-graph evaluation with a Rust column-store + evaluation-plan engine. All series live in one flat `f64[series_count × bins]` matrix. The evaluation plan is an ordered list of ops (pure functions on columns). Ships as a standalone CLI binary (`flowtime-engine eval/validate/plan`). The .NET API calls the Rust binary as a subprocess.
-
-Three-layer architecture (D-2026-04-10-031): engine core (pure function) → artifact sink (mandatory, pluggable persistence) → consumer adapters (per-surface formatting). All 10 milestones complete. The Rust engine replaces `RunArtifactWriter`. E-17/E-18 are unblocked.
-
-**Depends on:** E-10 (complete), E-16 (complete)
-
-## E-17 — Interactive What-If Mode (complete)
-
-**Epic:** `work/epics/completed/E-17-interactive-what-if-mode/spec.md` | **Status:** complete | **Merged:** 2026-04-12
-
-Live interactive recalculation: change a parameter, see every metric update instantly (<50ms). 6 milestones: WebSocket bridge → parameter panel → topology heatmap → warnings surface → edge heatmap → time scrubber. Advanced demo models (SaaS API, e-commerce pipeline). 200 vitest + 26 Playwright E2E.
-
-**Depends on:** E-20
-
-## E-18 — Time Machine (in-progress)
-
-**Epic:** `work/epics/E-18-headless-pipeline-and-optimization/spec.md` | **Status:** in-progress (branch `epic/E-18-time-machine`)
-**Gap analysis:** `work/epics/E-18-headless-pipeline-and-optimization/e18-gap-analysis.md`
-
-FlowTime as a callable pure function in pipelines, optimization loops, model fitting, digital twin architectures.
-
-**Depends on:** E-20 (complete)
-
-**Completed milestones:**
-- m-E18-01: Parameterized evaluation (Rust) — ParamTable, evaluate_with_params, compile-once eval-many
-- m-E18-02: Engine session + streaming protocol (Rust) — persistent process, MessagePack over stdin/stdout
-- m-E18-06: Tiered validation — `TimeMachineValidator` (schema/compile/analyse), `POST /v1/validate`, Rust `validate_schema`
-- m-E18-07: `FlowTime.TimeMachine` project created; `FlowTime.Generator` deleted (Path B)
-- m-E18-08: `ITelemetrySource` interface + `CanonicalBundleSource` + `FileCsvSource`
-- m-E18-09: Parameter sweep — `SweepSpec`/`SweepRunner`/`ConstNodePatcher`, `IModelEvaluator`, `POST /v1/sweep`
-- m-E18-10: Sensitivity analysis — `ConstNodeReader`, `SensitivityRunner` (central difference), `POST /v1/sensitivity`
-- m-E18-11: Goal seeking — `GoalSeeker` (bisection), `POST /v1/goal-seek` *(added; not in original spec)*
-- m-E18-12: Optimization — `Optimizer` (Nelder-Mead, N params), `POST /v1/optimize`
-- m-E18-13: SessionModelEvaluator — compile-once persistent-subprocess bridge using m-E18-02 session protocol; `RustEngine:UseSession` config switch (default true); `RustModelEvaluator` retained as fallback
-- m-E18-14: .NET Time Machine CLI — `flowtime validate/sweep/sensitivity/goal-seek/optimize` as pipeable JSON-over-stdio commands, byte-compatible with `/v1/` endpoints; `--no-session` fallback
-
-**Active delivery sequence (decided 2026-04-15):**
-
-1. **UI parity fork** — Svelte UI becomes the platform for new telemetry/fit/discovery surfaces. Blazor enters maintenance mode at current functionality. Parallel track with E-15 below.
-2. **E-15 Telemetry Ingestion** — Gold Builder (raw → canonical bundle) → Graph Builder (telemetry → inferred topology) → first dataset path. Critical path for the client-telemetry vision.
-3. **Telemetry Loop & Parity** — parity harness validates synthetic-vs-replay drift bounds. Required before fit results are trustworthy.
-4. **E-22 Model Fit + Chunked Evaluation** — carries forward the remaining E-18 scope (`FitSpec`/`FitRunner`/`POST /v1/fit` and chunked stateful session protocol) plus the `FlowTime.Pipeline` embeddable SDK wrapper. Completes the discovery pipeline and crystallizes the embeddable surface. See epic: `work/epics/E-22-model-fit-chunked-evaluation/spec.md`.
-
-**Deferred with no owner milestone (tracked in `work/gaps.md`):**
-- Optimization constraints (penalty method on `OptimizeSpec`)
-- Monte Carlo (sampling layer on `IModelEvaluator`)
-- `FlowTime.Telemetry.*` adapter projects (Prometheus, OTEL, BPI) — direct-source `ITelemetrySource` implementations that bypass the E-15 Gold Builder pipeline for specific live sources; narrow bypasses, not part of E-15 scope
-
-## E-22 — Time Machine: Model Fit & Chunked Evaluation (planning)
-
-**Epic:** `work/epics/E-22-model-fit-chunked-evaluation/spec.md` | **Status:** planning
-
-Closes out the remaining Time Machine analysis modes from E-18: model fitting against real telemetry, chunked evaluation for feedback simulation, and the `FlowTime.Pipeline` embeddable SDK wrapper. Completes the "FlowTime as a callable function" arc.
-
-**Depends on:** E-15 Telemetry Ingestion (first dataset path), Telemetry Loop & Parity (validated drift bounds). Sequenced after both per D-2026-04-15-032 Option A.
-
-**Planned milestones:**
-- m-E22-01 Model Fit — `FitSpec`/`FitRunner`/`POST /v1/fit` composing `ITelemetrySource` + `Optimizer`; `flowtime fit` CLI
-- m-E22-02 Chunked Evaluation — Rust `chunk_step` session command; `POST /v1/chunked-eval`; external-controller integration
-- m-E22-03 `FlowTime.Pipeline` SDK — embeddable library wrapping all analysis modes; existing API/CLI callers rewritten to dogfood the SDK
-
-**Out of scope (tracked as gaps):** optimization constraints, Monte Carlo, `FlowTime.Telemetry.*` direct-source adapters, tiered validation parity across UIs/MCP.
-
-## UI Paradigm Epics (draft — unnumbered until sequenced)
-
-See `work/epics/ui-workbench/reference/ui-paradigm.md` for the architectural proposal.
-
-- **UI Workbench & Topology Refinement** — Strip topology to structure + one color dimension, workbench panel for inspection.
-- **UI Analytical Views** — Purpose-built views: heatmap, decomposition, comparison, flow balance. Absorbs E-14.
-- **UI Question-Driven Interface** — Structured query panel for analytical questions with provenanced answers.
-
-## Mid-Term / Aspirational
-
-| Epic | Key Dependency | Notes |
-|------|---------------|-------|
-| **Anomaly & Pathology Detection** | Phase 3 + path/parity basics | Needs analytical primitives plus basic path context and telemetry parity before real-data automation |
-| **UI Layout Motors** | dag-map spike | Pluggable layout engines behind stable contract |
-| **Ptolemy-Inspired Semantics** | — | Conceptual guardrails for engine evolution |
-| **Streaming & Subsystems** | Stable engine semantics | Long-term exploratory |
-| **Cloud Deployment & Data Pipeline Integration** | E-15 + m-E18-14 CLI | Azure-native shape: Functions / Container Apps / ACI jobs. See below. |
-
-### Cloud Deployment & Data Pipeline Integration (aspirational)
-
-A natural deployment target for FlowTime is an Azure-hosted data pipeline where client
-telemetry lands in ADX or Blob, and FlowTime runs batch or event-driven analysis against it.
-This section captures the aspirational shape so that current architectural decisions stay
-compatible with it — without yet committing to implementation.
-
-**Three deployment shapes anticipated:**
-
-1. **Scheduled batch.** Timer-triggered Azure Function (or Container Apps job) queries ADX,
-   loads canonical series via `ITelemetrySource`, runs FlowTime.TimeMachine fit / sweep /
-   sensitivity, writes results back to ADX or Blob.
-2. **Event-driven.** Event Grid / Service Bus triggers a Function on a new telemetry window;
-   FlowTime evaluates; results push to a dashboard or downstream system.
-3. **Long-running interactive service.** Container App hosting the existing ASP.NET API for
-   Svelte UI what-if exploration. Separate process from the batch pipeline.
-
-**What the current architecture already gets right:**
-- Rust engine as a standalone binary — language-neutral, callable any way
-- `IModelEvaluator` seam — swap subprocess for HTTP client, FFI, or WASM without changing analysis code
-- `ITelemetrySource` seam — cloud adapters (ADX, Blob, Event Hubs) are additive
-- Analysis modes as a library (`FlowTime.TimeMachine`) — callable from any .NET host, not tied to the API server
-- Three-layer engine architecture (D-2026-04-10-031) — engine / sink / consumer separation supports Blob sinks
-
-**What we expect to add when Azure becomes concrete:**
-- **Pipeline-grade .NET CLI (m-E18-14 will start this).** Stdin JSON in / stdout JSON out. Azure Functions custom-handler-compatible. Self-contained binary deployable to ACI.
-- **Cloud `ITelemetrySource` adapters.** `AdxTelemetrySource`, `BlobTelemetrySource`, `EventHubsTelemetrySource`. Additive to the existing interface.
-- **Blob-backed artifact sink.** Parallel implementation of the filesystem sink under the same directory contract.
-- **OTEL / App Insights integration.** Structured spans around evaluator calls, sweeps, fits — long-running operations need observability.
-- **Key Vault secrets integration.** ADX connection strings, SAS tokens via standard Azure identity patterns.
-
-**Note on per-eval vs. session evaluator:** Both paths have a legitimate deployment shape.
-`SessionModelEvaluator` (persistent subprocess, compile-once) fits Container Apps jobs and
-long-running services where startup cost is amortized over many evaluations.
-`RustModelEvaluator` (stateless subprocess per eval) fits Azure Functions where each invocation
-is short-lived and process isolation is a feature. Both implementations are retained.
-
-**Status:** Not scheduled. Marker section so that the .NET CLI, ITelemetrySource, artifact sink,
-and observability work stay shaped for these scenarios as they land. Concrete Azure work begins
-only when a specific client deployment target is chosen.
-
-## Dependency Graph
-
-```
-E-10 (done) + E-16 (done) + E-19 (done) + E-20 (done) + E-17 (done)
-  |
-  +--→ E-18 Time Machine (in-progress)
-  |      m-E18-13 SessionModelEvaluator   ← done
-  |      m-E18-14 .NET Time Machine CLI   ← done
-  |      (later) m-E18-XX Model Fit       ← blocked on E-15 + Telemetry Loop & Parity
-  |      (later) Chunked evaluation       ← after discovery pipeline works end-to-end
-  |
-  +--→ UI parity fork                     ← NEXT
-  |      Svelte UI: platform for new surfaces (telemetry, fit, discovery)
-  |      Blazor UI: maintenance mode, frozen at current functionality
-  |
-  +--→ E-15 Telemetry Ingestion (critical path for client-telemetry vision)
-  |      Gold Builder → Graph Builder → first dataset path
-  |      +--→ Telemetry Loop & Parity
-  |             +--→ E-18 Model Fit (completes discovery pipeline)
-  |
-  +--→ E-12 Dependency Constraints (engine feature — after discovery pipeline)
-  +--→ E-13 Path Analysis (engine feature — after discovery pipeline)
-  +--→ Scenario Overlays (parameter override as plan operation)
-  +--→ Anomaly Detection (after path/parity basics)
-```
-
-## References
-- `docs/architecture/reviews/engine-deep-review-2026-03.md` — Full engine deep review
-- `docs/architecture/reviews/engine-review-findings.md` — Initial review findings
-- `docs/architecture/reviews/review-sequenced-plan-2026-03.md` — Sequenced plan (historical rationale)
-- `work/epics/epic-roadmap.md` — Architecture epics with links to specs
-- `work/decisions.md` — Architectural decisions (dated D-2026-… identifiers)
-- `docs/architecture/whitepaper.md` — Engine vision + future primitives
-- `docs/flowtime-engine-charter.md` — Engine remit and non-goals
