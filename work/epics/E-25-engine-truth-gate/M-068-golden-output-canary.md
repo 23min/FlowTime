@@ -8,27 +8,33 @@ acs:
   - id: AC-1
     title: Canary infrastructure lands as a sibling test class
     status: open
+    tdd_phase: red
   - id: AC-2
     title: Fixture serialization format chosen and documented
     status: open
   - id: AC-3
-    title: Per-fixture directory layout and README
+    title: Per-fixture directory layout documented in docs/testing/golden-output-canary.md
     status: open
   - id: AC-4
     title: Numeric tolerance documented and applied
     status: open
+    tdd_phase: red
   - id: AC-5
     title: Initial pinning across all 12 shipped templates
     status: open
+    tdd_phase: red
   - id: AC-6
     title: Coverage equivalence with Survey_Templates_For_Warnings enforced
     status: open
+    tdd_phase: red
   - id: AC-7
     title: Sanctioned regeneration workflow exists and is documented
     status: open
+    tdd_phase: red
   - id: AC-8
     title: Deliberate-perturbation failure-mode test fires
     status: open
+    tdd_phase: red
   - id: AC-9
     title: docs/testing/golden-output-canary.md committed
     status: open
@@ -45,7 +51,7 @@ acs:
     title: G-033 closes
     status: open
   - id: AC-14
-    title: Epic closure housekeeping complete
+    title: Epic E-25 spec references docs/testing/golden-output-canary.md as the canary contract
     status: open
 ---
 
