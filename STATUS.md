@@ -1,6 +1,6 @@
 # aiwf status — 2026-05-03
 
-_171 entities · 0 errors · 2 warnings · run `aiwf check` for details_
+_171 entities · 0 errors · 0 warnings_
 
 ## In flight
 
@@ -80,10 +80,7 @@ _(none)_
 
 ## Warnings
 
-| Code | Entity | Path | Message |
-|------|--------|------|---------|
-| acs-title-prose | M-067/AC-9 | work/epics/E-25-engine-truth-gate/M-067-engine-template-alignment.md | M-067/AC-9 title looks like prose (long / multi-sentence / contains markdown); shorten the title and move detail prose into the body section under \`### AC-9\` |
-| acs-title-prose | M-068/AC-14 | work/epics/E-25-engine-truth-gate/M-068-golden-output-canary.md | M-068/AC-14 title looks like prose (long / multi-sentence / contains markdown); shorten the title and move detail prose into the body section under \`### AC-14\` |
+_(none)_
 
 ## Recent activity
 
