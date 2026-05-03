@@ -1,6 +1,6 @@
 # aiwf status — 2026-05-03
 
-_171 entities · 0 errors · 0 warnings_
+_172 entities · 0 errors · 0 warnings_
 
 ## In flight
 
@@ -77,6 +77,7 @@ _(none)_
 | G-026 | Heatmap sliding-window scrubber (Blazor-parity zoom-and-pan) |  |
 | G-032 | \`transportation-basic\` regressed: \`edge_flow_mismatch_incoming\` × 3 after E-24 unification |  |
 | G-033 | Tests are too weak: surveyed-output-only canaries cannot detect drift; need deterministic golden-output assertions |  |
+| G-035 | Promote InvariantAnalyzer warnings to CI gate |  |
 
 ## Warnings
 
