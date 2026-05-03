@@ -78,7 +78,7 @@ The aiwf v3 planning tree currently has zero in-flight epics (E-21 closed 2026-0
 - [ ] G-032 status promoted to `addressed` and references this epic; G-033 status promoted to `addressed` and references this epic.
 - [ ] A ratified ADR (under `docs/adr/`) names the flow-authority policy across the three classes of physical systems, names the rejected framings with rationale, and names the schema/compile/analyse enforcement points.
 - [ ] A `docs/architecture/flow-authority-policy.md` (or M-066-chosen name) document defines the three-class taxonomy and is referenced by the ADR.
-- [ ] A doc-sweep tracking artefact (`work/epics/E-25-engine-truth-gate/m-E25-01-flow-authority-doc-sweep.md`) classifies every routing-relevant document in the repo; conflicting docs are revised or marked `[needs revision per ADR-NNNN]`.
+- [ ] A doc-sweep tracking artefact (`work/epics/E-25-engine-truth-gate/M-066-flow-authority-doc-sweep.md`) classifies every routing-relevant document in the repo; conflicting docs are revised or marked `[needs revision per ADR-NNNN]`.
 - [ ] A class-2 capacity-aware allocator deferred-follow-up gap is filed naming the future engine work; the ADR references it.
 - [ ] The engine implementation reflects the policy; on every shipped template enumerated by `Survey_Templates_For_Warnings`, running at default parameters produces zero `edge_flow_mismatch_incoming` and zero `edge_flow_mismatch_outgoing` warnings.
 - [ ] M-069's enforcement gates (schema rule, compile-time fan-out detector, two new analyser warnings) are live and tested with deliberately-broken model fixtures; existing shipped templates pass all gates after M-067 lands.

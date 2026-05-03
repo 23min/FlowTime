@@ -155,7 +155,7 @@ The existing `run-warn` baseline gate is never loosened. Baselines transition fr
 
 ## Out of scope
 
-- Golden-output canary infrastructure or fixtures (m-E25-03).
+- Golden-output canary infrastructure or fixtures (M-068).
 - Refactors of `InvariantAnalyzer` beyond what the chosen authority requires (per epic Out of scope).
 - Conservation tolerance reshaping (per epic Out of scope).
 - New analyser warning families (per epic Out of scope).

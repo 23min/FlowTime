@@ -77,7 +77,7 @@ The footprint analysis already produced during this milestone (currently inline 
 
 ### AC-3 — Repo-wide doc sweep classifies every routing-relevant document
 
-A doc-sweep tracking artefact at `work/epics/E-25-engine-truth-gate/m-E25-01-flow-authority-doc-sweep.md` classifies every routing-relevant document in the repo against the policy. Search axes:
+A doc-sweep tracking artefact at `work/epics/E-25-engine-truth-gate/M-066-flow-authority-doc-sweep.md` classifies every routing-relevant document in the repo against the policy. Search axes:
 
 - **Axis 1 — explicit routing-semantics discussions.** `docs/architecture/headless-engine-architecture.md`, `docs/architecture/time-machine-analysis-modes.md`, `docs/templates/template-authoring.md`, `docs/modeling.md`, `docs/flowtime-engine-charter.md`, plus any architecture doc that names "arrivals", "served", "fan-out", "split", "routing", "edge", "weight", "downstream", "upstream", "consumer", "producer".
 - **Axis 2 — implicit routing assumptions.** Documents that talk about how flow flows without naming routing authority. The danger: documents correct under one class but presented as universal.
@@ -206,7 +206,7 @@ The cost evidence and the purity argument agree. The ADR can cite both.
 
 - `docs/adr/ADR-NNNN-<slug>.md` (new — the ratified ADR)
 - `docs/architecture/flow-authority-policy.md` (new — the three-class taxonomy doc; name may revisit during the milestone)
-- `work/epics/E-25-engine-truth-gate/m-E25-01-flow-authority-doc-sweep.md` (new — the doc-sweep tracking artefact)
+- `work/epics/E-25-engine-truth-gate/M-066-flow-authority-doc-sweep.md` (new — the doc-sweep tracking artefact)
 - `work/epics/E-25-engine-truth-gate/M-066-edge-flow-authority-decision.md` (this file; small frontmatter status updates as ACs land, footprint section preserved verbatim)
 - `work/epics/E-25-engine-truth-gate/epic.md` (small edit — open-questions table update; success-criteria refresh per the new milestone shape)
 - `work/gaps/G-032-…md` (status promotion to `addressed`; reference the ADR)

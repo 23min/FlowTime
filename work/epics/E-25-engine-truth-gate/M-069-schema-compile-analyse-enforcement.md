@@ -8,27 +8,34 @@ acs:
     - id: AC-1
       title: Schema rejects consumer-side peer-relative split arithmetic
       status: open
+      tdd_phase: red
     - id: AC-2
       title: Compile-time fan-out routing-authority detector implemented
       status: open
+      tdd_phase: red
     - id: AC-3
       title: Analyser warning routing_authority_ambiguous implemented
       status: open
+      tdd_phase: red
     - id: AC-4
       title: Analyser warning consumer_side_peer_split_detected implemented
       status: open
+      tdd_phase: red
     - id: AC-5
       title: Existing edge_flow_mismatch_incoming/_outgoing warnings preserved
       status: open
+      tdd_phase: red
     - id: AC-6
       title: Test suite covers gates with deliberately-broken model fixtures
       status: open
+      tdd_phase: red
     - id: AC-7
       title: Branch-coverage audit complete for all new gate code
       status: open
     - id: AC-8
       title: Existing template suite passes all new gates without regression
       status: open
+      tdd_phase: red
     - id: AC-9
       title: Documentation updated to reference the gates
       status: open
