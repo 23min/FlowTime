@@ -1,6 +1,6 @@
-# aiwf status — 2026-05-03
+# aiwf status — 2026-05-04
 
-_173 entities · 0 errors · 0 warnings_
+_175 entities · 1 errors · 0 warnings · run `aiwf check` for details_
 
 ## In flight
 
@@ -79,6 +79,8 @@ _(none)_
 | G-032 | \`transportation-basic\` regressed: \`edge_flow_mismatch_incoming\` × 3 after E-24 unification |  |
 | G-033 | Tests are too weak: surveyed-output-only canaries cannot detect drift; need deterministic golden-output assertions |  |
 | G-035 | Pre-aiwf v1 framework docs survived migration and contradict the v3 model | M-066 |
+| G-035 | Promote InvariantAnalyzer warnings to CI gate |  |
+| G-036 | Refresh docs/development/versioning.md to current FlowTime versioning state |  |
 
 ## Warnings
 

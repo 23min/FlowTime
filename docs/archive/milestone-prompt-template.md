@@ -1,5 +1,9 @@
 # Milestone Prompt Template
 
+> **Archived 2026-05-03.** This document describes a pre-aiwf-v3 workflow (milestone-creation prompt template). For current authority, see `CLAUDE.md` and the `aiwf-extensions` plugin skills (`aiwfx-plan-milestones`, `aiwfx-start-milestone`, `aiwfx-wrap-milestone`, `aiwfx-release`). Kept for historical reference only — do not follow as current guidance.
+
+---
+
 Use this template when asking Codex to create or update a milestone. It captures the required structure, authoritative sources, and desired output location so responses stay consistent.
 
 ---

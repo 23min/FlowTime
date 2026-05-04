@@ -1,3 +1,7 @@
+> **Archived 2026-05-03.** This document describes a pre-aiwf-v3 epic/milestone organization. For current authority, see `CLAUDE.md` Project Layout / Planning tree section and the `aiwf-extensions` plugin skills (`aiwfx-plan-epic`, `aiwfx-plan-milestones`, `aiwfx-start-milestone`, `aiwfx-wrap-milestone`). Kept for historical reference only — do not follow as current guidance.
+
+---
+
 # Epics and Milestones
 
 This document describes how we structure larger chunks of work into **epics** and **milestones** and how that relates to the roadmap and implementation workflow.

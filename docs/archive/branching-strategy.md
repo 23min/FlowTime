@@ -1,3 +1,7 @@
+> **Archived 2026-05-03.** This document describes a pre-aiwf-v3 branching strategy. For current authority, see `CLAUDE.md` Branching & Versioning section and the `aiwf-extensions` plugin skills (`aiwfx-start-milestone`, `aiwfx-release`). Kept for historical reference only — do not follow as current guidance.
+
+---
+
 ## Git Branching Strategy with Milestones
 
 This repository uses a milestone-first workflow that scales from solo work to small teams, while keeping main stable.
