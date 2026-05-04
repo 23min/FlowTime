@@ -1,6 +1,6 @@
 # aiwf status — 2026-05-04
 
-_175 entities · 1 errors · 0 warnings · run `aiwf check` for details_
+_175 entities · 0 errors · 0 warnings_
 
 ## In flight
 
@@ -78,9 +78,9 @@ _(none)_
 | G-026 | Heatmap sliding-window scrubber (Blazor-parity zoom-and-pan) |  |
 | G-032 | \`transportation-basic\` regressed: \`edge_flow_mismatch_incoming\` × 3 after E-24 unification |  |
 | G-033 | Tests are too weak: surveyed-output-only canaries cannot detect drift; need deterministic golden-output assertions |  |
-| G-035 | Pre-aiwf v1 framework docs survived migration and contradict the v3 model | M-066 |
 | G-035 | Promote InvariantAnalyzer warnings to CI gate |  |
 | G-036 | Refresh docs/development/versioning.md to current FlowTime versioning state |  |
+| G-037 | Pre-aiwf v1 framework docs survived migration and contradict the v3 model | M-066 |
 
 ## Warnings
 
@@ -90,9 +90,9 @@ _(none)_
 
 | Date | Actor | Verb | Detail |
 |------|-------|------|--------|
+| 2026-05-03 | human/peter | add | aiwf add gap G-036 'Refresh docs/development/versioning.md to current FlowTime versioning state' |
+| 2026-05-03 | human/peter | add | aiwf add gap G-035 'Promote InvariantAnalyzer warnings to CI gate' |
 | 2026-05-03 | human/peter | add | aiwf add milestone M-069 'Schema + Compile + Analyse Enforcement' |
 | 2026-05-02 | human/peter | add | aiwf add gap G-035 'Pre-aiwf v1 framework docs survived migration and contradict the v3 model' |
 | 2026-05-02 | human/peter | promote | aiwf promote M-066 draft -> in_progress |
-| 2026-05-02 | human/peter | render-roadmap | aiwf render roadmap |
-| 2026-05-02 | human/peter | add | aiwf add milestone M-068 'Golden-Output Canary' |
 

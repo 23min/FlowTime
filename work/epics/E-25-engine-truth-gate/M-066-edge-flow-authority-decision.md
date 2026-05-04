@@ -200,7 +200,7 @@ The cost evidence and the purity argument agree. The ADR can cite both.
 - **What "revise in this milestone" means for AC-4.** A "small" revision is a paragraph or section that can be replaced or rewritten without changing the doc's overall structure. Anything larger gets the `[needs revision per ADR-NNNN]` mark and a deferred follow-up gap. Goal: cap M-066's doc-edit scope so the milestone closes promptly; the heavy doc-rewrite work belongs to a future milestone or wf-patch.
 - **The doc-sweep methodology favors greppable patterns.** Use `rg` to find candidate documents, then read each candidate in full before classifying. Don't classify based on the grep snippet alone — context matters and a doc that mentions "edge weight" once may be aligned, silent, or conflicting depending on what surrounds the mention.
 - **Class-2 deferred-gap framing.** The gap (AC-7) must explicitly say *deferred — future capability, not current correctness*. The point is to make the deferral honest: nothing in the current shipped template set needs class-2; the policy says class-2 isn't currently surfaced; the gap captures the future-engine work.
-- **G-035 already names some of the doc-sweep hits.** During M-066's working session a sibling gap G-035 was filed: "Pre-aiwf v1 framework docs survived migration and contradict the v3 model." It enumerates several `docs/development/*.md` files with v1 conventions that contradict the v3 model. The doc sweep (AC-3) should pick up where G-035 leaves off — those v1 docs may also contain routing-semantic claims that need the same classification pass.
+- **G-037 already names some of the doc-sweep hits.** During M-066's working session a sibling gap G-037 was filed: "Pre-aiwf v1 framework docs survived migration and contradict the v3 model." It enumerates several `docs/development/*.md` files with v1 conventions that contradict the v3 model. The doc sweep (AC-3) should pick up where G-037 leaves off — those v1 docs may also contain routing-semantic claims that need the same classification pass.
 
 ## Surfaces touched
 
@@ -223,7 +223,7 @@ The cost evidence and the purity argument agree. The ADR can cite both.
 - Golden-output canary infrastructure or fixtures (the final milestone — Golden-Output Canary).
 - Class-2 capacity-aware allocator implementation (filed as deferred gap per AC-7; future engine work, not E-25 scope).
 - Any change to the `Survey_Templates_For_Warnings` test (Engine + Template Alignment owns the val-warn delta gate addition).
-- Heavyweight rewrites of pre-aiwf v1 documentation (G-035's territory; M-066 marks conflicting docs but does not rewrite them past the small-revision threshold defined in AC-4).
+- Heavyweight rewrites of pre-aiwf v1 documentation (G-037's territory; M-066 marks conflicting docs but does not rewrite them past the small-revision threshold defined in AC-4).
 - Engine-team architecture review pass beyond what is needed to ratify the chosen policy. If the review surfaces broader engine-architecture questions (e.g., conservation tolerance reshaping, new analyser warning families beyond the two named in AC-6), those are filed as deferred gaps and not absorbed into this milestone.
 
 ## Dependencies
@@ -231,13 +231,13 @@ The cost evidence and the purity argument agree. The ADR can cite both.
 - E-25 epic spec ratified (in place — see `work/epics/E-25-engine-truth-gate/epic.md`).
 - Patch `patch/edge-flow-mismatch` merged (in place — Phase 2 baseline canary committed 2026-05-01).
 - G-032 in `addressed` status pending this milestone's resolution.
-- G-035 (sibling gap; documents the v1-residue contradicting v3) — informs the doc sweep but does not block.
+- G-037 (sibling gap; documents the v1-residue contradicting v3) — informs the doc sweep but does not block.
 
 ## References
 
 - Epic spec: `work/epics/E-25-engine-truth-gate/epic.md`
 - Gap: `work/gaps/G-032-transportation-basic-regressed-edge-flow-mismatch-incoming-3-after-e-24-unification.md` — the three options and per-template impact table
-- Gap: `work/gaps/G-035-pre-aiwf-v1-framework-docs-survived-migration-and-contradict-the-v3-model.md` — sibling gap; doc-sweep input
+- Gap: `work/gaps/G-037-pre-aiwf-v1-framework-docs-survived-migration-and-contradict-the-v3-model.md` — sibling gap; doc-sweep input
 - Phase 2 baseline canary: `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs:79` (the `ExpectedRunWarnings` dictionary)
 - Decision precedent for project-scoped calls: `work/decisions/D-053-testing-rigor-approach-phase-2-baseline-canary-first-full-golden-output-canon-deferred.md`
 - Analyser source: `src/FlowTime.Core/Analysis/InvariantAnalyzer.cs:323-335` (incoming-edge conservation; the rule the policy binds)
@@ -246,5 +246,5 @@ The cost evidence and the purity argument agree. The ADR can cite both.
 
 ## Work log
 
-- **2026-05-02** — milestone-start ritual ran on branch `milestone/M-066-edge-flow-authority-decision`. Status promoted draft→in_progress (commit `5554ed5`). Footprint analysis filled in (commit `8bf15ed`). Sibling gap G-035 filed (commit `95e4b18`).
+- **2026-05-02** — milestone-start ritual ran on branch `milestone/M-066-edge-flow-authority-decision`. Status promoted draft→in_progress (commit `5554ed5`). Footprint analysis filled in (commit `8bf15ed`). Sibling gap G-037 filed (commit `95e4b18`).
 - **2026-05-02** — milestone scope widened: from "edge-flow authority decision" (option 1/2/3 pick) to "flow-authority policy spike + ADR + repo-wide doc sweep". Reframe rationale: G-032's option 2 (consumer-side expr authority) is structurally wrong on flow-purity grounds independent of footprint cost; the policy needs to accommodate three classes of physical systems (class-1 dynamic routing, class-2 capacity-aware allocation, class-3 static-weight); enforcement must be named at schema/compile/analyse layers. New milestone added to E-25 to land the enforcement work; M-067/M-068 scopes adjusted.
