@@ -1,6 +1,6 @@
 # aiwf status — 2026-05-04
 
-_175 entities · 0 errors · 1 warnings · run `aiwf check` for details_
+_175 entities · 0 errors · 0 warnings_
 
 ## In flight
 
@@ -83,17 +83,15 @@ _(none)_
 
 ## Warnings
 
-| Code | Entity | Path | Message |
-|------|--------|------|---------|
-| gap-resolved-has-resolver | G-037 | work/gaps/G-037-pre-aiwf-v1-framework-docs-survived-migration-and-contradict-the-v3-model.md | gap is marked addressed but addressed_by is empty |
+_(none)_
 
 ## Recent activity
 
 | Date | Actor | Verb | Detail |
 |------|-------|------|--------|
+| 2026-05-04 | human/peter | promote | aiwf promote G-037 open -> addressed |
 | 2026-05-04 | human/peter | reallocate | aiwf reallocate G-035 -> G-037 |
 | 2026-05-03 | human/peter | add | aiwf add gap G-036 'Refresh docs/development/versioning.md to current FlowTime versioning state' |
 | 2026-05-03 | human/peter | add | aiwf add gap G-035 'Promote InvariantAnalyzer warnings to CI gate' |
 | 2026-05-03 | human/peter | add | aiwf add milestone M-069 'Schema + Compile + Analyse Enforcement' |
-| 2026-05-02 | human/peter | add | aiwf add gap G-035 'Pre-aiwf v1 framework docs survived migration and contradict the v3 model' |
 

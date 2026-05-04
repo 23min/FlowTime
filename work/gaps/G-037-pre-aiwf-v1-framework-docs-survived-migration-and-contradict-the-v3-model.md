@@ -3,6 +3,7 @@ id: G-037
 title: Pre-aiwf v1 framework docs survived migration and contradict the v3 model
 status: addressed
 discovered_in: M-066
+addressed_by: [M-066]
 ---
 
 ## What's missing
