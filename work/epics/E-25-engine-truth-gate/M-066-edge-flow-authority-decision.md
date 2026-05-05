@@ -311,7 +311,9 @@ Two conflicting docs require small in-place revisions in M-066 AC-4:
 
 Both are within the AC-4 "small revision" threshold (paragraph or section that can be replaced without changing the doc's overall structure). No `[needs revision per ADR-NNNN]` markers are required — both can be revised in M-066.
 
-No deferred follow-up gaps (AC-8) surfaced from this sweep beyond the class-2 capacity-aware allocator gap to be filed under AC-7. The possible class-3 enhancement to `template-authoring.md` (treat edge-as-channel as a first-class authoring pattern alongside the router) is a candidate AC-8 entry, but it is enhancement work — not a contradiction with the policy — and may be folded into the engine + template alignment milestone (M-067) instead. AC-4 review will decide.
+No deferred follow-up gaps (AC-8) surfaced from this sweep beyond the class-2 capacity-aware allocator gap to be filed under AC-7. The possible class-3 enhancement to `template-authoring.md` (treat edge-as-channel as a first-class authoring pattern alongside the router) is enhancement work — not a contradiction with the policy.
+
+**Class-3 authoring guidance: folded into M-067 scope; no new gap.** The engine + template alignment milestone (M-067) already revisits authoring guidance as part of its surface; the class-3 first-class-authoring enhancement is in scope for that milestone and does not need an independent AC-8 gap.
 
 ### Cross-references (doc sweep)
 

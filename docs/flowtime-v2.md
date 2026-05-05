@@ -243,7 +243,8 @@ The first model is usually wrong. That's the point. FlowTime makes it wrong *vis
 | Time-varying demand (peak hours) | `const` with shaped values or telemetry series |
 | Retry with backoff | `CONV(errors, kernel)` where kernel shape encodes timing |
 | Batch processing (every N minutes) | `serviceWithBuffer` with `dispatchSchedule` |
-| Fan-out (one input, multiple outputs) | `router` node with weights or class-based routing |
+| Fan-out, static-share (one input split by fixed proportions) | Edges with `weight` on the producer's outgoing edges (class-3 edge-as-channel; see [flow-authority policy](./architecture/flow-authority-policy.md)) |
+| Fan-out, dynamic / class-based | `router` node with weights or class routes (class-1 producer-side push routing) |
 | Dead letter queue | `sink` node with a `terminal` edge from the failing service |
 | Shared dependency (database, API) | `dependency` node or constraint in the registry |
 | Shift patterns (8h on, 16h off) | Capacity series with zeros during off hours |
