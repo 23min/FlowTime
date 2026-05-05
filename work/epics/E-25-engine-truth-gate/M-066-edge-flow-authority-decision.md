@@ -30,7 +30,7 @@ acs:
       status: met
     - id: AC-9
       title: ADR ratified with status accepted
-      status: open
+      status: met
     - id: AC-10
       title: Epic spec and G-032 reference the ratified ADR
       status: open
