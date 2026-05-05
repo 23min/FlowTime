@@ -36,7 +36,7 @@ acs:
       status: met
     - id: AC-11
       title: aiwf check clean
-      status: open
+      status: met
 ---
 
 ## Goal
