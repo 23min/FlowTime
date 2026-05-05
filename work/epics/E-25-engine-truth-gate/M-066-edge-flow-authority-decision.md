@@ -97,7 +97,7 @@ The point: no doc classified as conflicting may survive M-066 close in its curre
 
 ### AC-5 — ADR drafted naming the flow-authority policy
 
-An ADR is added under `docs/adr/` via `aiwf add adr` (allocates the next `ADR-NNNN` id; if the kind isn't supported, the ADR is allocated as a numbered file under `docs/adr/` per the repo's ADR convention from CLAUDE.md). The ADR:
+An ADR is added under `docs/adr/` via `aiwf add adr`, which allocates the next `ADR-NNNN` id and scaffolds frontmatter (ADR is a first-class aiwf entity kind per CLAUDE.md). The ADR:
 
 - Names the policy explicitly: routing authority lives at producer-fan-out; edge weights are normative for class-3; router nodes for class-1; class-2 not currently surfaced (filed as deferred gap); consumer-side expr arithmetic must not encode peer-relative splits.
 - References the three-class taxonomy doc (AC-1) and the doc sweep (AC-3).
@@ -124,7 +124,7 @@ If the doc sweep (AC-3) or the policy ratification (AC-5) surfaces follow-up wor
 
 ### AC-9 — ADR ratified with status accepted
 
-The ADR is promoted from `proposed` to `accepted` (via the ADR's frontmatter status field, or via `aiwf promote` if ADR is a tracked aiwf entity in this repo's `aiwf.yaml`). If ADR is not aiwf-tracked, ratification is a manual frontmatter edit recorded in a conventional commit. The ratified status is the gate that unlocks the next epic milestone.
+The ADR is promoted from `proposed` to `accepted` via `aiwf promote ADR-NNNN accepted` (ADR is a first-class aiwf entity; the FSM transition + commit trailer audit trail apply). Ratification is HITL: the human approves the promotion before the commit lands. The ratified status is the gate that unlocks the next epic milestone.
 
 ### AC-10 — Epic spec and G-032 reference the ratified ADR
 
@@ -195,7 +195,7 @@ The cost evidence and the purity argument agree. The ADR can cite both.
 
 ## Design Notes
 
-- **ADR allocation mechanics.** The repo's `docs/adr/` is empty. CLAUDE.md's planning-tree table includes `docs/adr/ADR-NNNN-<slug>.md` as a recognized location. Whether `aiwf add adr` is supported is unknown — try it first; if not, allocate the ADR as a numbered file `docs/adr/ADR-0001-flow-authority-policy.md` (next-free numbered) per the repo's ADR convention, and surface the convention's mechanics as part of M-066's deliverable.
+- **ADR allocation mechanics.** The repo's `docs/adr/` is empty. ADR is a first-class aiwf entity kind (per CLAUDE.md and `aiwf add` usage). Use `aiwf add adr <slug>` to allocate the next `ADR-NNNN` id, scaffold frontmatter, and seed the directory. Promote `proposed → accepted` via `aiwf promote` so the FSM check + commit trailer apply.
 - **Doc-sweep classification convention.** Use four labels: `aligned` / `silent` / `conflicting` / `ambiguous`. For each hit, the tracking artefact records: filepath, the routing-relevant excerpt, the classification, a one-sentence note. Sort by classification severity (conflicting first). The summary at the top of the artefact gives counts per label.
 - **What "revise in this milestone" means for AC-4.** A "small" revision is a paragraph or section that can be replaced or rewritten without changing the doc's overall structure. Anything larger gets the `[needs revision per ADR-NNNN]` mark and a deferred follow-up gap. Goal: cap M-066's doc-edit scope so the milestone closes promptly; the heavy doc-rewrite work belongs to a future milestone or wf-patch.
 - **The doc-sweep methodology favors greppable patterns.** Use `rg` to find candidate documents, then read each candidate in full before classifying. Don't classify based on the grep snippet alone — context matters and a doc that mentions "edge weight" once may be aligned, silent, or conflicting depending on what surrounds the mention.
