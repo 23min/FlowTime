@@ -41,7 +41,7 @@ acs:
 
 ## Goal
 
-Produce a ratified architectural decision record (ADR) that names the **flow-authority policy** for the FlowTime engine — the rules that govern how flow flows from producers to consumers in the model. The policy must cleanly accommodate the three classes of physical systems FlowTime exists to model (static-share fan-out, dynamic routing, capacity-aware allocation), make routing authority unambiguous at every fan-out point, and name the enforcement layers (schema, compile, analyse) where the policy gets teeth. The deliverable is the ADR plus a doc-sweep tracking artefact that classifies every routing-relevant document in the repo against the policy; no engine code, no template edits, no test changes ship from this milestone.
+Produce a ratified architectural decision record (ADR) that names the **flow-authority policy** for the FlowTime engine — the rules that govern how flow flows from producers to consumers in the model. The policy must cleanly accommodate the three classes of physical systems FlowTime exists to model (static-share fan-out, dynamic routing, capacity-aware allocation), make routing authority unambiguous at every fan-out point, and name the enforcement layers (schema, compile, analyse) where the policy gets teeth. The deliverable is the ADR plus a doc-sweep classification (preserved inline in this spec) that classifies every routing-relevant document in the repo against the policy; no engine code, no template edits, no test changes ship from this milestone.
 
 ## Context
 
@@ -73,18 +73,18 @@ A taxonomy document under `docs/architecture/` (e.g. `docs/architecture/flow-aut
 
 ### AC-2 — Footprint analysis preserved for the three G-032 options
 
-The footprint analysis already produced during this milestone (currently inline in this spec under "Footprint analysis (M-066's working artefact)") is preserved as evidence in either the ADR body or the doc-sweep tracking artefact. It documents engine-LOC magnitude, per-template diff estimates, and baseline-zero achievability for each of the original three G-032 options. The preserved analysis lets a future reader see why the chosen authority won on flow-purity grounds *and* on engineering-cost grounds.
+The footprint analysis already produced during this milestone (preserved inline in this spec under "Footprint analysis (M-066's working artefact)") documents engine-LOC magnitude, per-template diff estimates, and baseline-zero achievability for each of the original three G-032 options. The preserved analysis lets a future reader see why the chosen authority won on flow-purity grounds *and* on engineering-cost grounds.
 
 ### AC-3 — Repo-wide doc sweep classifies every routing-relevant document
 
-A doc-sweep tracking artefact at `work/epics/E-25-engine-truth-gate/M-066-flow-authority-doc-sweep.md` classifies every routing-relevant document in the repo against the policy. Search axes:
+A doc-sweep classification preserved as a section of this spec ("Doc-sweep classification (M-066's AC-3 artefact)") classifies every routing-relevant document in the repo against the policy. Search axes:
 
 - **Axis 1 — explicit routing-semantics discussions.** `docs/architecture/headless-engine-architecture.md`, `docs/architecture/time-machine-analysis-modes.md`, `docs/templates/template-authoring.md`, `docs/modeling.md`, `docs/flowtime-engine-charter.md`, plus any architecture doc that names "arrivals", "served", "fan-out", "split", "routing", "edge", "weight", "downstream", "upstream", "consumer", "producer".
 - **Axis 2 — implicit routing assumptions.** Documents that talk about how flow flows without naming routing authority. The danger: documents correct under one class but presented as universal.
 - **Axis 3 — ADRs and decision records.** `docs/adr/` is empty today. Decision records: D-046 (`GET /v1/runs/{runId}/model`), D-047 (`trace` field on goal-seek/optimize), D-051 (E-24 schema-alignment closure), D-053 (testing rigor). Read each for routing-semantic implications.
 - **Axis 4 — gaps that may need revision.** G-032 (already addressed by this milestone), G-016 (Rust Engine Parity), G-018 (`IModelEvaluator` Series-Key Shape Divergence), G-019 (Sim-generated model shape vs. Rust engine compiler expectations), G-003 (Dependency Constraint Enforcement — touches capacity → class 2), G-011, G-013 (fit/calibration → routing model assumptions).
 
-For each hit, classify into one of: **aligned**, **silent**, **conflicting**, **ambiguous**. Output is one section per hit in the tracking artefact, with a one-sentence note on what (if anything) needs to change.
+For each hit, classify into one of: **aligned**, **silent**, **conflicting**, **ambiguous**. Output is one section per hit in the inlined doc-sweep classification (this spec's "Doc-sweep classification (M-066's AC-3 artefact)" section), with a one-sentence note on what (if anything) needs to change.
 
 ### AC-4 — Conflicting docs are revised or marked needs-revision
 
@@ -182,6 +182,147 @@ The flow-purity reframe (see Context above) reaches the same conclusion through 
 
 The cost evidence and the purity argument agree. The ADR can cite both.
 
+## Doc-sweep classification (M-066's AC-3 artefact)
+
+<!-- Preserved per AC-3. Originally drafted as a standalone artefact under `work/epics/E-25-engine-truth-gate/M-066-flow-authority-doc-sweep.md` and inlined here per aiwf v3 convention: the milestone spec is the single home for working analysis. -->
+
+**Date:** 2026-05-05
+**Reference policy:** [`docs/architecture/flow-authority-policy.md`](../../../docs/architecture/flow-authority-policy.md) (the three-class taxonomy authored under AC-1).
+
+### Purpose
+
+This section classifies every routing-relevant document in the repository against the flow-authority policy. The classification feeds AC-4 (which decides whether each conflicting doc is revised in M-066 or marked needs-revision and deferred). Search axes follow the M-066 spec under AC-3:
+
+- **Axis 1** — explicit routing-semantics discussions in architecture / template / charter docs.
+- **Axis 2** — implicit routing assumptions (correct under one class but presented as universal).
+- **Axis 3** — ADRs and decision records.
+- **Axis 4** — gaps that may need revision.
+
+For each hit, one of four labels:
+
+- **aligned** — already consistent with the three-class taxonomy; no change needed.
+- **silent** — does not assert routing authority; no contradiction; no change needed.
+- **conflicting** — contains an assertion that contradicts the policy; AC-4 either revises or marks.
+- **ambiguous** — wording leaves the authority surface unclear; AC-4 either tightens or marks.
+
+Out-of-scope classes (not in the table below):
+
+- `docs/archive/`, `docs/releases/` — historical (what WAS); per `CLAUDE.md` truth-precedence, never current authority.
+- `docs/notes/` and `docs/research/` — exploration only; never implementation authority.
+- `docs/guides/{CLI,UI,MCP}.md` — CLI/UI/MCP usage docs; do not touch routing semantics.
+- `docs/architecture/dag-map-*.md` — DAG-map visualization library docs; "router" / "split" usage is rendering-mechanical, unrelated to flow routing.
+- `docs/development/*.md` — covered by [G-037](../../gaps/G-037-pre-aiwf-v1-framework-docs-survived-migration-and-contradict-the-v3-model.md); v1-residue docs already moved to `docs/archive/`. The remaining `versioning.md` and `ui-debug-mode.md` do not touch routing.
+- Pre-aiwf decisions that pre-date the policy and do not assert it (D-001 … D-052 except D-053): silent by audit; not enumerated below.
+
+### Summary counts
+
+| Label | Count |
+|---|---|
+| aligned | 10 |
+| silent | 30 |
+| conflicting | 2 |
+| ambiguous | 0 |
+| **Total in scope** | **42** |
+
+### Conflicting hits (action required)
+
+Listed up front per the milestone Design Notes ("Sort by classification severity (conflicting first)"). Both are AC-4 follow-ups; both fit within the small-revision threshold and do not require deferred-follow-up gaps.
+
+1. **`docs/flowtime-v2.md` line 246** — universal "fan-out → router with weights" mapping in the real-world-to-model table; elides class-3 edge-as-channel. Revise: split the row into class-3 (edges with `weight`) and class-1 (`router` node).
+2. **`docs/reference/flow-theory-coverage.md` lines 111–118** — section 8 verdict "Dynamic routing — Not planned"; the policy classifies this as class-2 capacity-aware allocation (deferred future capability). Revise: change verdict to "Deferred" with forward references to ADR-NNNN and the class-2 gap.
+
+The full per-axis tables follow.
+
+### Hits — Axis 1 (explicit routing-semantics discussions)
+
+| File | Classification | Excerpt / location | Note (AC-4 follow-up) |
+|---|---|---|---|
+| `docs/architecture/flow-authority-policy.md` | aligned | The policy doc itself (M-066 AC-1 deliverable). | No change. Reference target for ADR-0001. |
+| `docs/architecture/headless-engine-architecture.md` | silent | Mentions `arrivals`/`served` as parameter examples (lines 156, 165–166); does not assert routing authority. | No change. |
+| `docs/architecture/time-machine-analysis-modes.md` | silent | Uses `arrivals`/`served` as parameter / series identifiers in API examples. No fan-out semantics asserted. | No change. |
+| `docs/architecture/whitepaper.md` | silent | Lists `routers` as a node category (line 43); does not pin per-fan-out authority. | No change. The policy taxonomy supersedes this listing-level mention. |
+| `docs/architecture/matrix-engine.md` | silent | Maps C# `RouterFlowMaterializer` to Rust `compile_router` (line 175); implementation-level concept map, no policy claim. | No change. |
+| `docs/architecture/class-dimension-decision.md` | aligned | Line 32: "routers and analyzers use a single class key" — describes class-key cardinality, not routing authority. Consistent with class 1 router-actor framing. | No change. |
+| `docs/architecture/expression-language-design.md` | silent | Routing-vocabulary hits ("consumer", "producer") refer to compiler-stage producers/consumers of expressions, not flow producers/consumers. | No change. |
+| `docs/architecture/backpressure-pattern.md` | silent | Routing-vocabulary hits refer to backpressure feedback, not fan-out apportionment. | No change. |
+| `docs/architecture/retry-modeling.md` | silent | Treats retry-feedback edges as flow-conservation concerns; does not assert per-fan-out authority. | No change. |
+| `docs/architecture/supported-surfaces.md` | silent | Surface inventory; routing-vocabulary hits are listing-level. | No change. |
+| `docs/templates/template-authoring.md` | aligned | Lines 249–303 actively steer authors away from "percentage math across expressions" toward `kind: router` (class 1) and `weight` on router routes. Does not yet describe class 3 (edge-as-channel) as a first-class option, but does not contradict the policy. | No change in M-066. Possible class-3 enhancement deferred (filed as gap under AC-8 if warranted). |
+| `docs/templates/template-testing.md` | aligned | Line 53 explicitly tells authors "no stale expression splits" once a router is introduced — directly aligned with the policy's no-peer-relative-splits rule. | No change. |
+| `docs/templates/metric-alias-authoring.md` | silent | Names router nodes as one alias surface; no authority claim. | No change. |
+| `docs/templates/profiles.md` | silent | Profile semantics; routing-vocabulary hits do not touch authority. | No change. |
+| `docs/modeling.md` | silent | Lists "routers" as a node-kind category (line 26); doc-map only, no semantic claim. | No change. |
+| `docs/flowtime-engine-charter.md` | silent | Line 32 lists `router` among node kinds; no authority claim. | No change. |
+| `docs/flowtime-charter.md` | silent | Line 28 mentions "routing changes" as a scenario type; no per-fan-out semantics asserted. | No change. |
+| `docs/flowtime.md` | silent | Top-level overview; no routing-authority claims. | No change. |
+| `docs/flowtime-v2.md` | conflicting | Line 246 (the "real-world to model mapping" table): `Fan-out (one input, multiple outputs) \| router node with weights or class-based routing`. Asserts router-with-weights as the mapping for *all* fan-out, eliding class-3 (edge-as-channel / static-weight on edges) entirely. | **AC-4 revise (small).** Replace the row with two rows: one for static-share class-3 fan-out (edges with `weight`), one for class-1 dynamic / class-based fan-out (`router` node). One-paragraph diff at most. |
+| `docs/reference/contracts.md` | silent | API-contract reference; no routing semantics. | No change. |
+| `docs/reference/data-formats.md` | silent | Edge-type listing (throughput / effort); does not pin authority. | No change. |
+| `docs/reference/engine-capabilities.md` | aligned | Line 13: edges support typed `flowVolume` series; line 50: `flowVolume` is the per-edge truth. Consistent with the policy's class-3 authority surface. Line 68 names `router_missing_class_route` / `router_class_leakage` warnings — class-1 enforcement, aligned. | No change. |
+| `docs/reference/flow-theory-foundations.md` | silent | Theory primer; routing-vocabulary hits don't pin authority. | No change. |
+| `docs/reference/flow-theory-coverage.md` | conflicting | Section 8 "Routing & Flow Splitting" (lines 111–118): row `Dynamic routing (route by downstream queue length) \| **Not planned**`. The flow-authority policy explicitly classifies this as class-2 (capacity-aware allocation) and frames it as a *deferred future capability*, not "not planned" (the deferred-follow-up gap is filed under AC-7). | **AC-4 revise (small).** Change the "Not planned" row to "**Deferred** — class-2 capacity-aware allocation, see ADR-NNNN and the class-2 gap (AC-7)." Single-cell edit. |
+| `docs/schemas/model.schema.md` | silent | Schema reference; routing-vocabulary hits at line 323 ("typically a service/router") name router as a sink-of-flow, not a routing-authority claim. | No change. |
+| `docs/schemas/template-schema.md` | silent | Schema reference. | No change. |
+| `docs/schemas/README.md` | silent | Index. | No change. |
+| `docs/concepts/nodes-and-expressions.md` | silent | No routing-vocabulary hits beyond expression-evaluator producers/consumers. | No change. |
+| `docs/concepts/pmf-modeling.md` | silent | Line 332 references `kind: router` as a future routing-integration example; consistent with class 1. | No change. |
+
+### Hits — Axis 2 (implicit routing assumptions)
+
+The grep for routing-vocabulary across the engine charter, modeling overview, and whitepaper surfaced only listing-level mentions of `router` as a node kind (the silent rows in Axis 1). No document was found that asserts a routing-authority rule implicitly while presenting it as universal — the prevailing pattern is silence on per-fan-out authority. The only exception is `flowtime-v2.md` line 246 (already classified conflicting in Axis 1 above), which presents the router-with-weights mapping as universal.
+
+No additional Axis-2 entries.
+
+### Hits — Axis 3 (ADRs and decision records)
+
+`docs/adr/` does not exist today; ADR-0001 (the M-066 deliverable under AC-5) seeds it. No prior ADRs to classify.
+
+For decision records under `work/decisions/`, the M-066 spec names D-046, D-047, D-051, D-053:
+
+| File | Classification | Excerpt / location | Note (AC-4 follow-up) |
+|---|---|---|---|
+| `work/decisions/D-046-e-21-admits-read-only-run-adjacent-model-yaml-endpoint-under-run-read-surface.md` | silent | API-surface decision; no routing semantics. | No change. |
+| `work/decisions/D-047-additive-trace-field-on-v1-goal-seek-and-v1-optimize.md` | silent | Goal-seek/optimize trace field; no routing semantics. | No change. |
+| `work/decisions/D-051-e-24-schema-alignment-closed-e-23-model-validation-consolidation-ready-to-resume.md` | silent | Schema-alignment closure; no routing-authority claim. | No change. |
+| `work/decisions/D-053-testing-rigor-approach-phase-2-baseline-canary-first-full-golden-output-canon-deferred.md` | aligned | Names the unresolved authority question (line 8: "the underlying template-vs-engine authority question … which side is canonical for edge flow volumes (expr nodes encode splits, topology edge weights would need to mirror them)") and defers its resolution to a future engine milestone. The policy spike (M-066) closes this question; the ADR is the resolution D-053 anticipates. | No revision needed in D-053; the gap reference G-032 (which D-053 implicitly tracks) gets the ADR cross-reference under AC-10. |
+
+A scan of the rest of `work/decisions/D-001` … `D-052` for `routing|router|edge.*weight|fan-?out|peer-relative|consumer-side|producer-side` returned only D-053 — none of the others assert routing authority, and they are listed here as silent-by-audit rather than enumerated.
+
+### Hits — Axis 4 (gaps that may need revision)
+
+| File | Classification | Excerpt / location | Note (AC-4 follow-up) |
+|---|---|---|---|
+| `work/gaps/G-032-transportation-basic-regressed-edge-flow-mismatch-incoming-3-after-e-24-unification.md` | aligned | The gap that motivated this milestone. The three options it lists are exactly the framings the policy resolves (option 2 rejected on flow-purity grounds; option 1 selected for class 3). | AC-10 promotes G-032 to `addressed` with a reference to ADR-0001. No body revision needed. |
+| `work/gaps/G-008-router-convergence-guard-deferred-from-phase-1.md` | aligned | Line 11: "single-pass design is correct for static router weights … convergence guard is only needed if dynamic/expression-based router weights are introduced." Consistent with class 1 (static router) vs. class 2 (dynamic / capacity-aware) framing. | No change. The class-2 gap to be filed under AC-7 should cross-reference G-008 if the convergence concern resurfaces with the future allocator surface. |
+| `work/gaps/G-037-pre-aiwf-v1-framework-docs-survived-migration-and-contradict-the-v3-model.md` | aligned | Already addressed (status: `addressed`). v1-framework docs were moved to `docs/archive/` and do not contain routing-authority claims that survived. | No change. |
+| `work/gaps/G-019-sim-generated-model-shape-vs-rust-engine-compiler-expectations.md` | aligned | Lines 22–23 reference "routing is expressed via edge weights rather than a node field" — the class-3 case the policy formalizes. The gap describes a Sim/Rust shape divergence, not a contradiction with the policy. | No change. |
+| `work/gaps/G-016-rust-engine-parity-evaluation-core-gaps.md` | silent | Mentions `class routing internally`; no per-fan-out authority claim. | No change. |
+| `work/gaps/G-003-dependency-constraint-enforcement-deferred-m-10-03.md` | silent | "Routing" mention is MCP intent-routing, not flow-routing. | No change. |
+| `work/gaps/G-011-continuous-prediction-crystal-ball-usage-pattern.md` | silent | No routing-authority content. | No change. |
+| `work/gaps/G-013-e-18-model-calibration-needs-crystal-ball-design-input.md` | silent | No routing-authority content. | No change. |
+| `work/gaps/G-018-imodelevaluator-series-key-shape-divergence.md` | silent | No routing-authority content. | No change. |
+
+### AC-4 follow-up summary
+
+Two conflicting docs require small in-place revisions in M-066 AC-4:
+
+1. **`docs/flowtime-v2.md` line 246** — split the universal-fan-out row into class-3 (edges) and class-1 (router) rows. Diff size: one table row → two rows + a one-line note.
+2. **`docs/reference/flow-theory-coverage.md` lines 111–118** — change the "Not planned" verdict for dynamic routing to "Deferred — class-2 capacity-aware allocation" with a forward reference to ADR-NNNN and the class-2 gap. Diff size: one cell.
+
+Both are within the AC-4 "small revision" threshold (paragraph or section that can be replaced without changing the doc's overall structure). No `[needs revision per ADR-NNNN]` markers are required — both can be revised in M-066.
+
+No deferred follow-up gaps (AC-8) surfaced from this sweep beyond the class-2 capacity-aware allocator gap to be filed under AC-7. The possible class-3 enhancement to `template-authoring.md` (treat edge-as-channel as a first-class authoring pattern alongside the router) is a candidate AC-8 entry, but it is enhancement work — not a contradiction with the policy — and may be folded into the engine + template alignment milestone (M-067) instead. AC-4 review will decide.
+
+### Cross-references (doc sweep)
+
+- Policy doc: [`docs/architecture/flow-authority-policy.md`](../../../docs/architecture/flow-authority-policy.md)
+- Footprint analysis (M-066's working artefact): see "Footprint analysis (M-066's working artefact)" section above
+- Originating gap: [G-032](../../gaps/G-032-transportation-basic-regressed-edge-flow-mismatch-incoming-3-after-e-24-unification.md)
+- Sibling gap: [G-037](../../gaps/G-037-pre-aiwf-v1-framework-docs-survived-migration-and-contradict-the-v3-model.md)
+- Related gap: [G-008](../../gaps/G-008-router-convergence-guard-deferred-from-phase-1.md)
+- Related decision: [D-053](../../decisions/D-053-testing-rigor-approach-phase-2-baseline-canary-first-full-golden-output-canon-deferred.md)
+- Epic: [E-25 Engine Truth Gate](./epic.md)
+
 ## Constraints
 
 - **No engine code change.** This milestone delivers a policy + ADR + sweep, not an implementation. Any code touched in `src/FlowTime.Core/` outside the milestone artefacts is out of scope.
@@ -196,7 +337,7 @@ The cost evidence and the purity argument agree. The ADR can cite both.
 ## Design Notes
 
 - **ADR allocation mechanics.** The repo's `docs/adr/` is empty. ADR is a first-class aiwf entity kind (per CLAUDE.md and `aiwf add` usage). Use `aiwf add adr <slug>` to allocate the next `ADR-NNNN` id, scaffold frontmatter, and seed the directory. Promote `proposed → accepted` via `aiwf promote` so the FSM check + commit trailer apply.
-- **Doc-sweep classification convention.** Use four labels: `aligned` / `silent` / `conflicting` / `ambiguous`. For each hit, the tracking artefact records: filepath, the routing-relevant excerpt, the classification, a one-sentence note. Sort by classification severity (conflicting first). The summary at the top of the artefact gives counts per label.
+- **Doc-sweep classification convention.** Use four labels: `aligned` / `silent` / `conflicting` / `ambiguous`. For each hit, the inlined doc-sweep section records: filepath, the routing-relevant excerpt, the classification, a one-sentence note. Sort by classification severity (conflicting first). The summary at the top of the section gives counts per label.
 - **What "revise in this milestone" means for AC-4.** A "small" revision is a paragraph or section that can be replaced or rewritten without changing the doc's overall structure. Anything larger gets the `[needs revision per ADR-NNNN]` mark and a deferred follow-up gap. Goal: cap M-066's doc-edit scope so the milestone closes promptly; the heavy doc-rewrite work belongs to a future milestone or wf-patch.
 - **The doc-sweep methodology favors greppable patterns.** Use `rg` to find candidate documents, then read each candidate in full before classifying. Don't classify based on the grep snippet alone — context matters and a doc that mentions "edge weight" once may be aligned, silent, or conflicting depending on what surrounds the mention.
 - **Class-2 deferred-gap framing.** The gap (AC-7) must explicitly say *deferred — future capability, not current correctness*. The point is to make the deferral honest: nothing in the current shipped template set needs class-2; the policy says class-2 isn't currently surfaced; the gap captures the future-engine work.
@@ -206,8 +347,7 @@ The cost evidence and the purity argument agree. The ADR can cite both.
 
 - `docs/adr/ADR-NNNN-<slug>.md` (new — the ratified ADR)
 - `docs/architecture/flow-authority-policy.md` (new — the three-class taxonomy doc; name may revisit during the milestone)
-- `work/epics/E-25-engine-truth-gate/M-066-flow-authority-doc-sweep.md` (new — the doc-sweep tracking artefact)
-- `work/epics/E-25-engine-truth-gate/M-066-edge-flow-authority-decision.md` (this file; small frontmatter status updates as ACs land, footprint section preserved verbatim)
+- `work/epics/E-25-engine-truth-gate/M-066-edge-flow-authority-decision.md` (this file; frontmatter status updates as ACs land; footprint section preserved verbatim; doc-sweep classification inlined per AC-3)
 - `work/epics/E-25-engine-truth-gate/epic.md` (small edit — open-questions table update; success-criteria refresh per the new milestone shape)
 - `work/gaps/G-032-…md` (status promotion to `addressed`; reference the ADR)
 - `work/gaps/G-NNN-class-2-capacity-aware-allocator.md` (new — the deferred-follow-up gap from AC-7)
