@@ -134,7 +134,7 @@ The flow-authority policy gets teeth at three layers of the engine. ADR-0001 nam
 - **Gap:** [G-032 — `transportation-basic` regressed: `edge_flow_mismatch_incoming` × 3 after E-24 unification](../../work/gaps/G-032-transportation-basic-regressed-edge-flow-mismatch-incoming-3-after-e-24-unification.md). The investigation that surfaced the latent class-3 inconsistency in the shipped template set and motivated the policy.
 - **ADR:** ADR-0001 — Flow-Authority Policy *(forthcoming, drafted under M-066 AC-5 and ratified under AC-9)*. Names the policy formally, references this taxonomy, records the rejected framings, and pins the enforcement points.
 - **Epic:** [E-25 — Engine Truth Gate](../../work/epics/E-25-engine-truth-gate/epic.md). The epic that owns the policy work, the enforcement implementation (M-069), the engine + template alignment (M-067), and the golden-output canary (M-068).
-- **Class-2 deferred capability gap:** *(forthcoming, filed under M-066 AC-7)*. Captures the future engine work for surfacing capacity-aware allocation as a first-class actor.
+- **Class-2 deferred capability gap:** [G-038 — Class-2 capacity-aware allocator (deferred from M-066 flow-authority policy)](../../work/gaps/G-038-class-2-capacity-aware-allocator-deferred-from-m-066-flow-authority-policy.md) *(filed under M-066 AC-7)*. Captures the future engine work for surfacing capacity-aware allocation as a first-class actor.
 
 ## Glossary
 

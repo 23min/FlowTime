@@ -229,7 +229,7 @@ Out-of-scope classes (not in the table below):
 Listed up front per the milestone Design Notes ("Sort by classification severity (conflicting first)"). Both are AC-4 follow-ups; both fit within the small-revision threshold and do not require deferred-follow-up gaps.
 
 1. **`docs/flowtime-v2.md` line 246** — universal "fan-out → router with weights" mapping in the real-world-to-model table; elides class-3 edge-as-channel. Revise: split the row into class-3 (edges with `weight`) and class-1 (`router` node).
-2. **`docs/reference/flow-theory-coverage.md` lines 111–118** — section 8 verdict "Dynamic routing — Not planned"; the policy classifies this as class-2 capacity-aware allocation (deferred future capability). Revise: change verdict to "Deferred" with forward references to ADR-NNNN and the class-2 gap.
+2. **`docs/reference/flow-theory-coverage.md` lines 111–118** — section 8 verdict "Dynamic routing — Not planned"; the policy classifies this as class-2 capacity-aware allocation (deferred future capability). Revise: change verdict to "Deferred" with forward references to ADR-NNNN and G-038 (class-2 capacity-aware allocator gap, M-066/AC-7).
 
 The full per-axis tables follow.
 
@@ -260,7 +260,7 @@ The full per-axis tables follow.
 | `docs/reference/data-formats.md` | silent | Edge-type listing (throughput / effort); does not pin authority. | No change. |
 | `docs/reference/engine-capabilities.md` | aligned | Line 13: edges support typed `flowVolume` series; line 50: `flowVolume` is the per-edge truth. Consistent with the policy's class-3 authority surface. Line 68 names `router_missing_class_route` / `router_class_leakage` warnings — class-1 enforcement, aligned. | No change. |
 | `docs/reference/flow-theory-foundations.md` | silent | Theory primer; routing-vocabulary hits don't pin authority. | No change. |
-| `docs/reference/flow-theory-coverage.md` | conflicting | Section 8 "Routing & Flow Splitting" (lines 111–118): row `Dynamic routing (route by downstream queue length) \| **Not planned**`. The flow-authority policy explicitly classifies this as class-2 (capacity-aware allocation) and frames it as a *deferred future capability*, not "not planned" (the deferred-follow-up gap is filed under AC-7). | **AC-4 revise (small).** Change the "Not planned" row to "**Deferred** — class-2 capacity-aware allocation, see ADR-NNNN and the class-2 gap (AC-7)." Single-cell edit. |
+| `docs/reference/flow-theory-coverage.md` | conflicting | Section 8 "Routing & Flow Splitting" (lines 111–118): row `Dynamic routing (route by downstream queue length) \| **Not planned**`. The flow-authority policy explicitly classifies this as class-2 (capacity-aware allocation) and frames it as a *deferred future capability*, not "not planned" (the deferred-follow-up gap is filed as G-038 under AC-7). | **AC-4 revise (small).** Change the "Not planned" row to "**Deferred** — class-2 capacity-aware allocation, see ADR-NNNN and G-038 (class-2 capacity-aware allocator gap, M-066/AC-7)." Single-cell edit. |
 | `docs/schemas/model.schema.md` | silent | Schema reference; routing-vocabulary hits at line 323 ("typically a service/router") name router as a sink-of-flow, not a routing-authority claim. | No change. |
 | `docs/schemas/template-schema.md` | silent | Schema reference. | No change. |
 | `docs/schemas/README.md` | silent | Index. | No change. |
@@ -293,7 +293,7 @@ A scan of the rest of `work/decisions/D-001` … `D-052` for `routing|router|edg
 | File | Classification | Excerpt / location | Note (AC-4 follow-up) |
 |---|---|---|---|
 | `work/gaps/G-032-transportation-basic-regressed-edge-flow-mismatch-incoming-3-after-e-24-unification.md` | aligned | The gap that motivated this milestone. The three options it lists are exactly the framings the policy resolves (option 2 rejected on flow-purity grounds; option 1 selected for class 3). | AC-10 promotes G-032 to `addressed` with a reference to ADR-0001. No body revision needed. |
-| `work/gaps/G-008-router-convergence-guard-deferred-from-phase-1.md` | aligned | Line 11: "single-pass design is correct for static router weights … convergence guard is only needed if dynamic/expression-based router weights are introduced." Consistent with class 1 (static router) vs. class 2 (dynamic / capacity-aware) framing. | No change. The class-2 gap to be filed under AC-7 should cross-reference G-008 if the convergence concern resurfaces with the future allocator surface. |
+| `work/gaps/G-008-router-convergence-guard-deferred-from-phase-1.md` | aligned | Line 11: "single-pass design is correct for static router weights … convergence guard is only needed if dynamic/expression-based router weights are introduced." Consistent with class 1 (static router) vs. class 2 (dynamic / capacity-aware) framing. | No change. G-038 (the class-2 capacity-aware allocator gap, filed under AC-7) cross-references G-008 in the carrier-work guidance if the convergence concern resurfaces with the future allocator surface. |
 | `work/gaps/G-037-pre-aiwf-v1-framework-docs-survived-migration-and-contradict-the-v3-model.md` | aligned | Already addressed (status: `addressed`). v1-framework docs were moved to `docs/archive/` and do not contain routing-authority claims that survived. | No change. |
 | `work/gaps/G-019-sim-generated-model-shape-vs-rust-engine-compiler-expectations.md` | aligned | Lines 22–23 reference "routing is expressed via edge weights rather than a node field" — the class-3 case the policy formalizes. The gap describes a Sim/Rust shape divergence, not a contradiction with the policy. | No change. |
 | `work/gaps/G-016-rust-engine-parity-evaluation-core-gaps.md` | silent | Mentions `class routing internally`; no per-fan-out authority claim. | No change. |
@@ -307,11 +307,11 @@ A scan of the rest of `work/decisions/D-001` … `D-052` for `routing|router|edg
 Two conflicting docs require small in-place revisions in M-066 AC-4:
 
 1. **`docs/flowtime-v2.md` line 246** — split the universal-fan-out row into class-3 (edges) and class-1 (router) rows. Diff size: one table row → two rows + a one-line note.
-2. **`docs/reference/flow-theory-coverage.md` lines 111–118** — change the "Not planned" verdict for dynamic routing to "Deferred — class-2 capacity-aware allocation" with a forward reference to ADR-NNNN and the class-2 gap. Diff size: one cell.
+2. **`docs/reference/flow-theory-coverage.md` lines 111–118** — change the "Not planned" verdict for dynamic routing to "Deferred — class-2 capacity-aware allocation" with a forward reference to ADR-NNNN and G-038. Diff size: one cell.
 
 Both are within the AC-4 "small revision" threshold (paragraph or section that can be replaced without changing the doc's overall structure). No `[needs revision per ADR-NNNN]` markers are required — both can be revised in M-066.
 
-No deferred follow-up gaps (AC-8) surfaced from this sweep beyond the class-2 capacity-aware allocator gap to be filed under AC-7. The possible class-3 enhancement to `template-authoring.md` (treat edge-as-channel as a first-class authoring pattern alongside the router) is enhancement work — not a contradiction with the policy.
+No deferred follow-up gaps (AC-8) surfaced from this sweep beyond G-038 (the class-2 capacity-aware allocator gap filed under AC-7). The possible class-3 enhancement to `template-authoring.md` (treat edge-as-channel as a first-class authoring pattern alongside the router) is enhancement work — not a contradiction with the policy.
 
 **Class-3 authoring guidance: folded into M-067 scope; no new gap.** The engine + template alignment milestone (M-067) already revisits authoring guidance as part of its surface; the class-3 first-class-authoring enhancement is in scope for that milestone and does not need an independent AC-8 gap.
 
@@ -352,8 +352,8 @@ No deferred follow-up gaps (AC-8) surfaced from this sweep beyond the class-2 ca
 - `work/epics/E-25-engine-truth-gate/M-066-edge-flow-authority-decision.md` (this file; frontmatter status updates as ACs land; footprint section preserved verbatim; doc-sweep classification inlined per AC-3)
 - `work/epics/E-25-engine-truth-gate/epic.md` (small edit — open-questions table update; success-criteria refresh per the new milestone shape)
 - `work/gaps/G-032-…md` (status promotion to `addressed`; reference the ADR)
-- `work/gaps/G-NNN-class-2-capacity-aware-allocator.md` (new — the deferred-follow-up gap from AC-7)
-- `work/gaps/G-NNN-…md` (any other deferred-follow-up gaps from AC-8)
+- `work/gaps/G-038-class-2-capacity-aware-allocator-deferred-from-m-066-flow-authority-policy.md` (new — the deferred-follow-up gap from AC-7)
+- `work/gaps/G-NNN-…md` (any other deferred-follow-up gaps from AC-8 — none surfaced; class-3 authoring guidance folded into M-067)
 - Any docs revised in AC-4 (in-place edits with conventional commit; or `[needs revision per ADR-NNNN]` marker added at the top)
 - `ROADMAP.md` (regenerated via `aiwf render roadmap --write`)
 
