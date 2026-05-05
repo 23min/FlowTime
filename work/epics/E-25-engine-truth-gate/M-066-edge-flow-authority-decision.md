@@ -9,7 +9,7 @@ acs:
       status: met
     - id: AC-2
       title: Footprint analysis preserved for the three G-032 options
-      status: open
+      status: met
     - id: AC-3
       title: Repo-wide doc sweep classifies every routing-relevant document
       status: open
