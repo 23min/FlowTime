@@ -27,7 +27,7 @@ acs:
       status: met
     - id: AC-8
       title: Other deferred follow-ups filed as gaps where needed
-      status: open
+      status: met
     - id: AC-9
       title: ADR ratified with status accepted
       status: open
