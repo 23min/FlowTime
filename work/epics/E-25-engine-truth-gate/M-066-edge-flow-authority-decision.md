@@ -18,7 +18,7 @@ acs:
       status: met
     - id: AC-5
       title: ADR drafted naming the flow-authority policy
-      status: open
+      status: met
     - id: AC-6
       title: ADR names the schema/compile/analyse enforcement points
       status: open
