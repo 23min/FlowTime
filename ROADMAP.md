@@ -208,3 +208,15 @@ Resolve the engine-correctness investigation surfaced during E-21 dogfooding (G-
 | M-068 | Golden-Output Canary | draft |
 | M-069 | Schema + Compile + Analyse Enforcement | draft |
 
+## E-26 — Local + CI Test Discipline and Static Analysis (proposed)
+
+### Goal
+
+Bring FlowTime's static-analysis and test-discipline posture up to current best practice across .NET, Rust, and the Svelte UI. Concretely: turn on the toolchain-native quality gates that already exist (analyzers, warnings-as-errors, formatters, clippy, supply-chain advisories), seed the high-leverage test types the codebase does not yet use (property-based, snapshot, mutation, architecture), and make the existing CLAUDE.md process discipline (TDD, branch coverage, truth precedence) machine-checkable rather than self-policed. The result: `main` cannot break silently; new milestones inherit a CI surface that catches the kind of drift CLAUDE.md currently asks reviewers to catch by hand.
+
+| Milestone | Title | Status |
+|---|---|---|
+| M-070 | Tier 1: Toolchain hardening and CI gates | draft |
+| M-071 | Tier 2: Property snapshot mutation and architecture testing | draft |
+| M-072 | Tier 3: Fuzzing coverage floor and supply chain scan | draft |
+
