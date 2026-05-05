@@ -96,7 +96,7 @@ The aiwf v3 planning tree currently has zero in-flight epics (E-21 closed 2026-0
 
 | Question | Blocking? | Resolution path |
 |---|---|---|
-| What is the flow-authority policy across the three classes of physical systems FlowTime models (class 1 dynamic routing, class 2 capacity-aware allocation, class 3 static-weight)? | **Yes** | M-066 (the policy spike) produces a ratified ADR naming the policy and the enforcement points. M-069/M-067/M-068 gate on it. |
+| What is the flow-authority policy across the three classes of physical systems FlowTime models (class 1 dynamic routing, class 2 capacity-aware allocation, class 3 static-weight)? | **Yes** | **Resolved** by [ADR-0001](../../../docs/adr/ADR-0001-flow-authority-policy.md) (Flow-Authority Policy), ratified under M-066 AC-9 (2026-05-05). Class-1 = router node; class-3 = edge weights; class-2 deferred to [G-038](../../gaps/G-038-class-2-capacity-aware-allocator-deferred-from-m-066-flow-authority-policy.md). M-069 / M-067 / M-068 carry the policy into schema, engine, and canary layers. |
 | ADR or D-NNN for the flow-authority decision record? | No | Settled — ADR. The flow-authority policy is durable architectural truth, not a project-bound decision; it outlives this project's planning context. The repo's `docs/adr/` is empty today; this ADR seeds it. |
 | Numeric tolerance for the golden canary — absolute, relative, hybrid; what magnitude? | No | Decided inside the canary milestone with empirical evidence (run several known-clean templates, measure observed bin-to-bin variance under repeat runs, set tolerance with margin). Default starting point: relative 1e-9. |
 | Pinned-fixture serialization format — JSON, CSV+JSON-warnings, MessagePack? | No | Decided inside the canary milestone. Constraint: must produce reviewable PR diffs. JSON-with-stable-key-order is the strawman. |
@@ -133,7 +133,7 @@ Detailed per-milestone acceptance criteria are filled in the milestone specs abo
 
 ## ADRs produced
 
-- **ADR-NNNN — Flow-Authority Policy.** Names the routing-authority policy across the three classes of physical systems (class 1 dynamic routing, class 2 capacity-aware allocation, class 3 static-weight); commits to edge-weights-normative for class-3, router-nodes for class-1, class-2 not surfaced today (deferred); rejects consumer-side expr arithmetic encoding peer-relative splits; names the schema/compile/analyse enforcement points. Allocated and ratified by M-066. Seeds the previously-empty `docs/adr/` directory.
+- **[ADR-0001 — Flow-Authority Policy](../../../docs/adr/ADR-0001-flow-authority-policy.md).** Names the routing-authority policy across the three classes of physical systems (class 1 dynamic routing, class 2 capacity-aware allocation, class 3 static-weight); commits to edge-weights-normative for class-3, router-nodes for class-1, class-2 not surfaced today (deferred to G-038); rejects consumer-side expr arithmetic encoding peer-relative splits; names the schema/compile/analyse enforcement points. Allocated and ratified by M-066 (status `accepted`, 2026-05-05). Seeded the previously-empty `docs/adr/` directory.
 
 ## References
 
