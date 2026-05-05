@@ -24,7 +24,7 @@ acs:
       status: open
     - id: AC-7
       title: Class-2 capacity-aware allocator deferred-follow-up gap filed
-      status: open
+      status: met
     - id: AC-8
       title: Other deferred follow-ups filed as gaps where needed
       status: open
