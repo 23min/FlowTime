@@ -115,7 +115,7 @@ This is one of FlowTime's strongest areas.
 | Weighted probabilistic routing | **Modeled** | — | Static weights; no dynamic load-balancing |
 | Class-based routing | **Modeled** | — | Per-class metrics tracked end-to-end |
 | Priority queuing (classes served in priority order) | **Not planned** | — | Classes are independent streams, not prioritized within a shared queue |
-| Dynamic routing (route by downstream queue length) | **Not planned** | — | Weights fixed at model definition time |
+| Dynamic routing (route by downstream queue length) | **Deferred** | — | Class-2 capacity-aware allocation; M-066 deferred this surface (see G-038 — class-2 capacity-aware allocator gap, filed by M-066/AC-7) and the [flow-authority policy](../architecture/flow-authority-policy.md) |
 
 ---
 

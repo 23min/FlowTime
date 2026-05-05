@@ -195,7 +195,7 @@ Unify FlowTime's post-substitution model representation. One C# type. One YAML s
 | M-052 | Parser/Validator Scalar-Style Fix | done |
 | M-053 | Canary Green and Hard Assertion | done |
 
-## E-25 — Engine Truth Gate — Edge-Flow Authority + Golden-Output Canary (proposed)
+## E-25 — Engine Truth Gate — Edge-Flow Authority + Golden-Output Canary (active)
 
 ### Goal
 
@@ -203,7 +203,8 @@ Resolve the engine-correctness investigation surfaced during E-21 dogfooding (G-
 
 | Milestone | Title | Status |
 |---|---|---|
-| M-066 | Edge-Flow Authority Decision | draft |
+| M-066 | Flow-Authority Policy Spike | done |
 | M-067 | Engine + Template Alignment | draft |
 | M-068 | Golden-Output Canary | draft |
+| M-069 | Schema + Compile + Analyse Enforcement | draft |
 

@@ -1,7 +1,8 @@
 ---
 id: G-032
 title: '`transportation-basic` regressed: `edge_flow_mismatch_incoming` × 3 after E-24 unification'
-status: open
+status: addressed
+addressed_by: [ADR-0001, M-066]
 ---
 
 ### Why this is a gap
@@ -68,7 +69,9 @@ Alternative benign reading: the analyser is correctly detecting a real model pro
 
 **The "regression" is improved analyser coverage**, not a new bug. Edge `flowVolume` series began being emitted somewhere in the E-23 / E-24 commit chain (the writers `EdgeFlowMaterializer.cs` + `RunArtifactWriter.cs` weren't directly touched in the window — likely a downstream effect of the model-unification changes that gave the materializer the structural information it needed).
 
-### Outstanding design question
+### Outstanding design question — resolved 2026-05-05
+
+> **Resolution:** Option 1 (edge weights win) was selected and ratified as [ADR-0001 — Flow-Authority Policy](../../docs/adr/ADR-0001-flow-authority-policy.md) under M-066 AC-9. Class-3 fan-outs (the `transportation-basic` family captured below) are governed by edge-weight authority; consumer-side peer-relative expr arithmetic for splits is rejected. Engine and template alignment work to apply the policy to the 9 affected templates lives in [M-067 — Engine + template alignment](../epics/E-25-engine-truth-gate/M-067-engine-template-alignment.md). Class-2 capacity-aware allocation is deferred to [G-038](G-038-class-2-capacity-aware-allocator-deferred-from-m-066-flow-authority-policy.md). The historical design discussion below is preserved unchanged for audit.
 
 Which authority wins for edge flow volumes — **expr nodes** (`arrivals_airport = hub_dispatch * splitAirport`) or **topology edge weights** (`queue_to_airport: weight: 1`)?
 

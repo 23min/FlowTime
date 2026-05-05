@@ -60,7 +60,7 @@ Role agents ship via the `aiwf-extensions` plugin (loaded into Claude Code from 
 
 Provenance: human verbs need no extra flags. Non-human actors (ai/..., bot/...) must pass `--principal human/<id>` and operate inside an active `aiwf authorize <id> --to <agent>` scope; the kernel adds `aiwf-principal:`, `aiwf-on-behalf-of:`, and `aiwf-authorized-by:` trailers automatically. `aiwf authorize` is human-only.
 
-Tracking docs (per the `aiwfx-track` skill) are advisory free-form markdown alongside a milestone spec; not aiwf entities, not validated. Older `*-log.md` / `*-tracking.md` files in `work/archived-epics/` are pre-aiwf residue.
+Milestone work is tracked **inside the milestone spec itself** — the `M-NNN-<slug>.md` file is the single home for goal, ACs, design notes, working analysis, and work log. There is no separate tracking-doc convention in aiwf v3. The older `*-log.md` / `*-tracking.md` files in `work/archived-epics/` are pre-aiwf v1 residue.
 
 ## Coding Conventions
 

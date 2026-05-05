@@ -170,7 +170,6 @@ On merge to main: the epic frontmatter is promoted to `status: done` via `aiwf p
 - `tests/FlowTime.Integration.Tests/GoldenOutputCoverageEquivalenceTests.cs` (new, optional — the coverage-equivalence assertion if it lives separately)
 - `tests/fixtures/golden-templates/<template-id>/` × 12 (new — one directory per shipped template, each with the serialized fixture and a README)
 - `docs/testing/golden-output-canary.md` (new — the canary contract doc)
-- `work/epics/E-25-engine-truth-gate/m-E25-03-golden-output-canary-tracking.md` (new — branch-coverage audit, fixture-format decision rationale, perturbation-test catalogue)
 - `work/gaps/G-033-tests-are-too-weak-…md` (status to `done`, reference this milestone)
 - `work/epics/E-25-engine-truth-gate/epic.md` (small edit — supersedes/closes update)
 - `work/epics/E-25-engine-truth-gate/wrap.md` (new — epic closure artefact)
@@ -189,7 +188,7 @@ On merge to main: the epic frontmatter is promoted to `status: done` via `aiwf p
 ## Dependencies
 
 - **M-067 merged**, with both survey gates green and the engine + template state warning-clean across all 12 shipped templates. Hard prerequisite — fixtures captured against pre-M-067 state would pin known-bad output.
-- M-066 ratified `D-NNN`. (Inherited via M-067 dependency.)
+- M-066 ratified ADR; M-069 enforcement gates landed. (Inherited via M-067 dependency.)
 - E-25 epic spec ratified.
 - E-24 Schema Alignment closed (provides the per-edge `flowVolume` series the conservation invariant reads; the same series the golden canary pins).
 
