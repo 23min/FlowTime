@@ -12,7 +12,7 @@ acs:
       status: met
     - id: AC-3
       title: Repo-wide doc sweep classifies every routing-relevant document
-      status: open
+      status: met
     - id: AC-4
       title: Conflicting docs are revised or marked needs-revision
       status: open
