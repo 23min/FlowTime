@@ -21,7 +21,7 @@ acs:
       status: met
     - id: AC-6
       title: ADR names the schema/compile/analyse enforcement points
-      status: open
+      status: met
     - id: AC-7
       title: Class-2 capacity-aware allocator deferred-follow-up gap filed
       status: met
