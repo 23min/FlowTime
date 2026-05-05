@@ -6,7 +6,7 @@ parent: E-25
 acs:
     - id: AC-1
       title: Three-class flow taxonomy documented
-      status: open
+      status: met
     - id: AC-2
       title: Footprint analysis preserved for the three G-032 options
       status: open
