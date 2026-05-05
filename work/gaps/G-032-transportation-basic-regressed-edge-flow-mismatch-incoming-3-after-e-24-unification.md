@@ -1,7 +1,7 @@
 ---
 id: G-032
 title: '`transportation-basic` regressed: `edge_flow_mismatch_incoming` × 3 after E-24 unification'
-status: open
+status: addressed
 ---
 
 ### Why this is a gap
