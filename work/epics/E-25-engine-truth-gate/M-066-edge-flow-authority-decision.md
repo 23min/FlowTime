@@ -15,7 +15,7 @@ acs:
       status: met
     - id: AC-4
       title: Conflicting docs are revised or marked needs-revision
-      status: open
+      status: met
     - id: AC-5
       title: ADR drafted naming the flow-authority policy
       status: open
