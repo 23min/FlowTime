@@ -41,7 +41,7 @@ FlowTime's flow-authority policy is the **three-class taxonomy**, with one norma
 |---|---|---|---|
 | 1 — producer-side push | `kind: router` node | router node specification | Supported today; **immediate authority for class 1** |
 | 2 — consumer-side pull / capacity-aware | capacity-aware allocator (future) | future allocator-node specification | **Not surfaced today** \| **deferred** — see [G-038](../../work/gaps/G-038-class-2-capacity-aware-allocator-deferred-from-m-066-flow-authority-policy.md) |
-| 3 — edge-as-channel / static-weight | static rule on edges | producer-outgoing edge `weight` | Supported today; **supplementary structural authority** for class 3 |
+| 3 — edge-as-channel / static-weight | static rule on edges | producer-outgoing edge `weight` | Supported today; **authoritative for class 3 (structural)** |
 
 The hard constraint: **at every producer-fan-out point, exactly one routing authority is active.** Zero authorities or more than one authority at a single fan-out point is a modeling error and must be rejected by the engine's gates.
 
