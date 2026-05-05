@@ -33,7 +33,7 @@ acs:
       status: met
     - id: AC-10
       title: Epic spec and G-032 reference the ratified ADR
-      status: open
+      status: met
     - id: AC-11
       title: aiwf check clean
       status: open
