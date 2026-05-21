@@ -1,7 +1,7 @@
 ---
 id: G-0039
 title: aiwf pre-commit hook fails on git-add of gitignored STATUS.md
-status: open
+status: addressed
 ---
 
 ## What's missing
