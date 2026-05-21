@@ -3,7 +3,7 @@
 **ID:** _unplanned (no E-NN assigned)_
 **Status:** planning
 **Created:** 2026-05-01
-**Origin:** absorbs M-10.03 from E-12 Dependency Constraints (dropped on E-12 wrap, 2026-05-01) plus the original M-10.03 Plans 3–5 (resource pooling, compiler expansion, feedback loops). Recorded as the home for "what happens when an AI / external authoring caller asks FlowTime to produce a model."
+**Origin:** absorbs M-10.03 from E-0012 Dependency Constraints (dropped on E-0012 wrap, 2026-05-01) plus the original M-10.03 Plans 3–5 (resource pooling, compiler expansion, feedback loops). Recorded as the home for "what happens when an AI / external authoring caller asks FlowTime to produce a model."
 
 ## Intent
 
@@ -13,7 +13,7 @@ The seed scope is the dependency-pattern matrix (Option A vs Option B) M-10.03 w
 
 ## Why this is a separate epic
 
-- **Different surface from FlowTime UI.** The Svelte workbench (E-21) is for human flow analysis. The expert-authoring-surface unplanned epic (`docs/explorations/expert-authoring-surface/spec.md`) is for human textual model authoring (CodeMirror + inline lenses). Neither caller needs the MCP-pattern-enforcement layer the way an AI caller does — humans get visual feedback as they edit; AIs get pattern enforcement and refusal-with-rationale at the server boundary.
+- **Different surface from FlowTime UI.** The Svelte workbench (E-0021) is for human flow analysis. The expert-authoring-surface unplanned epic (`docs/explorations/expert-authoring-surface/spec.md`) is for human textual model authoring (CodeMirror + inline lenses). Neither caller needs the MCP-pattern-enforcement layer the way an AI caller does — humans get visual feedback as they edit; AIs get pattern enforcement and refusal-with-rationale at the server boundary.
 - **Different consumer assumptions.** AI callers will mass-produce model variants (sweeps, fits, what-ifs) and need pattern stability across calls more than humans do. They also need machine-readable refusal reasons to course-correct.
 - **Different testing posture.** Pattern-enforcement assertions (refusal-on-feedback-loop, etc.) are deterministic server-side tests; they don't need a Playwright surface.
 
@@ -35,7 +35,7 @@ The seed scope is the dependency-pattern matrix (Option A vs Option B) M-10.03 w
 
 - Refusal-with-rationale standard: every refused pattern returns a structured response naming the unsupported behaviour, the closest supported alternative, and a pointer to the canonical pattern doc.
 - Determinism canary: pattern-helper outputs are byte-pinned for a fixed input set (matches the testing-rigor direction the m-E21-08 dogfooding gap argues for).
-- Documentation pass: the `work/epics/completed/ai/mcp-modeling.md` and `work/epics/completed/E-12-dependency-constraints/spec.md` MCP-pattern-matrix section need re-anchoring under this epic's spec rather than two completed-epic locations.
+- Documentation pass: the `work/epics/completed/ai/mcp-modeling.md` and `work/epics/completed/E-0012-dependency-constraints/spec.md` MCP-pattern-matrix section need re-anchoring under this epic's spec rather than two completed-epic locations.
 
 ## Out of Scope
 
@@ -46,14 +46,14 @@ The seed scope is the dependency-pattern matrix (Option A vs Option B) M-10.03 w
 
 ## Dependencies
 
-- **E-12 Dependency Constraints (complete).** M-10.01 + M-10.02 land the Option A and Option B engine semantics this epic enforces canonically.
-- **E-15 Telemetry Ingestion (planned).** Plan 3 (resource pooling) wants telemetry-derived allocation hints; Plan 5 (feedback loops) wants telemetry-validated refusal semantics. Plans 1–2 (the absorbed M-10.03 core) do **not** require E-15.
+- **E-0012 Dependency Constraints (complete).** M-10.01 + M-10.02 land the Option A and Option B engine semantics this epic enforces canonically.
+- **E-0015 Telemetry Ingestion (planned).** Plan 3 (resource pooling) wants telemetry-derived allocation hints; Plan 5 (feedback loops) wants telemetry-validated refusal semantics. Plans 1–2 (the absorbed M-10.03 core) do **not** require E-0015.
 - **MCP modeling foundation (`work/epics/completed/ai/`, M-08.01–05, complete).** This epic builds on the MCP server work that landed there.
 
 ## Sequencing notes
 
-- Not on the immediate critical path. The strategic critical path runs E-15 → Telemetry Loop & Parity → E-22 Model Fit. This epic is parallel-track and likely follows E-22 unless an authoring deadline pulls it in.
-- If Plans 1–2 (the absorbed M-10.03 core) are scoped tightly, they could ship as a small standalone milestone at any point — they don't strictly need E-15 first.
+- Not on the immediate critical path. The strategic critical path runs E-0015 → Telemetry Loop & Parity → E-0022 Model Fit. This epic is parallel-track and likely follows E-0022 unless an authoring deadline pulls it in.
+- If Plans 1–2 (the absorbed M-10.03 core) are scoped tightly, they could ship as a small standalone milestone at any point — they don't strictly need E-0015 first.
 - Plans 3–5 should wait for telemetry-driven validation signals so the canonical patterns reflect real-world topologies, not synthetic-template aesthetics.
 
 ## ADRs

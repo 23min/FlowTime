@@ -265,6 +265,6 @@ For operational decision-making — "should we add capacity?", "when will the ba
 - Whitepaper (non-goals, stay flow-first): `docs/architecture/whitepaper.md` (section 13)
 - Flow theory foundations (queueing theory, Kingman's): `docs/reference/flow-theory-foundations.md`
 - Flow theory coverage (m-ec-p3c variability milestone): `docs/reference/flow-theory-coverage.md`
-- E-10 spec (Phase 3c — variability preservation): `work/epics/E-10-engine-correctness-and-analytics/spec.md`
-- E-15 spec (telemetry ingestion, topology inference): `work/epics/E-15-telemetry-ingestion/spec.md`
+- E-0010 spec (Phase 3c — variability preservation): `work/epics/E-0010-engine-correctness-and-analytics/spec.md`
+- E-0015 spec (telemetry ingestion, topology inference): `work/epics/E-0015-telemetry-ingestion/spec.md`
 - FlowTime vs Ptolemy (design boundaries): `docs/notes/flowtime-vs-ptolemy-and-related-systems.md`

@@ -43,8 +43,8 @@ Anomaly detection should be treated as a leverage layer, not the first consumer 
 
 Recommended preconditions:
 
-- E-16 completed so `/state`, `/state_window`, and `/graph` expose authoritative analytical/category facts.
-- At least one E-15 dataset path exists and Telemetry Loop & Parity can measure baseline-vs-replay drift.
+- E-0016 completed so `/state`, `/state_window`, and `/graph` expose authoritative analytical/category facts.
+- At least one E-0015 dataset path exists and Telemetry Loop & Parity can measure baseline-vs-replay drift.
 - Basic path-analysis context exists so incidents can localize along flows rather than only at isolated nodes.
 
 Scenario overlays and interactive what-if are valuable companions for diagnosis and remediation, but they are not required for the first detector pass.

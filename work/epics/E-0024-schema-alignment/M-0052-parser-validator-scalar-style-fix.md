@@ -39,7 +39,7 @@ Fix the `ParseScalar` defect in both `src/FlowTime.Core/Models/ModelSchemaValida
 
 ## Context
 
-The M-0046 prior-art investigation (see `work/epics/E-23-model-validation-consolidation/m-E23-01-schema-alignment-tracking.md` → "Prior art for C (ParseScalar scalar-style defect)") established: both validators were born with identical unconditionally-coercing `ParseScalar` implementations in commit `51a99b9` / `c1fc49d` (2025-11-24). No later commit touched scalar-style handling. `src/FlowTime.Core/Models/ParallelismReference.cs:97` is the one precedent in the repo for honoring `ScalarStyle.Plain`, guarding a narrower scalar distinction (null detection); the pattern ports directly. No external consumer relies on integer-coerced quoted literals. No prior commit reverts a ScalarStyle-aware fix; this is green-field.
+The M-0046 prior-art investigation (see `work/epics/E-0023-model-validation-consolidation/m-E23-01-schema-alignment-tracking.md` → "Prior art for C (ParseScalar scalar-style defect)") established: both validators were born with identical unconditionally-coercing `ParseScalar` implementations in commit `51a99b9` / `c1fc49d` (2025-11-24). No later commit touched scalar-style handling. `src/FlowTime.Core/Models/ParallelismReference.cs:97` is the one precedent in the repo for honoring `ScalarStyle.Plain`, guarding a narrower scalar distinction (null detection); the pattern ports directly. No external consumer relies on integer-coerced quoted literals. No prior commit reverts a ScalarStyle-aware fix; this is green-field.
 
 The defect is independent of unification. Unification (M-0050) and schema realignment (M-0051) do not touch `ParseScalar`'s logic. The defect's blast radius (per M-0046's full-shape audit): ~231 residual errors across four shape variants — `nodes/*/expr integer→string` (89), `nodes/*/metadata/graph.hidden boolean→string` (92), `nodes/*/metadata/pmf.expected number→string` (40), `nodes/*/metadata/pmf.expected integer→string` (10). Every residual collapses once `ParseScalar` respects `ScalarStyle`.
 
@@ -105,7 +105,7 @@ The defect is independent of unification. Unification (M-0050) and schema realig
 - `tests/FlowTime.TimeMachine.Tests/TemplateSchemaValidationTests.cs:134-169` (test helper update or replacement)
 - `tests/FlowTime.Core.Tests` (or appropriate Engine-side test project — scalar-style test matrix)
 - `tests/FlowTime.Sim.Tests` (scalar-style test matrix — Sim side)
-- `work/epics/E-24-schema-alignment/m-E24-04-parser-validator-scalar-style-fix-tracking.md` (new)
+- `work/epics/E-0024-schema-alignment/m-E24-04-parser-validator-scalar-style-fix-tracking.md` (new)
 
 ## Out of Scope
 
@@ -121,9 +121,9 @@ The defect is independent of unification. Unification (M-0050) and schema realig
 
 ## References
 
-- Epic spec: `work/epics/E-24-schema-alignment/spec.md`
+- Epic spec: `work/epics/E-0024-schema-alignment/spec.md`
 - Gap entry: `work/gaps.md` → "`ModelSchemaValidator.ParseScalar` does not honor YAML ScalarStyle"
-- Prior-art investigation: `work/epics/E-23-model-validation-consolidation/m-E23-01-schema-alignment-tracking.md` → "Prior art for C (ParseScalar scalar-style defect)"
+- Prior-art investigation: `work/epics/E-0023-model-validation-consolidation/m-E23-01-schema-alignment-tracking.md` → "Prior art for C (ParseScalar scalar-style defect)"
 - Defect site (Engine): `src/FlowTime.Core/Models/ModelSchemaValidator.cs:222-246`
 - Defect site (Sim): `src/FlowTime.Sim.Core/Templates/TemplateSchemaValidator.cs:173-197`
 - Prior-art precedent: `src/FlowTime.Core/Models/ParallelismReference.cs:97`

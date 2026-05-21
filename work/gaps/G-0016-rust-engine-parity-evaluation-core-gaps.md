@@ -56,7 +56,7 @@ Per D-0044, work splits into:
 
 - D-0044 (three-layer architecture)
 - D-0043 (provenance strategy)
-- `work/epics/E-20-matrix-engine/spec.md` (original scope)
+- `work/epics/E-0020-matrix-engine/spec.md` (original scope)
 - `docs/architecture/matrix-engine.md` (future work section)
 
 ---

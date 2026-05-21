@@ -15,6 +15,6 @@ When dynamic routing is designed as a feature. At that point, add iteration with
 
 ### Reference
 - `src/FlowTime.Core/Routing/RouterAwareGraphEvaluator.cs`
-- Phase 1 spec: `work/epics/E-10-engine-correctness-and-analytics/m-ec-p1-engineering-foundation.md`
+- Phase 1 spec: `work/epics/E-0010-engine-correctness-and-analytics/m-ec-p1-engineering-foundation.md`
 
 ---

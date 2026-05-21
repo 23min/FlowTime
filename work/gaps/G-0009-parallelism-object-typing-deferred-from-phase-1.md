@@ -16,6 +16,6 @@ Addressed by E-0016 M-0012 (Compiled Semantic References). See D-0020. Paralleli
 ### Reference
 - `src/FlowTime.Core/Models/NodeSemantics.cs` (line 21)
 - `src/FlowTime.Core/DataSources/SemanticLoader.cs` (ResolveParallelism method)
-- Phase 1 spec: `work/epics/E-10-engine-correctness-and-analytics/m-ec-p1-engineering-foundation.md`
+- Phase 1 spec: `work/epics/E-0010-engine-correctness-and-analytics/m-ec-p1-engineering-foundation.md`
 
 ---

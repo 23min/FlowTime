@@ -111,7 +111,7 @@ After this milestone, M-0047 has a written contract: every rule has a single can
 
 ## Surfaces touched
 
-- `work/epics/E-23-model-validation-consolidation/m-E23-01-rule-coverage-audit-tracking.md` (new)
+- `work/epics/E-0023-model-validation-consolidation/m-E23-01-rule-coverage-audit-tracking.md` (new)
 - `docs/schemas/model.schema.yaml` (additions only, with citation comments)
 - `src/FlowTime.Core/Models/ModelSchemaValidator.cs` (adjunct additions only — no rewiring of existing logic)
 - `tests/FlowTime.Core.Tests/Schema/RuleCoverageRegressionTests.cs` (new, or analogous filename)
@@ -128,11 +128,11 @@ After this milestone, M-0047 has a written contract: every rule has a single can
 
 - Epic E-0023 spec ratified (this milestone is the audit gate; without it M-0047 risks silent rule loss).
 - E-0024 Schema Alignment closed (cleared 2026-04-25, `D-2026-04-25-038`).
-- Epic integration branch `epic/E-23-model-validation-consolidation` exists and is based on `main` post-E-0024 merge.
+- Epic integration branch `epic/E-0023-model-validation-consolidation` exists and is based on `main` post-E-0024 merge.
 
 ## References
 
-- Epic spec: `work/epics/E-23-model-validation-consolidation/spec.md`
+- Epic spec: `work/epics/E-0023-model-validation-consolidation/spec.md`
 - E-0024 closure: `work/decisions.md` → `D-2026-04-25-038`
 - Truth Discipline (2026-04-23): `.ai-repo/rules/project.md` → `"'API stability' does not mean 'keep old functions around.'"` + `"Do not let adapter/UI projection become the only place where semantics exist"` + `"Do not restate a canonical contract in many places from memory"`
 - Current ModelValidator: `src/FlowTime.Core/Models/ModelValidator.cs` (214 lines)

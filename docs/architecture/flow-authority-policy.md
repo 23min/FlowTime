@@ -1,8 +1,8 @@
 # Flow-Authority Policy — Three-Class Taxonomy
 
-**Status:** Draft — taxonomy backbone for ADR-0001 (Flow-Authority Policy, ratified by M-066).
+**Status:** Draft — taxonomy backbone for ADR-0001 (Flow-Authority Policy, ratified by M-0066).
 **Date:** 2026-05-05
-**Owner:** E-25 Engine Truth Gate
+**Owner:** E-0025 Engine Truth Gate
 
 ## Purpose
 
@@ -79,7 +79,7 @@ flowchart LR
 
 **Authority surface — outgoing edge `weight`.** The edge weights declared on the producer's outgoing edges are normative. The engine's `EdgeFlowMaterializer` apportions the producer's outflow by weight; the resulting per-edge `flowVolume` series is the truth at every consumer's incoming side; the conservation invariant `arrivals(t) == sum(incomingEdges_after_lag)(t)` enforces that nothing else has injected routing information.
 
-**Policy decision — authoritative for class 3.** Edge weights win for class-3 fan-outs. Templates that need static-share routing must encode the splits as edge weights, not as consumer-side expr arithmetic on the producer's `served` series. This is the answer to G-032's original "edge weights win / expr authority wins / both must agree" question for the cases the gap actually documents — all 9 affected shipped templates from G-032 are class-3 fan-outs.
+**Policy decision — authoritative for class 3.** Edge weights win for class-3 fan-outs. Templates that need static-share routing must encode the splits as edge weights, not as consumer-side expr arithmetic on the producer's `served` series. This is the answer to G-0032's original "edge weights win / expr authority wins / both must agree" question for the cases the gap actually documents — all 9 affected shipped templates from G-0032 are class-3 fan-outs.
 
 ## Authority assignment summary
 
@@ -113,7 +113,7 @@ The framing is structurally invalid, not merely costly. It is rejected on first 
 
 ## Enforcement points
 
-The flow-authority policy gets teeth at three layers of the engine. ADR-0001 names them; M-069 (the next milestone in E-25) implements them. They are listed here so the taxonomy reader sees how the policy becomes binding:
+The flow-authority policy gets teeth at three layers of the engine. ADR-0001 names them; M-0069 (the next milestone in E-0025) implements them. They are listed here so the taxonomy reader sees how the policy becomes binding:
 
 - **Schema (`docs/schemas/model.schema.yaml` + `ModelSchemaValidator`).** Rejects models that encode peer-relative splits in consumer expr arithmetic (e.g., expr nodes whose formula references the producer's `served` series and a `split*` parameter directly).
 - **Compile (`ModelCompiler` / `TimeMachineValidator`).** Fan-out detection: any producer with more than one outgoing edge must have exactly one routing authority declared. Compile-time error if zero or more than one authority is detected.
@@ -121,20 +121,20 @@ The flow-authority policy gets teeth at three layers of the engine. ADR-0001 nam
 
 ## Non-goals and out of scope
 
-- **Implementation.** This document does not change engine code, schema, analyser, or any template. Implementation lives in M-069 (enforcement) and M-067 (engine + template alignment).
-- **Class-2 surface design.** This document names class 2 as a deferred future capability and gives the framing; it does not propose a specific node specification, allocator algorithm, or evaluation-order treatment for capacity-aware allocation. The deferred-follow-up gap (filed by M-066 AC-7) owns that scoping.
+- **Implementation.** This document does not change engine code, schema, analyser, or any template. Implementation lives in M-0069 (enforcement) and M-0067 (engine + template alignment).
+- **Class-2 surface design.** This document names class 2 as a deferred future capability and gives the framing; it does not propose a specific node specification, allocator algorithm, or evaluation-order treatment for capacity-aware allocation. The deferred-follow-up gap (filed by M-0066 AC-7) owns that scoping.
 - **Routing within stateful nodes.** Internal flow handling inside a single node (e.g., how a `serviceWithBuffer` partitions its served output across queue/served/dropped) is node-internal semantics, not a fan-out point. The policy does not regulate intra-node mechanics.
 - **Cross-class hybrid models.** A model may contain class-1 fan-outs and class-3 fan-outs simultaneously — each fan-out point is classified independently. This document does not introduce a "model class" — only a per-fan-out classification.
-- **Migration tooling.** The policy may force template-form changes for templates that currently encode class-3 splits in consumer expr arithmetic. Migration tooling for user-authored templates outside the shipped set is out of scope at the epic level (see E-25 epic spec, Out of scope).
+- **Migration tooling.** The policy may force template-form changes for templates that currently encode class-3 splits in consumer expr arithmetic. Migration tooling for user-authored templates outside the shipped set is out of scope at the epic level (see E-0025 epic spec, Out of scope).
 - **Performance characterization of the chosen authority surfaces.** Whether edge-weight materialization, router evaluation, or future allocator evaluation has acceptable performance under realistic model sizes is engine-evolution scope, not policy scope.
 
 ## Cross-references
 
-- **Milestone:** [M-066 — Flow-Authority Policy Spike](../../work/epics/E-25-engine-truth-gate/M-066-edge-flow-authority-decision.md). The milestone that authored this document and ratifies the policy as ADR-0001.
-- **Gap:** [G-032 — `transportation-basic` regressed: `edge_flow_mismatch_incoming` × 3 after E-24 unification](../../work/gaps/G-032-transportation-basic-regressed-edge-flow-mismatch-incoming-3-after-e-24-unification.md). The investigation that surfaced the latent class-3 inconsistency in the shipped template set and motivated the policy.
+- **Milestone:** [M-0066 — Flow-Authority Policy Spike](../../work/epics/E-0025-engine-truth-gate/M-0066-edge-flow-authority-decision.md). The milestone that authored this document and ratifies the policy as ADR-0001.
+- **Gap:** [G-0032 — `transportation-basic` regressed: `edge_flow_mismatch_incoming` × 3 after E-0024 unification](../../work/gaps/G-0032-transportation-basic-regressed-edge-flow-mismatch-incoming-3-after-e-24-unification.md). The investigation that surfaced the latent class-3 inconsistency in the shipped template set and motivated the policy.
 - **ADR:** [ADR-0001 — Flow-Authority Policy](../adr/ADR-0001-flow-authority-policy.md). Names the policy formally, references this taxonomy, records the rejected framings, and pins the enforcement points.
-- **Epic:** [E-25 — Engine Truth Gate](../../work/epics/E-25-engine-truth-gate/epic.md). The epic that owns the policy work, the enforcement implementation (M-069), the engine + template alignment (M-067), and the golden-output canary (M-068).
-- **Class-2 deferred capability gap:** [G-038 — Class-2 capacity-aware allocator (deferred from M-066 flow-authority policy)](../../work/gaps/G-038-class-2-capacity-aware-allocator-deferred-from-m-066-flow-authority-policy.md) *(filed under M-066 AC-7)*. Captures the future engine work for surfacing capacity-aware allocation as a first-class actor.
+- **Epic:** [E-0025 — Engine Truth Gate](../../work/epics/E-0025-engine-truth-gate/epic.md). The epic that owns the policy work, the enforcement implementation (M-0069), the engine + template alignment (M-0067), and the golden-output canary (M-0068).
+- **Class-2 deferred capability gap:** [G-0038 — Class-2 capacity-aware allocator (deferred from M-0066 flow-authority policy)](../../work/gaps/G-0038-class-2-capacity-aware-allocator-deferred-from-m-066-flow-authority-policy.md) *(filed under M-0066 AC-7)*. Captures the future engine work for surfacing capacity-aware allocation as a first-class actor.
 
 ## Glossary
 

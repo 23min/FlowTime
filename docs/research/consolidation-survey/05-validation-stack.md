@@ -53,7 +53,7 @@ Internal sequence:
 
 1. Empty-YAML short-circuit (`:26-30`).
 2. Lazy schema load (`:32-39, :97-130`). The schema is read from `docs/schemas/model.schema.yaml` via `DirectoryProvider.FindSolutionRoot` (`:101-108`) and `JsonEverything.JsonSchema.FromText` (`:117-123`). A failed load surfaces as a single error string.
-3. YAML→JSON conversion (`:43, :902-994`). `ParseScalar` (`:963-994`) honours YAML 1.2's quoted-vs-plain typing rule (m-E24-04 / ADR-E-24-04).
+3. YAML→JSON conversion (`:43, :902-994`). `ParseScalar` (`:963-994`) honours YAML 1.2's quoted-vs-plain typing rule (m-E24-04 / ADR-E-0024-04).
 4. Schema evaluation (`:46`) with `OutputFormat.Hierarchical`.
 5. Error collection (`:48-62`) — `CollectErrors` walks the evaluation tree (`:132-154`); `SynthesizePathOnlyError` (`:165-171`) is a fallback for the JsonEverything silent-error class D3 (a subtree marked invalid with no leaf message).
 6. Adjunct rules (`:64-83`) — 12 named methods, all returning `IEnumerable<string>` and concatenated onto the running error list.
@@ -274,7 +274,7 @@ Verified absences (each confirmed by reading the validator code and grepping for
 5. **Two `ValidationResult` types in two namespaces.** `FlowTime.Core.ValidationResult` (`src/FlowTime.Core/Models/ValidationResult.cs`) vs `FlowTime.TimeMachine.Validation.ValidationResult` (`src/FlowTime.TimeMachine/Validation/ValidationResult.cs`). These are unrelated types with the same name; a stack trace mentioning `ValidationResult` is ambiguous.
 6. **DTO field rename surface.** `topology.edges[].from`/`to` (DTO + schema) becomes `Source`/`Target` on the runtime `TopologyEdgeDefinition` and `Edge`. This is an invisible rename — no validator surfaces the mismatch in error messages, and a hand-authored YAML using `source: ...` (i.e. matching the runtime type) would pass JSON Schema (since `additionalProperties: true` on edges, `model.schema.yaml:405`) but produce empty source/target ids at convert time.
 7. **`edge_behavior_violation_lag` is policy, not invariant.** The warning fires whenever any edge has positive lag (`InvariantAnalyzer.cs:82-102`), regardless of correctness; the message "Model transit as an explicit node instead of edge behavior" is a style enforcement, not a correctness check.
-8. **Adjunct comment block.** The header comment at `ModelSchemaValidator.cs:270-283` references `work/epics/E-23-model-validation-consolidation/m-E23-01-rule-coverage-audit-tracking.md` as the source of truth for the cross-reference findings — that file lives only in the planning tree and is the authoritative table for what each adjunct enforces.
+8. **Adjunct comment block.** The header comment at `ModelSchemaValidator.cs:270-283` references `work/epics/E-0023-model-validation-consolidation/m-E23-01-rule-coverage-audit-tracking.md` as the source of truth for the cross-reference findings — that file lives only in the planning tree and is the authoritative table for what each adjunct enforces.
 
 ## Diagrams
 

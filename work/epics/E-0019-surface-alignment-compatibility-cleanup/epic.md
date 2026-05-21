@@ -146,9 +146,9 @@ This epic starts immediately after E-0016 as a post-purification cleanup lane. I
 
 ## References
 
-- `work/epics/E-16-formula-first-core-purification/spec.md`
-- `work/epics/E-11-svelte-ui/spec.md`
-- `work/epics/E-18-headless-pipeline-and-optimization/spec.md`
+- `work/epics/E-0016-formula-first-core-purification/spec.md`
+- `work/epics/E-0011-svelte-ui/spec.md`
+- `work/epics/E-0018-headless-pipeline-and-optimization/spec.md`
 - `docs/architecture/template-draft-model-run-bundle-boundary.md`
 - `ROADMAP.md`
 - `work/gaps.md`

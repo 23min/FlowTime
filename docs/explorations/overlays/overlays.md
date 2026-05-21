@@ -110,13 +110,13 @@ Scenario overlays are a natural companion to anomaly detection:
 - Anomaly detection says "capacity is insufficient."
 - Overlays let the user test "what if we add 2 workers?"
 
-This pairing is why overlays belong in the bridge-work layer after E-16 and the resumed p3c/p3b analytical work, and before E-17-style live interaction. They should provide the derived-run and comparison contract that later UI/session work consumes rather than re-inventing.
+This pairing is why overlays belong in the bridge-work layer after E-0016 and the resumed p3c/p3b analytical work, and before E-0017-style live interaction. They should provide the derived-run and comparison contract that later UI/session work consumes rather than re-inventing.
 
 ## Recommended Sequencing
 
-- Land after E-16 stabilizes authoritative state/graph facts and run provenance surfaces.
+- Land after E-0016 stabilizes authoritative state/graph facts and run provenance surfaces.
 - Prefer after resumed Phase 3 p3c + p3b so variability- and WIP-aware experiments use the same canonical overlay contract.
-- Use overlays as bridge work before E-17 interactive sessions; live controls should call into derived-run/comparison semantics rather than define a second what-if model.
+- Use overlays as bridge work before E-0017 interactive sessions; live controls should call into derived-run/comparison semantics rather than define a second what-if model.
 
 ## Milestone Decomposition (Suggested)
 

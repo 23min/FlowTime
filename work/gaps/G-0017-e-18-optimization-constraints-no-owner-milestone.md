@@ -44,7 +44,7 @@ Not scheduled. No owner milestone. Tracked here pending planning.
 
 - `src/FlowTime.TimeMachine/Sweep/OptimizeSpec.cs`
 - `src/FlowTime.TimeMachine/Sweep/Optimizer.cs`
-- `work/epics/E-18-headless-pipeline-and-optimization/m-E18-12-optimization.md` (deferred note)
-- `work/epics/E-18-headless-pipeline-and-optimization/e18-gap-analysis.md` (gap #4)
+- `work/epics/E-0018-headless-pipeline-and-optimization/m-E18-12-optimization.md` (deferred note)
+- `work/epics/E-0018-headless-pipeline-and-optimization/e18-gap-analysis.md` (gap #4)
 
 ---

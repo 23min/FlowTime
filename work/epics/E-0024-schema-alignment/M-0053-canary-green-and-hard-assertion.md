@@ -66,10 +66,10 @@ The canary reported `val-err=0` at M-0052's wrap. This milestone makes that zero
 **Documentation aligned.** Any architecture doc (`docs/architecture/*`) that still describes the pre-E-0024 two-type / two-schema shape is updated to reflect the post-E-0024 unified reality. Historical descriptions move to `docs/archive/` if they are still useful as history, or are deleted. `docs/schemas/README.md` (rewritten in M-0051) is verified current. The tracking doc lists every audited file and its disposition.
 ### AC-6 — E-0023 pause is cleared
 
-**E-0023 pause is cleared.** `work/epics/E-23-model-validation-consolidation/spec.md` status flips from `paused` to `ready-to-resume` (or to `in-progress` — reviewer choice). The E-0023 spec's amendment notes E-0024's close and points to the canary green assertion as the entry condition for M-0047. Same status-surface sweep across `ROADMAP.md`, `work/epics/epic-roadmap.md`, and `CLAUDE.md`.
+**E-0023 pause is cleared.** `work/epics/E-0023-model-validation-consolidation/spec.md` status flips from `paused` to `ready-to-resume` (or to `in-progress` — reviewer choice). The E-0023 spec's amendment notes E-0024's close and points to the canary green assertion as the entry condition for M-0047. Same status-surface sweep across `ROADMAP.md`, `work/epics/epic-roadmap.md`, and `CLAUDE.md`.
 ### AC-7 — Decisions logged
 
-**Decisions logged.** A new decision entry records E-0024's close and notes any deltas between M-0049's design decisions and the final landed state (there should be none if the milestones executed as planned; if any, they are documented as sub-decisions). Candidate ID: `D-2026-MM-DD-NNN: E-24 Schema Alignment closed; E-23 ready to resume`.
+**Decisions logged.** A new decision entry records E-0024's close and notes any deltas between M-0049's design decisions and the final landed state (there should be none if the milestones executed as planned; if any, they are documented as sub-decisions). Candidate ID: `D-2026-MM-DD-NNN: E-0024 Schema Alignment closed; E-0023 ready to resume`.
 ### AC-8 — No new validator features
 
 **No new validator features.** The canary's promotion is the only behavior change here. No new tiers, no line/column mapping, no suggestion hints. Out-of-scope work remains out.
@@ -91,13 +91,13 @@ The canary reported `val-err=0` at M-0052's wrap. This milestone makes that zero
 ## Surfaces touched
 
 - `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs` (assertion promotion)
-- `work/epics/E-23-model-validation-consolidation/spec.md` (status flip)
+- `work/epics/E-0023-model-validation-consolidation/spec.md` (status flip)
 - `ROADMAP.md` (E-0023 status flip, E-0024 completion note)
 - `work/epics/epic-roadmap.md` (E-0023 + E-0024 status sync)
 - `CLAUDE.md` (Current Work section update)
 - `work/decisions.md` (E-0024 close entry)
 - `docs/` (documentation alignment — specific files identified in M-0053's tracking doc after audit)
-- `work/epics/E-24-schema-alignment/m-E24-05-canary-green-hard-assertion-tracking.md` (new)
+- `work/epics/E-0024-schema-alignment/m-E24-05-canary-green-hard-assertion-tracking.md` (new)
 
 ## Out of Scope
 
@@ -113,8 +113,8 @@ The canary reported `val-err=0` at M-0052's wrap. This milestone makes that zero
 
 ## References
 
-- Epic spec: `work/epics/E-24-schema-alignment/spec.md`
+- Epic spec: `work/epics/E-0024-schema-alignment/spec.md`
 - Canary test: `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs`
-- E-0023 spec: `work/epics/E-23-model-validation-consolidation/spec.md` — status flip target
+- E-0023 spec: `work/epics/E-0023-model-validation-consolidation/spec.md` — status flip target
 - CLAUDE.md Current Work section
 - Prior milestone tracking docs (M-0049 through M-0052)

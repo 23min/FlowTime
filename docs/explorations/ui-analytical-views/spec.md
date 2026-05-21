@@ -2,8 +2,8 @@
 
 **Status:** draft
 **Depends on:** UI Workbench epic (for view switcher and shared state),
-E-16 truth-gated state/window contracts, and the relevant resumed E-10 primitives
-**Absorbs:** E-14 (Visualizations / Chart Gallery) — the chart gallery concept
+E-0016 truth-gated state/window contracts, and the relevant resumed E-0010 primitives
+**Absorbs:** E-0014 (Visualizations / Chart Gallery) — the chart gallery concept
 is replaced by purpose-built analytical views
 **Architecture:** [reference/ui-paradigm.md](../ui-workbench/reference/ui-paradigm.md)
 
@@ -48,7 +48,7 @@ API needed.
 A per-node deep-dive showing **cycle time decomposition** and queueing
 theory diagnostics.
 
-**Depends on:** stable post-E-16 fact surfaces plus the cycle-time and
+**Depends on:** stable post-E-0016 fact surfaces plus the cycle-time and
 Kingman primitives — gracefully degrades when richer diagnostics are
 unavailable (shows only what the engine provides).
 
@@ -78,7 +78,7 @@ with different parameters).
 
 **Depends on:** Scenario Overlay infrastructure (overlays epic). Can start
 with two separate runs compared manually, but the durable comparison
-contract should come from post-E-16 overlay work rather than ad hoc UI logic.
+contract should come from post-E-0016 overlay work rather than ad hoc UI logic.
 
 **Contents:**
 - Two topology DAGs side by side, same layout, same color scale
@@ -103,7 +103,7 @@ A validation-focused view showing conservation checks and model health.
 
 **Rendering:** Styled table. Simple.
 
-### V5: Role-Based Chart Bundles (from E-14)
+### V5: Role-Based Chart Bundles (from E-0014)
 
 Curated chart combinations for specific audiences:
 
@@ -181,7 +181,7 @@ CSS class toggle.
    independently? A shared primitive set prevents drift but adds upfront
    cost. Decide during first implementation.
 
-5. **E-14 transition:** Closed. E-14 is retained only as historical planning
+5. **E-0014 transition:** Closed. E-0014 is retained only as historical planning
   context; role-based presets now live inside this epic.
 
 ## Milestones
@@ -189,8 +189,8 @@ CSS class toggle.
 To be defined during planning. Likely sequence:
 
 1. View switcher infrastructure (shared state, URL routing, transitions)
-2. Heatmap view (V1) — highest standalone value, least dependency beyond the post-E-16 fact surface
-3. Decomposition view (V2) — after the post-E-16 fact surface is stable; enriched further when resumed p3c diagnostics are available
+2. Heatmap view (V1) — highest standalone value, least dependency beyond the post-E-0016 fact surface
+3. Decomposition view (V2) — after the post-E-0016 fact surface is stable; enriched further when resumed p3c diagnostics are available
 4. Flow balance view (V4) — uses existing InvariantAnalyzer output
 5. Comparison view (V3) — after scenario overlay infrastructure
 6. Role presets (V5) — after V1-V4 are stable

@@ -249,4 +249,4 @@ Load the **queue-with-wip** model → see the topology graph with queue node and
 - `ui/src/lib/api/engine-session.ts` — WebSocket client to extend with graph type
 - `engine/cli/src/protocol.rs` — session protocol types to extend
 - `engine/cli/src/session.rs` — session compile handler to extend
-- `work/epics/E-17-interactive-what-if-mode/m-E17-02-svelte-parameter-panel.md` — prior milestone
+- `work/epics/E-0017-interactive-what-if-mode/m-E17-02-svelte-parameter-panel.md` — prior milestone

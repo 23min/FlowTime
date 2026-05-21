@@ -7,7 +7,7 @@ The current `IModelEvaluator` seam has two implementations — `RustModelEvaluat
 For Studio, this boundary gets expensive:
 
 - **Per-session memory multiplies.** “One Rust process per session” with ~50 concurrent sessions = 50 process address spaces. The alternative — a pooled subprocess with session affinity — is real complexity that does not serve users.
-- **Session IR wants direct access to engine state.** Node identity, per-node cache, and generation counters live in Rust (per M-046). The .NET session service projects patches onto that state via IPC round-trips. A shared-memory boundary would let the service hand the evaluator `&mut Graph` or an `Arc<Session>` directly.
+- **Session IR wants direct access to engine state.** Node identity, per-node cache, and generation counters live in Rust (per M-0046). The .NET session service projects patches onto that state via IPC round-trips. A shared-memory boundary would let the service hand the evaluator `&mut Graph` or an `Arc<Session>` directly.
 - **Cold start matters for short-lived embedders.** `FlowTime.Pipeline` SDK callers pay subprocess startup per invocation unless they keep a session open; an in-process library pays zero.
 - **Container profile.** On cloud-agnostic hosting (Hetzner, plain Docker), collapsing engine + service into one process shrinks image size and PID footprint.
 
@@ -42,4 +42,4 @@ Not worth it if:
 
 ## Provenance
 
-Originated as gap G-030 (2026-04-26); content moved to this note 2026-05-02 because it reads as design exploration rather than deferred engineering work. The gap was closed `wontfix` with a pointer here.
+Originated as gap G-0030 (2026-04-26); content moved to this note 2026-05-02 because it reads as design exploration rather than deferred engineering work. The gap was closed `wontfix` with a pointer here.

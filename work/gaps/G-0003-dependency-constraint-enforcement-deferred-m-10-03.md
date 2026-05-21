@@ -16,7 +16,7 @@ M-0065 scoped MCP-side pattern enforcement: a dependency pattern selector routin
 After Phase 3.5 (runtime constraint enforcement) is complete. At that point, M-0065 should be re-scoped to include both runtime enforcement and MCP guardrails.
 
 ### Reference
-- Spec: `work/epics/E-12-dependency-constraints/M-10.03-dependency-mcp-pattern-enforcement.md`
+- Spec: `work/epics/E-0012-dependency-constraints/M-10.03-dependency-mcp-pattern-enforcement.md`
 - Review: `docs/architecture/reviews/review-sequenced-plan-2026-03.md` (Phase 3.5, Phase 4.1)
 
 ---

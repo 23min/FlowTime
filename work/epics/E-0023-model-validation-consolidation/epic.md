@@ -57,7 +57,7 @@ The historical context — the pause for E-0024, the original M-0046 "schema-ali
 - New validator features: line/column mapping, LSP integration, incremental validation, per-field suggestions, compile-time rule extraction, schema-draft migration. The goal is consolidation, not expansion.
 - `Template`-layer validation. `TemplateSchemaValidator` validates pre-substitution authoring templates against `template.schema.json` — that is genuinely a different contract and stays distinct. E-0023 only touches post-substitution model validation.
 - Reintroducing any deprecated schema fields (`binMinutes`, snake_case provenance, two-type YAML, etc.). Per project rules.
-- External-consumer compatibility. No camelCase aliases, no dual-shape acceptance, no migration mode. Forward-only per `ADR-E-24-02`.
+- External-consumer compatibility. No camelCase aliases, no dual-shape acceptance, no migration mode. Forward-only per `ADR-E-0024-02`.
 
 ## Constraints
 
@@ -104,9 +104,9 @@ The historical context — the pause for E-0024, the original M-0046 "schema-ali
 
 Sequencing: rule-coverage audit first (doc-only with schema and adjunct additions where the audit shows they are needed), then call-site migration (mechanical with phrasing audit), then `ModelValidator` deletion (cleanup + assertion that nothing calls it anymore). Three milestones.
 
-- [M-0046](./M-046.md) — Audit every embedment of model rules across `ModelValidator.cs`, `ModelParser.cs`, `SimModelBuilder.cs`, and post-parse orchestration. Land schema additions and `ModelSchemaValidator` adjuncts so every rule has a single canonical home. Negative-case canary catalogue locks coverage in. · **completed (2026-04-26 on `milestone/m-E23-01-rule-coverage-audit`)** — 94 rules audited, 16 schema-add edits, 12 adjunct methods (+ silent-error fallback), 26-test regression catalogue, AC1-AC9 closed · depends on: —
-- [M-0047](./M-047.md) — Switch every production call site and test from `ModelValidator.Validate` to `ModelSchemaValidator.Validate`. Audit error-message phrasing and update test assertions / UI consumers as needed. `ModelValidator.cs` left on disk as a single-revert safety net. · **completed (2026-04-26 on `milestone/m-E23-02-call-site-migration`)** — 3 production sites + 28 test calls migrated; `TimeMachineValidator` redundant-delegation block removed; scope-expansion fixes for `ProvenanceService.StripProvenance` (real production round-trip bug surfaced by the new strict validator) + 2 stale fixtures + 1 documented-future test flip; +16 net new tests (10 strip branch-coverage + 2 integration regression + 4 strip sub-case). Both canaries green. AC1-AC8 closed (AC9 deferred — optional). · depends on: M-0046
-- [M-0048](./M-048.md) — Delete `ModelValidator.cs` and any dedicated `ModelValidator`-only test files that survived M-0047. Move `ValidationResult` to its own file. Assert `grep` returns zero callers. Archive E-0023. · **completed (2026-04-26 on `milestone/m-E23-03-delete-model-validator`)** — `ModelValidator.cs` deleted; `ValidationResult` (14 lines) relocated to `src/FlowTime.Core/Models/ValidationResult.cs` keeping namespace `FlowTime.Core`; AC3 grep clean (7 historical-comment hits, zero live references); both canaries green; full suite **1862 / 0 / 9** — identical to M-0047 tip. Epic-folder archived to `work/epics/completed/E-23-model-validation-consolidation/` on merge to main. · depends on: M-0047
+- [M-0046](./M-0046.md) — Audit every embedment of model rules across `ModelValidator.cs`, `ModelParser.cs`, `SimModelBuilder.cs`, and post-parse orchestration. Land schema additions and `ModelSchemaValidator` adjuncts so every rule has a single canonical home. Negative-case canary catalogue locks coverage in. · **completed (2026-04-26 on `milestone/m-E23-01-rule-coverage-audit`)** — 94 rules audited, 16 schema-add edits, 12 adjunct methods (+ silent-error fallback), 26-test regression catalogue, AC1-AC9 closed · depends on: —
+- [M-0047](./M-0047.md) — Switch every production call site and test from `ModelValidator.Validate` to `ModelSchemaValidator.Validate`. Audit error-message phrasing and update test assertions / UI consumers as needed. `ModelValidator.cs` left on disk as a single-revert safety net. · **completed (2026-04-26 on `milestone/m-E23-02-call-site-migration`)** — 3 production sites + 28 test calls migrated; `TimeMachineValidator` redundant-delegation block removed; scope-expansion fixes for `ProvenanceService.StripProvenance` (real production round-trip bug surfaced by the new strict validator) + 2 stale fixtures + 1 documented-future test flip; +16 net new tests (10 strip branch-coverage + 2 integration regression + 4 strip sub-case). Both canaries green. AC1-AC8 closed (AC9 deferred — optional). · depends on: M-0046
+- [M-0048](./M-0048.md) — Delete `ModelValidator.cs` and any dedicated `ModelValidator`-only test files that survived M-0047. Move `ValidationResult` to its own file. Assert `grep` returns zero callers. Archive E-0023. · **completed (2026-04-26 on `milestone/m-E23-03-delete-model-validator`)** — `ModelValidator.cs` deleted; `ValidationResult` (14 lines) relocated to `src/FlowTime.Core/Models/ValidationResult.cs` keeping namespace `FlowTime.Core`; AC3 grep clean (7 historical-comment hits, zero live references); both canaries green; full suite **1862 / 0 / 9** — identical to M-0047 tip. Epic-folder archived to `work/epics/completed/E-0023-model-validation-consolidation/` on merge to main. · depends on: M-0047
 
 ## ADRs
 
@@ -138,8 +138,8 @@ Sequencing: rule-coverage audit first (doc-only with schema and adjunct addition
 
 ### Related epics
 
-- **E-0024 Schema Alignment** (closed 2026-04-25): `work/epics/completed/E-24-schema-alignment/spec.md` — unified the type and the schema; E-0023 builds on that foundation.
-- **E-0021 Svelte Workbench** (paused at M-0044): `work/epics/E-21-svelte-workbench-and-analysis/spec.md` — M-0044 Validation Surface consumes the consolidated `ModelSchemaValidator` once E-0023 closes.
+- **E-0024 Schema Alignment** (closed 2026-04-25): `work/epics/completed/E-0024-schema-alignment/spec.md` — unified the type and the schema; E-0023 builds on that foundation.
+- **E-0021 Svelte Workbench** (paused at M-0044): `work/epics/E-0021-svelte-workbench-and-analysis/spec.md` — M-0044 Validation Surface consumes the consolidated `ModelSchemaValidator` once E-0023 closes.
 
 ### Truth Discipline
 

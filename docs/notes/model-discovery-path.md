@@ -1,7 +1,7 @@
 # Model Discovery Path
 
 **Status:** Aspirational — partially built; key stages not yet started
-**Context:** Complements E-15, Telemetry Loop & Parity, and E-18 Time Machine
+**Context:** Complements E-0015, Telemetry Loop & Parity, and E-0018 Time Machine
 
 ---
 
@@ -24,13 +24,13 @@ This is not one problem. It is three sequential problems:
 ```
 Raw data
   │
-  ▼  [E-15 Gold Builder]
+  ▼  [E-0015 Gold Builder]
 Canonical telemetry bundles    ← binned facts per node per time window
   │
-  ▼  [E-15 Graph Builder]
+  ▼  [E-0015 Graph Builder]
 Topology                       ← nodes, edges, confidence scores, human curation
   │
-  ▼  [E-18 Fit + Telemetry Loop & Parity]
+  ▼  [E-0018 Fit + Telemetry Loop & Parity]
 Fitted parameters              ← values that minimize residual vs observed telemetry
   │
   ▼
@@ -42,7 +42,7 @@ start until the upstream one produces clean output.
 
 ---
 
-## Stage 1 — Telemetry ingestion (E-15 Gold Builder)
+## Stage 1 — Telemetry ingestion (E-0015 Gold Builder)
 
 **Status:** Not started. Schema defined; no ingestion pipeline exists.
 
@@ -62,13 +62,13 @@ facts. Gap filling, class coverage metadata, and data quality warnings are produ
 as first-class artifacts — low-quality data is surfaced explicitly, not silently hidden.
 
 **References:**
-- `work/epics/E-15-telemetry-ingestion/spec.md` — full scope and milestone decomposition
-- `work/epics/E-15-telemetry-ingestion/reference/dataset-fitness-and-ingestion-research.md`
+- `work/epics/E-0015-telemetry-ingestion/spec.md` — full scope and milestone decomposition
+- `work/epics/E-0015-telemetry-ingestion/reference/dataset-fitness-and-ingestion-research.md`
   — what makes a dataset FlowTime-fit; three dataset fitness gates
 
 ---
 
-## Stage 2 — Topology inference (E-15 Graph Builder)
+## Stage 2 — Topology inference (E-0015 Graph Builder)
 
 **Status:** Not started. Inference methods documented; no implementation.
 
@@ -86,13 +86,13 @@ carries confidence scores and provenance; humans accept/reject edges, merge/spli
 nodes, and annotate node kinds before a model is considered ready for fitting.
 
 **References:**
-- `work/epics/E-15-telemetry-ingestion/spec.md` — Graph Builder scope and milestone plan
+- `work/epics/E-0015-telemetry-ingestion/spec.md` — Graph Builder scope and milestone plan
 - Target datasets: BPI Challenge 2012 (loan applications), Road Traffic Fines, PeMS,
   MTA Ridership + GTFS — see dataset fitness reference for fit assessment
 
 ---
 
-## Stage 3 — Parameter fitting (E-18 Fit)
+## Stage 3 — Parameter fitting (E-0018 Fit)
 
 **Status:** Infrastructure exists; Fit endpoint not assembled.
 
@@ -106,7 +106,7 @@ residual between model output and observed telemetry. The inner loop is already 
 
 What is not yet assembled: a `FitSpec` / `FitRunner` that loads a telemetry bundle,
 computes the residual against model output at each evaluation point, and drives the
-optimizer toward minimum residual. This is E-18's planned "Fit" mode.
+optimizer toward minimum residual. This is E-0018's planned "Fit" mode.
 
 **Prerequisite:** Telemetry Loop & Parity — a parity harness that verifies a synthetic
 run reproduces a telemetry replay within defined tolerances. Without measured drift
@@ -114,7 +114,7 @@ bounds, fitting is unvalidated: you can minimize the residual, but you cannot te
 whether the model is actually calibrated or just overfit to noise.
 
 **References:**
-- `work/epics/E-18-headless-pipeline-and-optimization/spec.md` — Time Machine epic
+- `work/epics/E-0018-headless-pipeline-and-optimization/spec.md` — Time Machine epic
 - `docs/architecture/time-machine-analysis-modes.md` — current analysis mode inventory
   (Fit listed as future; Optimizer as current)
 - `docs/explorations/telemetry-loop-parity/spec.md` — Parity harness proposal
@@ -138,10 +138,10 @@ Event logs
 Process graph + aggregate statistics
   (activity throughput, median service times, rework rates, routing probabilities)
   │
-  ▼  [E-15 Gold Builder — if not already aggregated]
+  ▼  [E-0015 Gold Builder — if not already aggregated]
 FlowTime canonical telemetry bundle
   │
-  ▼  [E-15 Graph Builder or manual authoring]
+  ▼  [E-0015 Graph Builder or manual authoring]
 FlowTime topology + fitted parameters
   │
   ▼
@@ -164,20 +164,20 @@ needs as input. The two tools share a dataset but answer different questions.
 | Load canonical telemetry | Working | `FileCsvSource`, `CanonicalBundleSource` (m-E18-08) |
 | Identify which parameters to fit | Working | `SensitivityRunner` — rank by \|∂metric/∂param\| |
 | Fit parameters to target metric | Partial | `Optimizer` (Nelder-Mead) can minimize any residual — Fit endpoint not wired |
-| Ingest raw event logs or CSV data | Not built | E-15 Gold Builder |
-| Infer topology from traces | Not built | E-15 Graph Builder |
+| Ingest raw event logs or CSV data | Not built | E-0015 Gold Builder |
+| Infer topology from traces | Not built | E-0015 Graph Builder |
 | Validate fit against telemetry | Not built | Telemetry Loop & Parity |
 
-The path to a first end-to-end validated model from real data: E-15 M1 (Gold Builder) →
-E-15 M2 (Graph Builder) → Telemetry Loop & Parity v1 → E-18 Fit mode.
+The path to a first end-to-end validated model from real data: E-0015 M1 (Gold Builder) →
+E-0015 M2 (Graph Builder) → Telemetry Loop & Parity v1 → E-0018 Fit mode.
 
 ---
 
 ## References
 
-- `work/epics/E-15-telemetry-ingestion/spec.md`
-- `work/epics/E-15-telemetry-ingestion/reference/dataset-fitness-and-ingestion-research.md`
+- `work/epics/E-0015-telemetry-ingestion/spec.md`
+- `work/epics/E-0015-telemetry-ingestion/reference/dataset-fitness-and-ingestion-research.md`
 - `docs/explorations/telemetry-loop-parity/spec.md`
-- `work/epics/E-18-headless-pipeline-and-optimization/spec.md`
+- `work/epics/E-0018-headless-pipeline-and-optimization/spec.md`
 - `docs/architecture/time-machine-analysis-modes.md`
 - `docs/notes/ui-optimization-explorer-vision.md` — UI surface for model exploration

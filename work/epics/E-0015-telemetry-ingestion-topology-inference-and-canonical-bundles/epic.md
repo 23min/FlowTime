@@ -17,7 +17,7 @@ FlowTime currently assumes topology is hand-built and telemetry fills series for
 1. **Domain-agnostic adoption** — FlowTime should work for any process with entities flowing through a system: IT microservices, business workflows, transit networks, logistics.
 2. **Validation against real data** — Synthetic models validate correctness but not usefulness. Real data proves FlowTime's analytical primitives produce answers that matter.
 
-The March 2026 dataset fitness research (`work/epics/E-15-telemetry-ingestion/reference/dataset-fitness-and-ingestion-research.md`) identifies process mining event logs, distributed systems traces, and physical network telemetry as candidate validation datasets.
+The March 2026 dataset fitness research (`work/epics/E-0015-telemetry-ingestion/reference/dataset-fitness-and-ingestion-research.md`) identifies process mining event logs, distributed systems traces, and physical network telemetry as candidate validation datasets.
 
 ## Scope
 
@@ -132,12 +132,12 @@ Ingestion rules ensure:
 | MTA Ridership + GTFS | Transit passengers | Passengers as entities, incidents, schedule backbone | M3 |
 | Alibaba Cluster Trace 2018 | Microservices | IT validation, millions of requests, trace-based topology | Future |
 
-See `work/epics/E-15-telemetry-ingestion/reference/dataset-fitness-and-ingestion-research.md` for the full evaluation and dataset fitness checklist.
+See `work/epics/E-0015-telemetry-ingestion/reference/dataset-fitness-and-ingestion-research.md` for the full evaluation and dataset fitness checklist.
 
 ## References
 
-- `work/epics/E-15-telemetry-ingestion/reference/dataset-fitness-and-ingestion-research.md` — Dataset fitness research
+- `work/epics/E-0015-telemetry-ingestion/reference/dataset-fitness-and-ingestion-research.md` — Dataset fitness research
 - `work/epics/completed/time-travel/telemetry-generation-explicit.md` — Existing telemetry capture
 - `docs/reference/engine-capabilities.md` — Engine capabilities
 - `docs/schemas/telemetry-manifest.schema.json` — Bundle manifest schema
-- `work/epics/E-10-engine-correctness-and-analytics/spec.md` — Phase 3 analytical primitives (dependency)
+- `work/epics/E-0010-engine-correctness-and-analytics/spec.md` — Phase 3 analytical primitives (dependency)

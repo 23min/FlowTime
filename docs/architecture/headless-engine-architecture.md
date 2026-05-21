@@ -2,7 +2,7 @@
 
 **Status:** Draft — for discussion
 **Date:** 2026-04-10
-**Context:** E-20 complete. The Rust engine is a batch subprocess. We need parameterized evaluation and a streaming protocol so the engine becomes a pipeline component that the UI (and other clients) consume as a stream.
+**Context:** E-0020 complete. The Rust engine is a batch subprocess. We need parameterized evaluation and a streaming protocol so the engine becomes a pipeline component that the UI (and other clients) consume as a stream.
 
 ## Problem
 
@@ -190,7 +190,7 @@ The parameter panel is auto-generated from the parameter schema returned by `com
 
 ## Implementation Sequence
 
-### Epic: E-21 Headless Engine & Interactive Pipeline
+### Epic: E-0021 Headless Engine & Interactive Pipeline
 
 | # | Milestone | Scope |
 |---|-----------|-------|

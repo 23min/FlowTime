@@ -34,9 +34,9 @@ Ensure the **telemetry loop** is a measurable contract, not just a narrative: sy
 
 ## Recommended Sequencing
 
-- Start after E-15 produces the first repeatable dataset path and replayable canonical bundle.
-- Consume post-E-16 authoritative state/graph facts rather than legacy client-side heuristics.
-- Complete before E-18 fitting/optimization or anomaly automation against real telemetry so downstream loops are grounded in measured drift.
+- Start after E-0015 produces the first repeatable dataset path and replayable canonical bundle.
+- Consume post-E-0016 authoritative state/graph facts rather than legacy client-side heuristics.
+- Complete before E-0018 fitting/optimization or anomaly automation against real telemetry so downstream loops are grounded in measured drift.
 
 ## Parity Principles
 
@@ -52,8 +52,8 @@ Ensure the **telemetry loop** is a measurable contract, not just a narrative: sy
 
 ## Dependencies
 
-- E-15 Telemetry Ingestion and Canonical Bundles for the first replayable dataset path.
-- E-16 Formula-First Core Purification for authoritative analytical/category facts on `/state`, `/state_window`, and `/graph`.
+- E-0015 Telemetry Ingestion and Canonical Bundles for the first replayable dataset path.
+- E-0016 Formula-First Core Purification for authoritative analytical/category facts on `/state`, `/state_window`, and `/graph`.
 - Not dependent on overlays or interactive UI; those are downstream consumers of the parity-checked loop.
 
 ## References

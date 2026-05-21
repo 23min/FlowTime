@@ -120,7 +120,7 @@ After M-0050, the unified type exists and Sim emits it directly. The schema must
 - `docs/schemas/model.schema.yaml` (rewrite)
 - `docs/schemas/README.md` (rewrite)
 - `docs/architecture/` entries that describe schemas (audit + update or archive per tracking doc)
-- `work/epics/E-24-schema-alignment/m-E24-03-schema-unification-tracking.md` (new)
+- `work/epics/E-0024-schema-alignment/m-E24-03-schema-unification-tracking.md` (new)
 - Potentially `src/FlowTime.Core/Models/ModelSchemaValidator.cs` only if M-0049 identified a rule requiring an adjunct; default path is no code changes
 
 ## Out of Scope
@@ -138,10 +138,10 @@ After M-0050, the unified type exists and Sim emits it directly. The schema must
 
 ## References
 
-- Epic spec: `work/epics/E-24-schema-alignment/spec.md`
-- M-0049 tracking doc: `work/epics/E-24-schema-alignment/m-E24-01-inventory-and-design-decisions-tracking.md`
-- M-0050 tracking doc: `work/epics/E-24-schema-alignment/m-E24-02-unify-model-type-tracking.md`
-- M-0046 full-shape audit (histogram input): `work/epics/E-23-model-validation-consolidation/m-E23-01-schema-alignment-tracking.md` → "AC4 canary re-run, full-shape audit (2026-04-24)"
+- Epic spec: `work/epics/E-0024-schema-alignment/spec.md`
+- M-0049 tracking doc: `work/epics/E-0024-schema-alignment/m-E24-01-inventory-and-design-decisions-tracking.md`
+- M-0050 tracking doc: `work/epics/E-0024-schema-alignment/m-E24-02-unify-model-type-tracking.md`
+- M-0046 full-shape audit (histogram input): `work/epics/E-0023-model-validation-consolidation/m-E23-01-schema-alignment-tracking.md` → "AC4 canary re-run, full-shape audit (2026-04-24)"
 - Schema file: `docs/schemas/model.schema.yaml`
 - Schema README (to be rewritten): `docs/schemas/README.md`
 - Canary test: `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs`

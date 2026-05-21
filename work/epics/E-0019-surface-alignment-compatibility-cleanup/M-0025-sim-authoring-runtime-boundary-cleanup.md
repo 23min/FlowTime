@@ -38,7 +38,7 @@ acs:
 
 ## Goal
 
-Execute the runtime deletions locked by [M-0024](./M-024.md) A1–A6: remove stored drafts, the Sim ZIP archive layer, Engine bundle-import and dead direct-eval routes, runtime catalogs, and the Sim-only `POST /api/v1/drafts/validate` wrapper. Narrow `POST /api/v1/drafts/run` to inline-source only. When this milestone closes, Sim authoring surfaces expose only the explicitly supported paths and Engine exposes only the canonical query/operator surface over `data/runs/<runId>/`.
+Execute the runtime deletions locked by [M-0024](./M-0024.md) A1–A6: remove stored drafts, the Sim ZIP archive layer, Engine bundle-import and dead direct-eval routes, runtime catalogs, and the Sim-only `POST /api/v1/drafts/validate` wrapper. Narrow `POST /api/v1/drafts/run` to inline-source only. When this milestone closes, Sim authoring surfaces expose only the explicitly supported paths and Engine exposes only the canonical query/operator surface over `data/runs/<runId>/`.
 
 ## Context
 
@@ -186,7 +186,7 @@ At milestone wrap:
 - [work/epics/E-0019-surface-alignment-and-compatibility-cleanup/spec.md](./spec.md) milestone table marks M-0025 complete and M-0026 next.
 - [ROADMAP.md](../../../ROADMAP.md) and [work/epics/epic-roadmap.md](../../epic-roadmap.md) reflect the same status.
 - [CLAUDE.md](../../../CLAUDE.md) Current Work section names M-0025 complete and M-0026 next.
-- The tracking doc [M-0025.md](./M-025.md) records every AC checked, the final test count, and the grep guard results.
+- The tracking doc [M-0025.md](./M-0025.md) records every AC checked, the final test count, and the grep guard results.
 - `work/decisions.md` does **not** need new entries — this milestone executes decisions A1–A6 already recorded under D-0036 through D-0041. If an implementation judgment call surfaces that M-0024 did not anticipate, it is logged in `work/gaps.md` or as a new D-entry at wrap time.
 
 ## Technical Notes
@@ -251,7 +251,7 @@ Forward-only deletion, not migration:
 
 ## Guards / DO NOT
 
-- **DO NOT** preserve a 410-style rejection stub or advisory tombstone for any deleted route. Forward-only deletion per shared framing in [M-0024 § Shared Framing](./M-024.md#shared-framing).
+- **DO NOT** preserve a 410-style rejection stub or advisory tombstone for any deleted route. Forward-only deletion per shared framing in [M-0024 § Shared Framing](./M-0024.md#shared-framing).
 - **DO NOT** design or stub anything under `FlowTime.TimeMachine` or any `Headless` namespace. The Time Machine is E-0018 m-E18-01a.
 - **DO NOT** extend the `POST /api/v1/orchestration/runs` surface. It stays as-is; sunsetting is an E-0018 decision.
 - **DO NOT** add new compatibility wrappers, feature flags, or configuration toggles to keep deleted behaviour reachable in any environment.
@@ -262,13 +262,13 @@ Forward-only deletion, not migration:
 
 ## Dependencies
 
-- [M-0024 Supported Surface Inventory, Boundary ADR & Exit Criteria](./M-024.md) — locks A1–A6 decisions and the boundary ADR this milestone executes against.
+- [M-0024 Supported Surface Inventory, Boundary ADR & Exit Criteria](./M-0024.md) — locks A1–A6 decisions and the boundary ADR this milestone executes against.
 - [docs/architecture/supported-surfaces.md](../../../docs/architecture/supported-surfaces.md) — authoritative row-by-row ownership for deletions.
 - [docs/architecture/template-draft-model-run-bundle-boundary.md](../../../docs/architecture/template-draft-model-run-bundle-boundary.md) — current/transitional/target diagrams that deletions must not contradict.
 
 ## References
 
 - [E-0019 epic spec](./spec.md)
-- [M-0024 spec](./M-024.md)
+- [M-0024 spec](./M-0024.md)
 - [work/decisions.md](../../decisions.md) — D-0030 (A6), D-0035 through D-0041 (shared framing and A1–A5)
-- [E-0018 epic spec](../E-18-headless-pipeline-and-optimization/spec.md) — downstream dependency for validation replacement
+- [E-0018 epic spec](../E-0018-headless-pipeline-and-optimization/spec.md) — downstream dependency for validation replacement

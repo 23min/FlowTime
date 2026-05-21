@@ -19,8 +19,8 @@ FlowTime ships **two HTTP services, two CLIs, two UIs, and a Rust engine subproc
 
 - **The two services don't talk to each other over HTTP.** Both link the same in-process libraries (`FlowTime.Sim.Core`, `FlowTime.Core`, `FlowTime.TimeMachine`). The "Sim vs Engine" framing is a deployment split, not an architectural one. Their only inter-service contract is a shared `data/runs/` filesystem.
 - **Parameter substitution happens at the YAML *text* level**, before the engine sees the model. `${splitAirport}` is replaced by `0.3` via raw string substitution in `TemplateService.SubstituteParameters`. By the time validators or evaluators run, parameter names are gone. This is the central cost driver for AI-authoring feedback, validation diagnostics, and time-machine ergonomics.
-- **The C# `FlowTime.Core` evaluator is authoritative for the basic `POST /v1/run` path.** The Rust engine (`engine/`, ~218 tests) is invoked as a subprocess for analysis modes — sweep, sensitivity, goal-seek, multi-parameter optimize via Nelder-Mead — all of which already work today (E-18 done).
-- **Telemetry-mode runs work by pre-baking captured CSV data into const-node values.** No live telemetry feed exists. External telemetry ingestion is E-15, which is `proposed` and unimplemented. The capture-then-bundle direction works (`POST /v1/telemetry/captures`); the live-source direction does not.
+- **The C# `FlowTime.Core` evaluator is authoritative for the basic `POST /v1/run` path.** The Rust engine (`engine/`, ~218 tests) is invoked as a subprocess for analysis modes — sweep, sensitivity, goal-seek, multi-parameter optimize via Nelder-Mead — all of which already work today (E-0018 done).
+- **Telemetry-mode runs work by pre-baking captured CSV data into const-node values.** No live telemetry feed exists. External telemetry ingestion is E-0015, which is `proposed` and unimplemented. The capture-then-bundle direction works (`POST /v1/telemetry/captures`); the live-source direction does not.
 - **Run artifacts are the canonical external contract.** Every entry point routes through `RunArtifactWriter`. The artifact directory shape is the *de facto* contract; the schemas under `docs/schemas/` claim to define it but no test validates writer output against them.
 
 The redesign question isn't "should we merge Sim and Engine" — for most architectural purposes, they're already merged. The question is: **how do we surface that truth, and what do we change about parameter handling so the engine sees what the author meant?**
@@ -37,9 +37,9 @@ The redesign question isn't "should we merge Sim and Engine" — for most archit
 
 5. **Telemetry-as-const-injection is the same pattern parameter-as-node would use.** Telemetry runs already pre-bake CSV data into const-node values. Value parameters would do the same with author-supplied scalars. The redesign aligns with how telemetry already works.
 
-6. **Sweep/sensitivity/goal-seek/optimize already exist and would simplify under the redesign.** All shipped (E-18 done). They re-evaluate models with edited parameter axes via the Rust engine. With parameters as nodes, "vary parameter X" becomes "edit a const node value, re-evaluate" — drastically simpler.
+6. **Sweep/sensitivity/goal-seek/optimize already exist and would simplify under the redesign.** All shipped (E-0018 done). They re-evaluate models with edited parameter axes via the Rust engine. With parameters as nodes, "vary parameter X" becomes "edit a const node value, re-evaluate" — drastically simpler.
 
-7. **The validation tier model has real gaps that affect M-069.** The most consequential: `edge_flow_mismatch_*` warnings — which M-069 is supposed to extend — only fire in the artifact-write path, not from `POST /v1/validate?tier=analyse`. The tier-3 validator passes `edgeSeries=null` and the warnings are unreachable. Plus `ValidationWarning` strips half the diagnostic richness (`Severity`, `Bins`, `Value`, `EdgeIds`) at the boundary. M-069 needs both fixed before its `val-warn` gate is meaningful.
+7. **The validation tier model has real gaps that affect M-0069.** The most consequential: `edge_flow_mismatch_*` warnings — which M-0069 is supposed to extend — only fire in the artifact-write path, not from `POST /v1/validate?tier=analyse`. The tier-3 validator passes `edgeSeries=null` and the warnings are unreachable. Plus `ValidationWarning` strips half the diagnostic richness (`Severity`, `Bins`, `Value`, `EdgeIds`) at the boundary. M-0069 needs both fixed before its `val-warn` gate is meaningful.
 
 8. **Schemas under `docs/schemas/*.schema.json` are not validated against writer output anywhere.** The schemas drift from reality on every canonical artifact (`run.json`, `manifest.json`, `series-index.json`). They function as historical reference, not active contract. This needs to be either fixed (schemas catch up; tests enforce) or stated explicitly (move to archive).
 
@@ -102,16 +102,16 @@ flowchart LR
 | Concern | Status today |
 |---|---|
 | Engine evaluator (basic `POST /v1/run`) | C# `FlowTime.Core`, authoritative |
-| Analysis modes (sweep, sensitivity, goal-seek, optimize) | Rust engine subprocess, shipped (E-18 done) |
+| Analysis modes (sweep, sensitivity, goal-seek, optimize) | Rust engine subprocess, shipped (E-0018 done) |
 | Parameter substitution | YAML-text-level `string.Replace` in Sim, before engine |
 | Sim ↔ Engine HTTP coupling | None |
 | Sim ↔ Engine library coupling | Both link `FlowTime.Sim.Core` + `FlowTime.Core` |
 | Sim ↔ Engine filesystem coupling | Shared `data/runs/` directory |
 | Telemetry capture (run → bundle) | Shipped |
 | Telemetry-mode runs (bundle → engine) | Shipped, via pre-baked const-nodes |
-| External telemetry ingestion (live source) | E-15, proposed, not implemented |
-| Time machine (fit, chunked eval, Pipeline SDK) | E-22, proposed, not implemented |
-| Rust engine parity for basic run | C# remains authoritative; Rust used for analysis only (G-016 gap) |
+| External telemetry ingestion (live source) | E-0015, proposed, not implemented |
+| Time machine (fit, chunked eval, Pipeline SDK) | E-0022, proposed, not implemented |
+| Rust engine parity for basic run | C# remains authoritative; Rust used for analysis only (G-0016 gap) |
 | Rust in CI | Not present |
 | Production deployment | None — Dockerfiles referenced in docs don't exist |
 
@@ -125,7 +125,7 @@ The redesign proposal (next document, not in this bundle) will use this substrat
 
 3. **The cleanup that rides along.** 41 drift items catalogued; 13 cleanup opportunities flagged in the substrate doc. Most cost very little when bundled with a redesign.
 
-4. **What stays out of scope.** Rust parity (G-016), external telemetry ingestion (E-15), Time-Machine fit (E-22), CI test discipline (E-26 already drafted). These are independent.
+4. **What stays out of scope.** Rust parity (G-0016), external telemetry ingestion (E-0015), Time-Machine fit (E-0022), CI test discipline (E-0026 already drafted). These are independent.
 
 ## Investigation methodology
 

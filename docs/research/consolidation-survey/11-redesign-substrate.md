@@ -45,7 +45,7 @@ These surfaces or behaviors must be preserved by any redesign. Removing or chang
 
 ### LB-6 — The `FlowTime.Core` evaluator + `RunArtifactWriter` is the canonical engine
 - **Evidence:** Both HTTP services link `FlowTime.Core` directly. Both CLIs link it directly. The Rust engine `flowtime-engine` is invoked as a subprocess for analysis modes (sweep, sensitivity, goal-seek, optimize) but not for the core `POST /v1/run` evaluation (`09-rust-engine.md`).
-- **Constraint on redesign:** The C# core is authoritative. Rust parity (G-016) is a separate concern that this redesign needs to consider but not solve.
+- **Constraint on redesign:** The C# core is authoritative. Rust parity (G-0016) is a separate concern that this redesign needs to consider but not solve.
 
 ### LB-7 — Sweep / sensitivity / goal-seek / optimize already work via re-evaluation
 - **Evidence:** All four endpoints share a common shape: take resolved YAML, evaluate it many times against a parameter axis. The Rust engine's `IModelEvaluator` is invoked repeatedly with edited parameters (`08-telemetry-and-time-machine.md`).
@@ -175,7 +175,7 @@ A concrete walk-through of what code changes if value parameters become engine n
 
 5. **Run artifact captures parameter nodes explicitly.** `series-index.json` lists them as series with `kind: const` and `componentId: parameter` (new metadata). The provenance still carries the parameter snapshot (unchanged).
 
-6. **Validators see parameter names natively.** `InvariantAnalyzer` can emit warnings naming `splitAirport`, not `0.3`. M-069's heuristics for peer-split detection get drastically richer.
+6. **Validators see parameter names natively.** `InvariantAnalyzer` can emit warnings naming `splitAirport`, not `0.3`. M-0069's heuristics for peer-split detection get drastically richer.
 
 ### What doesn't change
 
@@ -189,7 +189,7 @@ A concrete walk-through of what code changes if value parameters become engine n
 ### What gets cleaner
 
 - **Sweep / sensitivity / goal-seek / optimize** (LB-7) become "edit const node value, re-evaluate" instead of "re-substitute parameters into YAML."
-- **Time machine** (E-22, mostly future) gets its primitive: parameter-mutation as a node-value mutation.
+- **Time machine** (E-0022, mostly future) gets its primitive: parameter-mutation as a node-value mutation.
 - **AI authoring** gets named feedback ("`splitAirport` looks peer-relative" instead of "constant 0.3 in expression").
 - **Telemetry runs and value-parameter runs are structurally identical** — both inject external data into const nodes.
 
@@ -243,14 +243,14 @@ If the redesign happens, here's the bundled cleanup that costs almost nothing ex
 
 These are real concerns surfaced by the investigation but should NOT be folded into the parameter-as-node redesign — they're separate epics:
 
-- **Rust engine parity (G-016 + extensions).** The C#/Rust evaluator alignment is a years-long story; let it stay an independent track.
-- **Telemetry external ingestion (E-15 carrier).** The "Gold Builder" / `TelemetryLoader` / Graph Builder work is its own epic. Parameter unification *aligns* with it (telemetry-as-const-injection is the same shape) but doesn't subsume it.
-- **Time-Machine fit, chunked evaluation, and `FlowTime.Pipeline` SDK (E-22 carrier).** Out of scope for this redesign, but parameter unification provides the cleaner substrate when E-22 lands.
-- **CI improvements for test discipline and static analysis (E-26).** Already drafted as a separate epic.
+- **Rust engine parity (G-0016 + extensions).** The C#/Rust evaluator alignment is a years-long story; let it stay an independent track.
+- **Telemetry external ingestion (E-0015 carrier).** The "Gold Builder" / `TelemetryLoader` / Graph Builder work is its own epic. Parameter unification *aligns* with it (telemetry-as-const-injection is the same shape) but doesn't subsume it.
+- **Time-Machine fit, chunked evaluation, and `FlowTime.Pipeline` SDK (E-0022 carrier).** Out of scope for this redesign, but parameter unification provides the cleaner substrate when E-0022 lands.
+- **CI improvements for test discipline and static analysis (E-0026).** Already drafted as a separate epic.
 
 ## What's next (after this substrate is reviewed)
 
-The next document to write is the **redesign proposal**: an epic spec (probably E-27) with milestone breakdown, ADR-candidate naming the new architecture, and a migration strategy.
+The next document to write is the **redesign proposal**: an epic spec (probably E-0027) with milestone breakdown, ADR-candidate naming the new architecture, and a migration strategy.
 
 Open questions the proposal needs to answer:
 
@@ -266,6 +266,6 @@ Open questions the proposal needs to answer:
 
 4. **What happens to the bridge canary tests** (`Survey_Templates_For_Warnings`)? They run on shipped templates; if templates change shape, the canary's baselines need to be rebuilt. Probably fine — the canary is designed for exactly this kind of change.
 
-5. **Sequencing with E-25 (in-flight).** E-25's M-067/M-068/M-069 are about flow-authority enforcement. The redesign would likely either land *between* or *after* E-25. Landing after preserves E-25 unchanged. Landing between would let M-069's heuristics use parameter names natively, which is the original motivation for this whole investigation.
+5. **Sequencing with E-0025 (in-flight).** E-0025's M-0067/M-0068/M-0069 are about flow-authority enforcement. The redesign would likely either land *between* or *after* E-0025. Landing after preserves E-0025 unchanged. Landing between would let M-0069's heuristics use parameter names natively, which is the original motivation for this whole investigation.
 
 These open questions are the agenda for the redesign proposal — not for this substrate document.

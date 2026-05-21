@@ -143,7 +143,7 @@ This milestone implements those decisions. It is the single milestone where code
 - `src/FlowTime.Sim.Cli/Program.cs:418` (CLI call site — audit per M-0049)
 - `tests/FlowTime.Sim.Tests`, `tests/FlowTime.Core.Tests`, `tests/FlowTime.Api.Tests`, `tests/FlowTime.TimeMachine.Tests`, `tests/FlowTime.Integration.Tests` (fixtures and tests regenerated)
 - `docs/samples/` (reference YAML regenerated if applicable)
-- `work/epics/E-24-schema-alignment/m-E24-02-unify-model-type-tracking.md` (new)
+- `work/epics/E-0024-schema-alignment/m-E24-02-unify-model-type-tracking.md` (new)
 
 ## Coverage notes
 
@@ -183,8 +183,8 @@ guidance) introduced or carried forward by this milestone:
 
 ## References
 
-- Epic spec: `work/epics/E-24-schema-alignment/spec.md`
-- M-0049 tracking doc: `work/epics/E-24-schema-alignment/m-E24-01-inventory-and-design-decisions-tracking.md`
+- Epic spec: `work/epics/E-0024-schema-alignment/spec.md`
+- M-0049 tracking doc: `work/epics/E-0024-schema-alignment/m-E24-01-inventory-and-design-decisions-tracking.md`
 - ADR-E-0024-01 (unify), ADR-E-0024-02 (forward-only), ADR-E-0024-03 (schema declares only consumed fields): epic spec "ADRs" section — ratified in M-0049, implemented here
 - Type sources:
   - `src/FlowTime.Sim.Core/Templates/SimModelArtifact.cs` (slated for deletion)

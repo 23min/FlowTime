@@ -8,7 +8,7 @@
 
 - Expert authoring surface proposal: [docs/research/expert-authoring-surface.md](./expert-authoring-surface.md)
 - Draft epic folder (to be absorbed): [docs/explorations/expert-authoring-surface/](../explorations/expert-authoring-surface/)
-- Session protocol substrate (shipped): m-E18-02 + m-E18-13 (see `work/epics/E-18-headless-pipeline-and-optimization/`)
+- Session protocol substrate (shipped): m-E18-02 + m-E18-13 (see `work/epics/E-0018-headless-pipeline-and-optimization/`)
 - Time Machine CLI (shipped): m-E18-14
 - Roadmap plan for this work: [docs/research/flowtime-studio-roadmap-plan.md](./flowtime-studio-roadmap-plan.md)
 
@@ -30,7 +30,7 @@ Under this framing:
   [docs/research/expert-authoring-surface.md](./expert-authoring-surface.md)
   assumes a layer that does not yet exist — a long-lived session with stable
   node IDs and selective re-evaluation
-- the DAG, workbench, and analysis surfaces in E-21 assume per-request batch
+- the DAG, workbench, and analysis surfaces in E-0021 assume per-request batch
   evaluation; they will rework naturally onto a session substrate once it exists
 
 Studio is the **session substrate** that unifies all of this. It is the first
@@ -42,7 +42,7 @@ implementable across shells and pipelines without per-shell re-implementation.
 - not a replacement for YAML as the canonical model
 - not a replacement for the Time Machine engine
 - not a new UI framework
-- not a rewrite of E-17 or E-21
+- not a rewrite of E-0017 or E-0021
 - not a browser-only live-coding environment
 - not a research prototype — the dependencies (Rust session protocol, Time
   Machine CLI, analysis endpoints) are already shipped
@@ -466,14 +466,14 @@ This is a summary; the roadmap plan document has the full sequencing detail.
   `/v1/goal-seek`, `/v1/optimize`, `/v1/fit` when it lands) remain as
   convenience wrappers that create-use-close an ephemeral session. No
   breaking change.
-- **What-if interactive surface** (E-17 infrastructure, currently in
+- **What-if interactive surface** (E-0017 infrastructure, currently in
   maintenance) re-homes onto session patches. The parameter panel becomes a
   patch emitter; the push channel becomes the session WebSocket.
-- **DAG / workbench view state** (E-21 surfaces) re-homes from "load a run
+- **DAG / workbench view state** (E-0021 surfaces) re-homes from "load a run
   bundle" to "open a session bound to a run bundle or a model." Adapter
-  work, not rewrite, provided E-21 kept stable node IDs in view-state
+  work, not rewrite, provided E-0021 kept stable node IDs in view-state
   keys — which m-E21-06 and later should enforce.
-- **Analysis tabs** (E-21 m-E21-03 through m-E21-05) switch their endpoint
+- **Analysis tabs** (E-0021 m-E21-03 through m-E21-05) switch their endpoint
   calls from standalone to session-scoped when Studio lands; UI unchanged.
 
 ## Two Decisions Worth Flagging Now
@@ -546,12 +546,12 @@ overlap and the novel scope are both clear.
 | m-E18-13 SessionModelEvaluator | shipped | persistent subprocess pattern — reused |
 | m-E18-14 Time Machine CLI | shipped | `flowtime session *` commands extend this |
 | `/v1/run`, `/v1/sweep`, etc. | shipped | ephemeral-session wrappers |
-| E-17 what-if WebSocket | shipped | session WebSocket contract |
-| E-21 workbench view state | in flight | must stay keyed on stable node IDs |
-| E-21 analysis tabs | in flight | call sites switch to session endpoints |
-| E-22 Pipeline SDK | drafted | stays narrow (batch wrapper); session client added in Studio |
-| E-22 Model Fit | drafted | lands as one-shot, re-homes to session op |
-| E-22 Chunked Evaluation | drafted | engine capability; Studio consumes it |
+| E-0017 what-if WebSocket | shipped | session WebSocket contract |
+| E-0021 workbench view state | in flight | must stay keyed on stable node IDs |
+| E-0021 analysis tabs | in flight | call sites switch to session endpoints |
+| E-0022 Pipeline SDK | drafted | stays narrow (batch wrapper); session client added in Studio |
+| E-0022 Model Fit | drafted | lands as one-shot, re-homes to session op |
+| E-0022 Chunked Evaluation | drafted | engine capability; Studio consumes it |
 | Expert authoring surface proposal | drafted (unplanned) | absorbed into Studio as the expert-editor milestone |
 
 **The net new scope Studio adds on top of already-shipped or in-flight work:**

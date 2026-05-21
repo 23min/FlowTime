@@ -27,4 +27,4 @@ Add the third tier of test discipline: fuzzing on YAML / template parsers (cargo
 - [ ] AC-11 — At least one D-NNN entry seeded if the initial scan surfaces an advisory the team chooses to accept (else the milestone documents the empty-allow-list state and the policy for first additions).
 - [ ] AC-12 — Branch coverage on the new infrastructure.
 - [ ] AC-13 — Full repo test suite green at milestone close.
-- [ ] AC-14 — Epic closure housekeeping: epic frontmatter promoted to `done` via `aiwf promote E-26 done`; `ROADMAP.md` regenerated; `wrap.md` captures baseline mutation score, coverage floor, new CI runtime, deferred follow-up gaps.
+- [ ] AC-14 — Epic closure housekeeping: epic frontmatter promoted to `done` via `aiwf promote E-0026 done`; `ROADMAP.md` regenerated; `wrap.md` captures baseline mutation score, coverage floor, new CI runtime, deferred follow-up gaps.

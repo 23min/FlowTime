@@ -1,11 +1,11 @@
 # Vision: Optimization Explorer UI
 
 **Status:** Aspirational — no implementation yet
-**Context:** Complements E-17 Interactive What-If and E-18 Time Machine analysis modes
+**Context:** Complements E-0017 Interactive What-If and E-0018 Time Machine analysis modes
 
 ## The distinction from What-If
 
-E-17 Interactive What-If gives you **manual exploration**: change a parameter value, the model
+E-0017 Interactive What-If gives you **manual exploration**: change a parameter value, the model
 rerenders instantly. You are the optimizer — you decide what to try next. This is the right
 tool for intuition-building and demos.
 
@@ -68,12 +68,12 @@ explorer can render the full topology at the optimum and let you inspect every e
 
 The Time Machine API (`POST /v1/optimize`, `/v1/sweep`, `/v1/sensitivity`, `/v1/goal-seek`)
 already provides the computation. The UI surface is a matter of wiring these endpoints to
-panels and visualizations. The parameter panel introduced in E-17 is the natural anchor point
+panels and visualizations. The parameter panel introduced in E-0017 is the natural anchor point
 — optimization results would feed back into the same parameter display and topology heatmap
 that live what-if already uses.
 
 ## Related
 
 - `docs/architecture/time-machine-analysis-modes.md` — current API surface
-- `work/epics/E-18-headless-pipeline-and-optimization/spec.md` — Time Machine epic
+- `work/epics/E-0018-headless-pipeline-and-optimization/spec.md` — Time Machine epic
 - `work/epics/ui-workbench/reference/ui-paradigm.md` — broader UI architecture direction

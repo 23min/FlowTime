@@ -22,7 +22,7 @@ A third scope item was decided (2026-04-20) to land alongside Fit and Chunked so
 
 - **`FlowTime.Pipeline` SDK wrapper** — thin project exposing `Sweep`, `Sensitivity`, `GoalSeek`, `Optimize`, `Fit`, `ChunkedEvaluate` as a programmatic embedding surface over the Time Machine internals. Callers today reach into `FlowTime.TimeMachine.Sweep.*` directly; the SDK crystallizes the external contract.
 
-E-0022 is sequenced per D-0045 (Option A): `E-21 (active) → E-15 Telemetry Ingestion → Telemetry Loop & Parity → E-22`.
+E-0022 is sequenced per D-0045 (Option A): `E-0021 (active) → E-0015 Telemetry Ingestion → Telemetry Loop & Parity → E-0022`.
 
 ### Supersedes
 
@@ -30,7 +30,7 @@ Closes out E-0018 placeholder `m-E18-XX Model Fit` and `m-E18-05 Chunked Evaluat
 
 ### Related
 
-- **E-0015 Telemetry Ingestion** (`work/epics/E-15-telemetry-ingestion/`) — hard prerequisite for Fit. Provides the first repeatable dataset path and replayable canonical bundle via Gold Builder → Graph Builder.
+- **E-0015 Telemetry Ingestion** (`work/epics/E-0015-telemetry-ingestion/`) — hard prerequisite for Fit. Provides the first repeatable dataset path and replayable canonical bundle via Gold Builder → Graph Builder.
 - **Telemetry Loop & Parity** (`docs/explorations/telemetry-loop-parity/spec.md`) — hard prerequisite for Fit. Provides measured drift bounds between synthetic and replayed runs; without those bounds, fit quality cannot be meaningfully reported. Currently unnumbered; will take its own epic slot when scheduled.
 - **E-0021 Svelte Workbench & Analysis Surfaces** — builds UI for fit results once Fit's API contract is stable. Not in E-0022 scope; E-0021 milestone allocation is independent.
 
@@ -113,10 +113,10 @@ Sequencing: Fit first (unblocks the largest downstream set — E-0015 dataset pa
 
 ## References
 
-- E-0018 epic spec: `work/epics/E-18-headless-pipeline-and-optimization/spec.md`
-- E-0018 gap analysis: `work/epics/E-18-headless-pipeline-and-optimization/e18-gap-analysis.md`
+- E-0018 epic spec: `work/epics/E-0018-headless-pipeline-and-optimization/spec.md`
+- E-0018 gap analysis: `work/epics/E-0018-headless-pipeline-and-optimization/e18-gap-analysis.md`
 - Analysis modes architecture: `docs/architecture/time-machine-analysis-modes.md`
 - Telemetry Loop & Parity: `docs/explorations/telemetry-loop-parity/spec.md`
-- E-0015 Telemetry Ingestion: `work/epics/E-15-telemetry-ingestion/`
+- E-0015 Telemetry Ingestion: `work/epics/E-0015-telemetry-ingestion/`
 - Option A delivery sequence: `work/decisions.md` → D-0045
 - Headless engine architecture: `docs/architecture/headless-engine-architecture.md`

@@ -81,7 +81,7 @@ This category is the most consequential because the artifacts are the persisted,
 - **Source of truth (code):** `InvariantWarning` carries `(NodeId, Code, Message, Bins, Value, Severity, EdgeIds)` — `ValidationWarning` only carries `(NodeId, Code, Message)`
 - **Drift location:** undocumented at the `TimeMachineValidator` boundary
 - **Detail:** Tier-3 callers cannot distinguish `severity: "info"` from `severity: "warning"`, cannot see offending bin indices, cannot see worst-case numeric values, cannot see edge ids. The validation API is silently lossy.
-- **Severity:** MAJOR — directly affects M-069's "richer diagnostics" goal
+- **Severity:** MAJOR — directly affects M-0069's "richer diagnostics" goal
 
 ### 2.4 — Tier 3 re-parses and re-compiles
 - **Source of truth (code):** `TemplateInvariantAnalyzer.Analyze` re-parses YAML and re-runs compile even though tier 2 already did
@@ -91,7 +91,7 @@ This category is the most consequential because the artifacts are the persisted,
 ### 2.5 — Edge-flow conservation warnings are unreachable from validators
 - **Source of truth (code):** `TemplateInvariantAnalyzer.Analyze` passes `edgeSeries=null` to `InvariantAnalyzer.Analyze` because it does not call `EdgeFlowMaterializer`
 - **Drift location:** the validator chain (`POST /v1/validate`)
-- **Detail:** `edge_flow_mismatch_outgoing` / `edge_flow_mismatch_incoming` / `edge_class_mismatch` / `edge_class_partial_coverage` warnings only fire in the artifact-write path (`RunArtifactWriter.cs`). They cannot be elicited from `POST /v1/validate?tier=analyse`. **This directly contradicts what a reader of the validation-tier docs would assume**, and matters for M-069 because those are exactly the warnings M-069 is supposed to extend.
+- **Detail:** `edge_flow_mismatch_outgoing` / `edge_flow_mismatch_incoming` / `edge_class_mismatch` / `edge_class_partial_coverage` warnings only fire in the artifact-write path (`RunArtifactWriter.cs`). They cannot be elicited from `POST /v1/validate?tier=analyse`. **This directly contradicts what a reader of the validation-tier docs would assume**, and matters for M-0069 because those are exactly the warnings M-0069 is supposed to extend.
 - **Severity:** MAJOR
 
 ### 2.6 — Two `ValidationResult` types coexist
@@ -164,7 +164,7 @@ This category is the most consequential because the artifacts are the persisted,
 ### 4.4 — `FlowTime.TimeMachine` is mostly orchestration, not "time machine"
 - **Source of truth (code):** What's actually in the project: `RunOrchestrationService`, `TelemetryBundleBuilder`, `TimeMachineValidator`, sweep/sensitivity/goal-seek/optimize runners
 - **Drift location:** Name suggests temporal scrubbing or replay; reality is run orchestration + analysis modes
-- **Detail:** The "time machine" label suggests a UX concept the code doesn't directly implement. The project is named after the originating epic (E-22) but the contents are general-purpose orchestration.
+- **Detail:** The "time machine" label suggests a UX concept the code doesn't directly implement. The project is named after the originating epic (E-0022) but the contents are general-purpose orchestration.
 - **Severity:** MODERATE
 
 ---
@@ -194,7 +194,7 @@ This category is the most consequential because the artifacts are the persisted,
 
 ### 5.5 — `ITelemetrySource` / `CanonicalBundleSource` / `FileCsvSource` exist with zero production callers
 - **Source of truth (code):** types exist in `FlowTime.Core` (or adjacent); no production reference
-- **Detail:** Scaffolded for E-22 Fit. Their role today is zero. Reading the code, you'd expect them to be hooked up.
+- **Detail:** Scaffolded for E-0022 Fit. Their role today is zero. Reading the code, you'd expect them to be hooked up.
 - **Severity:** MINOR
 
 ### 5.6 — `model.yaml` is written twice per run
@@ -236,13 +236,13 @@ This category is the most consequential because the artifacts are the persisted,
 - **Reality:** The devcontainer runs bash. PowerShell-style env-var syntax fails silently or sets nothing.
 - **Severity:** MINOR (likely already broken in practice)
 
-### 6.5 — E-15 (Telemetry Ingestion) status is `proposed`; no infrastructure
+### 6.5 — E-0015 (Telemetry Ingestion) status is `proposed`; no infrastructure
 - **Drift location:** `docs/flowtime.md:333` claims PMFs are "interchangeable with telemetry"
 - **Reality:** True only because telemetry-mode runs *pre-bake* CSVs into const-node values. There is no live telemetry feed mechanism. No Gold Builder, no `TelemetryLoader`, no Graph Builder, no dataset has been ingested.
 - **Severity:** MAJOR — invites incorrect assumptions about what's possible today
 
-### 6.6 — E-22 (Time Machine) preconditioned on unscheduled epic
-- **Drift location:** `work/epics/E-22-*/epic.md` references "Telemetry Loop & Parity" epic with no E-number
+### 6.6 — E-0022 (Time Machine) preconditioned on unscheduled epic
+- **Drift location:** `work/epics/E-0022-*/epic.md` references "Telemetry Loop & Parity" epic with no E-number
 - **Severity:** MINOR (planning issue, not architecture)
 
 ### 6.7 — Sim health endpoint advertises a stale `availableEndpoints` list
@@ -276,8 +276,8 @@ This category is the most consequential because the artifacts are the persisted,
 
 These items aren't quite "drift" but blur the line between what's shipped and what's planned, in ways that affect a reader's mental model.
 
-### 8.1 — `EvalResult.class_map` and `edge_map` exist in Rust; `G-016` says class/edge gaps remain
-- **Detail:** Internally computed; whether they're exposed in the artifact at parity is the actual gap. The G-016 status text understates progress.
+### 8.1 — `EvalResult.class_map` and `edge_map` exist in Rust; `G-0016` says class/edge gaps remain
+- **Detail:** Internally computed; whether they're exposed in the artifact at parity is the actual gap. The G-0016 status text understates progress.
 - **Severity:** MINOR
 
 ### 8.2 — Two writers in Rust core (`writer.rs`, `sink.rs`); which runs depends on context
@@ -334,6 +334,6 @@ These items aren't quite "drift" but blur the line between what's shipped and wh
 1. **Fix or retire `docs/schemas/*.schema.json`** (Category 1). Either bring schemas current and validate writer output against them, or move them to `docs/archive/` and label them historical. The current state — schemas exist, writer ignores them, no test enforces — is worse than either fix.
 2. **Document the Sim/Engine boundary truthfully** (3.1). Update `CLAUDE.md` and any architecture diagrams to say: "Sim.Service is the *creation* surface (template+params → resolved model), Engine API is the *evaluation read* surface (resolved model → run artifacts), they share libraries and a filesystem, they do not call each other over HTTP."
 3. **Fix or remove `docs/guides/deployment.md`** (6.1). It describes a deployment that doesn't exist.
-4. **Decide what `ValidationWarning` should carry across the tier boundary** (2.3) — the current shape silently drops half the diagnostic. M-069 will need this fixed before its `val-warn` gate is meaningful.
+4. **Decide what `ValidationWarning` should carry across the tier boundary** (2.3) — the current shape silently drops half the diagnostic. M-0069 will need this fixed before its `val-warn` gate is meaningful.
 5. **Rename `FlowTime.Adapters.Synthetic`** (4.1). The wrong name is everywhere.
 6. **Make tier-3 reach the edge-flow conservation warnings** (2.5). The validator chain that's supposed to enforce ADR-0001 doesn't actually emit the relevant warnings today.

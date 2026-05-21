@@ -21,7 +21,7 @@ Unresolved questions that should be design inputs when E-0018 fitting milestones
 
 ### Reference
 
-- `work/epics/E-18-headless-pipeline-and-optimization/spec.md`
+- `work/epics/E-0018-headless-pipeline-and-optimization/spec.md`
 - `docs/notes/crystal-ball-predictive-projection.md`
 - `docs/notes/predictive-systems-and-uncertainty.md`
 

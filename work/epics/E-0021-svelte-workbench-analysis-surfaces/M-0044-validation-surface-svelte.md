@@ -85,7 +85,7 @@ After deep audit of the Blazor warning-surfacing path, the user has locked the Q
 
 ### Why this milestone is unblocked now
 
-E-0023 closed and merged 2026-04-26 — `ModelSchemaValidator` is the single validator and `TimeMachineValidator` writes tier-3 warnings into run artifacts. M-0043 delivered the shared view-state store and the workbench-card cross-link convention. The merge of `milestone/m-E21-06-heatmap-view` into `epic/E-21-svelte-workbench-and-analysis` is the prerequisite to branching this milestone — handled at start-milestone time, not here.
+E-0023 closed and merged 2026-04-26 — `ModelSchemaValidator` is the single validator and `TimeMachineValidator` writes tier-3 warnings into run artifacts. M-0043 delivered the shared view-state store and the workbench-card cross-link convention. The merge of `milestone/m-E21-06-heatmap-view` into `epic/E-0021-svelte-workbench-and-analysis` is the prerequisite to branching this milestone — handled at start-milestone time, not here.
 
 ### Settled scope (user-confirmed at planning, 2026-04-26)
 
@@ -235,7 +235,7 @@ None. All Q1-Q6 plus the topology-indication and bidirectional-cross-link decisi
 
 ## Dependencies
 
-- **M-0043 Heatmap View** must be merged into `epic/E-21-svelte-workbench-and-analysis` before this milestone branches. The shared view-state store, the workbench-card cross-link convention (M-0043 AC12 / AC13), and the chrome-token additions (`--ft-pin`, `--ft-highlight`) are the seams this milestone composes against. The merge of `milestone/m-E21-06-heatmap-view` into the epic branch is handled at start-milestone time, not in this draft.
+- **M-0043 Heatmap View** must be merged into `epic/E-0021-svelte-workbench-and-analysis` before this milestone branches. The shared view-state store, the workbench-card cross-link convention (M-0043 AC12 / AC13), and the chrome-token additions (`--ft-pin`, `--ft-highlight`) are the seams this milestone composes against. The merge of `milestone/m-E21-06-heatmap-view` into the epic branch is handled at start-milestone time, not in this draft.
 - **`GET /v1/runs/{runId}/state_window`** at `src/FlowTime.API/Program.cs:1028` — confirmed live; already called by `flowtime.getStateWindow(...)` in `ui/src/lib/api/flowtime.ts:109`. This milestone consumes the `warnings[]` and `edgeWarnings` fields that already arrive on the response.
 - **`StateQueryService.BuildWarnings` + `BuildEdgeWarnings`** at `src/FlowTime.API/Services/StateQueryService.cs:4752,4783` — confirmed live; merges persisted manifest warnings (`RunManifest.Warnings`) with per-query analytical warnings, returns the unified list.
 - **`RunManifest.Warnings`** (`src/FlowTime.Adapters.Synthetic/RunManifest.cs:16`) — `RunWarning[] { Code, Message, NodeId?, Bins?, Value?, Severity ("warning" default), EdgeIds? }` — the persisted shape `RunArtifactWriter` writes into `data/runs/<runId>/run.json` from `TimeMachineValidator` tier-3 output.

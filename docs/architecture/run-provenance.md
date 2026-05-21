@@ -353,13 +353,13 @@ GET /v1/runs/{run_id}/provenance.json
 
 **Add provenance to model.schema (optional section):**
 ```yaml
-# model.schema.yaml — see the live schema for the canonical 7-field shape (E-24)
+# model.schema.yaml — see the live schema for the canonical 7-field shape (E-0024)
 properties:
   schemaVersion:
     type: integer
     const: 1
 
-  provenance:  # Optional provenance section, camelCase (post-E-24)
+  provenance:  # Optional provenance section, camelCase (post-E-0024)
     type: object
     description: "Optional model provenance metadata"
     properties:

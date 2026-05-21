@@ -128,7 +128,7 @@ The ADR is promoted from `proposed` to `accepted` via `aiwf promote ADR-NNNN acc
 
 ### AC-10 — Epic spec and G-0032 reference the ratified ADR
 
-The epic spec at `work/epics/E-25-engine-truth-gate/epic.md` is updated so its "Open questions" table marks the edge-flow authority question as resolved with a link to the ADR. G-0032's status moves to `addressed` with a reference to the ADR (the gap is fully closed only when the engine + template alignment milestone lands; this milestone closes the design portion).
+The epic spec at `work/epics/E-0025-engine-truth-gate/epic.md` is updated so its "Open questions" table marks the edge-flow authority question as resolved with a link to the ADR. G-0032's status moves to `addressed` with a reference to the ADR (the gap is fully closed only when the engine + template alignment milestone lands; this milestone closes the design portion).
 
 ### AC-11 — aiwf check clean
 
@@ -184,7 +184,7 @@ The cost evidence and the purity argument agree. The ADR can cite both.
 
 ## Doc-sweep classification (M-0066's AC-3 artefact)
 
-<!-- Preserved per AC-3. Originally drafted as a standalone artefact under `work/epics/E-25-engine-truth-gate/M-066-flow-authority-doc-sweep.md` and inlined here per aiwf v3 convention: the milestone spec is the single home for working analysis. -->
+<!-- Preserved per AC-3. Originally drafted as a standalone artefact under `work/epics/E-0025-engine-truth-gate/M-0066-flow-authority-doc-sweep.md` and inlined here per aiwf v3 convention: the milestone spec is the single home for working analysis. -->
 
 **Date:** 2026-05-05
 **Reference policy:** [`docs/architecture/flow-authority-policy.md`](../../../docs/architecture/flow-authority-policy.md) (the three-class taxonomy authored under AC-1).
@@ -211,7 +211,7 @@ Out-of-scope classes (not in the table below):
 - `docs/notes/` and `docs/research/` — exploration only; never implementation authority.
 - `docs/guides/{CLI,UI,MCP}.md` — CLI/UI/MCP usage docs; do not touch routing semantics.
 - `docs/architecture/dag-map-*.md` — DAG-map visualization library docs; "router" / "split" usage is rendering-mechanical, unrelated to flow routing.
-- `docs/development/*.md` — covered by [G-0037](../../gaps/G-037-pre-aiwf-v1-framework-docs-survived-migration-and-contradict-the-v3-model.md); v1-residue docs already moved to `docs/archive/`. The remaining `versioning.md` and `ui-debug-mode.md` do not touch routing.
+- `docs/development/*.md` — covered by [G-0037](../../gaps/G-0037-pre-aiwf-v1-framework-docs-survived-migration-and-contradict-the-v3-model.md); v1-residue docs already moved to `docs/archive/`. The remaining `versioning.md` and `ui-debug-mode.md` do not touch routing.
 - Pre-aiwf decisions that pre-date the policy and do not assert it (D-0001 … D-0052 except D-0053): silent by audit; not enumerated below.
 
 ### Summary counts
@@ -281,26 +281,26 @@ For decision records under `work/decisions/`, the M-0066 spec names D-0046, D-00
 
 | File | Classification | Excerpt / location | Note (AC-4 follow-up) |
 |---|---|---|---|
-| `work/decisions/D-046-e-21-admits-read-only-run-adjacent-model-yaml-endpoint-under-run-read-surface.md` | silent | API-surface decision; no routing semantics. | No change. |
-| `work/decisions/D-047-additive-trace-field-on-v1-goal-seek-and-v1-optimize.md` | silent | Goal-seek/optimize trace field; no routing semantics. | No change. |
-| `work/decisions/D-051-e-24-schema-alignment-closed-e-23-model-validation-consolidation-ready-to-resume.md` | silent | Schema-alignment closure; no routing-authority claim. | No change. |
-| `work/decisions/D-053-testing-rigor-approach-phase-2-baseline-canary-first-full-golden-output-canon-deferred.md` | aligned | Names the unresolved authority question (line 8: "the underlying template-vs-engine authority question … which side is canonical for edge flow volumes (expr nodes encode splits, topology edge weights would need to mirror them)") and defers its resolution to a future engine milestone. The policy spike (M-0066) closes this question; the ADR is the resolution D-0053 anticipates. | No revision needed in D-0053; the gap reference G-0032 (which D-0053 implicitly tracks) gets the ADR cross-reference under AC-10. |
+| `work/decisions/D-0046-e-21-admits-read-only-run-adjacent-model-yaml-endpoint-under-run-read-surface.md` | silent | API-surface decision; no routing semantics. | No change. |
+| `work/decisions/D-0047-additive-trace-field-on-v1-goal-seek-and-v1-optimize.md` | silent | Goal-seek/optimize trace field; no routing semantics. | No change. |
+| `work/decisions/D-0051-e-24-schema-alignment-closed-e-23-model-validation-consolidation-ready-to-resume.md` | silent | Schema-alignment closure; no routing-authority claim. | No change. |
+| `work/decisions/D-0053-testing-rigor-approach-phase-2-baseline-canary-first-full-golden-output-canon-deferred.md` | aligned | Names the unresolved authority question (line 8: "the underlying template-vs-engine authority question … which side is canonical for edge flow volumes (expr nodes encode splits, topology edge weights would need to mirror them)") and defers its resolution to a future engine milestone. The policy spike (M-0066) closes this question; the ADR is the resolution D-0053 anticipates. | No revision needed in D-0053; the gap reference G-0032 (which D-0053 implicitly tracks) gets the ADR cross-reference under AC-10. |
 
-A scan of the rest of `work/decisions/D-001` … `D-052` for `routing|router|edge.*weight|fan-?out|peer-relative|consumer-side|producer-side` returned only D-0053 — none of the others assert routing authority, and they are listed here as silent-by-audit rather than enumerated.
+A scan of the rest of `work/decisions/D-0001` … `D-0052` for `routing|router|edge.*weight|fan-?out|peer-relative|consumer-side|producer-side` returned only D-0053 — none of the others assert routing authority, and they are listed here as silent-by-audit rather than enumerated.
 
 ### Hits — Axis 4 (gaps that may need revision)
 
 | File | Classification | Excerpt / location | Note (AC-4 follow-up) |
 |---|---|---|---|
-| `work/gaps/G-032-transportation-basic-regressed-edge-flow-mismatch-incoming-3-after-e-24-unification.md` | aligned | The gap that motivated this milestone. The three options it lists are exactly the framings the policy resolves (option 2 rejected on flow-purity grounds; option 1 selected for class 3). | AC-10 promotes G-0032 to `addressed` with a reference to ADR-0001. No body revision needed. |
-| `work/gaps/G-008-router-convergence-guard-deferred-from-phase-1.md` | aligned | Line 11: "single-pass design is correct for static router weights … convergence guard is only needed if dynamic/expression-based router weights are introduced." Consistent with class 1 (static router) vs. class 2 (dynamic / capacity-aware) framing. | No change. G-0038 (the class-2 capacity-aware allocator gap, filed under AC-7) cross-references G-0008 in the carrier-work guidance if the convergence concern resurfaces with the future allocator surface. |
-| `work/gaps/G-037-pre-aiwf-v1-framework-docs-survived-migration-and-contradict-the-v3-model.md` | aligned | Already addressed (status: `addressed`). v1-framework docs were moved to `docs/archive/` and do not contain routing-authority claims that survived. | No change. |
-| `work/gaps/G-019-sim-generated-model-shape-vs-rust-engine-compiler-expectations.md` | aligned | Lines 22–23 reference "routing is expressed via edge weights rather than a node field" — the class-3 case the policy formalizes. The gap describes a Sim/Rust shape divergence, not a contradiction with the policy. | No change. |
-| `work/gaps/G-016-rust-engine-parity-evaluation-core-gaps.md` | silent | Mentions `class routing internally`; no per-fan-out authority claim. | No change. |
-| `work/gaps/G-003-dependency-constraint-enforcement-deferred-m-10-03.md` | silent | "Routing" mention is MCP intent-routing, not flow-routing. | No change. |
-| `work/gaps/G-011-continuous-prediction-crystal-ball-usage-pattern.md` | silent | No routing-authority content. | No change. |
-| `work/gaps/G-013-e-18-model-calibration-needs-crystal-ball-design-input.md` | silent | No routing-authority content. | No change. |
-| `work/gaps/G-018-imodelevaluator-series-key-shape-divergence.md` | silent | No routing-authority content. | No change. |
+| `work/gaps/G-0032-transportation-basic-regressed-edge-flow-mismatch-incoming-3-after-e-24-unification.md` | aligned | The gap that motivated this milestone. The three options it lists are exactly the framings the policy resolves (option 2 rejected on flow-purity grounds; option 1 selected for class 3). | AC-10 promotes G-0032 to `addressed` with a reference to ADR-0001. No body revision needed. |
+| `work/gaps/G-0008-router-convergence-guard-deferred-from-phase-1.md` | aligned | Line 11: "single-pass design is correct for static router weights … convergence guard is only needed if dynamic/expression-based router weights are introduced." Consistent with class 1 (static router) vs. class 2 (dynamic / capacity-aware) framing. | No change. G-0038 (the class-2 capacity-aware allocator gap, filed under AC-7) cross-references G-0008 in the carrier-work guidance if the convergence concern resurfaces with the future allocator surface. |
+| `work/gaps/G-0037-pre-aiwf-v1-framework-docs-survived-migration-and-contradict-the-v3-model.md` | aligned | Already addressed (status: `addressed`). v1-framework docs were moved to `docs/archive/` and do not contain routing-authority claims that survived. | No change. |
+| `work/gaps/G-0019-sim-generated-model-shape-vs-rust-engine-compiler-expectations.md` | aligned | Lines 22–23 reference "routing is expressed via edge weights rather than a node field" — the class-3 case the policy formalizes. The gap describes a Sim/Rust shape divergence, not a contradiction with the policy. | No change. |
+| `work/gaps/G-0016-rust-engine-parity-evaluation-core-gaps.md` | silent | Mentions `class routing internally`; no per-fan-out authority claim. | No change. |
+| `work/gaps/G-0003-dependency-constraint-enforcement-deferred-m-10-03.md` | silent | "Routing" mention is MCP intent-routing, not flow-routing. | No change. |
+| `work/gaps/G-0011-continuous-prediction-crystal-ball-usage-pattern.md` | silent | No routing-authority content. | No change. |
+| `work/gaps/G-0013-e-18-model-calibration-needs-crystal-ball-design-input.md` | silent | No routing-authority content. | No change. |
+| `work/gaps/G-0018-imodelevaluator-series-key-shape-divergence.md` | silent | No routing-authority content. | No change. |
 
 ### AC-4 follow-up summary
 
@@ -319,10 +319,10 @@ No deferred follow-up gaps (AC-8) surfaced from this sweep beyond G-0038 (the cl
 
 - Policy doc: [`docs/architecture/flow-authority-policy.md`](../../../docs/architecture/flow-authority-policy.md)
 - Footprint analysis (M-0066's working artefact): see "Footprint analysis (M-0066's working artefact)" section above
-- Originating gap: [G-0032](../../gaps/G-032-transportation-basic-regressed-edge-flow-mismatch-incoming-3-after-e-24-unification.md)
-- Sibling gap: [G-0037](../../gaps/G-037-pre-aiwf-v1-framework-docs-survived-migration-and-contradict-the-v3-model.md)
-- Related gap: [G-0008](../../gaps/G-008-router-convergence-guard-deferred-from-phase-1.md)
-- Related decision: [D-0053](../../decisions/D-053-testing-rigor-approach-phase-2-baseline-canary-first-full-golden-output-canon-deferred.md)
+- Originating gap: [G-0032](../../gaps/G-0032-transportation-basic-regressed-edge-flow-mismatch-incoming-3-after-e-24-unification.md)
+- Sibling gap: [G-0037](../../gaps/G-0037-pre-aiwf-v1-framework-docs-survived-migration-and-contradict-the-v3-model.md)
+- Related gap: [G-0008](../../gaps/G-0008-router-convergence-guard-deferred-from-phase-1.md)
+- Related decision: [D-0053](../../decisions/D-0053-testing-rigor-approach-phase-2-baseline-canary-first-full-golden-output-canon-deferred.md)
 - Epic: [E-0025 Engine Truth Gate](./epic.md)
 
 ## Constraints
@@ -349,10 +349,10 @@ No deferred follow-up gaps (AC-8) surfaced from this sweep beyond G-0038 (the cl
 
 - `docs/adr/ADR-NNNN-<slug>.md` (new — the ratified ADR)
 - `docs/architecture/flow-authority-policy.md` (new — the three-class taxonomy doc; name may revisit during the milestone)
-- `work/epics/E-25-engine-truth-gate/M-066-edge-flow-authority-decision.md` (this file; frontmatter status updates as ACs land; footprint section preserved verbatim; doc-sweep classification inlined per AC-3)
-- `work/epics/E-25-engine-truth-gate/epic.md` (small edit — open-questions table update; success-criteria refresh per the new milestone shape)
-- `work/gaps/G-032-…md` (status promotion to `addressed`; reference the ADR)
-- `work/gaps/G-038-class-2-capacity-aware-allocator-deferred-from-m-066-flow-authority-policy.md` (new — the deferred-follow-up gap from AC-7)
+- `work/epics/E-0025-engine-truth-gate/M-0066-edge-flow-authority-decision.md` (this file; frontmatter status updates as ACs land; footprint section preserved verbatim; doc-sweep classification inlined per AC-3)
+- `work/epics/E-0025-engine-truth-gate/epic.md` (small edit — open-questions table update; success-criteria refresh per the new milestone shape)
+- `work/gaps/G-0032-…md` (status promotion to `addressed`; reference the ADR)
+- `work/gaps/G-0038-class-2-capacity-aware-allocator-deferred-from-m-066-flow-authority-policy.md` (new — the deferred-follow-up gap from AC-7)
 - `work/gaps/G-NNN-…md` (any other deferred-follow-up gaps from AC-8 — none surfaced; class-3 authoring guidance folded into M-0067)
 - Any docs revised in AC-4 (in-place edits with conventional commit; or `[needs revision per ADR-NNNN]` marker added at the top)
 - `ROADMAP.md` (regenerated via `aiwf render roadmap --write`)
@@ -370,25 +370,25 @@ No deferred follow-up gaps (AC-8) surfaced from this sweep beyond G-0038 (the cl
 
 ## Dependencies
 
-- E-0025 epic spec ratified (in place — see `work/epics/E-25-engine-truth-gate/epic.md`).
+- E-0025 epic spec ratified (in place — see `work/epics/E-0025-engine-truth-gate/epic.md`).
 - Patch `patch/edge-flow-mismatch` merged (in place — Phase 2 baseline canary committed 2026-05-01).
 - G-0032 in `addressed` status pending this milestone's resolution.
 - G-0037 (sibling gap; documents the v1-residue contradicting v3) — informs the doc sweep but does not block.
 
 ## References
 
-- Epic spec: `work/epics/E-25-engine-truth-gate/epic.md`
-- Gap: `work/gaps/G-032-transportation-basic-regressed-edge-flow-mismatch-incoming-3-after-e-24-unification.md` — the three options and per-template impact table
-- Gap: `work/gaps/G-037-pre-aiwf-v1-framework-docs-survived-migration-and-contradict-the-v3-model.md` — sibling gap; doc-sweep input
+- Epic spec: `work/epics/E-0025-engine-truth-gate/epic.md`
+- Gap: `work/gaps/G-0032-transportation-basic-regressed-edge-flow-mismatch-incoming-3-after-e-24-unification.md` — the three options and per-template impact table
+- Gap: `work/gaps/G-0037-pre-aiwf-v1-framework-docs-survived-migration-and-contradict-the-v3-model.md` — sibling gap; doc-sweep input
 - Phase 2 baseline canary: `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs:79` (the `ExpectedRunWarnings` dictionary)
-- Decision precedent for project-scoped calls: `work/decisions/D-053-testing-rigor-approach-phase-2-baseline-canary-first-full-golden-output-canon-deferred.md`
+- Decision precedent for project-scoped calls: `work/decisions/D-0053-testing-rigor-approach-phase-2-baseline-canary-first-full-golden-output-canon-deferred.md`
 - Analyser source: `src/FlowTime.Core/Analysis/InvariantAnalyzer.cs:323-335` (incoming-edge conservation; the rule the policy binds)
 - Materializer source: `src/FlowTime.Core/Routing/EdgeFlowMaterializer.cs:54` (the `flowVolumes` dictionary; option 1's engine sub-question)
 - Conversation framing: this milestone widened from "decision-only D-NNN" to "policy spike + ADR" during M-0066's working session on 2026-05-02. The flow-purity argument that collapsed the original three options is the framing-widening rationale.
 
 ## Work log
 
-- **2026-05-02** — milestone-start ritual ran on branch `milestone/M-066-edge-flow-authority-decision`. Status promoted draft→in_progress (commit `5554ed5`). Footprint analysis filled in (commit `8bf15ed`). Sibling gap G-0037 filed (commit `95e4b18`).
+- **2026-05-02** — milestone-start ritual ran on branch `milestone/M-0066-edge-flow-authority-decision`. Status promoted draft→in_progress (commit `5554ed5`). Footprint analysis filled in (commit `8bf15ed`). Sibling gap G-0037 filed (commit `95e4b18`).
 - **2026-05-02** — milestone scope widened: from "edge-flow authority decision" (option 1/2/3 pick) to "flow-authority policy spike + ADR + repo-wide doc sweep". Reframe rationale: G-0032's option 2 (consumer-side expr authority) is structurally wrong on flow-purity grounds independent of footprint cost; the policy needs to accommodate three classes of physical systems (class-1 dynamic routing, class-2 capacity-aware allocation, class-3 static-weight); enforcement must be named at schema/compile/analyse layers. New milestone added to E-0025 to land the enforcement work; M-0067/M-0068 scopes adjusted.
 - **2026-05-05** — per-AC closeout (commit SHAs at the time of the wrap):
     - **AC-1** — three-class flow taxonomy authored at `docs/architecture/flow-authority-policy.md` (commit `52d732b`); promoted met (commit `6cc985a`).
@@ -406,14 +406,14 @@ No deferred follow-up gaps (AC-8) surfaced from this sweep beyond G-0038 (the cl
 ## Decisions made during implementation
 
 - **ADR-0001 ratified directly; no D-NNN was filed.** Per the milestone constraint "ADR-class, not D-NNN" (this is durable architectural truth, not a project-bound decision), the policy was recorded as ADR-0001 in the repo's previously-empty `docs/adr/` directory rather than as a project decision record. This is explicit and intentional — recording the policy as a `D-NNN` was rejected because the policy outlives this project's planning context.
-- **The doc-sweep artefact was inlined into the milestone spec mid-implementation.** Originally drafted as a standalone artefact under `work/epics/E-25-engine-truth-gate/M-066-flow-authority-doc-sweep.md`, it was moved into the milestone spec body during AC-3 to satisfy the aiwf v3 substrate convention that the milestone spec is the single home for goal, ACs, design notes, working analysis, and work log. This is a real implementation-time decision: the spec body now carries both the footprint analysis (AC-2) and the doc-sweep classification (AC-3) verbatim.
+- **The doc-sweep artefact was inlined into the milestone spec mid-implementation.** Originally drafted as a standalone artefact under `work/epics/E-0025-engine-truth-gate/M-0066-flow-authority-doc-sweep.md`, it was moved into the milestone spec body during AC-3 to satisfy the aiwf v3 substrate convention that the milestone spec is the single home for goal, ACs, design notes, working analysis, and work log. This is a real implementation-time decision: the spec body now carries both the footprint analysis (AC-2) and the doc-sweep classification (AC-3) verbatim.
 
 ## Validation
 
 - **Doc-only milestone; full test suite intentionally not run.** M-0066 ships no engine code, no template edits, no test changes, and no `ExpectedRunWarnings` adjustments (per the explicit constraint section). Running the full `dotnet test FlowTime.sln` would not validate any deliverable of this milestone.
 - **`aiwf check` clean.** Reports `ok — no findings` — no frontmatter drift, no orphaned references, all AC statuses consistent with the milestone status (per AC-11).
-- **Doc-lint clean.** All cross-references in the new policy doc, ADR-0001, the inlined doc-sweep section, and the AC-4 in-place revisions resolve to existing files. The earlier in-flight `G-NNN` placeholder in AC-7's body was replaced with `G-038` (commit `9bce97f`) and the AC-5/AC-9 references were corrected (commit `334a114`) before promotion.
-- **Per-AC promotions audited.** Every AC has an `aiwf promote ... -> met` audit commit; the milestone history (visible via `aiwf show M-066`) records all 11 transitions on 2026-05-05.
+- **Doc-lint clean.** All cross-references in the new policy doc, ADR-0001, the inlined doc-sweep section, and the AC-4 in-place revisions resolve to existing files. The earlier in-flight `G-NNN` placeholder in AC-7's body was replaced with `G-0038` (commit `9bce97f`) and the AC-5/AC-9 references were corrected (commit `334a114`) before promotion.
+- **Per-AC promotions audited.** Every AC has an `aiwf promote ... -> met` audit commit; the milestone history (visible via `aiwf show M-0066`) records all 11 transitions on 2026-05-05.
 
 ## Deferrals
 
@@ -423,7 +423,7 @@ No deferred follow-up gaps (AC-8) surfaced from this sweep beyond G-0038 (the cl
 
 ## Reviewer notes
 
-- **Branch cut from `main` before `epic/E-25-engine-truth-gate` existed.** Recorded for the record. The epic integration branch was created later in the milestone's lifetime; M-0066 lived directly on `milestone/M-066-edge-flow-authority-decision` cut from `main`. Future E-0025 milestones should branch from the integration branch per `CLAUDE.md` branching conventions.
+- **Branch cut from `main` before `epic/E-0025-engine-truth-gate` existed.** Recorded for the record. The epic integration branch was created later in the milestone's lifetime; M-0066 lived directly on `milestone/M-0066-edge-flow-authority-decision` cut from `main`. Future E-0025 milestones should branch from the integration branch per `CLAUDE.md` branching conventions.
 - **Local pre-commit hook patch is per-developer, not committed.** The local hook was patched to skip `git add STATUS.md` when the file is gitignored; this is an environment-level adaptation and is not part of the repo-tracked hook.
 - **`--no-verify` was used exactly once in this milestone, on commit `7e9cc97` (`chore(repo): stop tracking generated STATUS.md`).** That one use was needed to break a chicken-and-egg with the pre-commit hook itself — the hook's `git add STATUS.md` step would have re-staged the very file the chore was removing. STATUS.md is now gitignored repo-wide, so subsequent commits in this milestone passed the hook normally.
-- **G-0032 `addressed_by: [ADR-0001, M-066]`.** The originating gap is closed against both the ratified ADR (the policy decision) and this milestone (the design closure). Engine + template alignment work that fully retires the conservation-warning regression is M-0067's scope.
+- **G-0032 `addressed_by: [ADR-0001, M-0066]`.** The originating gap is closed against both the ratified ADR (the policy decision) and this milestone (the design closure). Engine + template alignment work that fully retires the conservation-warning regression is M-0067's scope.

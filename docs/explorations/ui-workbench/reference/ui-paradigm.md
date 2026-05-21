@@ -166,7 +166,7 @@ components, not as a charting library:
 - **Sparkline:** compact inline trend for workbench cards
 
 Design principles:
-- Bespoke SVG, no charting library dependency (consistent with E-14 non-goals)
+- Bespoke SVG, no charting library dependency (consistent with E-0014 non-goals)
 - Shared axes and scales across charts in the same view
 - Tailwind + CSS variables for theming consistency
 - Responsive (scale to container width)
@@ -186,8 +186,8 @@ Svelte (not SVG `<title>` elements) for styling control and positioning.
 
 | Epic | Relationship |
 |------|-------------|
-| **E-11 (Svelte UI)** | M1-M4 complete. M5 (Inspector) evolves into the Workbench paradigm. M6 (Run Orchestration) unchanged. M7 (Dashboard) absorbed into Analytical Views. M8 (Polish) applies to new paradigm. |
-| **E-14 (Visualizations)** | Absorbed into the Analytical Views epic. The "chart gallery" concept is replaced by purpose-built views (heatmap, decomposition, comparison). Role-focused chart bundles may still exist as presets within views. |
+| **E-0011 (Svelte UI)** | M1-M4 complete. M5 (Inspector) evolves into the Workbench paradigm. M6 (Run Orchestration) unchanged. M7 (Dashboard) absorbed into Analytical Views. M8 (Polish) applies to new paradigm. |
+| **E-0014 (Visualizations)** | Absorbed into the Analytical Views epic. The "chart gallery" concept is replaced by purpose-built views (heatmap, decomposition, comparison). Role-focused chart bundles may still exist as presets within views. |
 | **ui-layout (Layout Motors)** | Unchanged — layout engine abstraction is orthogonal to the paradigm shift. |
 | **dag-map library** | Continues as the topology rendering engine. Gaps tracked: [#4](https://github.com/23min/dag-map/issues/4) (interaction callbacks), [#5](https://github.com/23min/dag-map/issues/5) (selected state). |
 

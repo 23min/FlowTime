@@ -93,12 +93,12 @@ Each milestone is individually shippable, but the final milestone (M-0017) must 
 
 | ID | Title | Summary | Depends On | Status |
 |----|-------|---------|------------|--------|
-| [M-0012](M-012.md) | Compiled Semantic References | Replace raw runtime semantic strings with typed references and regenerate dependent runs/fixtures forward-only. | none | completed |
-| [M-0013](M-013.md) | Class Truth Boundary | Separate real by-class truth from wildcard fallback before descriptor and evaluator work depend on it. | M-0012 | completed |
-| [M-0014](M-014.md) | Runtime Analytical Descriptor | Compile authoritative analytical identity onto runtime nodes and delete adapter-side logical-type reconstruction. | M-0013 | completed |
-| [M-0015](M-015.md) | Core Analytical Evaluation | Move analytical values and emitted-series truth into a pure Core evaluator for snapshot, window, and by-class outputs. | M-0014 | completed |
-| [M-0016](M-016.md) | Analytical Warning Facts & Primitive Cleanup | Move warning facts into Core analyzers and finish analytical primitive ownership cleanup. | M-0015 | completed |
-| [M-0017](M-017.md) | Analytical Contract & Consumer Purification | Publish authoritative analytical facts and delete named current-state consumer heuristics in one forward-only cut. | M-0016 | completed |
+| [M-0012](M-0012.md) | Compiled Semantic References | Replace raw runtime semantic strings with typed references and regenerate dependent runs/fixtures forward-only. | none | completed |
+| [M-0013](M-0013.md) | Class Truth Boundary | Separate real by-class truth from wildcard fallback before descriptor and evaluator work depend on it. | M-0012 | completed |
+| [M-0014](M-0014.md) | Runtime Analytical Descriptor | Compile authoritative analytical identity onto runtime nodes and delete adapter-side logical-type reconstruction. | M-0013 | completed |
+| [M-0015](M-0015.md) | Core Analytical Evaluation | Move analytical values and emitted-series truth into a pure Core evaluator for snapshot, window, and by-class outputs. | M-0014 | completed |
+| [M-0016](M-0016.md) | Analytical Warning Facts & Primitive Cleanup | Move warning facts into Core analyzers and finish analytical primitive ownership cleanup. | M-0015 | completed |
+| [M-0017](M-0017.md) | Analytical Contract & Consumer Purification | Publish authoritative analytical facts and delete named current-state consumer heuristics in one forward-only cut. | M-0016 | completed |
 
 **Forward-only rule:** old run directories, generated fixtures, and approved golden snapshots are not compatibility obligations for this epic. When the runtime boundary changes, regenerate them.
 
@@ -117,5 +117,5 @@ In short: E-0010 found the wound, `m-ec-p3a1` stabilized the current bridge, and
 - [reference/formula-first-engine-refactor-plan.md](reference/formula-first-engine-refactor-plan.md)
 - [docs/concepts/nodes-and-expressions.md](../../../docs/concepts/nodes-and-expressions.md)
 - [docs/architecture/expression-language-design.md](../../../docs/architecture/expression-language-design.md)
-- [work/epics/E-0010-engine-correctness-and-analytics/M-0057.md](../E-10-engine-correctness-and-analytics/M-057.md)
-- [work/epics/E-0010-engine-correctness-and-analytics/spec.md](../E-10-engine-correctness-and-analytics/spec.md)
+- [work/epics/E-0010-engine-correctness-and-analytics/M-0057.md](../E-0010-engine-correctness-and-analytics/M-0057.md)
+- [work/epics/E-0010-engine-correctness-and-analytics/spec.md](../E-0010-engine-correctness-and-analytics/spec.md)

@@ -42,7 +42,7 @@ Remove stale `FlowTime.UI` Sim-client compatibility wrappers and the broken call
 
 ## Context
 
-[M-0024](./M-024.md) published the supported-surfaces matrix in [docs/architecture/supported-surfaces.md](../../../docs/architecture/supported-surfaces.md) and assigned the Blazor HTTP call-site rows (63–65) and the Svelte alignment rows (66–67) to this milestone. [M-0025](./M-025.md) deleted the Sim runtime seams those wrappers would have depended on (stored drafts CRUD, Sim ZIP archive layer, Engine bundle-import, runtime catalogs, `/api/v1/drafts/validate`, `GET /v1/debug/scan-directory`) and narrowed `/api/v1/drafts/run` to inline-only. [M-0026](./M-026.md) retired deprecated schema, template, and example residue from active surfaces.
+[M-0024](./M-0024.md) published the supported-surfaces matrix in [docs/architecture/supported-surfaces.md](../../../docs/architecture/supported-surfaces.md) and assigned the Blazor HTTP call-site rows (63–65) and the Svelte alignment rows (66–67) to this milestone. [M-0025](./M-0025.md) deleted the Sim runtime seams those wrappers would have depended on (stored drafts CRUD, Sim ZIP archive layer, Engine bundle-import, runtime catalogs, `/api/v1/drafts/validate`, `GET /v1/debug/scan-directory`) and narrowed `/api/v1/drafts/run` to inline-only. [M-0026](./M-0026.md) retired deprecated schema, template, and example residue from active surfaces.
 
 This milestone is the Blazor client-layer cleanup pass over that cleaned-up baseline. Every row whose `Owning milestone` column in the matrix is `m-E19-04` is executed here.
 
@@ -216,7 +216,7 @@ Scoped searches are limited to `src/FlowTime.UI/`, `ui/src/lib/api/`, and `tests
 
 ### AC-10 — Tracking doc and status surfaces reconciled
 
-- Create `work/epics/E-19-surface-alignment-and-compatibility-cleanup/m-E19-04-blazor-support-alignment-tracking.md` at milestone start and update it after each AC lands. Tracking doc records: per-AC file changes, grep-guard results, test counts, alignment-audit findings (drift or no drift), and deviations from the spec (if any).
+- Create `work/epics/E-0019-surface-alignment-and-compatibility-cleanup/m-E19-04-blazor-support-alignment-tracking.md` at milestone start and update it after each AC lands. Tracking doc records: per-AC file changes, grep-guard results, test counts, alignment-audit findings (drift or no drift), and deviations from the spec (if any).
 - Flip milestone status in a single reconciliation pass at wrap time:
   - This spec: `draft` → `in-progress` at start → `completed` at wrap.
   - [work/epics/E-0019-surface-alignment-and-compatibility-cleanup/spec.md](./spec.md) milestone table: `m-E19-04` status `next` → `in-progress` → `completed`; header `Status:` line updated; epic `Success Criteria` checkboxes for "first-party clients no longer maintain duplicate endpoint, metrics, or health fallback logic" and "grep and regression audits prove targeted legacy/fallback helpers are removed or isolated" flipped to checked if M-0027 closes them.
@@ -324,16 +324,16 @@ Explicit list of surfaces that must remain untouched by this milestone. Any acci
 
 ## Dependencies
 
-- [M-0024 Supported Surface Inventory, Boundary ADR & Exit Criteria](./M-024.md) — supplies matrix rows 63–67 and the Blazor/Svelte support policy this milestone executes.
-- [M-0025 Sim Authoring & Runtime Boundary Cleanup](./M-025.md) — already removed the Sim runtime routes these wrappers would have depended on, so the current state is "broken wrappers" not "unused-but-working wrappers."
-- [M-0026 Schema, Template & Example Retirement](./M-026.md) — already retired the deprecated `binMinutes` authoring residue from `TemplateServiceImplementations.cs` demo generators and the UI sample fixture, so the only `TemplateServiceImplementations.cs` residue left is the stale Sim client caller chain this milestone rewires.
+- [M-0024 Supported Surface Inventory, Boundary ADR & Exit Criteria](./M-0024.md) — supplies matrix rows 63–67 and the Blazor/Svelte support policy this milestone executes.
+- [M-0025 Sim Authoring & Runtime Boundary Cleanup](./M-0025.md) — already removed the Sim runtime routes these wrappers would have depended on, so the current state is "broken wrappers" not "unused-but-working wrappers."
+- [M-0026 Schema, Template & Example Retirement](./M-0026.md) — already retired the deprecated `binMinutes` authoring residue from `TemplateServiceImplementations.cs` demo generators and the UI sample fixture, so the only `TemplateServiceImplementations.cs` residue left is the stale Sim client caller chain this milestone rewires.
 - [docs/architecture/supported-surfaces.md](../../../docs/architecture/supported-surfaces.md) — authoritative row-by-row ownership.
 
 ## References
 
 - [E-0019 epic spec](./spec.md)
-- [M-0024 spec](./M-024.md) — see matrix rows 63–67 and the Blazor/Svelte Support Policy section
-- [M-0025 spec](./M-025.md)
-- [M-0026 spec](./M-026.md)
+- [M-0024 spec](./M-0024.md) — see matrix rows 63–67 and the Blazor/Svelte Support Policy section
+- [M-0025 spec](./M-0025.md)
+- [M-0026 spec](./M-0026.md)
 - [work/decisions.md](../../decisions.md) — D-0042 (deferred `/v1/run` `/v1/graph`), Blazor/Svelte support policy decision
-- [scripts/M-0026.sh](../../../scripts/M-026.sh) — template for the M-0027 grep-guard script
+- [scripts/M-0026.sh](../../../scripts/M-0026.sh) — template for the M-0027 grep-guard script

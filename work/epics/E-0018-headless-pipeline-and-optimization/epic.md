@@ -4,7 +4,7 @@ title: Time Machine
 status: done
 ---
 
-> **Naming note.** This epic was originally filed as "Headless Pipeline and Optimization." The component is now named `FlowTime.TimeMachine` (the Time Machine). The directory path `work/epics/E-18-headless-pipeline-and-optimization/` is preserved for historical stability; cross-doc references use that path. The decision is recorded in `work/decisions.md` and in `work/epics/E-19-surface-alignment-and-compatibility-cleanup/m-E19-01-supported-surface-inventory.md` (A6 + shared framing).
+> **Naming note.** This epic was originally filed as "Headless Pipeline and Optimization." The component is now named `FlowTime.TimeMachine` (the Time Machine). The directory path `work/epics/E-0018-headless-pipeline-and-optimization/` is preserved for historical stability; cross-doc references use that path. The decision is recorded in `work/decisions.md` and in `work/epics/E-0019-surface-alignment-and-compatibility-cleanup/m-E19-01-supported-surface-inventory.md` (A6 + shared framing).
 
 ## Goal
 
@@ -234,18 +234,18 @@ This matches today's capture-directory flow, generalised: the adapter can produc
 ## Architecture
 
 ```
-FlowTime.Core (E-16: pure compiled engine; unchanged by E-18)
+FlowTime.Core (E-0016: pure compiled engine; unchanged by E-0018)
 ├── ModelSchemaValidator.Validate(yaml) → ValidationResult         (tier 1)
 ├── ModelCompiler.Compile(model) → CompiledModel                   (tier 2 front)
 ├── ModelParser.ParseModel(compiled) → (TimeGrid, Graph)           (tier 2 back)
 ├── Graph.Evaluate(grid) → EvaluatedState
 ├── Analyze(state) → AnalyticalFacts
 │
-│  E-17/E-18 shared foundation:
+│  E-0017/E-0018 shared foundation:
 ├── IdentifyParameters(graph) → Parameter[]
 ├── Reevaluate(graph, param_overrides) → EvaluatedState
 │
-│  E-18 specific:
+│  E-0018 specific:
 ├── EvaluateChunk(graph, state_at_t, bins[t..t+n]) → state_at_t+n
 └── ComputeObjective(state, objective_expr) → double
 
@@ -275,11 +275,11 @@ FlowTime.Pipeline (NEW — embeddable SDK; thin layer over the Time Machine)
 └── ChunkedEvaluate(graph, chunk_size, controller_fn) → trace
 
 FlowTime.Telemetry.* (NEW — adapter projects, source-only, real-world ingestion)
-├── FlowTime.Telemetry.Prometheus  : ITelemetrySource              (future, m-E18-06 / E-15)
-├── FlowTime.Telemetry.Otel        : ITelemetrySource              (future, m-E18-06 / E-15)
-└── FlowTime.Telemetry.BpiEventLog : ITelemetrySource              (future, m-E18-06 / E-15)
+├── FlowTime.Telemetry.Prometheus  : ITelemetrySource              (future, m-E18-06 / E-0015)
+├── FlowTime.Telemetry.Otel        : ITelemetrySource              (future, m-E18-06 / E-0015)
+└── FlowTime.Telemetry.BpiEventLog : ITelemetrySource              (future, m-E18-06 / E-0015)
 
-FlowTime.Generator (DELETED in E-18)
+FlowTime.Generator (DELETED in E-0018)
 └── Execution code → FlowTime.TimeMachine
 └── Telemetry-generation code → canonical bundle writer + CanonicalBundleSource (in TimeMachine or its own adapter)
 └── See "Generator migration" below
@@ -414,5 +414,5 @@ FlowTime's relationship to these analysis modes is the same as SPICE's relations
 
 - SPICE analysis modes (.DC, .AC, .TRAN, .STEP, .MC, .OPTIM) as architectural precedent
 - Control theory system identification (Ljung, "System Identification: Theory for the User")
-- [work/epics/E-0016-formula-first-core-purification/reference/formula-first-engine-refactor-plan.md](../E-16-formula-first-core-purification/reference/formula-first-engine-refactor-plan.md)
+- [work/epics/E-0016-formula-first-core-purification/reference/formula-first-engine-refactor-plan.md](../E-0016-formula-first-core-purification/reference/formula-first-engine-refactor-plan.md)
 - [docs/research/flowtime-headless-integration.md](../../../docs/research/flowtime-headless-integration.md)

@@ -5,7 +5,7 @@ status: done
 ---
 
 **Completed:** 2026-04-12
-**Branch merged:** `epic/E-17-interactive-what-if-mode` → `main`
+**Branch merged:** `epic/E-0017-interactive-what-if-mode` → `main`
 
 ## Goal
 
@@ -73,5 +73,5 @@ The circuit simulator analogy: SPICE compiles a netlist once, then allows parame
 
 ## References
 
-- [work/epics/E-0016-formula-first-core-purification/reference/formula-first-engine-refactor-plan.md](../E-16-formula-first-core-purification/reference/formula-first-engine-refactor-plan.md)
+- [work/epics/E-0016-formula-first-core-purification/reference/formula-first-engine-refactor-plan.md](../E-0016-formula-first-core-purification/reference/formula-first-engine-refactor-plan.md)
 - SPICE interactive analysis modes as architectural precedent

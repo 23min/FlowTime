@@ -169,7 +169,7 @@ No chart library dependency. A 120×30 SVG `<path>` with a single polyline drawn
 - `ui/src/routes/engine-test/+page.svelte` — smoke test pattern to build on
 - `ui/src/lib/components/app-sidebar.svelte` — existing sidebar nav
 - `ui/src/lib/components/ui/input/` — shadcn input primitive
-- `work/epics/E-17-interactive-what-if-mode/spec.md` — epic context
+- `work/epics/E-0017-interactive-what-if-mode/spec.md` — epic context
 - `docs/architecture/headless-engine-architecture.md` — WebSocket data flow
 
 ## Success Indicator

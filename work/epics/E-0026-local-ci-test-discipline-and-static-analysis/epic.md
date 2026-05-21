@@ -69,7 +69,7 @@ E-0025's M-0068 (Golden-Output Canary) and this epic's Tier 2 (which introduces 
 - **Replacing xUnit with another runner.** xUnit stays. The new test-type libraries integrate with xUnit; they do not replace it.
 - **Replacing the existing per-project CI test layout.** The CI test jobs continue to use `dotnet test` per-project with `--blame-hang --blame-hang-timeout 60s`. The new CI jobs (format, Rust, UI, coverage, supply chain) run alongside the existing layout.
 - **Performance benchmarking infrastructure.** `criterion` for Rust and `BenchmarkDotNet` for .NET would each be valuable, but they are a separate epic — they answer "how fast" rather than "is it correct," and their CI integration model is different (track-over-time vs. fail-on-threshold).
-- **Promoting the InvariantAnalyzer warnings to CI gate.** That work is already filed as gap [G-0035](../../gaps/G-035-promote-invariantanalyzer-warnings-to-ci-gate.md) and is logically separate (it gates on engine output, not on toolchain). G-0035 may be addressed alongside or after this epic; it is not part of this epic's scope.
+- **Promoting the InvariantAnalyzer warnings to CI gate.** That work is already filed as gap [G-0035](../../gaps/G-0035-promote-invariantanalyzer-warnings-to-ci-gate.md) and is logically separate (it gates on engine output, not on toolchain). G-0035 may be addressed alongside or after this epic; it is not part of this epic's scope.
 - **Refactoring tests to fix mutation-test surfaced gaps.** Establishing the baseline mutation score and the floor is in scope; using the score to drive new test-writing on uncovered branches is a follow-on gap (filed during the milestone if specific high-value gaps surface).
 - **Replacing the `.git/hooks/pre-commit` STATUS-regen behavior.** The local pre-commit hook regenerates `STATUS.md` and tries to `git add` it; under the current `.gitignore` (`STATUS.md` un-tracked) the `git add` exits non-zero, breaking the hook chain. This is an upstream aiwf bug, filed separately, and is **not** part of this epic. (The epic's hook work is the new pre-push.local; pre-commit stays as installed.)
 - **Multi-platform CI (Windows, macOS).** Linux-only CI matches the current matrix.
@@ -104,7 +104,7 @@ E-0025's M-0068 (Golden-Output Canary) and this epic's Tier 2 (which introduces 
 - [ ] Supply-chain scan runs in CI; the allow-list mechanism is in place; any advisory the team has decided to accept is named in a D-NNN entry referenced from the allow-list.
 - [ ] CLAUDE.md contains the new test-type selection rule, the snapshot-hygiene rule, and the strengthened TDD section. Each rule is dated and references the milestone that introduced it.
 - [ ] Full test suite green at epic close. No new flaky tests introduced. The CI run time at epic close is reported in `wrap.md` for posterity (the new jobs add cost; the cost is named).
-- [ ] On epic completion, the epic frontmatter is promoted to `status: done` via `aiwf promote E-26 done`; `ROADMAP.md` is regenerated via `aiwf render roadmap --write`; a wrap artefact at `work/epics/E-26-local-ci-test-discipline-and-static-analysis/wrap.md` captures the baseline mutation score, the coverage floor, the new CI runtime, and any deferred follow-up gaps.
+- [ ] On epic completion, the epic frontmatter is promoted to `status: done` via `aiwf promote E-0026 done`; `ROADMAP.md` is regenerated via `aiwf render roadmap --write`; a wrap artefact at `work/epics/E-0026-local-ci-test-discipline-and-static-analysis/wrap.md` captures the baseline mutation score, the coverage floor, the new CI runtime, and any deferred follow-up gaps.
 
 ## Open questions
 
@@ -144,16 +144,16 @@ E-0025's M-0068 (Golden-Output Canary) and this epic's Tier 2 (which introduces 
      gates have caught their share of bugs. CLAUDE.md updates land in lockstep with each milestone (each milestone
      ships the rule additions for its own primitives) so CLAUDE.md never references conventions that don't yet exist. -->
 
-- [M-0070 — **Tier 1: Toolchain hardening + CI gates**](M-070-tier-1-toolchain-hardening-and-ci-gates.md) — Directory.Build.props hardening; Rust workspace lints + toolchain pinning; pre-push.local local gate; new CI jobs (format/analyze, Rust, Svelte UI). Pre-existing warnings fixed in the same milestone. Adds the snapshot-hygiene rule placeholder if Tier 2 hasn't landed yet (else punts to Tier 2). · depends on: —
-- [M-0071 — **Tier 2: Property + snapshot + mutation + architecture testing**](M-071-tier-2-property-snapshot-mutation-architecture-testing.md) — FsCheck/CsCheck or proptest; Verify.Xunit and insta; Stryker.NET and cargo-mutants on a manual/nightly job; NetArchTest with the seeded rule list. CLAUDE.md updates: test-type selection rule, snapshot hygiene rule, strengthened TDD rule. Coordinate with E-0025 M-0068. · depends on: M-0070
-- [M-0072 — **Tier 3: Fuzzing + coverage floor + supply-chain scan**](M-072-tier-3-fuzzing-coverage-floor-supply-chain-scan.md) — cargo-fuzz and SharpFuzz targets; coverlet.collector with floor; `dotnet list package --vulnerable` and `cargo deny check advisories` in CI; allow-list mechanism with first D-NNN entry seeded if needed. · depends on: M-0071
+- [M-0070 — **Tier 1: Toolchain hardening + CI gates**](M-0070-tier-1-toolchain-hardening-and-ci-gates.md) — Directory.Build.props hardening; Rust workspace lints + toolchain pinning; pre-push.local local gate; new CI jobs (format/analyze, Rust, Svelte UI). Pre-existing warnings fixed in the same milestone. Adds the snapshot-hygiene rule placeholder if Tier 2 hasn't landed yet (else punts to Tier 2). · depends on: —
+- [M-0071 — **Tier 2: Property + snapshot + mutation + architecture testing**](M-0071-tier-2-property-snapshot-mutation-architecture-testing.md) — FsCheck/CsCheck or proptest; Verify.Xunit and insta; Stryker.NET and cargo-mutants on a manual/nightly job; NetArchTest with the seeded rule list. CLAUDE.md updates: test-type selection rule, snapshot hygiene rule, strengthened TDD rule. Coordinate with E-0025 M-0068. · depends on: M-0070
+- [M-0072 — **Tier 3: Fuzzing + coverage floor + supply-chain scan**](M-0072-tier-3-fuzzing-coverage-floor-supply-chain-scan.md) — cargo-fuzz and SharpFuzz targets; coverlet.collector with floor; `dotnet list package --vulnerable` and `cargo deny check advisories` in CI; allow-list mechanism with first D-NNN entry seeded if needed. · depends on: M-0071
 
 The CLAUDE.md updates are not a dedicated milestone — they ride along with each tier's milestone (each milestone updates the rules its primitives introduce). If the user wants a dedicated milestone for the CLAUDE.md sweep instead, the sequencing splits cleanly: M-0070 (Tier 1), M-0071 (Tier 2), M-0072 (Tier 3), M-0073 (CLAUDE.md sweep + final polish).
 
 ## References
 
-- Gap [G-0035](../../gaps/G-035-promote-invariantanalyzer-warnings-to-ci-gate.md) — adjacent CI gate work; logically separate but motivates the same "make process discipline mechanical" framing this epic adopts.
-- Epic [E-0025](../E-25-engine-truth-gate/epic.md) — Engine Truth Gate; M-0068's golden canary work overlaps with this epic's Tier 2 (Verify / insta). See *Context → Coordination with E-0025*.
+- Gap [G-0035](../../gaps/G-0035-promote-invariantanalyzer-warnings-to-ci-gate.md) — adjacent CI gate work; logically separate but motivates the same "make process discipline mechanical" framing this epic adopts.
+- Epic [E-0025](../E-0025-engine-truth-gate/epic.md) — Engine Truth Gate; M-0068's golden canary work overlaps with this epic's Tier 2 (Verify / insta). See *Context → Coordination with E-0025*.
 - `Directory.Build.props` — current state; modified by M-0070.
 - `.editorconfig` — current naming + Roslynator codes; expanded by M-0070.
 - `engine/Cargo.toml` — current state (no `[workspace.lints]`); expanded by M-0070.

@@ -103,7 +103,7 @@ This milestone intentionally stops before deletion so rollback is cheap. If some
 - `tests/FlowTime.Tests/Schema/TargetSchemaValidationTests.cs`
 - `tests/FlowTime.Tests/Schema/SchemaVersionTests.cs`
 - `tests/FlowTime.Tests/Schema/SchemaErrorHandlingTests.cs`
-- `work/epics/E-23-model-validation-consolidation/m-E23-02-call-site-migration-tracking.md` (new)
+- `work/epics/E-0023-model-validation-consolidation/m-E23-02-call-site-migration-tracking.md` (new)
 
 ## Out of Scope
 
@@ -114,11 +114,11 @@ This milestone intentionally stops before deletion so rollback is cheap. If some
 
 ## Dependencies
 
-- M-0046 complete and merged into `epic/E-23-model-validation-consolidation` (audit done; schema and adjuncts cover every rule).
+- M-0046 complete and merged into `epic/E-0023-model-validation-consolidation` (audit done; schema and adjuncts cover every rule).
 
 ## References
 
-- Epic spec: `work/epics/E-23-model-validation-consolidation/spec.md`
+- Epic spec: `work/epics/E-0023-model-validation-consolidation/spec.md`
 - M-0046 spec and tracking doc (rule audit + negative-case canary catalogue)
 - Tiered validator: `src/FlowTime.TimeMachine/Validation/TimeMachineValidator.cs`
 - ADR-E-0023-01 (delete, do not delegate) in epic spec

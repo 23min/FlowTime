@@ -42,9 +42,9 @@ Remove deprecated schema shapes, demo-template residue, schema-migration compati
 
 ## Context
 
-[M-0024](./M-024.md) inventoried active schema, template, example, and docs surfaces in the supported-surfaces matrix at [docs/architecture/supported-surfaces.md](../../../docs/architecture/supported-surfaces.md) and assigned owning milestones. Every row whose `Owning milestone` column is `m-E19-03` is executed here.
+[M-0024](./M-0024.md) inventoried active schema, template, example, and docs surfaces in the supported-surfaces matrix at [docs/architecture/supported-surfaces.md](../../../docs/architecture/supported-surfaces.md) and assigned owning milestones. Every row whose `Owning milestone` column is `m-E19-03` is executed here.
 
-[M-0025](./M-025.md) already deleted the runtime seams (stored drafts, Sim ZIP archive layer, Engine bundle-import, runtime catalogs, `/api/v1/drafts/validate`, Engine `/v1/debug/scan-directory`) and narrowed `/api/v1/drafts/run` to inline-only. This milestone is the schema/authoring cleanup pass over the same supported-surface baseline.
+[M-0025](./M-0025.md) already deleted the runtime seams (stored drafts, Sim ZIP archive layer, Engine bundle-import, runtime catalogs, `/api/v1/drafts/validate`, Engine `/v1/debug/scan-directory`) and narrowed `/api/v1/drafts/run` to inline-only. This milestone is the schema/authoring cleanup pass over the same supported-surface baseline.
 
 Scope boundaries inherited from M-0024:
 
@@ -232,7 +232,7 @@ The script runs locally and in the wrap pass. It is not wired into CI in this mi
 
 ### AC-10 — Tracking doc and status surfaces reconciled
 
-- Create `work/epics/E-19-surface-alignment-and-compatibility-cleanup/m-E19-03-schema-template-example-retirement-tracking.md` at milestone start and update it after each AC lands. Tracking doc records: per-AC file changes, grep-guard results, test counts, and deviations from the spec (if any).
+- Create `work/epics/E-0019-surface-alignment-and-compatibility-cleanup/m-E19-03-schema-template-example-retirement-tracking.md` at milestone start and update it after each AC lands. Tracking doc records: per-AC file changes, grep-guard results, test counts, and deviations from the spec (if any).
 - Flip milestone status in a single reconciliation pass at wrap time:
   - This spec: `draft` → `in-progress` at start → `completed` at wrap.
   - [work/epics/E-0019-surface-alignment-and-compatibility-cleanup/spec.md](./spec.md) milestone table: `m-E19-03` status `next` → `in-progress` → `completed`; header `Status:` line updated; `## Milestones` sequence note updated to point at `m-E19-04`.
@@ -315,14 +315,14 @@ Explicit list of surfaces that must remain untouched by this milestone. Any acci
 
 ## Dependencies
 
-- [M-0024 Supported Surface Inventory, Boundary ADR & Exit Criteria](./M-024.md) — supplies the retention/archive decisions and grep-guard taxonomy this milestone executes.
-- [M-0025 Sim Authoring & Runtime Boundary Cleanup](./M-025.md) — already removed the runtime seams (catalogs, drafts CRUD, bundle import) whose residue AC7 finishes cleaning up in the docs layer.
+- [M-0024 Supported Surface Inventory, Boundary ADR & Exit Criteria](./M-0024.md) — supplies the retention/archive decisions and grep-guard taxonomy this milestone executes.
+- [M-0025 Sim Authoring & Runtime Boundary Cleanup](./M-0025.md) — already removed the runtime seams (catalogs, drafts CRUD, bundle import) whose residue AC7 finishes cleaning up in the docs layer.
 - [docs/architecture/supported-surfaces.md](../../../docs/architecture/supported-surfaces.md) — authoritative row-by-row ownership.
 
 ## References
 
 - [E-0019 epic spec](./spec.md)
-- [M-0024 spec](./M-024.md)
-- [M-0025 spec](./M-025.md)
+- [M-0024 spec](./M-0024.md)
+- [M-0025 spec](./M-0025.md)
 - [work/decisions.md](../../decisions.md) — D-0035 (shared framing), D-0040 (catalogs retired), D-0042 (deferred `/v1/run` `/v1/graph`)
-- [scripts/M-0025.sh](../../../scripts/M-025.sh) — template for the M-0026 grep-guard script
+- [scripts/M-0025.sh](../../../scripts/M-0025.sh) — template for the M-0026 grep-guard script

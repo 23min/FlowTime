@@ -1,8 +1,8 @@
 # Matrix Engine Architecture
 
-> Rust implementation of the FlowTime evaluation engine. Replaces the C# object-graph evaluator with a column-store + evaluation-plan model. Ships as a standalone CLI binary (`flowtime-engine`). Foundation for E-17 (Interactive What-If) and E-18 (Time Machine).
+> Rust implementation of the FlowTime evaluation engine. Replaces the C# object-graph evaluator with a column-store + evaluation-plan model. Ships as a standalone CLI binary (`flowtime-engine`). Foundation for E-0017 (Interactive What-If) and E-0018 (Time Machine).
 
-**Epic:** E-20 (`work/epics/E-20-matrix-engine/spec.md`)
+**Epic:** E-0020 (`work/epics/E-0020-matrix-engine/spec.md`)
 **Research:** `docs/research/engine-rewrite-language-and-representation.md`
 **Crate:** `engine/core` (library) + `engine/cli` (binary)
 
@@ -195,5 +195,5 @@ engine/
 - Per-class series output in artifacts
 - .NET subprocess bridge (API calls `flowtime-engine eval` and reads artifacts)
 - Full C# parity harness (bitwise output comparison)
-- WebAssembly compilation (engine in browser for E-17)
+- WebAssembly compilation (engine in browser for E-0017)
 - Incremental re-evaluation (change one input, replay only affected ops)

@@ -14,6 +14,6 @@ This epic-local folder preserves the legacy browser-run/WASM design thread as a 
 
 ## Relationship to Current Roadmap
 
-- `E-17` owns the near-term interactive what-if experience on top of server-side runtime parameter reevaluation.
-- `E-18` owns the shared runtime parameter and headless evaluation foundation.
+- `E-0017` owns the near-term interactive what-if experience on top of server-side runtime parameter reevaluation.
+- `E-0018` owns the shared runtime parameter and headless evaluation foundation.
 - Browser execution remains an optional follow-on path once those foundations are in place.

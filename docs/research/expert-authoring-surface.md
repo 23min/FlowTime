@@ -533,7 +533,7 @@ Do not build a separate execution runtime for the expert surface.
 
 Build on:
 
-- parameterized evaluation and sessions from E-17 / E-18
+- parameterized evaluation and sessions from E-0017 / E-0018
 - tiered validation
 - the current reevaluation loop
 - shared workbench and analytical state
@@ -618,7 +618,7 @@ runtime or license posture.
 
 Do not let this displace the current critical path:
 
-- E-15 telemetry ingestion
+- E-0015 telemetry ingestion
 - Telemetry Loop & Parity
 - model fit
 - workbench and analytical views

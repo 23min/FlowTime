@@ -165,4 +165,4 @@ Load `queue-with-wip` model → both nodes and edges have heatmap colors. Drag t
 - `ui/src/lib/components/dag-map-view.svelte` — `edgeMetrics` prop (already present)
 - `ui/src/lib/api/graph-adapter.ts` — `adaptEngineGraph` (edge ID synthesis)
 - `ui/src/routes/what-if/+page.svelte` — page to update
-- `work/epics/E-17-interactive-what-if-mode/m-E17-04-warnings-surface.md` — prior milestone
+- `work/epics/E-0017-interactive-what-if-mode/m-E17-04-warnings-surface.md` — prior milestone

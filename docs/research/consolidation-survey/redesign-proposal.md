@@ -220,7 +220,7 @@ This pattern — spec language for the contract, native code for the implementat
 
 The work to reach this architecture is decomposed into eight epics, each with a clear scope and exit criterion. They share the `Consolidation` prefix to mark them as a single coordinated initiative.
 
-### Consolidation — Test Discipline and Static Analysis (E-26)
+### Consolidation — Test Discipline and Static Analysis (E-0026)
 **Scope:** Repo-wide development tooling. Lints, format gates, build hardening, pre-push gate. CI jobs for format/build/test on Rust and on the Svelte UI. Property testing (proptest), snapshot testing (insta), mutation testing (cargo-mutants), architecture testing. Coverage gate. Supply-chain scan. Pre-push gate finishing in under 30 seconds.
 
 **Exit criterion:** Every commit passes lints, format, build, tests, and clippy on the Rust workspace. CI runs Rust, Svelte UI, and any remaining .NET surfaces. The dev tooling that catches mistakes during the Consolidation work is in place.
@@ -229,66 +229,66 @@ The work to reach this architecture is decomposed into eight epics, each with a 
 
 ---
 
-### Consolidation — Contracts and Policies (E-27)
+### Consolidation — Contracts and Policies (E-0027)
 **Scope:** CUE infrastructure under `docs/contracts/`. One CUE module per contract: model, run-artifact, telemetry, validation-result, parameter, expression. Each contract carries its semantic policies (flow-authority, conservation, peer-split, type-vs-usage, range, reference resolution). Fixture sets in `fixtures/` mirror each contract's `should-pass/` and `should-fail/`. CI runs `cue vet` and asserts fixture classification. Doc-gardening tool stands up; CI fails on orphan claims.
 
 **Exit criterion:** Every interface in the target architecture has a CUE contract. Every semantic policy named in this proposal is encoded in CUE. Every contract has a fixture set. Doc-gardening passes on the entire `docs/` tree. The contracts are *specification only* at this stage — no runtime enforcement yet; the next epics implement against them.
 
-**Dependency:** E-26.
+**Dependency:** E-0026.
 
 ---
 
-### Consolidation — Rust Engine Completion (E-28)
-**Scope:** Bring the Rust engine to feature-completeness for the canonical run path. Close the artifact-sink projection gap (G-016). Implement parameter-as-node natively: structural-vs-value parameter discrimination, value-parameter lowering to const nodes during template processing, expression references resolving to parameter nodes by name. Implement the validator chain in Rust, with each validator fixture-tested against its contract. Edge-flow conservation warnings reachable from the analyse tier. Validation results carry full diagnostic richness across tier boundaries.
+### Consolidation — Rust Engine Completion (E-0028)
+**Scope:** Bring the Rust engine to feature-completeness for the canonical run path. Close the artifact-sink projection gap (G-0016). Implement parameter-as-node natively: structural-vs-value parameter discrimination, value-parameter lowering to const nodes during template processing, expression references resolving to parameter nodes by name. Implement the validator chain in Rust, with each validator fixture-tested against its contract. Edge-flow conservation warnings reachable from the analyse tier. Validation results carry full diagnostic richness across tier boundaries.
 
 **Exit criterion:** The Rust engine evaluates every shipped template, produces canonical run artifacts that pass the run-artifact contract, and emits warnings reachable from `POST /v1/validate?tier=analyse`. Property tests and fixture tests pass for every validator.
 
-**Dependency:** E-26, E-27.
+**Dependency:** E-0026, E-0027.
 
 ---
 
-### Consolidation — Template Tier in Rust (E-29)
+### Consolidation — Template Tier in Rust (E-0029)
 **Scope:** Move the template processing pipeline into Rust. Template parser (YAML → typed template AST). Structural parameter resolution (substituting only what shapes topology/grid). Value parameter lowering (emit const-or-parameter nodes into the model). Synthesizers (queue, sink, derived nodes). Pre-engine validators (array shape, const-length, semantics outputs). Templates may evolve their shape during this epic; the no-backwards-compat principle applies.
 
 **Exit criterion:** Every shipped template processes through the Rust template tier, produces a model that passes the model contract, and round-trips through the engine to a canonical run artifact identical (modulo timestamp) to the previous output. Templates have been migrated to use parameter-as-node syntax for value parameters.
 
-**Dependency:** E-28.
+**Dependency:** E-0028.
 
 ---
 
-### Consolidation — Single Rust Service (E-30)
+### Consolidation — Single Rust Service (E-0030)
 **Scope:** New Rust HTTP service (Axum). All endpoints implemented: `POST /v1/run`, `POST /v1/validate`, sweep/sensitivity/goal-seek/optimize, telemetry capture, telemetry ingest, run reads, run listing, artifact export. UIs (Svelte primary; Blazor if still in flight) re-pointed at the new service. CLI re-implemented as a Rust binary against the same service crate.
 
 **Exit criterion:** The new service handles every flow that the existing .NET services handle, against the same UIs. Health checks pass. End-to-end tests via the UI surfaces pass.
 
-**Dependency:** E-28, E-29.
+**Dependency:** E-0028, E-0029.
 
 ---
 
-### Consolidation — Telemetry Loop (E-31)
+### Consolidation — Telemetry Loop (E-0031)
 **Scope:** Symmetric telemetry. Live ingestion (Gold Builder, telemetry loaders for CSV / Parquet / streaming sources). Telemetry egress (run output → telemetry-shaped export). Model fit primitives (parameter optimization against captured telemetry, residual analysis). The closed loop: model → run → telemetry → ingest → fit → adjusted model.
 
 **Exit criterion:** A model can be authored, run, captured as telemetry, re-ingested, fit against the captured telemetry, and the fit model can re-run reproducibly. End-to-end loop test in CI.
 
-**Dependency:** E-30.
+**Dependency:** E-0030.
 
 ---
 
-### Consolidation — AI Authoring Surface (E-32)
+### Consolidation — AI Authoring Surface (E-0032)
 **Scope:** Diagnostics that carry semantic context end-to-end. Parameter names visible in every error and warning. Template line numbers in compile and analyse diagnostics. MCP server exposing FlowTime as a tool: `validate_template`, `run_template`, `inspect_run`, `suggest_fix`. Structured diagnostic format suitable for AI consumption (machine-readable codes plus human-readable messages plus pointers to relevant contracts).
 
 **Exit criterion:** An AI agent can author a template, validate it, fix violations based on diagnostics, run it, and inspect the result through MCP without falling back to file inspection. Demo: AI authors a non-trivial template from natural language; ten-iteration correction loop succeeds.
 
-**Dependency:** E-30 (and benefits from E-31).
+**Dependency:** E-0030 (and benefits from E-0031).
 
 ---
 
-### Consolidation — Retirement and Doc-Gardening (E-33)
+### Consolidation — Retirement and Doc-Gardening (E-0033)
 **Scope:** Delete retired surfaces. Remove `FlowTime.Core`, `FlowTime.API`, `FlowTime.Sim.Core`, `FlowTime.Sim.Service`, `FlowTime.TimeMachine`, `FlowTime.Adapters.Synthetic`, `FlowTime.Contracts`, `FlowTime.Expressions`, `FlowTime.UI` (if Blazor retirement is complete), both .NET CLIs. Delete `docs/schemas/*.json` (replaced by CUE contracts). Update `CLAUDE.md`, `docs/architecture/`, `docs/guides/`. Doc-gardening pass closes any final drift.
 
 **Exit criterion:** No .NET sources remain in the repo (or only those needed for the Svelte UI's local dev environment, if any). The Consolidation contracts are the truth. Doc-gardening shows zero drift.
 
-**Dependency:** E-30, E-31, E-32.
+**Dependency:** E-0030, E-0031, E-0032.
 
 ---
 
@@ -296,14 +296,14 @@ The work to reach this architecture is decomposed into eight epics, each with a 
 
 ```mermaid
 flowchart LR
-    E26[E-26<br/>Test Discipline] --> E27[E-27<br/>Contracts & Policies]
-    E27 --> E28[E-28<br/>Engine Completion]
-    E28 --> E29[E-29<br/>Template Tier]
+    E26[E-0026<br/>Test Discipline] --> E27[E-0027<br/>Contracts & Policies]
+    E27 --> E28[E-0028<br/>Engine Completion]
+    E28 --> E29[E-0029<br/>Template Tier]
     E28 --> E30
-    E29 --> E30[E-30<br/>Single Service]
-    E30 --> E31[E-31<br/>Telemetry Loop]
-    E30 --> E32[E-32<br/>AI Authoring]
-    E31 --> E33[E-33<br/>Retirement]
+    E29 --> E30[E-0030<br/>Single Service]
+    E30 --> E31[E-0031<br/>Telemetry Loop]
+    E30 --> E32[E-0032<br/>AI Authoring]
+    E31 --> E33[E-0033<br/>Retirement]
     E32 --> E33
 
     style E26 fill:#cce4ff
@@ -316,11 +316,11 @@ flowchart LR
     style E33 fill:#f0f0f0
 ```
 
-Critical path: E-26 → E-27 → E-28 → E-29 → E-30 → E-33. Approximately six epics on the spine, with E-31 and E-32 branching off after E-30.
+Critical path: E-0026 → E-0027 → E-0028 → E-0029 → E-0030 → E-0033. Approximately six epics on the spine, with E-0031 and E-0032 branching off after E-0030.
 
-Some milestones within epics may run in parallel — for example, within E-27 different contracts can be authored independently, and within E-28 different validators can be implemented in parallel once the contracts they depend on exist.
+Some milestones within epics may run in parallel — for example, within E-0027 different contracts can be authored independently, and within E-0028 different validators can be implemented in parallel once the contracts they depend on exist.
 
-E-31 (Telemetry Loop) and E-32 (AI Authoring) can be parallel after E-30 if there's parallel capacity. They have no dependency on each other and both depend only on E-30.
+E-0031 (Telemetry Loop) and E-0032 (AI Authoring) can be parallel after E-0030 if there's parallel capacity. They have no dependency on each other and both depend only on E-0030.
 
 ---
 
@@ -329,11 +329,11 @@ E-31 (Telemetry Loop) and E-32 (AI Authoring) can be parallel after E-30 if ther
 ### What stays
 - The expression grammar and AST. Already in Rust. Solid; preserved.
 - The Rust engine core (`engine/`). Promoted to authoritative; extended.
-- The shipped template set (`templates/*.yaml`). Migrated for parameter-as-node syntax during E-29.
-- The Svelte UI (`ui/`). Re-pointed at the new service during E-30.
+- The shipped template set (`templates/*.yaml`). Migrated for parameter-as-node syntax during E-0029.
+- The Svelte UI (`ui/`). Re-pointed at the new service during E-0030.
 - Run artifact concepts (manifest, series-index, run record). Cleaned up; canonicalized via contracts.
 - Provenance and run-id determinism. Preserved through the rebuild.
-- ADR-0001 (flow-authority policy). Stays accepted; becomes the source for the flow-authority CUE policy in E-27.
+- ADR-0001 (flow-authority policy). Stays accepted; becomes the source for the flow-authority CUE policy in E-0027.
 - The aiwf planning kernel. Used to manage the Consolidation work itself.
 
 ### What changes
@@ -363,15 +363,15 @@ E-31 (Telemetry Loop) and E-32 (AI Authoring) can be parallel after E-30 if ther
 
 ## Concrete first moves
 
-The first work on the Consolidation critical path is E-26. While E-26 runs, the foundation ADRs and E-27 contract drafts can be prepared in parallel — they don't compete for the same code surfaces.
+The first work on the Consolidation critical path is E-0026. While E-0026 runs, the foundation ADRs and E-0027 contract drafts can be prepared in parallel — they don't compete for the same code surfaces.
 
-### ADRs to draft (concurrent with E-26)
+### ADRs to draft (concurrent with E-0026)
 1. **ADR-0002 — Rust as the authoritative engine.** Names the C# engine retirement, the single Rust service direction, and the criteria for "feature parity reached."
 2. **ADR-0003 — Spec-driven schemas and policies.** Names CUE as the specification language, fixtures as the test bridge, the no-runtime-CUE rule, and the contract-binding mechanism.
 3. **ADR-0004 — Parameter-as-node and structural-vs-value.** Names the parameter taxonomy, the lowering transformation, and the engine surface for parameter nodes.
 4. **ADR-0005 — Pre-alpha, no backwards compatibility.** Codifies the principle. Applies repo-wide, not just to Consolidation.
 
-### Contracts to draft (during E-27)
+### Contracts to draft (during E-0027)
 - `C-MODEL` — engine model shape and core invariants.
 - `C-TEMPLATE` — authoring template shape and lowering rules.
 - `C-RUN` — run artifact directory and file shapes.
@@ -389,13 +389,13 @@ Each contract carries its CUE definitions, its `should-pass/` and `should-fail/`
 - Update agent routing: planner owns ADR drafting and epic specs, builder owns Rust implementation, reviewer owns contract verification.
 
 ### In-flight cleanup
-- The flow-authority policy work in E-25 has produced ADR-0001; that decision is preserved. The remaining E-25 milestones (M-067, M-068, M-069) are obsoleted by the Consolidation approach: their intent (engine alignment, golden canary, three-tier enforcement) is absorbed by E-27 (policies in CUE), E-28 (validators in Rust), and E-29 (template alignment in Rust). Cancel these milestones with reasons referencing the Consolidation direction. M-066 stays done.
+- The flow-authority policy work in E-0025 has produced ADR-0001; that decision is preserved. The remaining E-0025 milestones (M-0067, M-0068, M-0069) are obsoleted by the Consolidation approach: their intent (engine alignment, golden canary, three-tier enforcement) is absorbed by E-0027 (policies in CUE), E-0028 (validators in Rust), and E-0029 (template alignment in Rust). Cancel these milestones with reasons referencing the Consolidation direction. M-0066 stays done.
 
 ---
 
 ## Open questions
 
-These need resolution before E-27 starts authoring CUE contracts. They do not block E-26.
+These need resolution before E-0027 starts authoring CUE contracts. They do not block E-0026.
 
 ### Q1 — Strategy A (rebuild in `v2/`) or Strategy B (replace incrementally on main)
 **Strategy A** branches a fresh tree, rebuilds the new architecture in isolation, and cuts over when ready. Cleanest endpoint, but a long flight without working software in the main tree.
@@ -407,7 +407,7 @@ The pre-alpha context tolerates either. Strategy B keeps test feedback alive thr
 ### Q2 — `kind: const` reuse vs. new `kind: parameter`
 Value parameters become engine nodes. They could reuse `kind: const` with a `name` and optional metadata (range, title, description), or they could be a new `kind: parameter` with explicit semantics.
 
-Reusing `const` is simpler — fewer kinds in the runtime — but loses the explicit "this came from a parameter declaration" signal. A new kind makes the parameter source explicit and lets analysis modes (sweep, sensitivity, goal-seek) target parameter nodes specifically without metadata-sniffing. Recommendation leans toward a new kind, but the choice belongs to E-29's milestone-internal decisions.
+Reusing `const` is simpler — fewer kinds in the runtime — but loses the explicit "this came from a parameter declaration" signal. A new kind makes the parameter source explicit and lets analysis modes (sweep, sensitivity, goal-seek) target parameter nodes specifically without metadata-sniffing. Recommendation leans toward a new kind, but the choice belongs to E-0029's milestone-internal decisions.
 
 ### Q3 — CLI shape
 The new Rust binary can be one of:
@@ -415,12 +415,12 @@ The new Rust binary can be one of:
 - Two binaries (`flowtime` for run/validate, `flowtime-analysis` for sweep/sensitivity/optimize) for surface separation.
 - No CLI at all — only the HTTP service, accessed via `curl` or scripted clients.
 
-Recommendation: single binary. Simplest authoring surface. Belongs to E-30.
+Recommendation: single binary. Simplest authoring surface. Belongs to E-0030.
 
 ### Q4 — UI retirement timing
-The Svelte UI is the target. The Blazor UI is in the tree but described as retiring. Whether Blazor retires *during* Consolidation (E-30 or earlier) or stays through E-33 affects E-33's scope. If Blazor stays, E-33 retires it as part of the cleanup. If Blazor retires earlier, it's out of scope for E-33.
+The Svelte UI is the target. The Blazor UI is in the tree but described as retiring. Whether Blazor retires *during* Consolidation (E-0030 or earlier) or stays through E-0033 affects E-0033's scope. If Blazor stays, E-0033 retires it as part of the cleanup. If Blazor retires earlier, it's out of scope for E-0033.
 
-Recommendation: retire Blazor in E-30 alongside the service rebuild. The Svelte UI has reached the point where Blazor is a parallel surface, not a fallback.
+Recommendation: retire Blazor in E-0030 alongside the service rebuild. The Svelte UI has reached the point where Blazor is a parallel surface, not a fallback.
 
 ---
 

@@ -22,14 +22,14 @@ The aiwf v3 planning tree currently has zero in-flight epics (E-0021 closed 2026
 
 ### Supersedes / closes
 
-- Resolves [G-0032](../../gaps/G-032-transportation-basic-regressed-edge-flow-mismatch-incoming-3-after-e-24-unification.md) (`addressed`) — the design question and the per-template baseline cleanup.
-- Resolves [G-0033](../../gaps/G-033-tests-are-too-weak-surveyed-output-only-canaries-cannot-detect-drift-need-deterministic-golden-output-assertions.md) (`addressed`) — the golden-output canary infrastructure and initial pinning.
-- Builds on [D-0053](../../decisions/D-053-testing-rigor-approach-phase-2-baseline-canary-first-full-golden-output-canon-deferred.md) (Phase 2 baseline canary) — promotes the deferred full golden-output canon now that empirical signal (this epic) exists.
+- Resolves [G-0032](../../gaps/G-0032-transportation-basic-regressed-edge-flow-mismatch-incoming-3-after-e-24-unification.md) (`addressed`) — the design question and the per-template baseline cleanup.
+- Resolves [G-0033](../../gaps/G-0033-tests-are-too-weak-surveyed-output-only-canaries-cannot-detect-drift-need-deterministic-golden-output-assertions.md) (`addressed`) — the golden-output canary infrastructure and initial pinning.
+- Builds on [D-0053](../../decisions/D-0053-testing-rigor-approach-phase-2-baseline-canary-first-full-golden-output-canon-deferred.md) (Phase 2 baseline canary) — promotes the deferred full golden-output canon now that empirical signal (this epic) exists.
 
 ### Related
 
-- **E-0022 Time Machine — Model Fit & Chunked Evaluation** (`work/epics/E-22-time-machine-model-fit-chunked-evaluation/epic.md`) — downstream consumer; E-0025 is gating per the strategic call. Fit accuracy depends on detectable engine-output stability at numeric precision, which baseline-counts don't catch. E-0022's success criteria reference fit residuals "within documented tolerance"; that tolerance is meaningful only against an engine whose output stability is itself canonical.
-- **E-0015 Telemetry Ingestion** (`work/epics/E-15-telemetry-ingestion-topology-inference-and-canonical-bundles/epic.md`) — also downstream; E-0015's canonical-bundle-replay parity argument benefits from the golden canary as the "synthetic side" reference point.
+- **E-0022 Time Machine — Model Fit & Chunked Evaluation** (`work/epics/E-0022-time-machine-model-fit-chunked-evaluation/epic.md`) — downstream consumer; E-0025 is gating per the strategic call. Fit accuracy depends on detectable engine-output stability at numeric precision, which baseline-counts don't catch. E-0022's success criteria reference fit residuals "within documented tolerance"; that tolerance is meaningful only against an engine whose output stability is itself canonical.
+- **E-0015 Telemetry Ingestion** (`work/epics/E-0015-telemetry-ingestion-topology-inference-and-canonical-bundles/epic.md`) — also downstream; E-0015's canonical-bundle-replay parity argument benefits from the golden canary as the "synthetic side" reference point.
 - **E-0024 Schema Alignment** (completed 2026-04-25) — the merge that surfaced G-0032 by enabling per-edge `flowVolume` series writing.
 
 ## Scope
@@ -78,7 +78,7 @@ The aiwf v3 planning tree currently has zero in-flight epics (E-0021 closed 2026
 - [ ] G-0032 status promoted to `addressed` and references this epic; G-0033 status promoted to `addressed` and references this epic.
 - [ ] A ratified ADR (under `docs/adr/`) names the flow-authority policy across the three classes of physical systems, names the rejected framings with rationale, and names the schema/compile/analyse enforcement points.
 - [ ] A `docs/architecture/flow-authority-policy.md` (or M-0066-chosen name) document defines the three-class taxonomy and is referenced by the ADR.
-- [ ] A doc-sweep tracking artefact (`work/epics/E-25-engine-truth-gate/M-066-flow-authority-doc-sweep.md`) classifies every routing-relevant document in the repo; conflicting docs are revised or marked `[needs revision per ADR-NNNN]`.
+- [ ] A doc-sweep tracking artefact (`work/epics/E-0025-engine-truth-gate/M-0066-flow-authority-doc-sweep.md`) classifies every routing-relevant document in the repo; conflicting docs are revised or marked `[needs revision per ADR-NNNN]`.
 - [ ] A class-2 capacity-aware allocator deferred-follow-up gap is filed naming the future engine work; the ADR references it.
 - [ ] The engine implementation reflects the policy; on every shipped template enumerated by `Survey_Templates_For_Warnings`, running at default parameters produces zero `edge_flow_mismatch_incoming` and zero `edge_flow_mismatch_outgoing` warnings.
 - [ ] M-0069's enforcement gates (schema rule, compile-time fan-out detector, two new analyser warnings) are live and tested with deliberately-broken model fixtures; existing shipped templates pass all gates after M-0067 lands.
@@ -90,13 +90,13 @@ The aiwf v3 planning tree currently has zero in-flight epics (E-0021 closed 2026
 - [ ] `Survey_Templates_For_Warnings` is extended to fail on `val-warn` delta as well as `run-warn` delta; both gates active simultaneously.
 - [ ] Documentation: an architecture note captures the edge-flow authority decision; a testing note captures the golden-output canary, the regeneration workflow, and the meaning of a green build.
 - [ ] Full repo test suite is green at epic close; no skipped tests added by this work that aren't explicitly gated on infrastructure (e.g. `FLOWTIME_E2E_TEST_RUNS=1` style).
-- [ ] On epic completion, the epic frontmatter is promoted to `status: done` via `aiwf promote E-25 done`; `ROADMAP.md` is regenerated via `aiwf render roadmap --write`; a wrap artefact at `work/epics/E-25-engine-truth-gate/wrap.md` captures what shipped, the pinned-fixture catalog state, and any deferred follow-ups. (Epic dirs stay in place under `work/epics/E-NN-<slug>/` regardless of status — aiwf v3's truth surface is the frontmatter, not the path.)
+- [ ] On epic completion, the epic frontmatter is promoted to `status: done` via `aiwf promote E-0025 done`; `ROADMAP.md` is regenerated via `aiwf render roadmap --write`; a wrap artefact at `work/epics/E-0025-engine-truth-gate/wrap.md` captures what shipped, the pinned-fixture catalog state, and any deferred follow-ups. (Epic dirs stay in place under `work/epics/E-NN-<slug>/` regardless of status — aiwf v3's truth surface is the frontmatter, not the path.)
 
 ## Open questions
 
 | Question | Blocking? | Resolution path |
 |---|---|---|
-| What is the flow-authority policy across the three classes of physical systems FlowTime models (class 1 dynamic routing, class 2 capacity-aware allocation, class 3 static-weight)? | **Yes** | **Resolved** by [ADR-0001](../../../docs/adr/ADR-0001-flow-authority-policy.md) (Flow-Authority Policy), ratified under M-0066 AC-9 (2026-05-05). Class-1 = router node; class-3 = edge weights; class-2 deferred to [G-0038](../../gaps/G-038-class-2-capacity-aware-allocator-deferred-from-m-066-flow-authority-policy.md). M-0069 / M-0067 / M-0068 carry the policy into schema, engine, and canary layers. |
+| What is the flow-authority policy across the three classes of physical systems FlowTime models (class 1 dynamic routing, class 2 capacity-aware allocation, class 3 static-weight)? | **Yes** | **Resolved** by [ADR-0001](../../../docs/adr/ADR-0001-flow-authority-policy.md) (Flow-Authority Policy), ratified under M-0066 AC-9 (2026-05-05). Class-1 = router node; class-3 = edge weights; class-2 deferred to [G-0038](../../gaps/G-0038-class-2-capacity-aware-allocator-deferred-from-m-066-flow-authority-policy.md). M-0069 / M-0067 / M-0068 carry the policy into schema, engine, and canary layers. |
 | ADR or D-NNN for the flow-authority decision record? | No | Settled — ADR. The flow-authority policy is durable architectural truth, not a project-bound decision; it outlives this project's planning context. The repo's `docs/adr/` is empty today; this ADR seeds it. |
 | Numeric tolerance for the golden canary — absolute, relative, hybrid; what magnitude? | No | Decided inside the canary milestone with empirical evidence (run several known-clean templates, measure observed bin-to-bin variance under repeat runs, set tolerance with margin). Default starting point: relative 1e-9. |
 | Pinned-fixture serialization format — JSON, CSV+JSON-warnings, MessagePack? | No | Decided inside the canary milestone. Constraint: must produce reviewable PR diffs. JSON-with-stable-key-order is the strawman. |
@@ -123,10 +123,10 @@ The aiwf v3 planning tree currently has zero in-flight epics (E-0021 closed 2026
 
 <!-- Sequencing rationale: policy first (the ADR commits the engine to a flow-theoretic model that drives every downstream layer). Enforcement gates second (make the policy real at schema/compile/analyse layers; existing templates fail; failure is the proof that the gates work). Engine + template + baseline reset third (fix the templates so they pass under the new gates; engine code reflects the policy). Golden canary fourth (built on top of an engine whose output is now both policy-conformant and trustworthy). Note: ids do not encode execution order in aiwf v3; depends_on does. M-0069 was added after M-0066/M-0067/M-0068 were already allocated, so the dependency chain is M-0066 → M-0069 → M-0067 → M-0068. -->
 
-- [M-0066 — **Flow-Authority Policy Spike**](M-066-edge-flow-authority-decision.md) — three-class taxonomy doc, repo-wide doc sweep, ratified ADR naming the policy and enforcement points, deferred class-2 gap. Closes the G-0032 design question. · depends on: —
-- [M-0069 — **Schema + Compile + Analyse Enforcement**](M-069-schema-compile-analyse-enforcement.md) — schema rule rejecting consumer-side peer-split, compile-time fan-out routing-authority detector, analyser warnings `routing_authority_ambiguous` + `consumer_side_peer_split_detected`, deliberately-broken fixture coverage. · depends on: M-0066
-- [M-0067 — **Engine + template alignment**](M-067-engine-template-alignment.md) — implement the chosen authority in the engine, edit affected shipped templates so they pass M-0069's gates, reset `ExpectedRunWarnings` entries to zero, add `val-warn` delta gate to the existing canary. · depends on: M-0069
-- [M-0068 — **Golden-output canary**](M-068-golden-output-canary.md) — fixture infrastructure, regeneration workflow, initial pinning across the shipped template set, documentation. Closes G-0033. · depends on: M-0067
+- [M-0066 — **Flow-Authority Policy Spike**](M-0066-edge-flow-authority-decision.md) — three-class taxonomy doc, repo-wide doc sweep, ratified ADR naming the policy and enforcement points, deferred class-2 gap. Closes the G-0032 design question. · depends on: —
+- [M-0069 — **Schema + Compile + Analyse Enforcement**](M-0069-schema-compile-analyse-enforcement.md) — schema rule rejecting consumer-side peer-split, compile-time fan-out routing-authority detector, analyser warnings `routing_authority_ambiguous` + `consumer_side_peer_split_detected`, deliberately-broken fixture coverage. · depends on: M-0066
+- [M-0067 — **Engine + template alignment**](M-0067-engine-template-alignment.md) — implement the chosen authority in the engine, edit affected shipped templates so they pass M-0069's gates, reset `ExpectedRunWarnings` entries to zero, add `val-warn` delta gate to the existing canary. · depends on: M-0069
+- [M-0068 — **Golden-output canary**](M-0068-golden-output-canary.md) — fixture infrastructure, regeneration workflow, initial pinning across the shipped template set, documentation. Closes G-0033. · depends on: M-0067
 
 Detailed per-milestone acceptance criteria are filled in the milestone specs above; original three-milestone sequence planned 2026-05-02; widened to four milestones on 2026-05-02 after the M-0066 framing widened to a flow-authority policy spike.
 
@@ -137,12 +137,12 @@ Detailed per-milestone acceptance criteria are filled in the milestone specs abo
 
 ## References
 
-- Gap [G-0032](../../gaps/G-032-transportation-basic-regressed-edge-flow-mismatch-incoming-3-after-e-24-unification.md) — the regression that surfaced the latent inconsistency; full investigation history and the three authority options.
-- Gap [G-0033](../../gaps/G-033-tests-are-too-weak-surveyed-output-only-canaries-cannot-detect-drift-need-deterministic-golden-output-assertions.md) — the structural argument for a golden-output canary; proposed shape.
-- Decision [D-0053](../../decisions/D-053-testing-rigor-approach-phase-2-baseline-canary-first-full-golden-output-canon-deferred.md) — Phase 2 baseline canary; deferred full golden canon (this epic picks up that deferred scope).
-- Decision [D-0045](../../decisions/D-045-svelte-ui-fork-platform-for-all-new-telemetry-fit-discovery-surfaces-blazor-enters-maintenance-mode.md) — Option A delivery sequence (E-0021 → E-0015 → Telemetry Loop & Parity → E-0022); E-0025 sits between E-0021 close and E-0015 / E-0022 start as the engine truth gate.
+- Gap [G-0032](../../gaps/G-0032-transportation-basic-regressed-edge-flow-mismatch-incoming-3-after-e-24-unification.md) — the regression that surfaced the latent inconsistency; full investigation history and the three authority options.
+- Gap [G-0033](../../gaps/G-0033-tests-are-too-weak-surveyed-output-only-canaries-cannot-detect-drift-need-deterministic-golden-output-assertions.md) — the structural argument for a golden-output canary; proposed shape.
+- Decision [D-0053](../../decisions/D-0053-testing-rigor-approach-phase-2-baseline-canary-first-full-golden-output-canon-deferred.md) — Phase 2 baseline canary; deferred full golden canon (this epic picks up that deferred scope).
+- Decision [D-0045](../../decisions/D-0045-svelte-ui-fork-platform-for-all-new-telemetry-fit-discovery-surfaces-blazor-enters-maintenance-mode.md) — Option A delivery sequence (E-0021 → E-0015 → Telemetry Loop & Parity → E-0022); E-0025 sits between E-0021 close and E-0015 / E-0022 start as the engine truth gate.
 - Analyser source: `src/FlowTime.Core/Analysis/InvariantAnalyzer.cs:323-335` (incoming-edge conservation) and `:309-321` (outgoing-edge conservation; both warning families).
 - Existing baseline canary: `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs` — `ExpectedRunWarnings` dictionary at `:79`, assertion at `:340-358`.
 - Reproduction artifacts (preserve until E-0025 ships): `data/runs/run_20260424T150244Z_b2f4c995/run.json` (clean baseline, pre-E-0024) and `data/runs/run_20260428T165413Z_6ed5974e/run.json` (post-E-0024 regression).
 - Affected shipped templates (current baselines): G-0032 "Affected templates" table.
-- Downstream consumers: E-0022 (`work/epics/E-22-time-machine-model-fit-chunked-evaluation/epic.md`) and E-0015 (`work/epics/E-15-telemetry-ingestion-topology-inference-and-canonical-bundles/epic.md`).
+- Downstream consumers: E-0022 (`work/epics/E-0022-time-machine-model-fit-chunked-evaluation/epic.md`) and E-0015 (`work/epics/E-0015-telemetry-ingestion-topology-inference-and-canonical-bundles/epic.md`).

@@ -8,7 +8,7 @@ addressed_by:
 
 ### Why this was a gap
 
-Discovered during the `epic/E-19 → main` merge sanity check (2026-04-08). Running the three E-0019 grep-guard scripts with ripgrep explicitly on `$PATH`:
+Discovered during the `epic/E-0019 → main` merge sanity check (2026-04-08). Running the three E-0019 grep-guard scripts with ripgrep explicitly on `$PATH`:
 
 - `scripts/m-E19-04-grep-guards.sh` — 11/11 passing
 - `scripts/m-E19-03-grep-guards.sh` — 9/11 passing (2 false-positive self-matches)

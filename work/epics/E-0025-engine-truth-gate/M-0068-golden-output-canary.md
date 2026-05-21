@@ -123,11 +123,11 @@ Per project hard rule. Every reachable conditional branch in the canary's compar
 
 ### AC-13 — G-0033 closes
 
-`work/gaps/G-033-tests-are-too-weak-…md` status moves to `done` with a reference to this milestone. The epic spec is updated so its "Supersedes / closes" section reflects the closure.
+`work/gaps/G-0033-tests-are-too-weak-…md` status moves to `done` with a reference to this milestone. The epic spec is updated so its "Supersedes / closes" section reflects the closure.
 
 ### AC-14 — Epic closure housekeeping complete
 
-On merge to main: the epic frontmatter is promoted to `status: done` via `aiwf promote E-25 done`; a wrap artefact at `work/epics/E-25-engine-truth-gate/wrap.md` captures what shipped, the pinned-fixture catalog state (12 templates pinned, capture commit, capture date), and any deferred follow-ups; `ROADMAP.md` is regenerated via `aiwf render roadmap --write`. (Epic dirs stay in place under `work/epics/E-NN-<slug>/` regardless of status — aiwf v3's truth surface is the frontmatter, not the path. The pre-aiwf v1 `work/epics/completed/` convention does not apply.)
+On merge to main: the epic frontmatter is promoted to `status: done` via `aiwf promote E-0025 done`; a wrap artefact at `work/epics/E-0025-engine-truth-gate/wrap.md` captures what shipped, the pinned-fixture catalog state (12 templates pinned, capture commit, capture date), and any deferred follow-ups; `ROADMAP.md` is regenerated via `aiwf render roadmap --write`. (Epic dirs stay in place under `work/epics/E-NN-<slug>/` regardless of status — aiwf v3's truth surface is the frontmatter, not the path. The pre-aiwf v1 `work/epics/completed/` convention does not apply.)
 
 ## Constraints
 
@@ -170,9 +170,9 @@ On merge to main: the epic frontmatter is promoted to `status: done` via `aiwf p
 - `tests/FlowTime.Integration.Tests/GoldenOutputCoverageEquivalenceTests.cs` (new, optional — the coverage-equivalence assertion if it lives separately)
 - `tests/fixtures/golden-templates/<template-id>/` × 12 (new — one directory per shipped template, each with the serialized fixture and a README)
 - `docs/testing/golden-output-canary.md` (new — the canary contract doc)
-- `work/gaps/G-033-tests-are-too-weak-…md` (status to `done`, reference this milestone)
-- `work/epics/E-25-engine-truth-gate/epic.md` (small edit — supersedes/closes update)
-- `work/epics/E-25-engine-truth-gate/wrap.md` (new — epic closure artefact)
+- `work/gaps/G-0033-tests-are-too-weak-…md` (status to `done`, reference this milestone)
+- `work/epics/E-0025-engine-truth-gate/epic.md` (small edit — supersedes/closes update)
+- `work/epics/E-0025-engine-truth-gate/wrap.md` (new — epic closure artefact)
 - `ROADMAP.md` (regenerated)
 
 ## Out of scope
@@ -194,9 +194,9 @@ On merge to main: the epic frontmatter is promoted to `status: done` via `aiwf p
 
 ## References
 
-- Epic spec: `work/epics/E-25-engine-truth-gate/epic.md`
-- Gap: `work/gaps/G-033-tests-are-too-weak-surveyed-output-only-canaries-cannot-detect-drift-need-deterministic-golden-output-assertions.md` — structural argument for the canary, proposed shape
-- Decision: `work/decisions/D-053-testing-rigor-approach-phase-2-baseline-canary-first-full-golden-output-canon-deferred.md` — the deferred-canon scope this milestone picks up
+- Epic spec: `work/epics/E-0025-engine-truth-gate/epic.md`
+- Gap: `work/gaps/G-0033-tests-are-too-weak-surveyed-output-only-canaries-cannot-detect-drift-need-deterministic-golden-output-assertions.md` — structural argument for the canary, proposed shape
+- Decision: `work/decisions/D-0053-testing-rigor-approach-phase-2-baseline-canary-first-full-golden-output-canon-deferred.md` — the deferred-canon scope this milestone picks up
 - Phase 2 baseline canary: `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs:79` (the `ExpectedRunWarnings` dictionary) and `:340-358` (the assertion shape this canary layers on top of)
 - Shipped templates enumeration: `templates/*.yaml` (12 files; the canonical list)
 - Pre-E-0024 reference run (model of clean output): `data/runs/run_20260424T150244Z_b2f4c995/run.json`

@@ -1,7 +1,7 @@
 # Epic: Expert Authoring Surface
 
 **Status:** draft
-**Depends on:** E-18 Time Machine session and validation foundations, [ui-workbench](../ui-workbench/spec.md), [ui-analytical-views](../ui-analytical-views/spec.md), and the Svelte-first surface direction already captured in current planning
+**Depends on:** E-0018 Time Machine session and validation foundations, [ui-workbench](../ui-workbench/spec.md), [ui-analytical-views](../ui-analytical-views/spec.md), and the Svelte-first surface direction already captured in current planning
 **Architecture:** [docs/research/expert-authoring-surface.md](../../../../docs/research/expert-authoring-surface.md)
 **Reference:** [reference/session-patch-model.md](reference/session-patch-model.md)
 
@@ -21,7 +21,7 @@ surface for expert modelers and AI-assisted iteration.
 FlowTime already has several prerequisites for an expert authoring loop:
 
 - a deterministic execution substrate in the Time Machine
-- tiered validation and reevaluation work in E-18
+- tiered validation and reevaluation work in E-0018
 - an interactive what-if loop in the Svelte UI
 - a DAG/workbench direction for broader analytical use
 

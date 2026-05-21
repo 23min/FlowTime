@@ -274,7 +274,7 @@ The Rust `Warning` struct uses `node_id` (snake_case). MessagePack serialization
 - `ui/src/lib/api/engine-session.ts` — client types
 - `ui/src/lib/components/dag-map-view.svelte` — existing graph renderer
 - `ui/src/routes/what-if/+page.svelte` — target page
-- `work/epics/E-17-interactive-what-if-mode/m-E17-03-live-topology-and-charts.md` — prior milestone
+- `work/epics/E-0017-interactive-what-if-mode/m-E17-03-live-topology-and-charts.md` — prior milestone
 
 ## Success Indicator
 

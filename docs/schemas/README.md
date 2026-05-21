@@ -4,7 +4,7 @@ This index lists the active schemas maintained by FlowTime Engine and FlowTime-S
 
 ## One model, one schema, one validator
 
-After E-24 Schema Alignment (m-E24-02 / m-E24-03), FlowTime has a single post-substitution model representation. FlowTime-Sim builds it directly; FlowTime Engine accepts and parses the same shape. The C# source of truth is [`ModelDto`](../../src/FlowTime.Contracts/Dtos/ModelDtos.cs); the structural contract is [`model.schema.yaml`](model.schema.yaml); the runtime validator is `ModelSchemaValidator` in `src/FlowTime.Core/Models/`.
+After E-0024 Schema Alignment (m-E24-02 / m-E24-03), FlowTime has a single post-substitution model representation. FlowTime-Sim builds it directly; FlowTime Engine accepts and parses the same shape. The C# source of truth is [`ModelDto`](../../src/FlowTime.Contracts/Dtos/ModelDtos.cs); the structural contract is [`model.schema.yaml`](model.schema.yaml); the runtime validator is `ModelSchemaValidator` in `src/FlowTime.Core/Models/`.
 
 `Template` (the authoring-time pre-substitution shape used by FlowTime-Sim) is a separate contract under [`template.schema.json`](template.schema.json).
 
@@ -92,7 +92,7 @@ Invalid model YAML submitted to Engine returns `400 Bad Request`, for example:
 
 ## Historical note
 
-Before E-24, two C# types described the post-substitution model: `SimModelArtifact` on the Sim side and `ModelDefinition` on the Engine side. The split was accidental drift introduced in October 2025; there was never a designed type boundary. m-E24-02 deleted `SimModelArtifact` (and its six satellite types) and routed Sim's emitter through `ModelDto` directly. m-E24-03 rewrote `model.schema.yaml` to describe the unified type with camelCase provenance. Existing stored bundles from before m-E24-02 are obsolete (forward-only — no migration). For full design rationale see `work/epics/E-24-schema-alignment/spec.md`.
+Before E-0024, two C# types described the post-substitution model: `SimModelArtifact` on the Sim side and `ModelDefinition` on the Engine side. The split was accidental drift introduced in October 2025; there was never a designed type boundary. m-E24-02 deleted `SimModelArtifact` (and its six satellite types) and routed Sim's emitter through `ModelDto` directly. m-E24-03 rewrote `model.schema.yaml` to describe the unified type with camelCase provenance. Existing stored bundles from before m-E24-02 are obsolete (forward-only — no migration). For full design rationale see `work/epics/E-0024-schema-alignment/spec.md`.
 
 ## See also
 

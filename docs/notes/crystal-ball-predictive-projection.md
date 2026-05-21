@@ -54,7 +54,7 @@ For predictive projection to produce useful results, three conditions must hold:
 
 The model's topology, capacity parameters, failure rates, and retry kernels must match the real system closely enough that the algebra produces realistic consequences. A model that assumes 10% failure rate when the real system has 25% will produce inaccurate queue depth projections.
 
-Calibration is the hardest requirement and the one with the longest path to delivery. E-15 (Telemetry Ingestion, Topology Inference, and Canonical Bundles) provides the infrastructure: the Graph Builder infers topology from real traces, and the Gold Builder produces binned facts that can be compared against model predictions. E-18 (Headless Pipeline) enables model fitting -- adjusting model parameters to minimize the gap between model output and observed telemetry.
+Calibration is the hardest requirement and the one with the longest path to delivery. E-0015 (Telemetry Ingestion, Topology Inference, and Canonical Bundles) provides the infrastructure: the Graph Builder infers topology from real traces, and the Gold Builder produces binned facts that can be compared against model predictions. E-0018 (Headless Pipeline) enables model fitting -- adjusting model parameters to minimize the gap between model output and observed telemetry.
 
 A calibrated model does not need to be perfect. The crystal ball is useful even when the model is approximate, because the projections still capture structural effects (retry amplification, queue inertia, batch timing) that would be invisible without the model. The accuracy of specific queue depth predictions improves with calibration; the qualitative shape of the projection is valuable from the start.
 
@@ -64,7 +64,7 @@ The crystal ball requires near-real-time observation of traffic at entry nodes. 
 
 The freshness requirement depends on the system's propagation time. For a pipeline where work takes 1 hour from entry to the node of interest, a 5-minute-old observation still provides a 55-minute prediction window. For a system with 5-minute propagation, the observation must be within seconds to be useful.
 
-This requires either a streaming ingestion pipeline or a frequently-refreshed batch ingestion path. Neither exists today. The streaming capability is a future epic beyond E-15's batch-first scope.
+This requires either a streaming ingestion pipeline or a frequently-refreshed batch ingestion path. Neither exists today. The streaming capability is a future epic beyond E-0015's batch-first scope.
 
 ### 3. Stable system parameters
 
@@ -92,7 +92,7 @@ The total prediction horizon for a node is therefore: `max(path_length, path_len
 
 The current engine produces sharp deterministic predictions: "the queue depth at settlement will be 47 at bin 14." This is precise for the model but does not capture the uncertainty inherent in projecting a stochastic real system.
 
-With the planned E-10 Phase 3c variability work (`m-ec-p3c` -- Cv tracking and Kingman's approximation), the engine could produce confidence bands: "expected queue depth 47, 80th percentile 58, 95th percentile 72." The Kingman formula relates queue waiting time to the coefficient of variation of arrival and service processes:
+With the planned E-0010 Phase 3c variability work (`m-ec-p3c` -- Cv tracking and Kingman's approximation), the engine could produce confidence bands: "expected queue depth 47, 80th percentile 58, 95th percentile 72." The Kingman formula relates queue waiting time to the coefficient of variation of arrival and service processes:
 
 ```
 W ~ (Cv_a^2 + Cv_s^2) / 2 * (rho / (1 - rho)) * E[S]
@@ -110,13 +110,13 @@ The crystal ball is not a single epic. It is the capability that emerges when se
 
 | Epic | Contribution to crystal ball |
 |------|------------------------------|
-| **E-15** (Telemetry Ingestion) | Calibrated model: Graph Builder infers topology from traces, Gold Builder produces binned facts for calibration. This is the hardest prerequisite. |
-| **E-10 Phase 3c** (Variability) | Richer predictions: Cv tracking enables confidence bands instead of point estimates. |
-| **E-10 Phase 3a** (Cycle Time) | Prediction horizon calculation: cycle time decomposition provides per-node propagation delay. |
+| **E-0015** (Telemetry Ingestion) | Calibrated model: Graph Builder infers topology from traces, Gold Builder produces binned facts for calibration. This is the hardest prerequisite. |
+| **E-0010 Phase 3c** (Variability) | Richer predictions: Cv tracking enables confidence bands instead of point estimates. |
+| **E-0010 Phase 3a** (Cycle Time) | Prediction horizon calculation: cycle time decomposition provides per-node propagation delay. |
 | **Streaming epic** (future) | Real-time arrival data: near-real-time ingestion at entry nodes. Without this, the crystal ball uses recent-batch data with reduced freshness. |
 | **Anomaly Detection** (future) | Divergence detection: flags when predictions diverge from subsequently observed reality, indicating model drift. |
-| **E-17** (Interactive What-If) | Live parameter adjustment: change system parameters in the crystal ball projection and see the future change in real time. "What if we add capacity now -- when does the queue clear?" |
-| **E-18** (Headless Pipeline) | Model calibration: parameter fitting and sensitivity analysis against real telemetry. Produces the calibrated models the crystal ball requires. |
+| **E-0017** (Interactive What-If) | Live parameter adjustment: change system parameters in the crystal ball projection and see the future change in real time. "What if we add capacity now -- when does the queue clear?" |
+| **E-0018** (Headless Pipeline) | Model calibration: parameter fitting and sensitivity analysis against real telemetry. Produces the calibrated models the crystal ball requires. |
 
 The engine already has the evaluation mechanics. The missing pieces are (1) real-time or near-real-time ingestion, (2) model calibration from observed data, and (3) optionally, variability bands for richer predictions.
 
@@ -126,25 +126,25 @@ The engine already has the evaluation mechanics. The missing pieces are (1) real
 
 No single epic delivers the crystal ball. Instead, it emerges naturally when:
 
-1. E-15 delivers topology inference and telemetry ingestion (calibrated model).
+1. E-0015 delivers topology inference and telemetry ingestion (calibrated model).
 2. A streaming or rapid-batch ingestion path delivers fresh arrivals data.
 3. The existing engine evaluates the model with observed entry data.
 
-Each of these pieces has independent value: E-15 enables what-was replay on real data, streaming enables operational dashboards, and the engine already powers what-if analysis. The crystal ball is the intersection of all three, requiring no additional engine capability beyond what is already shipped.
+Each of these pieces has independent value: E-0015 enables what-was replay on real data, streaming enables operational dashboards, and the engine already powers what-if analysis. The crystal ball is the intersection of all three, requiring no additional engine capability beyond what is already shipped.
 
 This emergent property is a consequence of FlowTime's core design: because the engine evaluates the entire grid deterministically from input series, any source of input series -- synthetic, captured, or observed -- produces valid output. The crystal ball is not a feature to be built; it is a usage pattern to be enabled by infrastructure.
 
 ---
 
-## Relationship to E-15's process mining framing
+## Relationship to E-0015's process mining framing
 
-E-15 frames telemetry ingestion as "prove FlowTime works on real data." The Graph Builder takes event logs or traces and infers a topology. The Gold Builder bins raw events into per-node series. The validation goal is parity: does the model reproduce observed behavior?
+E-0015 frames telemetry ingestion as "prove FlowTime works on real data." The Graph Builder takes event logs or traces and infers a topology. The Gold Builder bins raw events into per-node series. The validation goal is parity: does the model reproduce observed behavior?
 
 The crystal ball reframes the same infrastructure as "predict the future from real data." Same Graph Builder output (the calibrated topology). Same Gold Builder pipeline (but with fresh data instead of historical batches). Same engine evaluation. Different narrative.
 
-E-15's Graph Builder + Gold Builder produce the calibrated model. Add fresh arrivals at entry nodes and you have prediction. The pipeline is identical; only the temporal relationship between input data and evaluation changes.
+E-0015's Graph Builder + Gold Builder produce the calibrated model. Add fresh arrivals at entry nodes and you have prediction. The pipeline is identical; only the temporal relationship between input data and evaluation changes.
 
-This reframing does not change E-15's scope or deliverables. It adds a motivation beyond validation: the same calibration infrastructure that proves the model works also enables the model to project forward.
+This reframing does not change E-0015's scope or deliverables. It adds a motivation beyond validation: the same calibration infrastructure that proves the model works also enables the model to project forward.
 
 ---
 
@@ -190,10 +190,10 @@ An incident has pushed queue depth to 500 items. The incident is resolved and ca
 
 ## References
 
-- E-15 spec: `work/epics/E-15-telemetry-ingestion/spec.md` -- Telemetry Ingestion, Topology Inference, and Canonical Bundles
-- E-17 spec: `work/epics/E-17-interactive-what-if-mode/spec.md` -- Interactive What-If Mode
-- E-18 spec: `work/epics/E-18-headless-pipeline-and-optimization/spec.md` -- Headless Pipeline and Optimization
-- E-10 spec: `work/epics/E-10-engine-correctness-and-analytics/spec.md` -- Engine Correctness and Analytical Primitives (Phase 3c: Variability)
+- E-0015 spec: `work/epics/E-0015-telemetry-ingestion/spec.md` -- Telemetry Ingestion, Topology Inference, and Canonical Bundles
+- E-0017 spec: `work/epics/E-0017-interactive-what-if-mode/spec.md` -- Interactive What-If Mode
+- E-0018 spec: `work/epics/E-0018-headless-pipeline-and-optimization/spec.md` -- Headless Pipeline and Optimization
+- E-0010 spec: `work/epics/E-0010-engine-correctness-and-analytics/spec.md` -- Engine Correctness and Analytical Primitives (Phase 3c: Variability)
 - FlowTime overview (technical reference): `docs/flowtime.md`
 - FlowTime overview (narrative version): `docs/flowtime-v2.md`
 - Roadmap: `ROADMAP.md`

@@ -47,7 +47,7 @@ When a future milestone (likely under E-0025 — Engine Truth Gate — or a succ
 
 ## Cross-references
 
-- [`work/epics/E-25-engine-truth-gate/M-066-edge-flow-authority-decision.md`](../epics/E-25-engine-truth-gate/M-066-edge-flow-authority-decision.md) — the spike that established the policy and deferred this work.
+- [`work/epics/E-0025-engine-truth-gate/M-0066-edge-flow-authority-decision.md`](../epics/E-0025-engine-truth-gate/M-0066-edge-flow-authority-decision.md) — the spike that established the policy and deferred this work.
 - [`docs/architecture/flow-authority-policy.md`](../../docs/architecture/flow-authority-policy.md) — the policy doc naming the three classes.
 - [`docs/reference/flow-theory-coverage.md`](../../docs/reference/flow-theory-coverage.md) — coverage matrix that points dynamic-routing entries here.
 - ADR-NNNN flow-authority policy — forthcoming under M-0066/AC-5.

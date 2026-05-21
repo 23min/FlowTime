@@ -59,7 +59,7 @@ Per the 2026-04-23 Truth Discipline guard, retaining an unreferenced entry point
 **Smoke verification across surfaces.** Manual smoke-run of: (a) `POST /v1/run` with a representative template via the Engine API, (b) the Engine CLI `dotnet run --project src/FlowTime.Cli` against the same template, (c) `POST /v1/validate` via the Time Machine surface, (d) one Blazor page that renders a validated model (e.g., Dashboard), (e) one Svelte page that validates a model indirectly (e.g., `/analysis` sweep configuration). All five behave identically to pre-delete.
 ### AC-7 — Epic close
 
-**Epic close.** On merge to `main`, the E-0023 epic status flips from `in-progress` to `complete` and the epic folder is archived under `work/epics/completed/E-23-model-validation-consolidation/`. `ROADMAP.md`, `work/epics/epic-roadmap.md`, and `CLAUDE.md` Current Work are updated to reflect completion.
+**Epic close.** On merge to `main`, the E-0023 epic status flips from `in-progress` to `complete` and the epic folder is archived under `work/epics/completed/E-0023-model-validation-consolidation/`. `ROADMAP.md`, `work/epics/epic-roadmap.md`, and `CLAUDE.md` Current Work are updated to reflect completion.
 ## Constraints
 
 - No functional change. The only allowed diffs are: (1) delete `ModelValidator.cs`, (2) move `ValidationResult` to its own file, (3) remove any now-unused `using` statements that referenced the deleted type, (4) remove any dedicated `ModelValidator`-only test files that survived M-0047.
@@ -76,7 +76,7 @@ Per the 2026-04-23 Truth Discipline guard, retaining an unreferenced entry point
 - `src/FlowTime.Core/Models/ModelValidator.cs` (deleted)
 - `src/FlowTime.Core/Models/ValidationResult.cs` (new, content moved from deleted file)
 - Possibly a small number of unused-using cleanups across the solution
-- `work/epics/E-23-model-validation-consolidation/m-E23-03-delete-model-validator-tracking.md` (new)
+- `work/epics/E-0023-model-validation-consolidation/m-E23-03-delete-model-validator-tracking.md` (new)
 - `ROADMAP.md`, `work/epics/epic-roadmap.md`, `CLAUDE.md` (epic-completion housekeeping)
 
 ## Out of Scope
@@ -87,11 +87,11 @@ Per the 2026-04-23 Truth Discipline guard, retaining an unreferenced entry point
 
 ## Dependencies
 
-- M-0047 complete and merged into `epic/E-23-model-validation-consolidation`.
+- M-0047 complete and merged into `epic/E-0023-model-validation-consolidation`.
 - `ModelValidator` has zero production callers (M-0047 AC6 is the precondition for AC3 here).
 
 ## References
 
-- Epic spec: `work/epics/E-23-model-validation-consolidation/spec.md`
+- Epic spec: `work/epics/E-0023-model-validation-consolidation/spec.md`
 - M-0047 tracking doc (final migration state)
 - Truth Discipline guard (2026-04-23): `.ai-repo/rules/project.md` → `"'API stability' does not mean 'keep old functions around.'"`

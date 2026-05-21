@@ -41,7 +41,7 @@ The epic's Option E framing (unify `SimModelArtifact` and `ModelDefinition` into
 Input material:
 
 - **Investigation output (agent `a5aa3dfe26394aff5`):** the `SimModelArtifact` purpose analysis that established the split was accidental, not designed. Findings embedded in the epic spec's Context section.
-- **Survey output (agent `a07d52c12dcaf3538`):** the 16-row divergence table and full-shape audit in `work/epics/E-23-model-validation-consolidation/m-E23-01-schema-alignment-tracking.md` → "AC4 canary re-run, full-shape audit (2026-04-24)".
+- **Survey output (agent `a07d52c12dcaf3538`):** the 16-row divergence table and full-shape audit in `work/epics/E-0023-model-validation-consolidation/m-E23-01-schema-alignment-tracking.md` → "AC4 canary re-run, full-shape audit (2026-04-24)".
 - **Uncommitted M-0046 schema edits on branch `milestone/m-E23-01-schema-alignment`:** three schema additions (`grid.start`, `nodes[].metadata`, `nodes[].source`) — re-examined here under the unification framework, not treated as commitments.
 
 The inventory covers the full union of fields on `SimModelArtifact` and `ModelDefinition` plus every distinct shape the survey identified. Each row ends with a named decision; no row remains open.
@@ -80,7 +80,7 @@ The inventory covers the full union of fields on `SimModelArtifact` and `ModelDe
 **Forward-only disposition confirmed.** The tracking doc names every code path that might read the old two-type YAML shape (fixtures, sample bundles, test helpers, any bundle reader) and its disposition: regenerate, delete, or (rarely) document as historical reference. No compatibility reader survives.
 ### AC-8 — No production change
 
-**No production change.** Diff against `epic/E-24-schema-alignment` touches only this tracking doc, this milestone spec, and (optionally) reference-pointer updates in the epic spec. No edits to `src/`, `tests/`, `docs/schemas/`, or other code-bearing surfaces. Full `.NET` test suite is green throughout (untouched baseline).
+**No production change.** Diff against `epic/E-0024-schema-alignment` touches only this tracking doc, this milestone spec, and (optionally) reference-pointer updates in the epic spec. No edits to `src/`, `tests/`, `docs/schemas/`, or other code-bearing surfaces. Full `.NET` test suite is green throughout (untouched baseline).
 ## Constraints
 
 - **Decisions are recorded, not deferred.** Every row ends with a named resolution side. "Punt to E-0015" is acceptable only when the decision itself is "defer the contract to E-0015 and remove any forward-declared schema entry in the meantime" — i.e. a decision, not a question.
@@ -108,8 +108,8 @@ The inventory covers the full union of fields on `SimModelArtifact` and `ModelDe
 
 ## Surfaces touched
 
-- `work/epics/E-24-schema-alignment/m-E24-01-inventory-and-design-decisions-tracking.md` (new, on milestone start)
-- (optionally) `work/epics/E-24-schema-alignment/spec.md` — update references or ADR text if M-0049 ratifies a candidate ADR
+- `work/epics/E-0024-schema-alignment/m-E24-01-inventory-and-design-decisions-tracking.md` (new, on milestone start)
+- (optionally) `work/epics/E-0024-schema-alignment/spec.md` — update references or ADR text if M-0049 ratifies a candidate ADR
 
 ## Out of Scope
 
@@ -122,16 +122,16 @@ The inventory covers the full union of fields on `SimModelArtifact` and `ModelDe
 
 ## Dependencies
 
-- Epic `E-24-schema-alignment` spec approved (Option E framing ratified).
-- Epic integration branch `epic/E-24-schema-alignment` exists.
+- Epic `E-0024-schema-alignment` spec approved (Option E framing ratified).
+- Epic integration branch `epic/E-0024-schema-alignment` exists.
 - Access to the M-0046 tracking doc (held on branch `milestone/m-E23-01-schema-alignment` as stashed / uncommitted input material).
 - Access to the `SimModelArtifact` purpose investigation output (embedded in the epic spec Context section).
 
 ## References
 
-- Epic spec: `work/epics/E-24-schema-alignment/spec.md` (Option E framing, the six open questions)
+- Epic spec: `work/epics/E-0024-schema-alignment/spec.md` (Option E framing, the six open questions)
 - Investigation: agent `a5aa3dfe26394aff5` — `SimModelArtifact` purpose analysis; findings embedded in epic spec Context
-- Survey evidence: `work/epics/E-23-model-validation-consolidation/m-E23-01-schema-alignment-tracking.md` → "AC4 canary re-run, full-shape audit (2026-04-24)"
+- Survey evidence: `work/epics/E-0023-model-validation-consolidation/m-E23-01-schema-alignment-tracking.md` → "AC4 canary re-run, full-shape audit (2026-04-24)"
 - Survey agent: `a07d52c12dcaf3538`
 - Uncommitted M-0046 schema edits: `docs/schemas/model.schema.yaml` at branch `milestone/m-E23-01-schema-alignment` (stashed)
 - Decision precedent: D-0048 (E-0023 ratification), D-0049 (E-0023 pause, E-0024 creation, Option E ratified within E-0024 planning)

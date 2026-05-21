@@ -2,7 +2,7 @@
 
 **Status:** Current — reflects m-E18-09/10/11/12 implementation
 **Date:** 2026-04-13
-**Context:** E-18 Time Machine. The sweep/sensitivity/goal-seek layer built on top of `RustEngineRunner`.
+**Context:** E-0018 Time Machine. The sweep/sensitivity/goal-seek layer built on top of `RustEngineRunner`.
 
 ## Overview
 
@@ -288,8 +288,8 @@ Returns the original YAML unchanged if the node is not found or is not a const n
 ## Related documents
 
 - `docs/architecture/headless-engine-architecture.md` — engine session protocol, streaming design
-- `work/epics/E-18-headless-pipeline-and-optimization/spec.md` — full epic spec
-- `work/epics/E-18-headless-pipeline-and-optimization/m-E18-09-parameter-sweep.md`
-- `work/epics/E-18-headless-pipeline-and-optimization/m-E18-10-sensitivity-analysis.md`
-- `work/epics/E-18-headless-pipeline-and-optimization/m-E18-11-goal-seeking.md`
-- `work/epics/E-18-headless-pipeline-and-optimization/m-E18-12-optimization.md`
+- `work/epics/E-0018-headless-pipeline-and-optimization/spec.md` — full epic spec
+- `work/epics/E-0018-headless-pipeline-and-optimization/m-E18-09-parameter-sweep.md`
+- `work/epics/E-0018-headless-pipeline-and-optimization/m-E18-10-sensitivity-analysis.md`
+- `work/epics/E-0018-headless-pipeline-and-optimization/m-E18-11-goal-seeking.md`
+- `work/epics/E-0018-headless-pipeline-and-optimization/m-E18-12-optimization.md`

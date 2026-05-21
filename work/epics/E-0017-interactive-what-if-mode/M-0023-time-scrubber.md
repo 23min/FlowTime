@@ -315,4 +315,4 @@ Load `queue-with-wip` model. Drag the bin scrubber from bin 0 to bin 3. The topo
 - `ui/src/lib/components/chart-geometry.ts` — add `crosshairX`
 - `ui/src/lib/components/chart.svelte` — add `crosshairBin` prop
 - `ui/src/routes/what-if/+page.svelte` — add `selectedBin` state, scrubber UI, wire `crosshairBin`
-- `work/epics/E-17-interactive-what-if-mode/m-E17-05-edge-heatmap.md` — prior milestone
+- `work/epics/E-0017-interactive-what-if-mode/m-E17-05-edge-heatmap.md` — prior milestone

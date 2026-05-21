@@ -129,7 +129,7 @@ sections: Overview | Canonical Artifact Layout | The Provenance Gap | Architectu
 
 ## docs/architecture/supported-surfaces.md
 sha: 3f227f73
-purpose: Authoritative inventory of current supported, transitional, and deprecated API/UI surfaces for E-19 cleanup
+purpose: Authoritative inventory of current supported, transitional, and deprecated API/UI surfaces for E-0019 cleanup
 covers: supported surfaces, API routes, Sim routes, contracts, schemas, templates, examples
 references: POST /v1/runs, GET /v1/runs, Sim orchestration, templates, drafts, catalogs
 authoritative_for: supported-surface-matrix
@@ -139,7 +139,7 @@ sections: Shared Framing | Blazor / Svelte Support Policy | Decision Matrix | Ex
 ## docs/architecture/template-draft-model-run-bundle-boundary.md
 sha: be959e29
 purpose: Clarify distinction between template, draft, model, run, and bundle artifacts to prevent Sim path hardening
-covers: artifact types, ownership, responsibility, current/target architecture, E-19/E-18 roadmap
+covers: artifact types, ownership, responsibility, current/target architecture, E-0019/E-0018 roadmap
 references: templates/, drafts/, data/runs/, canonical artifacts, FlowTime.TimeMachine, time-machine validation
 authoritative_for: artifact-boundary-definitions
 last_verified: 2026-04-22
@@ -202,8 +202,8 @@ sections: —
 ## docs/architecture/reviews/review-sequenced-plan-2026-03.md
 sha: 6399ff48
 purpose: Integrate engine review findings into overall roadmap reconciliation
-covers: engine review, roadmap alignment, E-19/E-18 coordination
-references: E-18, E-19, engine improvement
+covers: engine review, roadmap alignment, E-0019/E-0018 coordination
+references: E-0018, E-0019, engine improvement
 authoritative_for: roadmap-reconciliation-plan
 last_verified: 2026-04-22
 sections: —
@@ -952,8 +952,8 @@ sections: —
 - `Docker image` → docs/development/devcontainer.md
 - `Docker images` → docs/guides/deployment.md
 - `Dockerfile` → docs/development/devcontainer-maintenance.md
-- `E-18` → docs/architecture/reviews/review-sequenced-plan-2026-03.md
-- `E-19` → docs/architecture/reviews/review-sequenced-plan-2026-03.md
+- `E-0018` → docs/architecture/reviews/review-sequenced-plan-2026-03.md
+- `E-0019` → docs/architecture/reviews/review-sequenced-plan-2026-03.md
 - `E-xx epics` → docs/development/epics-and-milestones.md
 - `EMA` → docs/notes/expression-extensions-roadmap.md
 - `Engine v2` → docs/flowtime-v2.md

@@ -1,8 +1,8 @@
 # Template, Draft, Model, Run, and Bundle Boundary
 
-**Status:** accepted baseline for E-19 and E-18 handoff
-**Related epic:** [E-19](../../work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md)
-**Related milestone:** [m-E19-01-supported-surface-inventory](../../work/epics/E-19-surface-alignment-and-compatibility-cleanup/m-E19-01-supported-surface-inventory.md)
+**Status:** accepted baseline for E-0019 and E-0018 handoff
+**Related epic:** [E-0019](../../work/epics/E-0019-surface-alignment-and-compatibility-cleanup/spec.md)
+**Related milestone:** [m-E19-01-supported-surface-inventory](../../work/epics/E-0019-surface-alignment-and-compatibility-cleanup/m-E19-01-supported-surface-inventory.md)
 **Related inventory:** [supported-surfaces.md](./supported-surfaces.md)
 
 ## Purpose
@@ -21,7 +21,7 @@ FlowTime currently mixes several artifact types and service roles:
 - Engine-side bundle import endpoints
 - catalog-era runtime seeding and UI/catalog clients
 
-Those surfaces were introduced for different reasons, but on the current first-party path they are easy to confuse. That ambiguity makes it too easy to treat today's Sim orchestration path as the default programmable contract even though E-18 is meant to replace it with `FlowTime.TimeMachine`.
+Those surfaces were introduced for different reasons, but on the current first-party path they are easy to confuse. That ambiguity makes it too easy to treat today's Sim orchestration path as the default programmable contract even though E-0018 is meant to replace it with `FlowTime.TimeMachine`.
 
 ## Terms
 
@@ -32,7 +32,7 @@ Those surfaces were introduced for different reasons, but on the current first-p
 | Model | Materialised engine model YAML after template expansion and parameter substitution | Sim generation/orchestration surface | transient response, optional model storage | Intermediate artifact for preview, validation side effects, or transport |
 | Run | Canonical evaluated execution result with manifest, model, series, and aggregates | Shared runtime contract, queried by Engine API | `data/runs/<runId>/` | Authoritative runtime/query truth |
 | Bundle | Portable interchange artifact derived from a run or model | Interchange surface | canonical bundle output, not canonical run truth | Portable artifact with a different purpose from the in-place run directory |
-| Catalog | Component-library residue from an older authoring direction | Legacy or optional Sim authoring surface | `catalogs/`, `data/catalogs/` | E-19 decides whether this survives at all |
+| Catalog | Component-library residue from an older authoring direction | Legacy or optional Sim authoring surface | `catalogs/`, `data/catalogs/` | E-0019 decides whether this survives at all |
 
 ## Responsibility Clarification
 
@@ -42,11 +42,11 @@ Those surfaces were introduced for different reasons, but on the current first-p
 
 ### `FlowTime.Generator`
 
-`FlowTime.Generator` is today's shared orchestration layer between Sim and API. It stays frozen during E-19. Its forward fate is already decided: E-18 Path B extracts its execution-pipeline responsibilities into `FlowTime.TimeMachine` and deletes `FlowTime.Generator` in the same cut.
+`FlowTime.Generator` is today's shared orchestration layer between Sim and API. It stays frozen during E-0019. Its forward fate is already decided: E-0018 Path B extracts its execution-pipeline responsibilities into `FlowTime.TimeMachine` and deletes `FlowTime.Generator` in the same cut.
 
 ### `FlowTime.API`
 
-`FlowTime.API` is the query and operator surface over canonical run artifacts. It reads canonical run artifacts and exposes the current read/query surface. It does not become the template-driven execution host, and E-19 deletes obsolete API write endpoints instead of preserving rejection stubs.
+`FlowTime.API` is the query and operator surface over canonical run artifacts. It reads canonical run artifacts and exposes the current read/query surface. It does not become the template-driven execution host, and E-0019 deletes obsolete API write endpoints instead of preserving rejection stubs.
 
 ### `FlowTime.Sim.Service`
 
@@ -54,7 +54,7 @@ Those surfaces were introduced for different reasons, but on the current first-p
 
 ### `FlowTime.TimeMachine`
 
-`FlowTime.TimeMachine` is a new component owned by E-18. It is the future client-agnostic execution component for tiered validation, compile, evaluate, reevaluate, parameter override, and artifact write. It depends on Core; Core does not depend on it.
+`FlowTime.TimeMachine` is a new component owned by E-0018. It is the future client-agnostic execution component for tiered validation, compile, evaluate, reevaluate, parameter override, and artifact write. It depends on Core; Core does not depend on it.
 
 ### Validation Principle
 
@@ -66,7 +66,7 @@ The tiered validation requirement is fixed:
 - Tier 2: compile/parse validation without execution
 - Tier 3: full analyse validation including deterministic evaluation and invariant analysis
 
-E-19 removes the current Sim-only `POST /api/v1/drafts/validate` wrapper. E-18 owns the replacement Time Machine validation surface.
+E-0019 removes the current Sim-only `POST /api/v1/drafts/validate` wrapper. E-0018 owns the replacement Time Machine validation surface.
 
 ## Current
 
@@ -115,7 +115,7 @@ sequenceDiagram
     end
 ```
 
-## Transitional (end of E-19)
+## Transitional (end of E-0019)
 
 ```mermaid
 sequenceDiagram
@@ -153,7 +153,7 @@ sequenceDiagram
     Note over API: No POST /v1/runs route remains
 ```
 
-## Target (post-E-18)
+## Target (post-E-0018)
 
 ```mermaid
 sequenceDiagram
@@ -193,10 +193,10 @@ sequenceDiagram
 ## Decision
 
 1. Treat `data/runs/<runId>/` as the canonical runtime truth for first-party run querying.
-2. Treat drafts as authoring state only. Stored drafts are not canonical runtime truth and are removed from the current supported surface by E-19.
+2. Treat drafts as authoring state only. Stored drafts are not canonical runtime truth and are removed from the current supported surface by E-0019.
 3. Treat the canonical bundle as a portable interchange artifact distinct from the canonical run directory. It is not the primary runtime/query truth.
-4. Use E-19 to inventory, narrow, delete, or archive current Sim/catalog/storage residue on active first-party surfaces.
-5. Use E-18 to build the actual client-agnostic programmable foundation in `FlowTime.TimeMachine` instead of normalizing today's Sim orchestration path.
+4. Use E-0019 to inventory, narrow, delete, or archive current Sim/catalog/storage residue on active first-party surfaces.
+5. Use E-0018 to build the actual client-agnostic programmable foundation in `FlowTime.TimeMachine` instead of normalizing today's Sim orchestration path.
 
 ## Consequences
 

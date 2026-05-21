@@ -17,7 +17,7 @@ These do not belong inside E-0016's analytical boundary, but they still need an 
 
 ### Status
 
-Promoted to epic planning as `work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md`.
+Promoted to epic planning as `work/epics/E-0019-surface-alignment-and-compatibility-cleanup/spec.md`.
 
 ### Immediate implications
 

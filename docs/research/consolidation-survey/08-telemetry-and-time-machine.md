@@ -77,9 +77,9 @@ This source abstraction has **no production caller in `src/`** today (verified b
 - `docs/schemas/telemetry-manifest.schema.json` — canonical capture-bundle manifest. Schema version 2, requires `schemaVersion`, `grid`, `files`, `provenance`, `supportsClassMetrics`. `metric` enum: `Arrivals | Served | Errors | ExternalDemand | QueueDepth | Capacity` (lines `docs/schemas/telemetry-manifest.schema.json:72-79`).
 - `docs/schemas/time-travel-state.schema.json` — separate, time-travel state snapshot schema (`/runs/{runId}/state` etc.).
 
-### Originating epic — E-15
+### Originating epic — E-0015
 
-`work/epics/E-15-telemetry-ingestion-topology-inference-and-canonical-bundles/epic.md`, status `proposed`. Quoting the status note (line 7): "capture is shipped; ingestion pipeline is not". The epic spec is explicit (`epic.md:55-62`):
+`work/epics/E-0015-telemetry-ingestion-topology-inference-and-canonical-bundles/epic.md`, status `proposed`. Quoting the status note (line 7): "capture is shipped; ingestion pipeline is not". The epic spec is explicit (`epic.md:55-62`):
 
 - Capture is shipped (`POST /v1/telemetry/captures`, `flowtime telemetry capture`).
 - Bundle contract exists (`docs/schemas/telemetry-manifest.schema.json`).
@@ -88,7 +88,7 @@ This source abstraction has **no production caller in `src/`** today (verified b
 - **Graph Builder does not exist.**
 - **No external dataset has been ingested yet.**
 
-E-15 plans Bronze → Silver → Gold ingestion, topology inference, and external dataset paths (BPI Challenge 2012, PeMS, MTA, Alibaba) — none of which exist in code.
+E-0015 plans Bronze → Silver → Gold ingestion, topology inference, and external dataset paths (BPI Challenge 2012, PeMS, MTA, Alibaba) — none of which exist in code.
 
 ## Telemetry types and data shapes
 
@@ -144,7 +144,7 @@ HTTP endpoints (each `MapPost`/`MapGet` under `src/FlowTime.API/Endpoints/`):
 | `GET /v1/runs`, `GET /v1/runs/{id}` | `RunOrchestrationEndpoints.cs:14-15` | List/details |
 | `GET /v1/engine/session/health` | `Program.cs:199` | Engine session bridge probe |
 
-There is **no** `POST /v1/fit`, `POST /v1/chunked-eval`, or `/v1/time-machine/*` endpoint in the current code. Fit and chunked are E-22 scope and `proposed`.
+There is **no** `POST /v1/fit`, `POST /v1/chunked-eval`, or `/v1/time-machine/*` endpoint in the current code. Fit and chunked are E-0022 scope and `proposed`.
 
 What is **currently implemented** in time-machine:
 - Tiered validation (schema, compile, analyse).
@@ -154,19 +154,19 @@ What is **currently implemented** in time-machine:
 - Two model-evaluator backends: per-eval `RustModelEvaluator` and session-based `SessionModelEvaluator` over MessagePack.
 
 What is **planned** but not implemented:
-- Model fit (`FitSpec`/`FitRunner`/`POST /v1/fit`) — E-22 m-E22-01.
-- Chunked evaluation (`POST /v1/chunked-eval`, Rust `chunk_step` session command) — E-22 m-E22-02.
-- `FlowTime.Pipeline` SDK wrapper — E-22 m-E22-03.
-- Direct-source telemetry adapters (Prometheus, OpenTelemetry, BPI logs) — explicitly out-of-scope per E-22; expected to flow through E-15 instead.
+- Model fit (`FitSpec`/`FitRunner`/`POST /v1/fit`) — E-0022 m-E22-01.
+- Chunked evaluation (`POST /v1/chunked-eval`, Rust `chunk_step` session command) — E-0022 m-E22-02.
+- `FlowTime.Pipeline` SDK wrapper — E-0022 m-E22-03.
+- Direct-source telemetry adapters (Prometheus, OpenTelemetry, BPI logs) — explicitly out-of-scope per E-0022; expected to flow through E-0015 instead.
 
 ## What time machine wants to do
 
-Per `work/epics/E-22-time-machine-model-fit-chunked-evaluation/epic.md` (the design intent, not the code):
+Per `work/epics/E-0022-time-machine-model-fit-chunked-evaluation/epic.md` (the design intent, not the code):
 
-- **Model fit:** compose `ITelemetrySource` + `Optimizer` with a residual objective (RMSE / MAE) so the optimizer can find parameter values that best match an observed series. Hard-blocked on E-15 (a dataset path) and the Telemetry Loop & Parity epic (drift bounds).
+- **Model fit:** compose `ITelemetrySource` + `Optimizer` with a residual objective (RMSE / MAE) so the optimizer can find parameter values that best match an observed series. Hard-blocked on E-0015 (a dataset path) and the Telemetry Loop & Parity epic (drift bounds).
 - **Chunked evaluation:** add a `chunk_step { bins: N }` command to the Rust engine session protocol. Caller drives chunks; between chunks, an external controller can patch parameters and continue. Enables feedback simulation with control loops outside the engine.
 - **`FlowTime.Pipeline` SDK:** crystallize `Sweep`, `Sensitivity`, `GoalSeek`, `Optimize`, `Fit`, `ChunkedEvaluate` as a clean embeddable API. Existing API/CLI callers would migrate to the SDK.
-- **Replay parity invariant:** "capture baseline → replay bundle = same outputs modulo measured drift" is owned by the unscheduled Telemetry Loop & Parity epic, not by E-22 itself.
+- **Replay parity invariant:** "capture baseline → replay bundle = same outputs modulo measured drift" is owned by the unscheduled Telemetry Loop & Parity epic, not by E-0022 itself.
 
 ## Synthetic data and the Sim/Engine boundary
 
@@ -188,9 +188,9 @@ There is no single `ITelemetry` contract spanning Sim and Engine. The path "Sim 
 ## Drift findings
 
 1. **Project name vs. role.** `FlowTime.Adapters.Synthetic` is the canonical run reader, used by API and TimeMachine. The name implies it's tied to synthetic data; it isn't.
-2. **`ITelemetrySource` has no production caller.** The interface lives in `src/FlowTime.TimeMachine/Telemetry/` with two implementations and tests, but no `RunOrchestrationService` / API endpoint dispatches through it. The actual telemetry replay path uses `TelemetryBundleBuilder` directly. The interface appears built for E-22 Fit but is sitting idle.
+2. **`ITelemetrySource` has no production caller.** The interface lives in `src/FlowTime.TimeMachine/Telemetry/` with two implementations and tests, but no `RunOrchestrationService` / API endpoint dispatches through it. The actual telemetry replay path uses `TelemetryBundleBuilder` directly. The interface appears built for E-0022 Fit but is sitting idle.
 3. **No `ITelemetrySink`.** Per comment at `Telemetry/ITelemetrySource.cs:14-15`, this is "deferred per D-2026-04-07-020". Capture is hard-coded to file-CSV writing inside `TelemetryCapture.WriteTelemetryCsvAsync`.
-4. **E-15 status note.** Epic `proposed`; spec says (line 7) "capture is shipped; ingestion pipeline is not." `docs/operations/telemetry-capture-guide.md` exists but is a capture-only guide; there is no ingestion guide because no ingestion exists.
+4. **E-0015 status note.** Epic `proposed`; spec says (line 7) "capture is shipped; ingestion pipeline is not." `docs/operations/telemetry-capture-guide.md` exists but is a capture-only guide; there is no ingestion guide because no ingestion exists.
 5. **Two CSV header conventions live side-by-side.** Capture bundles use `bin_index,classId,value`; canonical run series use `t,value`. Both are read by `FileSeriesReader` indirectly (via different code paths) but the formats are not interchangeable. Documenting this in one place is missing.
 6. **`TelemetryBundleBuilder.RewriteTelemetrySemanticsToSources` is dead-on-arrival.** The method exists and is fully implemented (`TelemetryBundleBuilder.cs:297-424`) but is never called — `NormalizeTelemetrySources` (`:174-189`) is the live path. Confirm with grep: only `NormalizeTelemetrySources` is invoked from `BuildAsync` (`:43`).
 7. **`docs/architecture/time-machine-analysis-modes.md`** documents Sweep/Sensitivity/GoalSeek/Optimize accurately and explicitly marks Fit and Monte Carlo as future. No drift here.
@@ -236,11 +236,11 @@ flowchart LR
   BLD --> R
   BUNDLE -. unused today .-> SRC
   SRC --> DATA
-  DATA -. planned: Fit (E-22) .-> SWEEP
+  DATA -. planned: Fit (E-0022) .-> SWEEP
   SWEEP --> RE
 
   classDef planned stroke-dasharray: 5 5,stroke:#888;
   class SRC,DATA planned;
 ```
 
-External dataset ingestion (E-15) is entirely absent from the diagram because no code exists for it.
+External dataset ingestion (E-0015) is entirely absent from the diagram because no code exists for it.

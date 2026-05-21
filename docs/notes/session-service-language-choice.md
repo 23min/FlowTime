@@ -27,4 +27,4 @@ Prototype spike:
 
 ## Provenance
 
-Originated as gap G-031 (2026-04-26); content moved to this note 2026-05-02 because it reads as design exploration rather than deferred engineering work. The gap was closed `wontfix` with a pointer here.
+Originated as gap G-0031 (2026-04-26); content moved to this note 2026-05-02 because it reads as design exploration rather than deferred engineering work. The gap was closed `wontfix` with a pointer here.

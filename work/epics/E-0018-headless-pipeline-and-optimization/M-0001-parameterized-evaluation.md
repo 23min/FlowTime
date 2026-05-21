@@ -137,4 +137,4 @@ Returns the plan's parameter table. Clients use this to discover what can be twe
 - `engine/core/src/eval.rs` — `evaluate()` function, bin-major loop
 - `engine/core/src/compiler.rs` — `compile()`, `eval_model()`, all `Op::Const` emission sites
 - `docs/architecture/headless-engine-architecture.md` — overall architecture
-- `work/epics/E-18-headless-pipeline-and-optimization/milestone-plan-v2.md` — milestone sequence
+- `work/epics/E-0018-headless-pipeline-and-optimization/milestone-plan-v2.md` — milestone sequence

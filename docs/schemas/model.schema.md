@@ -421,7 +421,7 @@ provenance:
     loadBalancerCapacity: 300
 ```
 
-**Properties (camelCase, 7-field nested form ratified in E-24 m-E24-01 Q5/A4):**
+**Properties (camelCase, 7-field nested form ratified in E-0024 m-E24-01 Q5/A4):**
 - `generator` (optional): String, producing system identifier (e.g. `"flowtime-sim"`). Replaces the prior `source` + `generator` duplicate pair.
 - `generatedAt` (optional): String (ISO 8601 UTC), timestamp at which the model was rendered from its template.
 - `templateId` (optional): String, template identifier (enables template-level regeneration and lookup).
@@ -458,7 +458,7 @@ schemaVersion: 1
 - All fields within provenance are optional.
 - Free-form `parameters` object (template-specific values; `additionalProperties: true`).
 - `modelId` may be a content hash (`sha256:…`) or a timestamped form (`model_YYYYMMDDTHHmmssZ_<hash>`); both are accepted.
-- `source` and `schemaVersion` are intentionally absent from the provenance block — `source` was collapsed into `generator` in E-24 m-E24-01 (Q5/A4); `schemaVersion` lives on the model root and is never duplicated under provenance.
+- `source` and `schemaVersion` are intentionally absent from the provenance block — `source` was collapsed into `generator` in E-0024 m-E24-01 (Q5/A4); `schemaVersion` lives on the model root and is never duplicated under provenance.
 
 **Use Cases:**
 - **Template-generated models**: FlowTime-Sim embeds provenance automatically
@@ -466,8 +466,8 @@ schemaVersion: 1
 - **UI workflows**: UI can track model creation context
 - **Self-contained files**: Model + provenance travels together
 
-> **Historical note.** Pre-E-24 (before April 2026), the provenance block used snake_case keys
-> (`source`, `model_id`, `template_id`, `template_version`, `generated_at`). E-24 m-E24-03 rewrote
+> **Historical note.** Pre-E-0024 (before April 2026), the provenance block used snake_case keys
+> (`source`, `model_id`, `template_id`, `template_version`, `generated_at`). E-0024 m-E24-03 rewrote
 > `model.schema.yaml` to declare the seven-field nested camelCase form above. Forward-only —
 > bundles authored under the snake_case shape are obsolete.
 

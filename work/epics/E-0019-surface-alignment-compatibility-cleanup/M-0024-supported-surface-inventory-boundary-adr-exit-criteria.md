@@ -211,16 +211,16 @@ Every row with `Decision = delete` or `Decision = archive` has an owning downstr
 **`work/decisions.md` updated.** Short entries exist for: the shared framing (no renames, Time Machine ownership by E-0018), A1, A2, A3, A4, A5, A6, the Time Machine naming decision, and the Blazor/Svelte support policy. Each entry points at this milestone spec and/or the supported-surfaces doc for detail.
 ### AC-6 — E-0018 epic spec updated with the validation requirement and Time
 
-**E-0018 epic spec updated with the validation requirement and Time Machine naming.** `work/epics/E-18-headless-pipeline-and-optimization/spec.md` (directory path preserved for historical stability) is updated in content to title the epic `E-18 Time Machine`, gains an explicit scope item for tiered validation (schema / compile / analyse) as a first-class operation alongside compile/evaluate/reevaluate/parameter-override/artifact-write with the client list (Sim UI, Blazor UI, Svelte UI, MCP servers, external AI agents, tests, CI) and the "no privileged client" principle, and has body references from "Headless" / `FlowTime.Headless` updated to "Time Machine" / `FlowTime.TimeMachine`. The same wrap pass also syncs `ROADMAP.md`, `work/epics/epic-roadmap.md`, and `CLAUDE.md` to the new naming and M-0024 status.
+**E-0018 epic spec updated with the validation requirement and Time Machine naming.** `work/epics/E-0018-headless-pipeline-and-optimization/spec.md` (directory path preserved for historical stability) is updated in content to title the epic `E-0018 Time Machine`, gains an explicit scope item for tiered validation (schema / compile / analyse) as a first-class operation alongside compile/evaluate/reevaluate/parameter-override/artifact-write with the client list (Sim UI, Blazor UI, Svelte UI, MCP servers, external AI agents, tests, CI) and the "no privileged client" principle, and has body references from "Headless" / `FlowTime.Headless` updated to "Time Machine" / `FlowTime.TimeMachine`. The same wrap pass also syncs `ROADMAP.md`, `work/epics/epic-roadmap.md`, and `CLAUDE.md` to the new naming and M-0024 status.
 ### AC-7 — CLAUDE.md "Current Work" section updated
 
 **`CLAUDE.md` "Current Work" section updated.** E-0019 status reflects that M-0024 is complete (when the milestone closes) and names M-0025 as the next milestone, consistent with the status-sync discipline in the repo's project rules.
 ### AC-8 — Epic status surfaces reconciled
 
-**Epic status surfaces reconciled.** `work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md` milestone table, `ROADMAP.md`, and `work/epics/epic-roadmap.md` all reflect M-0024 status in a single pass at wrap time.
+**Epic status surfaces reconciled.** `work/epics/E-0019-surface-alignment-and-compatibility-cleanup/spec.md` milestone table, `ROADMAP.md`, and `work/epics/epic-roadmap.md` all reflect M-0024 status in a single pass at wrap time.
 ### AC-9 — Tracking doc maintained
 
-**Tracking doc maintained.** `work/epics/E-19-surface-alignment-and-compatibility-cleanup/m-E19-01-supported-surface-inventory-tracking.md` exists and is updated after each AC is satisfied.
+**Tracking doc maintained.** `work/epics/E-0019-surface-alignment-and-compatibility-cleanup/m-E19-01-supported-surface-inventory-tracking.md` exists and is updated after each AC is satisfied.
 ### AC-10 — No code deletion in this milestone
 
 **No code deletion in this milestone.** The inventory names what will be deleted and in which downstream milestone, but no endpoint, DTO, UI client, schema, template, example, or doc is deleted as part of M-0024 itself. If the sweep discovers something obviously and trivially dead that cannot wait, it is logged in `work/gaps.md` with a target milestone rather than removed here.
@@ -315,7 +315,7 @@ sequenceDiagram
     participant Runs as data/runs
     participant API as FlowTime.API
 
-    Note over Sim: Transitional execution host. Sunsets when E-18 Time Machine ships.
+    Note over Sim: Transitional execution host. Sunsets when E-0018 Time Machine ships.
 
     User->>UI: Choose template and click Run
     UI->>Sim: POST /api/v1/orchestration/runs
@@ -362,7 +362,7 @@ sequenceDiagram
     participant API as FlowTime.API
 
     Note over Sim: Authoring only. No execution.
-    Note over TM: New component owned by E-18. Compile, tiered validation, evaluate, reevaluate, artifact write.
+    Note over TM: New component owned by E-0018. Compile, tiered validation, evaluate, reevaluate, artifact write.
     Note over Agent: MCP servers and external AI agents. First-class clients on equal footing with UIs.
 
     Note over User,API: Authoring. UI talks to Sim for templates and parameters.
@@ -465,9 +465,9 @@ This milestone produces documents and decisions, not code. "Tests" are artifact-
 
 ## References
 
-- `work/epics/E-19-surface-alignment-and-compatibility-cleanup/spec.md` — epic scope, constraints, milestone table
-- `work/epics/E-16-formula-first-core-purification/spec.md` — prior boundary
-- `work/epics/E-18-headless-pipeline-and-optimization/spec.md` — **E-0018 Time Machine** epic (directory path preserved historically; content titled *E-0018 Time Machine*). Owner of the Time Machine component and the tiered validation scope requirement. Sunset hook target for Sim transitional execution hosting.
+- `work/epics/E-0019-surface-alignment-and-compatibility-cleanup/spec.md` — epic scope, constraints, milestone table
+- `work/epics/E-0016-formula-first-core-purification/spec.md` — prior boundary
+- `work/epics/E-0018-headless-pipeline-and-optimization/spec.md` — **E-0018 Time Machine** epic (directory path preserved historically; content titled *E-0018 Time Machine*). Owner of the Time Machine component and the tiered validation scope requirement. Sunset hook target for Sim transitional execution hosting.
 - `docs/architecture/template-draft-model-run-bundle-boundary.md` — boundary ADR (extended by this milestone)
 - `docs/architecture/supported-surfaces.md` — supported-surfaces matrix (created by this milestone)
 - `work/decisions.md` — short decision entries (updated by this milestone)

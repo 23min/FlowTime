@@ -67,7 +67,7 @@ Decision belongs to the engine epic owner — not in E-0021 scope.
 
 - `engine/core/src/compiler.rs` lines 637-670 (top-level node kind
   dispatch), lines 1163-1190 (topology-node kind handling)
-- `work/epics/completed/E-21-svelte-workbench-and-analysis/m-E21-03-sweep-sensitivity.md`
+- `work/epics/completed/E-0021-svelte-workbench-and-analysis/m-E21-03-sweep-sensitivity.md`
 - `ui/src/lib/utils/sample-models.ts` (bundled Rust-compatible fixtures)
 
 ---

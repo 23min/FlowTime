@@ -160,8 +160,8 @@ After all updates and gate landings, `aiwf check` reports `ok — no findings`. 
 - `tests/fixtures/flow-authority-gates/<gate-name>/...` (new — deliberately-broken model fixtures)
 - `docs/architecture/flow-authority-policy.md` (M-0066's deliverable; this milestone adds an "Enforcement" section)
 - `docs/testing/flow-authority-gates.md` (new, optional — deliberately-broken fixture catalog and gate-debugging guide)
-- `work/epics/E-25-engine-truth-gate/M-069-schema-compile-analyse-enforcement.md` (this file; status updates as ACs land)
-- `work/epics/E-25-engine-truth-gate/epic.md` (small edit — milestone-status reflection if applicable)
+- `work/epics/E-0025-engine-truth-gate/M-0069-schema-compile-analyse-enforcement.md` (this file; status updates as ACs land)
+- `work/epics/E-0025-engine-truth-gate/epic.md` (small edit — milestone-status reflection if applicable)
 
 ## Out of scope
 
@@ -179,9 +179,9 @@ After all updates and gate landings, `aiwf check` reports `ok — no findings`. 
 
 ## References
 
-- Epic spec: `work/epics/E-25-engine-truth-gate/epic.md`
-- M-0066 spec (ADR source-of-truth): `work/epics/E-25-engine-truth-gate/M-066-edge-flow-authority-decision.md`
-- Gap: `work/gaps/G-032-…md` — the original conservation-warning regression that surfaced the policy gap
+- Epic spec: `work/epics/E-0025-engine-truth-gate/epic.md`
+- M-0066 spec (ADR source-of-truth): `work/epics/E-0025-engine-truth-gate/M-0066-edge-flow-authority-decision.md`
+- Gap: `work/gaps/G-0032-…md` — the original conservation-warning regression that surfaced the policy gap
 - Phase 2 baseline canary: `tests/FlowTime.Integration.Tests/TemplateWarningSurveyTests.cs:79`
 - Analyser source (existing warnings): `src/FlowTime.Core/Analysis/InvariantAnalyzer.cs:323-335` (incoming) and `:309-321` (outgoing)
 - Validator source: `src/FlowTime.API/Services/...` (M-0046/M-0047/M-0048 era; the consolidated `ModelSchemaValidator.Validate` is the entry point)

@@ -78,7 +78,7 @@ Session protocol (`engine/cli/src/protocol.rs`, `session.rs`):
 - `validate_schema` is a tier-1 check — parse-only, no compile (`session.rs:41-62`).
 - State machine holds `Option<ModelDefinition>`, `Option<Plan>`, `Option<EvalResult>` and reuses the compiled `Plan` across `eval` calls (`session.rs:16-20`, `:130-160`).
 
-There is **no** `chunk_step` method. That is E-22 m-E22-02 scope and not yet implemented (verified by absence in `session.rs:27-35`).
+There is **no** `chunk_step` method. That is E-0022 m-E22-02 scope and not yet implemented (verified by absence in `session.rs:27-35`).
 
 ## Functional parity with .NET engine
 
@@ -98,15 +98,15 @@ What the Rust engine *does* today:
 - Two artifact-output paths: the minimal `writer.rs` (CSVs + 4 JSON files) and the full `sink.rs` (StateQueryService-compatible — model/, spec.yaml, per-class CSV naming, aggregates/ placeholder, provenance — `sink.rs:1-12` doc comment).
 - Deterministic run IDs from `(template_id, input_hash)` matching the C# `DeterministicRunNaming` (`sink.rs:60-70`).
 
-What the Rust engine *does not* do (per `G-016` and grep):
+What the Rust engine *does not* do (per `G-0016` and grep):
 
 - Per-class decomposition is computed but not exposed in `EvalResult` in the same JSON shape as C# `ClassContributionBuilder`. `EvalResult` has `class_map` (`compiler.rs:37-38`) but the consumer adapter has to project this manually.
-- `outputs:` filtering and renaming — the `OutputDefinition` type is parsed (`model.rs:118-124`) but never read by the compiler or writers (per `G-016` line 18: "OutputDefinition parsed in model.rs but never used in compiler or writer").
+- `outputs:` filtering and renaming — the `OutputDefinition` type is parsed (`model.rs:118-124`) but never read by the compiler or writers (per `G-0016` line 18: "OutputDefinition parsed in model.rs but never used in compiler or writer").
 - Edge CSV naming `edge_{id}_{metric}@{component}@{class}.csv` is sink-layer work; current Rust sink emits a different naming.
-- Series ID format `{nodeId}@{COMPONENT}@{CLASS}` — Rust sink uses bare `{nodeId}` plus suffixes; C# uses the at-separated format (`G-016` lines 33-34).
-- `model/metadata.json` extraction from YAML is partial; `model/provenance.json` is partially documented per D-043.
+- Series ID format `{nodeId}@{COMPONENT}@{CLASS}` — Rust sink uses bare `{nodeId}` plus suffixes; C# uses the at-separated format (`G-0016` lines 33-34).
+- `model/metadata.json` extraction from YAML is partial; `model/provenance.json` is partially documented per D-0043.
 - No `aggregates/` directory contents; placeholder only.
-- Casing: Rust lowercases topology node IDs; C# preserves casing (`G-016` line 41).
+- Casing: Rust lowercases topology node IDs; C# preserves casing (`G-0016` line 41).
 
 How the .NET API uses it:
 
@@ -145,16 +145,16 @@ Integration tests:
 Fixtures (`engine/fixtures/`, 21 YAMLs):
 `class-enabled`, `complex-pmf`, `constraint-below-capacity`, `constraint-proportional`, `hello`, `http-service`, `microservices`, `order-system`, `pmf`, `retry-service-time`, `router-class`, `router-mixed`, `router-weight`, `router-with-constraint`, `simple-const`, `topology-backpressure`, `topology-cascading-overflow`, `topology-dispatch`, `topology-retry-echo`, `topology-simple-queue`, `topology-wip-limit`.
 
-## G-016 — Rust Engine Parity
+## G-0016 — Rust Engine Parity
 
-Source: `work/gaps/G-016-rust-engine-parity-evaluation-core-gaps.md`, status `open`.
+Source: `work/gaps/G-0016-rust-engine-parity-evaluation-core-gaps.md`, status `open`.
 
 Quoting the gap as written:
 
-> The Rust matrix engine (E-20) handles compilation, evaluation, and basic artifact writing for simple models, but cannot replace the C# evaluation pipeline for models that use classes, edges, or output filtering. These are evaluation-layer gaps per D-044 — the engine core must return complete results before the artifact sink or consumers can use them.
+> The Rust matrix engine (E-0020) handles compilation, evaluation, and basic artifact writing for simple models, but cannot replace the C# evaluation pipeline for models that use classes, edges, or output filtering. These are evaluation-layer gaps per D-0044 — the engine core must return complete results before the artifact sink or consumers can use them.
 
 Engine-core gaps (must be in Rust):
-- **Per-class column decomposition** — Critical, Deferred (M-033). Rust computes class routing internally (`__class_` columns) but does not expose per-class series in `EvalResult`. (Note: this has since landed partially per `compiler.rs:97-120` propagation, but the EvalResult shape exposing it as the C# `ClassContributionBuilder` does still differs — the gap remains "open".)
+- **Per-class column decomposition** — Critical, Deferred (M-0033). Rust computes class routing internally (`__class_` columns) but does not expose per-class series in `EvalResult`. (Note: this has since landed partially per `compiler.rs:97-120` propagation, but the EvalResult shape exposing it as the C# `ClassContributionBuilder` does still differs — the gap remains "open".)
 - **Edge series materialization** — High, Undocumented. C# `EdgeFlowMaterializer` produces per-edge throughput/attempt series; Rust uses edges for ordering only. (Edge series partially landed via `edge_map`, but per-edge attempt/failure/retry metrics are not.)
 - **`outputs:` filtering/renaming** — Medium. `OutputDefinition` is parsed but never used in compiler or writer.
 
@@ -170,17 +170,17 @@ Artifact-sink gaps (separate from engine core):
 - Series ID format `{nodeId}@{COMPONENT}@{CLASS}`.
 
 Parity-harness gaps:
-- "Parity test across all 21 Rust fixtures" — High, in scope of E-20 spec but incomplete; M-034 tested only 3.
+- "Parity test across all 21 Rust fixtures" — High, in scope of E-0020 spec but incomplete; M-0034 tested only 3.
 - "Casing normalization" — Low; Rust lowercases topology node IDs, C# preserves casing.
 
 Blocking relationships (per the gap):
-- **E-17** (Interactive What-If) requires per-class decomposition, outputs filtering, full index.json/run.json schema.
-- **E-18** (Time Machine/Pipelines) requires all of the above + edge series + artifact-sink parity. (Note: E-18 is `done` per its status, suggesting these were resolved or worked around with the C# `RunArtifactWriter` remaining as the production sink per D-044's "no premature deletion" guidance.)
+- **E-0017** (Interactive What-If) requires per-class decomposition, outputs filtering, full index.json/run.json schema.
+- **E-0018** (Time Machine/Pipelines) requires all of the above + edge series + artifact-sink parity. (Note: E-0018 is `done` per its status, suggesting these were resolved or worked around with the C# `RunArtifactWriter` remaining as the production sink per D-0044's "no premature deletion" guidance.)
 - **Svelte UI state display** requires `StateQueryService` compatibility (spec.yaml with file:// URIs, per-class series).
 
-References cited in G-016: D-044, D-043, `work/epics/E-20-matrix-engine/spec.md`, `docs/architecture/matrix-engine.md`.
+References cited in G-0016: D-0044, D-0043, `work/epics/E-0020-matrix-engine/spec.md`, `docs/architecture/matrix-engine.md`.
 
-Related gap: **G-019** — "Sim-generated model shape vs. Rust engine compiler expectations" (`work/gaps/G-019-sim-generated-model-shape-vs-rust-engine-compiler-expectations.md`). Indicates Sim-emitted YAML is not always shaped how the Rust compiler expects.
+Related gap: **G-0019** — "Sim-generated model shape vs. Rust engine compiler expectations" (`work/gaps/G-0019-sim-generated-model-shape-vs-rust-engine-compiler-expectations.md`). Indicates Sim-emitted YAML is not always shaped how the Rust compiler expects.
 
 ## Build / CI status
 
@@ -202,34 +202,34 @@ The .NET runner discovers the binary by checking `engine/target/release/flowtime
 
 Direct ADR/decision support:
 
-- `D-044-rust-engine-architecture-evaluation-vs-artifact-sink-vs-consumer-adapters.md` (status `accepted`): "Three-layer architecture with a structured boundary between each: engine core (Rust, pure function); artifact sink (Rust library, mandatory but pluggable); consumer adapters (Rust or C#, per surface)."
-- `D-043-matrix-engine-provenance-port-basics-defer-sim-specific-explore-plan-hashing-later.md` and `D-007-fix-p0-engine-bugs-before-further-svelte-ui-work.md` are also relevant scope decisions.
+- `D-0044-rust-engine-architecture-evaluation-vs-artifact-sink-vs-consumer-adapters.md` (status `accepted`): "Three-layer architecture with a structured boundary between each: engine core (Rust, pure function); artifact sink (Rust library, mandatory but pluggable); consumer adapters (Rust or C#, per surface)."
+- `D-0043-matrix-engine-provenance-port-basics-defer-sim-specific-explore-plan-hashing-later.md` and `D-0007-fix-p0-engine-bugs-before-further-svelte-ui-work.md` are also relevant scope decisions.
 
-Originating epic: **E-20 Matrix Engine** (`work/epics/E-20-matrix-engine/epic.md`, status `done`, all 10 milestones M-028 → M-037 complete per the status note).
+Originating epic: **E-0020 Matrix Engine** (`work/epics/E-0020-matrix-engine/epic.md`, status `done`, all 10 milestones M-0028 → M-0037 complete per the status note).
 
 Quoting the epic goal (`epic.md:11-13`):
-> Replace the C# object-graph evaluation engine with a Rust-based column-store + evaluation-plan engine. The new engine reads the same YAML model files, produces identical output artifacts, and ships as a standalone CLI binary (`flowtime-engine`). This is the foundation for E-17 (Interactive What-If) and E-18 (Time Machine).
+> Replace the C# object-graph evaluation engine with a Rust-based column-store + evaluation-plan engine. The new engine reads the same YAML model files, produces identical output artifacts, and ships as a standalone CLI binary (`flowtime-engine`). This is the foundation for E-0017 (Interactive What-If) and E-0018 (Time Machine).
 
 Stated motivations (`epic.md:30-46`):
 - Eliminate defensive copying (`&[f64]` slices vs C# `Series` clone-on-construction).
 - Replace 6 class files + interface hierarchy with `enum Op` + `match` (~80 LOC).
-- Compile to native CLI (~5–10 MB) and to WebAssembly (future, for in-browser E-17).
+- Compile to native CLI (~5–10 MB) and to WebAssembly (future, for in-browser E-0017).
 - Single allocation per evaluation regardless of model size.
 - Plan introspection — the evaluation is inspectable data, not opaque code.
-- Enables incremental re-evaluation needed for E-17 (<50ms) and parameter sweeps for E-18.
+- Enables incremental re-evaluation needed for E-0017 (<50ms) and parameter sweeps for E-0018.
 
-So the Rust engine is **explicitly production-positioned**, not a spike. E-20 is `done`; E-17 and E-18 (also `done`) build on it. The remaining gaps (`G-016`) are residual evaluation-layer items where C# is still the truth and Rust does not yet match.
+So the Rust engine is **explicitly production-positioned**, not a spike. E-0020 is `done`; E-0017 and E-0018 (also `done`) build on it. The remaining gaps (`G-0016`) are residual evaluation-layer items where C# is still the truth and Rust does not yet match.
 
-WebAssembly compilation is mentioned in the E-20 epic as out-of-scope (`epic.md:77`) but architecturally enabled. No `wasm32-unknown-unknown` target configuration exists in the workspace today.
+WebAssembly compilation is mentioned in the E-0020 epic as out-of-scope (`epic.md:77`) but architecturally enabled. No `wasm32-unknown-unknown` target configuration exists in the workspace today.
 
 ## Drift findings
 
-1. **G-016 says edge series are "ordering only"** (line 16) but `compiler.rs:82` and `compute_edge_series` materialize an `edge_map`. Per-edge metrics (attempt/failure/retry) are still incomplete — the gap is partially out of date for `flowVolume` but accurate for richer edge metrics.
-2. **G-016 says per-class decomposition "does not expose per-class series in EvalResult"** but `EvalResult.class_map` exists (`compiler.rs:37-38`) and `propagate_class_decomposition` is fully implemented. The remaining gap is in the artifact-sink projection, not the engine core. The gap text would benefit from a status refresh.
+1. **G-0016 says edge series are "ordering only"** (line 16) but `compiler.rs:82` and `compute_edge_series` materialize an `edge_map`. Per-edge metrics (attempt/failure/retry) are still incomplete — the gap is partially out of date for `flowVolume` but accurate for richer edge metrics.
+2. **G-0016 says per-class decomposition "does not expose per-class series in EvalResult"** but `EvalResult.class_map` exists (`compiler.rs:37-38`) and `propagate_class_decomposition` is fully implemented. The remaining gap is in the artifact-sink projection, not the engine core. The gap text would benefit from a status refresh.
 3. **`OutputDefinition` is dead-on-arrival.** `model.rs:118-124` parses it; no caller reads it. Confirmed by grep: only the deserialize attribute touches the `as_name` field.
 4. **CI does not verify Rust.** Build, tests, fixtures all pass locally / in the devcontainer but `.github/workflows/build.yml` does not execute `cargo` at all. Any Rust regression lands silently until a developer runs it manually or until a `RustEngine:Enabled=true` API test fails.
-5. **No `chunk_step` method** despite `docs/architecture/time-machine-analysis-modes.md:65` referencing the session protocol foundation. Chunked evaluation is E-22 scope.
-6. **Casing normalization remains.** Rust lowercases topology node IDs (verified at `compiler.rs:154`, `:485`, `:728` — `to_lowercase()` calls). C# preserves casing. Parity helpers compensate with case-insensitive comparison (`G-016` line 41).
+5. **No `chunk_step` method** despite `docs/architecture/time-machine-analysis-modes.md:65` referencing the session protocol foundation. Chunked evaluation is E-0022 scope.
+6. **Casing normalization remains.** Rust lowercases topology node IDs (verified at `compiler.rs:154`, `:485`, `:728` — `to_lowercase()` calls). C# preserves casing. Parity helpers compensate with case-insensitive comparison (`G-0016` line 41).
 7. **`SessionModelEvaluator` constructs a `frame` byte array on every write** (`SessionModelEvaluator.cs:218-225`) — no drift, just noting that the C# side also implements its own MessagePack framing rather than using a library helper.
 8. **The `RustEngineRunner` doc comment references reading `manifest.json`** (`RustEngineRunner.cs:11-12`) — this requires the Rust sink to write a `manifest.json` matching the C# expectation. The Rust `writer.rs` writes a minimal manifest (just hashes); the full `sink.rs` writes a richer one. Behavior depends on which path is taken; per-eval `RustModelEvaluator` uses `--output` which goes through `sink.rs` (`main.rs:108-126`).
 
