@@ -28,7 +28,7 @@ What's missing:
 - Compact, information-dense layout (current shadcn defaults are too spacious for a technical workbench)
 - Distinctive visual identity (current theme is generic shadcn)
 
-The UI paradigm proposal (`work/epics/unplanned/ui-workbench/reference/ui-paradigm.md`) established the direction: topology as navigation surface (structure + one color dimension), workbench panel for depth (click-to-pin cards), and layered views (heatmap, decomposition, comparison). E-21 implements that paradigm and adds the first Time Machine analysis surfaces.
+The UI paradigm proposal (`docs/explorations/ui-workbench/reference/ui-paradigm.md`) established the direction: topology as navigation surface (structure + one color dimension), workbench panel for depth (click-to-pin cards), and layered views (heatmap, decomposition, comparison). E-21 implements that paradigm and adds the first Time Machine analysis surfaces.
 
 ### Supersedes
 
@@ -40,9 +40,9 @@ E-11 remains paused at M6 as a completed historical track.
 
 ### Relationship to other unplanned epics
 
-- **UI Workbench & Topology Refinement** (`work/epics/unplanned/ui-workbench/spec.md`) — M-038 and M-039 implement its goals (G1-G5)
-- **UI Analytical Views** (`work/epics/unplanned/ui-analytical-views/spec.md`) — M-043 delivers the heatmap view; decomposition and comparison views are future extensions
-- **Expert Authoring Surface** (`work/epics/unplanned/expert-authoring-surface/spec.md`) — not in E-21 scope; depends on E-21's workbench and validation surface being in place
+- **UI Workbench & Topology Refinement** (`docs/explorations/ui-workbench/spec.md`) — M-038 and M-039 implement its goals (G1-G5)
+- **UI Analytical Views** (`docs/explorations/ui-analytical-views/spec.md`) — M-043 delivers the heatmap view; decomposition and comparison views are future extensions
+- **Expert Authoring Surface** (`docs/explorations/expert-authoring-surface/spec.md`) — not in E-21 scope; depends on E-21's workbench and validation surface being in place
 
 ## Scope
 

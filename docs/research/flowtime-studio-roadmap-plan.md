@@ -160,7 +160,7 @@ lands in Studio without blocking E-22's critical path.
 
 ### Expert Authoring Surface draft — **absorbed into E-23**
 
-**Current state:** drafted in `work/epics/unplanned/expert-authoring-surface/`
+**Current state:** drafted in `docs/explorations/expert-authoring-surface/`
 with session-patch-model reference.
 
 **Change:** absorb, do not ship as a separate epic.
@@ -174,7 +174,7 @@ state?) that the Studio architecture resolves by unifying them:
   Rust cache extensions.
 - E-23 delivers the expert editor shell as one milestone (planned:
   m-E23-05).
-- `work/epics/unplanned/expert-authoring-surface/` moves to
+- `docs/explorations/expert-authoring-surface/` moves to
   `work/epics/E-23-session-service-and-studio/reference/` at epic start
   (or its reference documents become inline references).
 
@@ -401,7 +401,7 @@ Only after the commitment gate. Not now.
 - **`work/epics/E-21-svelte-workbench-and-analysis/m-E21-08-*.md`** (when
   that milestone spec is drafted)
   - add the "persisted view state keys on stable node IDs" audit item
-- **`work/epics/unplanned/expert-authoring-surface/`**
+- **`docs/explorations/expert-authoring-surface/`**
   - move to `work/epics/E-23-session-service-and-studio/reference/` at
     epic start, or delete and inline the references
 

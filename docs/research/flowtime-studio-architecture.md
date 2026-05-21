@@ -7,7 +7,7 @@
 **Related artifacts:**
 
 - Expert authoring surface proposal: [docs/research/expert-authoring-surface.md](./expert-authoring-surface.md)
-- Draft epic folder (to be absorbed): [work/epics/unplanned/expert-authoring-surface/](../../work/epics/unplanned/expert-authoring-surface/)
+- Draft epic folder (to be absorbed): [docs/explorations/expert-authoring-surface/](../explorations/expert-authoring-surface/)
 - Session protocol substrate (shipped): m-E18-02 + m-E18-13 (see `work/epics/E-18-headless-pipeline-and-optimization/`)
 - Time Machine CLI (shipped): m-E18-14
 - Roadmap plan for this work: [docs/research/flowtime-studio-roadmap-plan.md](./flowtime-studio-roadmap-plan.md)
@@ -458,7 +458,7 @@ pipeline's duration; the exported bundle is the durable output.
 
 This is a summary; the roadmap plan document has the full sequencing detail.
 
-- **Expert authoring surface epic** (`work/epics/unplanned/expert-authoring-surface/`)
+- **Expert authoring surface epic** (`docs/explorations/expert-authoring-surface/`)
   is absorbed. Its session-patch-model reference becomes Studio's protocol
   reference. The expert editor shell becomes one milestone of the Studio
   epic.

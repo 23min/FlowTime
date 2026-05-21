@@ -31,7 +31,7 @@ Closes out E-18 placeholder `m-E18-XX Model Fit` and `m-E18-05 Chunked Evaluatio
 ### Related
 
 - **E-15 Telemetry Ingestion** (`work/epics/E-15-telemetry-ingestion/`) — hard prerequisite for Fit. Provides the first repeatable dataset path and replayable canonical bundle via Gold Builder → Graph Builder.
-- **Telemetry Loop & Parity** (`work/epics/unplanned/telemetry-loop-parity/spec.md`) — hard prerequisite for Fit. Provides measured drift bounds between synthetic and replayed runs; without those bounds, fit quality cannot be meaningfully reported. Currently unnumbered; will take its own epic slot when scheduled.
+- **Telemetry Loop & Parity** (`docs/explorations/telemetry-loop-parity/spec.md`) — hard prerequisite for Fit. Provides measured drift bounds between synthetic and replayed runs; without those bounds, fit quality cannot be meaningfully reported. Currently unnumbered; will take its own epic slot when scheduled.
 - **E-21 Svelte Workbench & Analysis Surfaces** — builds UI for fit results once Fit's API contract is stable. Not in E-22 scope; E-21 milestone allocation is independent.
 
 ## Scope
@@ -116,7 +116,7 @@ Sequencing: Fit first (unblocks the largest downstream set — E-15 dataset path
 - E-18 epic spec: `work/epics/E-18-headless-pipeline-and-optimization/spec.md`
 - E-18 gap analysis: `work/epics/E-18-headless-pipeline-and-optimization/e18-gap-analysis.md`
 - Analysis modes architecture: `docs/architecture/time-machine-analysis-modes.md`
-- Telemetry Loop & Parity: `work/epics/unplanned/telemetry-loop-parity/spec.md`
+- Telemetry Loop & Parity: `docs/explorations/telemetry-loop-parity/spec.md`
 - E-15 Telemetry Ingestion: `work/epics/E-15-telemetry-ingestion/`
 - Option A delivery sequence: `work/decisions.md` → D-045
 - Headless engine architecture: `docs/architecture/headless-engine-architecture.md`

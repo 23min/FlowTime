@@ -117,7 +117,7 @@ whether the model is actually calibrated or just overfit to noise.
 - `work/epics/E-18-headless-pipeline-and-optimization/spec.md` — Time Machine epic
 - `docs/architecture/time-machine-analysis-modes.md` — current analysis mode inventory
   (Fit listed as future; Optimizer as current)
-- `work/epics/unplanned/telemetry-loop-parity/spec.md` — Parity harness proposal
+- `docs/explorations/telemetry-loop-parity/spec.md` — Parity harness proposal
 
 ---
 
@@ -177,7 +177,7 @@ E-15 M2 (Graph Builder) → Telemetry Loop & Parity v1 → E-18 Fit mode.
 
 - `work/epics/E-15-telemetry-ingestion/spec.md`
 - `work/epics/E-15-telemetry-ingestion/reference/dataset-fitness-and-ingestion-research.md`
-- `work/epics/unplanned/telemetry-loop-parity/spec.md`
+- `docs/explorations/telemetry-loop-parity/spec.md`
 - `work/epics/E-18-headless-pipeline-and-optimization/spec.md`
 - `docs/architecture/time-machine-analysis-modes.md`
 - `docs/notes/ui-optimization-explorer-vision.md` — UI surface for model exploration

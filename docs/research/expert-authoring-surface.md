@@ -6,8 +6,8 @@
 
 **Related artifacts:**
 
-- Epic draft: [work/epics/unplanned/expert-authoring-surface/spec.md](../../work/epics/unplanned/expert-authoring-surface/spec.md)
-- Session contract reference: [work/epics/unplanned/expert-authoring-surface/reference/session-patch-model.md](../../work/epics/unplanned/expert-authoring-surface/reference/session-patch-model.md)
+- Epic draft: [docs/explorations/expert-authoring-surface/spec.md](../explorations/expert-authoring-surface/spec.md)
+- Session contract reference: [docs/explorations/expert-authoring-surface/reference/session-patch-model.md](../explorations/expert-authoring-surface/reference/session-patch-model.md)
 
 ## Thesis
 
@@ -26,7 +26,7 @@ This keeps the current product arc intact:
 
 - [ROADMAP.md](../../ROADMAP.md) remains the sequencing truth
 - the Time Machine remains the execution substrate
-- [work/epics/unplanned/ui-workbench/spec.md](../../work/epics/unplanned/ui-workbench/spec.md) and the analytical views remain the main cross-user analysis surfaces
+- [docs/explorations/ui-workbench/spec.md](../explorations/ui-workbench/spec.md) and the analytical views remain the main cross-user analysis surfaces
 - canonical model + run artifacts remain the durable truth
 
 ## Product Position
@@ -208,9 +208,9 @@ The user should always be able to answer: "what statement caused this state?"
 The current and planned Svelte UI already moves toward decomposed analytical
 surfaces:
 
-- [work/epics/unplanned/ui-workbench/spec.md](../../work/epics/unplanned/ui-workbench/spec.md)
-- [work/epics/unplanned/ui-analytical-views/spec.md](../../work/epics/unplanned/ui-analytical-views/spec.md)
-- [work/epics/unplanned/ui-question-driven/spec.md](../../work/epics/unplanned/ui-question-driven/spec.md)
+- [docs/explorations/ui-workbench/spec.md](../explorations/ui-workbench/spec.md)
+- [docs/explorations/ui-analytical-views/spec.md](../explorations/ui-analytical-views/spec.md)
+- [docs/explorations/ui-question-driven/spec.md](../explorations/ui-question-driven/spec.md)
 
 The expert surface should plug into those surfaces rather than compete with
 them.

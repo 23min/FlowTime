@@ -13,7 +13,7 @@ The seed scope is the dependency-pattern matrix (Option A vs Option B) M-10.03 w
 
 ## Why this is a separate epic
 
-- **Different surface from FlowTime UI.** The Svelte workbench (E-21) is for human flow analysis. The expert-authoring-surface unplanned epic (`work/epics/unplanned/expert-authoring-surface/spec.md`) is for human textual model authoring (CodeMirror + inline lenses). Neither caller needs the MCP-pattern-enforcement layer the way an AI caller does — humans get visual feedback as they edit; AIs get pattern enforcement and refusal-with-rationale at the server boundary.
+- **Different surface from FlowTime UI.** The Svelte workbench (E-21) is for human flow analysis. The expert-authoring-surface unplanned epic (`docs/explorations/expert-authoring-surface/spec.md`) is for human textual model authoring (CodeMirror + inline lenses). Neither caller needs the MCP-pattern-enforcement layer the way an AI caller does — humans get visual feedback as they edit; AIs get pattern enforcement and refusal-with-rationale at the server boundary.
 - **Different consumer assumptions.** AI callers will mass-produce model variants (sweeps, fits, what-ifs) and need pattern stability across calls more than humans do. They also need machine-readable refusal reasons to course-correct.
 - **Different testing posture.** Pattern-enforcement assertions (refusal-on-feedback-loop, etc.) are deterministic server-side tests; they don't need a Playwright surface.
 
@@ -40,7 +40,7 @@ The seed scope is the dependency-pattern matrix (Option A vs Option B) M-10.03 w
 ## Out of Scope
 
 - **FlowTime UI surfaces.** Per direction recorded 2026-05-01 — there is no anticipated AI-assist surface inside the FlowTime UI (Svelte or otherwise).
-- **Human expert manual authoring.** That's the sibling `work/epics/unplanned/expert-authoring-surface/spec.md` (CodeMirror + inline lenses).
+- **Human expert manual authoring.** That's the sibling `docs/explorations/expert-authoring-surface/spec.md` (CodeMirror + inline lenses).
 - **The Question-Driven Interface.** That's the sibling `work/epics/ui-question-driven/spec.md` (analytical query panel; LLM integration is a future motivation but not authoring).
 - **Engine evaluation behaviour.** This epic enforces pattern shape at authoring time; it does not change how the engine evaluates models.
 

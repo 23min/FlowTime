@@ -6,7 +6,7 @@ status: done
 
 **Completed:** 2026-05-01
 
-> Closure note (2026-05-01): M-063 + M-064 delivered the Option A (dependency-as-node) and Option B (dependency-as-constraint) representations. M-065 (MCP Pattern Enforcement) was dropped from this epic and absorbed into the new draft `ai-assisted-authoring` unplanned epic at `work/epics/unplanned/ai-assisted-authoring/spec.md` along with the original M-065 Plans 3–5 (resource pooling, compiler expansion, feedback loops). E-12 ships with both representations functional; AI-driven authoring hardening is the successor scope and lives outside the FlowTime UI surface (MCP-server-side, consumed by external authoring callers).
+> Closure note (2026-05-01): M-063 + M-064 delivered the Option A (dependency-as-node) and Option B (dependency-as-constraint) representations. M-065 (MCP Pattern Enforcement) was dropped from this epic and absorbed into the new draft `ai-assisted-authoring` unplanned epic at `docs/explorations/ai-assisted-authoring/spec.md` along with the original M-065 Plans 3–5 (resource pooling, compiler expansion, feedback loops). E-12 ships with both representations functional; AI-driven authoring hardening is the successor scope and lives outside the FlowTime UI surface (MCP-server-side, consumed by external authoring callers).
 
 ## Goal
 

@@ -24,7 +24,7 @@ The M-043 Heatmap View design Q&A (14 questions) surfaced several enhancements t
 ### Reference
 
 - E-21 M-043 Q&A conversation, 2026-04-23 (in-session, not archived).
-- Source spec: `work/epics/unplanned/ui-analytical-views/spec.md` V1 Heatmap View.
+- Source spec: `docs/explorations/ui-analytical-views/spec.md` V1 Heatmap View.
 - E-21 epic spec: `work/epics/completed/E-21-svelte-workbench-and-analysis/spec.md` M-043 row.
 
 ---
