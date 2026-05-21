@@ -1,6 +1,6 @@
 # Roadmap
 
-## E-10 — Engine Correctness & Analytical Primitives (done)
+## E-0010 — Engine Correctness & Analytical Primitives (done)
 
 ### Goal
 
@@ -8,15 +8,15 @@ Fix known correctness bugs, harden engineering quality, and build the analytical
 
 | Milestone | Title | Status |
 |---|---|---|
-| M-054 | Engineering Foundation (Phase 1) | done |
-| M-055 | Phase 2 — Documentation Honesty | done |
-| M-056 | Phase 3a — Cycle Time & Flow Efficiency | done |
-| M-057 | Phase 3a.1 — Analytical Projection Hardening | done |
-| M-058 | Phase 3b — WIP Limits | done |
-| M-059 | Phase 3c — Variability Preservation (Cv + Kingman) | done |
-| M-060 | Phase 3d — Constraint Enforcement | done |
+| M-0054 | Engineering Foundation (Phase 1) | done |
+| M-0055 | Phase 2 — Documentation Honesty | done |
+| M-0056 | Phase 3a — Cycle Time & Flow Efficiency | done |
+| M-0057 | Phase 3a.1 — Analytical Projection Hardening | done |
+| M-0058 | Phase 3b — WIP Limits | done |
+| M-0059 | Phase 3c — Variability Preservation (Cv + Kingman) | done |
+| M-0060 | Phase 3d — Constraint Enforcement | done |
 
-## E-11 — Svelte UI — Parallel Frontend Track (done)
+## E-0011 — Svelte UI — Parallel Frontend Track (done)
 
 ### Goal
 
@@ -24,10 +24,10 @@ Build a SvelteKit + shadcn-svelte application in parallel with the Blazor WebAss
 
 | Milestone | Title | Status |
 |---|---|---|
-| M-061 | Project Scaffold & Shell | done |
-| M-062 | Run Orchestration | done |
+| M-0061 | Project Scaffold & Shell | done |
+| M-0062 | Run Orchestration | done |
 
-## E-12 — Dependency Constraints & Shared Resources (done)
+## E-0012 — Dependency Constraints & Shared Resources (done)
 
 ### Goal
 
@@ -35,19 +35,19 @@ Model downstream dependencies (databases, caches, external APIs, shared services
 
 | Milestone | Title | Status |
 |---|---|---|
-| M-063 | Dependency Constraints Foundations | done |
-| M-064 | Dependency Constraints (Attached to Services) | done |
-| M-065 | MCP Dependency Pattern Enforcement | done |
+| M-0063 | Dependency Constraints Foundations | done |
+| M-0064 | Dependency Constraints (Attached to Services) | done |
+| M-0065 | MCP Dependency Pattern Enforcement | done |
 
-## E-13 — Path Analysis & Subgraph Queries (proposed)
-
-_No milestones yet._
-
-## E-14 — Visualizations (Chart Gallery / Demo Lab) (cancelled)
+## E-0013 — Path Analysis & Subgraph Queries (proposed)
 
 _No milestones yet._
 
-## E-15 — Telemetry Ingestion, Topology Inference, and Canonical Bundles (proposed)
+## E-0014 — Visualizations (Chart Gallery / Demo Lab) (cancelled)
+
+_No milestones yet._
+
+## E-0015 — Telemetry Ingestion, Topology Inference, and Canonical Bundles (proposed)
 
 ### Goal
 
@@ -55,7 +55,7 @@ Build the pipeline that takes real-world data — event logs, traces, sensor fee
 
 _No milestones yet._
 
-## E-16 — Formula-First Core Purification (done)
+## E-0016 — Formula-First Core Purification (done)
 
 ### Goal
 
@@ -63,14 +63,14 @@ Purify FlowTime's execution boundary so semantic meaning and analytical truth ar
 
 | Milestone | Title | Status |
 |---|---|---|
-| M-012 | Compiled Semantic References | done |
-| M-013 | Class Truth Boundary | done |
-| M-014 | Runtime Analytical Descriptor | done |
-| M-015 | Core Analytical Evaluation | done |
-| M-016 | Analytical Warning Facts and Primitive Cleanup | done |
-| M-017 | Analytical Contract and Consumer Purification | done |
+| M-0012 | Compiled Semantic References | done |
+| M-0013 | Class Truth Boundary | done |
+| M-0014 | Runtime Analytical Descriptor | done |
+| M-0015 | Core Analytical Evaluation | done |
+| M-0016 | Analytical Warning Facts and Primitive Cleanup | done |
+| M-0017 | Analytical Contract and Consumer Purification | done |
 
-## E-17 — Interactive What-If Mode (done)
+## E-0017 — Interactive What-If Mode (done)
 
 ### Goal
 
@@ -78,14 +78,14 @@ Enable live, interactive recalculation in FlowTime — change a parameter and se
 
 | Milestone | Title | Status |
 |---|---|---|
-| M-018 | WebSocket Engine Bridge | done |
-| M-019 | Svelte Parameter Panel | done |
-| M-020 | Live Topology and Charts | done |
-| M-021 | Warnings Surface | done |
-| M-022 | Edge Heatmap | done |
-| M-023 | Time Scrubber | done |
+| M-0018 | WebSocket Engine Bridge | done |
+| M-0019 | Svelte Parameter Panel | done |
+| M-0020 | Live Topology and Charts | done |
+| M-0021 | Warnings Surface | done |
+| M-0022 | Edge Heatmap | done |
+| M-0023 | Time Scrubber | done |
 
-## E-18 — Time Machine (done)
+## E-0018 — Time Machine (done)
 
 ### Goal
 
@@ -95,51 +95,51 @@ FlowTime's execution component is an abstract machine in the BEAM / JVM sense: i
 
 | Milestone | Title | Status |
 |---|---|---|
-| M-001 | Parameterized Evaluation | done |
-| M-002 | Engine Session + Streaming Protocol | done |
-| M-003 | Tiered Validation | done |
-| M-004 | Generator Extraction → TimeMachine | done |
-| M-005 | ITelemetrySource Contract | done |
-| M-006 | Parameter Sweep | done |
-| M-007 | Sensitivity Analysis | done |
-| M-008 | Goal Seeking | done |
-| M-009 | Multi-parameter Optimization | done |
-| M-010 | SessionModelEvaluator | done |
-| M-011 | .NET Time Machine CLI | done |
+| M-0001 | Parameterized Evaluation | done |
+| M-0002 | Engine Session + Streaming Protocol | done |
+| M-0003 | Tiered Validation | done |
+| M-0004 | Generator Extraction → TimeMachine | done |
+| M-0005 | ITelemetrySource Contract | done |
+| M-0006 | Parameter Sweep | done |
+| M-0007 | Sensitivity Analysis | done |
+| M-0008 | Goal Seeking | done |
+| M-0009 | Multi-parameter Optimization | done |
+| M-0010 | SessionModelEvaluator | done |
+| M-0011 | .NET Time Machine CLI | done |
 
-## E-19 — Surface Alignment & Compatibility Cleanup (done)
-
-### Goal
-
-Tighten the remaining non-analytical legacy and compatibility surfaces after E-16 so FlowTime exposes current Engine/Sim contracts consistently across first-party UI, Sim, docs, schemas, and examples without carrying stale fallback layers or stripping supported Blazor capability.
-
-| Milestone | Title | Status |
-|---|---|---|
-| M-024 | Supported Surface Inventory, Boundary ADR & Exit Criteria | done |
-| M-025 | Sim Authoring & Runtime Boundary Cleanup | done |
-| M-026 | Schema, Template & Example Retirement | done |
-| M-027 | Blazor Support Alignment | done |
-
-## E-20 — Matrix Engine (done)
+## E-0019 — Surface Alignment & Compatibility Cleanup (done)
 
 ### Goal
 
-Replace the C# object-graph evaluation engine with a Rust-based column-store + evaluation-plan engine. The new engine reads the same YAML model files, produces identical output artifacts, and ships as a standalone CLI binary (`flowtime-engine`). This is the foundation for E-17 (Interactive What-If) and E-18 (Time Machine).
+Tighten the remaining non-analytical legacy and compatibility surfaces after E-0016 so FlowTime exposes current Engine/Sim contracts consistently across first-party UI, Sim, docs, schemas, and examples without carrying stale fallback layers or stripping supported Blazor capability.
 
 | Milestone | Title | Status |
 |---|---|---|
-| M-028 | Scaffold, Types, and Parsers | done |
-| M-029 | Compiler and Core Evaluator | done |
-| M-030 | Topology and Sequential Ops | done |
-| M-031 | Routing and Constraints | done |
-| M-032 | Derived Metrics and Analysis | done |
-| M-033 | Artifacts, CLI, and Integration | done |
-| M-034 | .NET Subprocess Bridge | done |
-| M-035 | Full Parity Harness | done |
-| M-036 | Per-Class Decomposition and Edge Series | done |
-| M-037 | Artifact Sink Parity | done |
+| M-0024 | Supported Surface Inventory, Boundary ADR & Exit Criteria | done |
+| M-0025 | Sim Authoring & Runtime Boundary Cleanup | done |
+| M-0026 | Schema, Template & Example Retirement | done |
+| M-0027 | Blazor Support Alignment | done |
 
-## E-21 — Svelte Workbench & Analysis Surfaces (done)
+## E-0020 — Matrix Engine (done)
+
+### Goal
+
+Replace the C# object-graph evaluation engine with a Rust-based column-store + evaluation-plan engine. The new engine reads the same YAML model files, produces identical output artifacts, and ships as a standalone CLI binary (`flowtime-engine`). This is the foundation for E-0017 (Interactive What-If) and E-0018 (Time Machine).
+
+| Milestone | Title | Status |
+|---|---|---|
+| M-0028 | Scaffold, Types, and Parsers | done |
+| M-0029 | Compiler and Core Evaluator | done |
+| M-0030 | Topology and Sequential Ops | done |
+| M-0031 | Routing and Constraints | done |
+| M-0032 | Derived Metrics and Analysis | done |
+| M-0033 | Artifacts, CLI, and Integration | done |
+| M-0034 | .NET Subprocess Bridge | done |
+| M-0035 | Full Parity Harness | done |
+| M-0036 | Per-Class Decomposition and Edge Series | done |
+| M-0037 | Artifact Sink Parity | done |
+
+## E-0021 — Svelte Workbench & Analysis Surfaces (done)
 
 ### Goal
 
@@ -147,28 +147,28 @@ Transform the Svelte UI from a Blazor-parallel clone into the primary platform f
 
 | Milestone | Title | Status |
 |---|---|---|
-| M-038 | Workbench Foundation | done |
-| M-039 | Metric Selector & Edge Cards | done |
-| M-040 | Sweep & Sensitivity Surfaces | done |
-| M-041 | Goal Seek Surface | done |
-| M-042 | Optimize Surface | done |
-| M-043 | Heatmap View | done |
-| M-044 | Validation Surface (Svelte) | done |
-| M-045 | Visual Polish & Dark Mode QA | done |
+| M-0038 | Workbench Foundation | done |
+| M-0039 | Metric Selector & Edge Cards | done |
+| M-0040 | Sweep & Sensitivity Surfaces | done |
+| M-0041 | Goal Seek Surface | done |
+| M-0042 | Optimize Surface | done |
+| M-0043 | Heatmap View | done |
+| M-0044 | Validation Surface (Svelte) | done |
+| M-0045 | Visual Polish & Dark Mode QA | done |
 
-## E-22 — Time Machine — Model Fit & Chunked Evaluation (proposed)
+## E-0022 — Time Machine — Model Fit & Chunked Evaluation (proposed)
 
 ### Goal
 
-Close out the remaining Time Machine analysis modes — **model fitting** against real telemetry and **chunked evaluation** for feedback simulation — and crystallize the resulting surface as a clean embeddable **`FlowTime.Pipeline` SDK**. These are the last two analysis modes in the E-18 Time Machine architecture; delivering them completes the "FlowTime as a callable function" arc.
+Close out the remaining Time Machine analysis modes — **model fitting** against real telemetry and **chunked evaluation** for feedback simulation — and crystallize the resulting surface as a clean embeddable **`FlowTime.Pipeline` SDK**. These are the last two analysis modes in the E-0018 Time Machine architecture; delivering them completes the "FlowTime as a callable function" arc.
 
 _No milestones yet._
 
-## E-23 — Model Validation Consolidation (done)
+## E-0023 — Model Validation Consolidation (done)
 
 ### Goal
 
-Make `docs/schemas/model.schema.yaml` the **only declarative source of structural truth** about the post-substitution model, and `ModelSchemaValidator` the **only runtime evaluator**. Eliminate every "embedded schema" — every place outside the canonical schema where model rules are re-encoded. After E-23 closes:
+Make `docs/schemas/model.schema.yaml` the **only declarative source of structural truth** about the post-substitution model, and `ModelSchemaValidator` the **only runtime evaluator**. Eliminate every "embedded schema" — every place outside the canonical schema where model rules are re-encoded. After E-0023 closes:
 
 - One schema. Declared in `model.schema.yaml`.
 - One validator. `ModelSchemaValidator.Validate`, with named adjuncts (alongside `ValidateClassReferences`) for any rule JSON Schema draft-07 cannot express.
@@ -177,38 +177,38 @@ Make `docs/schemas/model.schema.yaml` the **only declarative source of structura
 
 | Milestone | Title | Status |
 |---|---|---|
-| M-046 | Rule-Coverage Audit | done |
-| M-047 | Call-Site Migration | done |
-| M-048 | Delete `ModelValidator` | done |
+| M-0046 | Rule-Coverage Audit | done |
+| M-0047 | Call-Site Migration | done |
+| M-0048 | Delete `ModelValidator` | done |
 
-## E-24 — Schema Alignment (done)
-
-### Goal
-
-Unify FlowTime's post-substitution model representation. One C# type. One YAML schema. One validator. `SimModelArtifact` is **deleted**. Sim builds the unified model type directly; the Engine accepts and parses the same type. Every field has exactly one declaration site. `TemplateWarningSurveyTests` reports `val-err=0` across all twelve templates at `ValidationTier.Analyse`, promoted to a hard build-time assertion. `ModelValidator` deletion (E-23) then becomes a mechanical cleanup.
-
-| Milestone | Title | Status |
-|---|---|---|
-| M-049 | Inventory and Design Decisions | done |
-| M-050 | Unify Model Type | done |
-| M-051 | Schema Unification | done |
-| M-052 | Parser/Validator Scalar-Style Fix | done |
-| M-053 | Canary Green and Hard Assertion | done |
-
-## E-25 — Engine Truth Gate — Edge-Flow Authority + Golden-Output Canary (active)
+## E-0024 — Schema Alignment (done)
 
 ### Goal
 
-Resolve the engine-correctness investigation surfaced during E-21 dogfooding (G-032 + G-033) and lock down testing rigor before further engine evolution. Concretely: make a defensible design call on edge-flow authority (expr nodes vs. topology edge weights), align engine + shipped templates so the conservation invariant is clean, and promote the lightweight `Survey_Templates_For_Warnings` baseline canary into a strict per-template **golden-output** canary that compares numeric series + warning sets at a sanctioned baseline.
+Unify FlowTime's post-substitution model representation. One C# type. One YAML schema. One validator. `SimModelArtifact` is **deleted**. Sim builds the unified model type directly; the Engine accepts and parses the same type. Every field has exactly one declaration site. `TemplateWarningSurveyTests` reports `val-err=0` across all twelve templates at `ValidationTier.Analyse`, promoted to a hard build-time assertion. `ModelValidator` deletion (E-0023) then becomes a mechanical cleanup.
 
 | Milestone | Title | Status |
 |---|---|---|
-| M-066 | Flow-Authority Policy Spike | done |
-| M-067 | Engine + Template Alignment | draft |
-| M-068 | Golden-Output Canary | draft |
-| M-069 | Schema + Compile + Analyse Enforcement | draft |
+| M-0049 | Inventory and Design Decisions | done |
+| M-0050 | Unify Model Type | done |
+| M-0051 | Schema Unification | done |
+| M-0052 | Parser/Validator Scalar-Style Fix | done |
+| M-0053 | Canary Green and Hard Assertion | done |
 
-## E-26 — Local + CI Test Discipline and Static Analysis (proposed)
+## E-0025 — Engine Truth Gate — Edge-Flow Authority + Golden-Output Canary (active)
+
+### Goal
+
+Resolve the engine-correctness investigation surfaced during E-0021 dogfooding (G-0032 + G-0033) and lock down testing rigor before further engine evolution. Concretely: make a defensible design call on edge-flow authority (expr nodes vs. topology edge weights), align engine + shipped templates so the conservation invariant is clean, and promote the lightweight `Survey_Templates_For_Warnings` baseline canary into a strict per-template **golden-output** canary that compares numeric series + warning sets at a sanctioned baseline.
+
+| Milestone | Title | Status |
+|---|---|---|
+| M-0066 | Flow-Authority Policy Spike | done |
+| M-0067 | Engine + Template Alignment | draft |
+| M-0068 | Golden-Output Canary | draft |
+| M-0069 | Schema + Compile + Analyse Enforcement | draft |
+
+## E-0026 — Local + CI Test Discipline and Static Analysis (proposed)
 
 ### Goal
 
@@ -216,7 +216,7 @@ Bring FlowTime's static-analysis and test-discipline posture up to current best 
 
 | Milestone | Title | Status |
 |---|---|---|
-| M-070 | Tier 1: Toolchain hardening and CI gates | draft |
-| M-071 | Tier 2: Property snapshot mutation and architecture testing | draft |
-| M-072 | Tier 3: Fuzzing coverage floor and supply chain scan | draft |
+| M-0070 | Tier 1: Toolchain hardening and CI gates | draft |
+| M-0071 | Tier 2: Property snapshot mutation and architecture testing | draft |
+| M-0072 | Tier 3: Fuzzing coverage floor and supply chain scan | draft |
 
