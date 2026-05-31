@@ -1,6 +1,3 @@
 {
-  "enabledPlugins": {
-    "aiwf-extensions@ai-workflow-rituals": true,
-    "wf-rituals@ai-workflow-rituals": true
-  }
+  "enabledPlugins": {}
 }

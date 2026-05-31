@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This project uses **aiwf v3** (Go binary at `~/go/bin/aiwf`) plus the **ai-workflow-rituals** plugin marketplace (Claude Code plugins `aiwf-extensions` + `wf-rituals`). The planning kernel lives in 6 entity kinds: epic, milestone, ADR, gap, decision, contract — each with a closed status set, stable ids that survive rename/reallocate, and `git log` as the audit trail.
+This project uses **aiwf v3** (Go binary at `~/go/bin/aiwf`) which embeds skills, role agents, and templates directly (materialized via `aiwf init`/`aiwf update`). The planning kernel lives in 6 entity kinds: epic, milestone, ADR, gap, decision, contract — each with a closed status set, stable ids that survive rename/reallocate, and `git log` as the audit trail.
 
 Despite the filename, this file is shared workspace context for both Claude and GitHub Copilot in this repo. Keep it assistant-neutral.
 
@@ -21,7 +21,7 @@ After `/compact` or a fresh session, this file is re-available via the system pr
 
 ## Agent Routing
 
-Role agents ship via the `aiwf-extensions` plugin (loaded into Claude Code from the plugin cache).
+Role agents are materialized by the `aiwf` binary into `.claude/agents/`.
 
 | Intent | Agent | Drives |
 |--------|-------|--------|
@@ -30,7 +30,7 @@ Role agents ship via the `aiwf-extensions` plugin (loaded into Claude Code from 
 | review, check, validate, wrap, finish | **reviewer** | `wf-review-code`, `wf-doc-lint`, `aiwfx-record-decision` |
 | release, deploy, tag, publish | **deployer** | `aiwfx-release`; `wf-patch` for hotfixes between wrap and tag; `aiwfx-record-decision` |
 
-`aiwfx-wrap-epic` is shipped by the plugin but unclaimed by any agent's skill list; in practice the reviewer drives it (its description includes "verifies milestone or epic wrap"). After a milestone wrap, builder/reviewer should also invoke the repo-private `dead-code-audit` skill (the upstream `aiwfx-wrap-milestone` skill does not chain it).
+`aiwfx-wrap-epic` is materialized by `aiwf` but unclaimed by any agent's skill list; in practice the reviewer drives it (its description includes "verifies milestone or epic wrap"). After a milestone wrap, builder/reviewer should also invoke the repo-private `dead-code-audit` skill (the upstream `aiwfx-wrap-milestone` skill does not chain it).
 
 ## Project Layout
 
