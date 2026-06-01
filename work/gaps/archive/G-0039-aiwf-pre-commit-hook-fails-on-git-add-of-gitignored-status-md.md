@@ -2,6 +2,7 @@
 id: G-0039
 title: aiwf pre-commit hook fails on git-add of gitignored STATUS.md
 status: addressed
+addressed_by_commit: [86aa740]
 ---
 
 ## What's missing
