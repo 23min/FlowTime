@@ -6,7 +6,7 @@ status: open
 
 ### Why this is a gap
 
-The `--ft-viz-*` palette introduced in M-0039 (teal, pink, coral, blue, green, amber, purple) was chosen for general aesthetic contrast but was not validated against color-blindness simulators. Under ADR-m-E21-06-02 both topology and heatmap now share the same teal → amber → red gradient from `dag-map`'s `colorScales.palette`, so the issue amplifies — users with deuteranopia or protanopia may see low-utilization teal and high-utilization red as the same muted hue.
+The `--ft-viz-*` palette introduced in M-0039 (teal, pink, coral, blue, green, amber, purple) was chosen for general aesthetic contrast but was not validated against color-blindness simulators. Under `ADR-m-E21-06-02` both topology and heatmap now share the same teal → amber → red gradient from `dag-map`'s `colorScales.palette`, so the issue amplifies — users with deuteranopia or protanopia may see low-utilization teal and high-utilization red as the same muted hue.
 
 ### Status
 
