@@ -63,7 +63,7 @@ The reframe collapses the original three options:
 
 The chosen policy, expressed crisply: **routing authority is declared at the producer's outgoing edges; for static-share fan-outs (class 3) edge weights are normative; router nodes (class 1) are required when routing is dynamic; class-2 capacity-aware allocation is not surfaced in the engine today and must be filed as a deferred gap; consumer-side expr arithmetic must not encode peer-relative splits — consumer arrivals come from edge flow and any other arithmetic on the consumer side is a modeling error and must be rejected by the engine's gates**.
 
-This milestone documents the policy, sweeps the repo for docs that contradict it, ratifies the policy as an ADR, and names the enforcement layers (schema/compile/analyse) where the policy must be enforced. The actual enforcement implementation is the new M-NNN-enforcement milestone (the next milestone in the epic). The actual engine + template alignment is the milestone after that. The actual golden canary is the milestone after that.
+This milestone documents the policy, sweeps the repo for docs that contradict it, ratifies the policy as an ADR, and names the enforcement layers (schema/compile/analyse) where the policy must be enforced. The actual enforcement implementation is the new `M-NNN`-enforcement milestone (the next milestone in the epic). The actual engine + template alignment is the milestone after that. The actual golden canary is the milestone after that.
 
 ## Acceptance criteria
 
@@ -229,7 +229,7 @@ Out-of-scope classes (not in the table below):
 Listed up front per the milestone Design Notes ("Sort by classification severity (conflicting first)"). Both are AC-4 follow-ups; both fit within the small-revision threshold and do not require deferred-follow-up gaps.
 
 1. **`docs/flowtime-v2.md` line 246** — universal "fan-out → router with weights" mapping in the real-world-to-model table; elides class-3 edge-as-channel. Revise: split the row into class-3 (edges with `weight`) and class-1 (`router` node).
-2. **`docs/reference/flow-theory-coverage.md` lines 111–118** — section 8 verdict "Dynamic routing — Not planned"; the policy classifies this as class-2 capacity-aware allocation (deferred future capability). Revise: change verdict to "Deferred" with forward references to ADR-NNNN and G-0038 (class-2 capacity-aware allocator gap, M-0066/AC-7).
+2. **`docs/reference/flow-theory-coverage.md` lines 111–118** — section 8 verdict "Dynamic routing — Not planned"; the policy classifies this as class-2 capacity-aware allocation (deferred future capability). Revise: change verdict to "Deferred" with forward references to `ADR-NNNN` and G-0038 (class-2 capacity-aware allocator gap, M-0066/AC-7).
 
 The full per-axis tables follow.
 
@@ -260,7 +260,7 @@ The full per-axis tables follow.
 | `docs/reference/data-formats.md` | silent | Edge-type listing (throughput / effort); does not pin authority. | No change. |
 | `docs/reference/engine-capabilities.md` | aligned | Line 13: edges support typed `flowVolume` series; line 50: `flowVolume` is the per-edge truth. Consistent with the policy's class-3 authority surface. Line 68 names `router_missing_class_route` / `router_class_leakage` warnings — class-1 enforcement, aligned. | No change. |
 | `docs/reference/flow-theory-foundations.md` | silent | Theory primer; routing-vocabulary hits don't pin authority. | No change. |
-| `docs/reference/flow-theory-coverage.md` | conflicting | Section 8 "Routing & Flow Splitting" (lines 111–118): row `Dynamic routing (route by downstream queue length) \| **Not planned**`. The flow-authority policy explicitly classifies this as class-2 (capacity-aware allocation) and frames it as a *deferred future capability*, not "not planned" (the deferred-follow-up gap is filed as G-0038 under AC-7). | **AC-4 revise (small).** Change the "Not planned" row to "**Deferred** — class-2 capacity-aware allocation, see ADR-NNNN and G-0038 (class-2 capacity-aware allocator gap, M-0066/AC-7)." Single-cell edit. |
+| `docs/reference/flow-theory-coverage.md` | conflicting | Section 8 "Routing & Flow Splitting" (lines 111–118): row `Dynamic routing (route by downstream queue length) \| **Not planned**`. The flow-authority policy explicitly classifies this as class-2 (capacity-aware allocation) and frames it as a *deferred future capability*, not "not planned" (the deferred-follow-up gap is filed as G-0038 under AC-7). | **AC-4 revise (small).** Change the "Not planned" row to "**Deferred** — class-2 capacity-aware allocation, see `ADR-NNNN` and G-0038 (class-2 capacity-aware allocator gap, M-0066/AC-7)." Single-cell edit. |
 | `docs/schemas/model.schema.md` | silent | Schema reference; routing-vocabulary hits at line 323 ("typically a service/router") name router as a sink-of-flow, not a routing-authority claim. | No change. |
 | `docs/schemas/template-schema.md` | silent | Schema reference. | No change. |
 | `docs/schemas/README.md` | silent | Index. | No change. |
@@ -307,7 +307,7 @@ A scan of the rest of `work/decisions/D-0001` … `D-0052` for `routing|router|e
 Two conflicting docs require small in-place revisions in M-0066 AC-4:
 
 1. **`docs/flowtime-v2.md` line 246** — split the universal-fan-out row into class-3 (edges) and class-1 (router) rows. Diff size: one table row → two rows + a one-line note.
-2. **`docs/reference/flow-theory-coverage.md` lines 111–118** — change the "Not planned" verdict for dynamic routing to "Deferred — class-2 capacity-aware allocation" with a forward reference to ADR-NNNN and G-0038. Diff size: one cell.
+2. **`docs/reference/flow-theory-coverage.md` lines 111–118** — change the "Not planned" verdict for dynamic routing to "Deferred — class-2 capacity-aware allocation" with a forward reference to `ADR-NNNN` and G-0038. Diff size: one cell.
 
 Both are within the AC-4 "small revision" threshold (paragraph or section that can be replaced without changing the doc's overall structure). No `[needs revision per ADR-NNNN]` markers are required — both can be revised in M-0066.
 
@@ -331,7 +331,7 @@ No deferred follow-up gaps (AC-8) surfaced from this sweep beyond G-0038 (the cl
 - **No template edits.** No file under `templates/` is modified by this milestone. Template surveys may *read* templates to compute footprint estimates and to check that the policy classification holds, but no edits land.
 - **No `ExpectedRunWarnings` changes.** The Phase 2 baseline canary stays exactly as committed by the patch on 2026-05-01 throughout this milestone. Resetting baselines is the engine + template alignment milestone's job, conditional on the engine + template change landing.
 - **No test code changes.** `Survey_Templates_For_Warnings` is not modified. New analyser warnings are *named* in the ADR (AC-6) but not implemented here; that's the next milestone.
-- **ADR-class, not D-NNN.** This is durable architectural truth, not a project-bound decision. The repo's `docs/adr/` directory is empty; this ADR seeds it. Recording the decision as `D-NNN` is rejected because the policy outlives this project's planning context.
+- **`ADR-class`, not `D-NNN`.** This is durable architectural truth, not a project-bound decision. The repo's `docs/adr/` directory is empty; this ADR seeds it. Recording the decision as `D-NNN` is rejected because the policy outlives this project's planning context.
 - **Footprint analysis is preserved verbatim.** The footprint analysis section in this spec is M-0066's working artefact and is preserved per AC-2. Editing it is out of scope unless a factual error is discovered; the framing-widening (flow-purity reframe) does not invalidate the cost evidence.
 - **Exactly one routing authority per producer-fan-out.** The policy itself is the binding rule the milestone ratifies. The schema/compile/analyse enforcement layers (named by AC-6) are not implemented here but their *existence and responsibilities* are pinned by this milestone.
 - **Project rules.** .NET 9 / C# 13 (no code in this milestone, but the conventions apply to any code-cited line ranges); invariant culture; no time or effort estimates in the ADR body.
@@ -384,7 +384,7 @@ No deferred follow-up gaps (AC-8) surfaced from this sweep beyond G-0038 (the cl
 - Decision precedent for project-scoped calls: `work/decisions/D-0053-testing-rigor-approach-phase-2-baseline-canary-first-full-golden-output-canon-deferred.md`
 - Analyser source: `src/FlowTime.Core/Analysis/InvariantAnalyzer.cs:323-335` (incoming-edge conservation; the rule the policy binds)
 - Materializer source: `src/FlowTime.Core/Routing/EdgeFlowMaterializer.cs:54` (the `flowVolumes` dictionary; option 1's engine sub-question)
-- Conversation framing: this milestone widened from "decision-only D-NNN" to "policy spike + ADR" during M-0066's working session on 2026-05-02. The flow-purity argument that collapsed the original three options is the framing-widening rationale.
+- Conversation framing: this milestone widened from "decision-only `D-NNN`" to "policy spike + ADR" during M-0066's working session on 2026-05-02. The flow-purity argument that collapsed the original three options is the framing-widening rationale.
 
 ## Work log
 
@@ -397,7 +397,7 @@ No deferred follow-up gaps (AC-8) surfaced from this sweep beyond G-0038 (the cl
     - **AC-4** — both conflicting docs revised in-place: `docs/flowtime-v2.md` line 246 (universal fan-out row split into class-3 + class-1 rows) and `docs/reference/flow-theory-coverage.md` lines 111–118 (Not planned → Deferred with forward refs to ADR-0001 and G-0038) (commit `d133c5a`); promoted met (commit `ab5f529`).
     - **AC-5** — ADR-0001 allocated via `aiwf add adr` (commit `e52570c`) and drafted (commit `6434727`); promoted met (commit `5a412ad`).
     - **AC-6** — ADR-0001 names schema (`ModelSchemaValidator` + `model.schema.yaml`) / compile (`ModelCompiler` / `TimeMachineValidator`) / analyse (`InvariantAnalyzer` warnings `routing_authority_ambiguous` and `consumer_side_peer_split_detected`) enforcement points (delivered with the AC-5 draft commit `6434727`); promoted met (commit `5634792`).
-    - **AC-7** — G-0038 filed via `aiwf add gap` capturing class-2 capacity-aware allocator as deferred future capability (commit `df84886`); milestone reference resolved from G-NNN to G-0038 (commit `9bce97f`); promoted met (commit `24856cd`).
+    - **AC-7** — G-0038 filed via `aiwf add gap` capturing class-2 capacity-aware allocator as deferred future capability (commit `df84886`); milestone reference resolved from `G-NNN` to G-0038 (commit `9bce97f`); promoted met (commit `24856cd`).
     - **AC-8** — sweep surfaced no further deferred follow-ups beyond G-0038; class-3 first-class authoring guidance recorded as folded into M-0067 scope (no new gap); promoted met (commit `6521313`).
     - **AC-9** — ADR-0001 wording tightened and policy-doc cross-reference firmed (commit `4e49682`); ratified `proposed → accepted` (commit `eb52208`); promoted met (commit `60ee968`).
     - **AC-10** — E-0025 epic spec open-questions table updated and G-0032 cross-referenced ADR-0001 (commit `245c7bc`); G-0032 promoted `open → addressed` (commit `b5da3fd`); promoted met (commit `f4eeacd`).
@@ -405,7 +405,7 @@ No deferred follow-up gaps (AC-8) surfaced from this sweep beyond G-0038 (the cl
 
 ## Decisions made during implementation
 
-- **ADR-0001 ratified directly; no D-NNN was filed.** Per the milestone constraint "ADR-class, not D-NNN" (this is durable architectural truth, not a project-bound decision), the policy was recorded as ADR-0001 in the repo's previously-empty `docs/adr/` directory rather than as a project decision record. This is explicit and intentional — recording the policy as a `D-NNN` was rejected because the policy outlives this project's planning context.
+- **ADR-0001 ratified directly; no `D-NNN` was filed.** Per the milestone constraint "`ADR-class`, not `D-NNN`" (this is durable architectural truth, not a project-bound decision), the policy was recorded as ADR-0001 in the repo's previously-empty `docs/adr/` directory rather than as a project decision record. This is explicit and intentional — recording the policy as a `D-NNN` was rejected because the policy outlives this project's planning context.
 - **The doc-sweep artefact was inlined into the milestone spec mid-implementation.** Originally drafted as a standalone artefact under `work/epics/E-0025-engine-truth-gate/M-0066-flow-authority-doc-sweep.md`, it was moved into the milestone spec body during AC-3 to satisfy the aiwf v3 substrate convention that the milestone spec is the single home for goal, ACs, design notes, working analysis, and work log. This is a real implementation-time decision: the spec body now carries both the footprint analysis (AC-2) and the doc-sweep classification (AC-3) verbatim.
 
 ## Validation
