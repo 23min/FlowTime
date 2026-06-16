@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using FlowTime.Adapters.Synthetic;
 using FlowTime.Contracts.Services;
+using FlowTime.Contracts.Storage;
 using FlowTime.Contracts.TimeTravel;
 using FlowTime.Core.DataSources;
 using FlowTime.Core.TimeTravel;
@@ -42,7 +43,16 @@ public sealed class MetricsService
         }
 
         var runsRoot = Program.ServiceHelpers.RunsRoot(configuration);
-        var runDirectory = Path.Combine(runsRoot, runId);
+        string runDirectory;
+        try
+        {
+            runDirectory = RunPathResolver.GetSafeRunDirectory(runsRoot, runId);
+        }
+        catch (ArgumentException)
+        {
+            throw new MetricsQueryException(404, $"Run '{runId}' not found.");
+        }
+
         if (!Directory.Exists(runDirectory))
         {
             throw new MetricsQueryException(404, $"Run '{runId}' not found.");

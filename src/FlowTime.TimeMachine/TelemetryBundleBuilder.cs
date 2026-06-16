@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using FlowTime.Contracts.Services;
+using FlowTime.Contracts.Storage;
 using FlowTime.Core.Artifacts;
 using FlowTime.Core.Models;
 using FlowTime.Core.Nodes;
@@ -54,7 +55,15 @@ public sealed class TelemetryBundleBuilder
         string? explicitRunDirectory = null;
         if (!string.IsNullOrWhiteSpace(options.RunId))
         {
-            explicitRunDirectory = Path.Combine(outputRoot, options.RunId);
+            try
+            {
+                explicitRunDirectory = RunPathResolver.GetSafeRunDirectory(outputRoot, options.RunId);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new InvalidOperationException($"Requested runId '{options.RunId}' is not a valid run identifier.", ex);
+            }
+
             if (Directory.Exists(explicitRunDirectory))
             {
                 if (!options.Overwrite)

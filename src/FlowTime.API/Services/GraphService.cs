@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FlowTime.Contracts.Services;
+using FlowTime.Contracts.Storage;
 using FlowTime.Contracts.TimeTravel;
 using FlowTime.Core.Dispatching;
 using FlowTime.Core.Metrics;
@@ -43,7 +44,16 @@ public sealed class GraphService
         }
 
         var runsRoot = Program.ServiceHelpers.RunsRoot(configuration);
-        var runDirectory = Path.Combine(runsRoot, runId);
+        string runDirectory;
+        try
+        {
+            runDirectory = RunPathResolver.GetSafeRunDirectory(runsRoot, runId);
+        }
+        catch (ArgumentException)
+        {
+            throw new GraphQueryException(404, $"Run '{runId}' not found.");
+        }
+
         if (!Directory.Exists(runDirectory))
         {
             throw new GraphQueryException(404, $"Run '{runId}' not found.");

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using FlowTime.Contracts.Storage;
 using FlowTime.Contracts.TimeTravel;
 using FlowTime.TimeMachine.Orchestration;
 
@@ -145,7 +146,15 @@ internal static class RunOrchestrationEndpoints
         }
 
         var runsRoot = Program.ServiceHelpers.RunsRoot(configuration);
-        var runDirectory = Path.Combine(runsRoot, runId);
+        string runDirectory;
+        try
+        {
+            runDirectory = RunPathResolver.GetSafeRunDirectory(runsRoot, runId);
+        }
+        catch (ArgumentException)
+        {
+            return Results.NotFound(new { error = $"Run '{runId}' not found." });
+        }
 
         var result = await orchestration.TryLoadRunAsync(runDirectory, cancellationToken).ConfigureAwait(false);
         if (result is null)

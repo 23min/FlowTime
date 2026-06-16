@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using FlowTime.Adapters.Synthetic;
 using FlowTime.Contracts.Services;
+using FlowTime.Contracts.Storage;
 using FlowTime.Contracts.TimeTravel;
 using FlowTime.Core.Constraints;
 using FlowTime.Core.Dispatching;
@@ -286,7 +287,15 @@ public sealed class StateQueryService
         }
 
         var artifactsDirectory = Program.GetArtifactsDirectory(configuration);
-        var runDirectory = Path.Combine(artifactsDirectory, runId);
+        string runDirectory;
+        try
+        {
+            runDirectory = RunPathResolver.GetSafeRunDirectory(artifactsDirectory, runId);
+        }
+        catch (ArgumentException)
+        {
+            throw new StateQueryException(404, $"Run '{runId}' not found.");
+        }
 
         if (!Directory.Exists(runDirectory))
         {
