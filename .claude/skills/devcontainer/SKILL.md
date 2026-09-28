@@ -1,44 +1,28 @@
 ---
 name: devcontainer
-description: "> **This is archived content, not an active framework skill.** The active skill at `.ai/skills/devcontainer.md` is a 40-line generic core. If your repo relies on the detail below (Dockerfile templates"
----
-<!-- AUTO-GENERATED from source by sync.sh — do not edit manually -->
-# Long-form devcontainer reference (archived)
-
-> **This is archived content, not an active framework skill.** The active skill at `.ai/skills/devcontainer.md` is a 40-line generic core. If your repo relies on the detail below (Dockerfile templates, stack-specific blocks, worktree topology), copy the relevant sections into your own `.ai-repo/skills/devcontainer.md` — that file overrides the framework skill for this repo.
-
----
-
----
 description: Create, maintain, and operate VS Code devcontainers with correct mount topology, worktree support, and persistence guarantees.
-name: devcontainer
-when_to_use: |
-  - When creating a new devcontainer for a project
-  - When modifying devcontainer configuration (Dockerfile, mounts, post-create)
-  - When setting up or recovering git worktrees inside a devcontainer
-  - When diagnosing lost data or mount issues after a container rebuild
-  - When a user asks "set up a devcontainer" or "fix the container"
-responsibilities:
-  - Configure devcontainer.json with correct mount topology
-  - Write Dockerfiles with the project's required toolchain
-  - Write post-create scripts for dependency setup
-  - Set up git worktrees at mount-safe locations
-  - Maintain .dockerignore for build context hygiene
-  - Diagnose and fix persistence issues across container rebuilds
-output:
-  - .devcontainer/devcontainer.json
-  - .devcontainer/Dockerfile
-  - .devcontainer/post-create.sh
-  - .dockerignore
-  - Working worktree at a rebuild-safe location
-invoked_by:
-  - builder agent (when devcontainer setup or modification is needed)
-  - planner agent (when scoping a new project's infrastructure)
 ---
 
 # Skill: Devcontainer
 
 Create and maintain VS Code devcontainers that are safe across rebuilds, support git worktrees, and work identically whether accessed locally or via SSH.
+
+## When to use
+
+- Creating a new devcontainer for a project
+- Modifying devcontainer configuration (Dockerfile, mounts, post-create)
+- Setting up or recovering git worktrees inside a devcontainer
+- Diagnosing lost data or mount issues after a container rebuild
+- The user asks "set up a devcontainer" or "fix the container"
+
+## Responsibilities
+
+- Configure `devcontainer.json` with correct mount topology
+- Write Dockerfiles (or extend a prebuilt-image `init.sh`) with the project's required toolchain
+- Write post-create scripts for dependency setup
+- Set up git worktrees at mount-safe locations
+- Maintain `.dockerignore` for build context hygiene
+- Diagnose and fix persistence issues across container rebuilds
 
 ## Core Concepts
 

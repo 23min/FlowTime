@@ -5,9 +5,10 @@
   "workspaceMount": "source=${localWorkspaceFolder}/..,target=/workspaces,type=bind,consistency=cached",
   "initializeCommand": "bash .devcontainer/initialize.sh",
   "mounts": [
-    "source=/tmp/.claude-mount,target=/home/vscode/.claude,type=bind,consistency=cached",
-    "source=/tmp/.claude-plugins-mount,target=/home/vscode/.claude/plugins,type=bind,consistency=cached",
-    "source=/tmp/.gh-mount,target=/home/vscode/.config/gh,type=bind,consistency=cached"
+    "source=/tmp/.flowtime-vnext-claude-mount,target=/home/vscode/.claude,type=bind,consistency=cached",
+    "source=/tmp/.flowtime-vnext-claude-plugins-mount,target=/home/vscode/.claude/plugins,type=bind,consistency=cached",
+    "source=/tmp/.flowtime-vnext-gh-mount,target=/home/vscode/.config/gh,type=bind,consistency=cached",
+    "source=/tmp/.flowtime-vnext-codex-mount,target=/home/vscode/.codex,type=bind,consistency=cached"
   ],
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {},
@@ -51,6 +52,17 @@
   },
   "remoteUser": "vscode",
   "runArgs": [
+    // Stable, readable name for Docker Desktop/Grafana (default is a random
+    // fantasy name, e.g. "modest_kare"). Static, not ${devcontainerId}: only
+    // one instance of this devcontainer is ever intentionally run, so a stale
+    // container from an interrupted rebuild fails the next create loudly
+    // (name Conflict -> `docker rm flowtime-vnext-dev`) instead of silently
+    // orphaning under a fresh random name. Note: this opts out of `dev`'s
+    // (ai-dotfiles/bin/dev) host-invoked `vsc-<repo>-` auto-discovery — see
+    // docs/development/devcontainer.md. `dev left`/`dev right` run from
+    // inside this container are unaffected.
+    "--name", "flowtime-vnext-dev",
+    "--hostname", "flowtime-vnext-dev",
     "--cap-add=SYS_PTRACE",
     "--security-opt",
     "seccomp=unconfined",
@@ -93,6 +105,6 @@
   },
   "remoteEnv": {
     "NODE_OPTIONS": "--dns-result-order=ipv4first",
-    "PATH": "/home/vscode/.cargo/bin:/home/vscode/.dotnet/tools:/home/vscode/.local/bin:/home/vscode/go/bin:/usr/local/go/bin:${containerEnv:PATH}"
+    "PATH": "/home/vscode/.codex/bin:/home/vscode/.cargo/bin:/home/vscode/.dotnet/tools:/home/vscode/.local/bin:/home/vscode/go/bin:/usr/local/go/bin:${containerEnv:PATH}"
   }
 }

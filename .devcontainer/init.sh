@@ -9,12 +9,24 @@ if ! dotnet --info >/dev/null 2>&1; then
   echo "dotnet SDK not found"; exit 1
 fi
 
+# Install tmux (persistent dev sessions, e.g. `dev left` / `dev right`)
+if ! command -v tmux >/dev/null 2>&1; then
+  echo "Installing tmux..."
+  sudo apt-get update -qq
+  sudo apt-get install -y -qq --no-install-recommends tmux
+  sudo rm -rf /var/lib/apt/lists/*
+fi
+
 # Install Claude Code if not already installed
 if ! command -v claude >/dev/null 2>&1; then
   echo "Installing Claude Code..."
   curl -fsSL https://claude.ai/install.sh | bash
   export PATH="$HOME/.local/bin:$PATH"
 fi
+
+# Install Codex CLI (pinned standalone release; see install-codex.sh)
+bash "$(dirname "$0")/install-codex.sh"
+export PATH="$HOME/.codex/bin:$PATH"
 
 # Install uv if not already installed
 if ! command -v uv >/dev/null 2>&1; then

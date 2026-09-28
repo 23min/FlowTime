@@ -1,18 +1,24 @@
 # Devcontainer
 
-This repo ships a minimal devcontainer for M-00.00–M-01.00 to keep startup fast and diffs clean. Optional tooling (Node, Azure CLI, Azurite) will be added per milestone.
+This repo ships a devcontainer for FlowTime development.
 
 For repo-specific cleanup, disk-pressure recovery, and persistence rules, see [devcontainer-maintenance.md](./devcontainer-maintenance.md).
 
-# Dev Container Setup
-
-This repository includes a dev container configuration optimized for FlowTime development with minimal overhead.
-
 ## What's Included
 
-- .NET 9 SDK (via devcontainers/dotnet image)
-- PowerShell 7 feature
-- VS Code extensions: C# Dev Kit, C#, EditorConfig, GitLens, GitHub Actions, Git Graph, YAML, REST Client
+- .NET 9 SDK (via `mcr.microsoft.com/devcontainers/dotnet` image)
+- GitHub CLI and Node 20 devcontainer features
+- Claude Code CLI and Codex CLI (both installed in `.devcontainer/init.sh`; Codex via the pinned standalone installer in `.devcontainer/install-codex.sh`)
+- tmux, for persistent sessions (e.g. running `dev left` / `dev right` from `ai-dotfiles` to open named panes)
+- uv, Rust (stable + clippy), Go, and Roslynator CLI, for the `/wf-dead-code-audit` recipes
+- aiwf (branch-tip pin during PoC)
+- VS Code extensions: C# Dev Kit, C#, EditorConfig, GitHub Actions, Git Graph, YAML, REST Client, GitHub Copilot, Claude Code, Svelte
+
+## Use
+
+- Open in VS Code and choose "Reopen in Container" (or start a Codespace).
+- `updateContentCommand` and `postCreateCommand` both run `.devcontainer/init.sh`, which restores the solution, installs the workload/tooling above, and (on post-create only) prints a "Ready" banner with next-step commands.
+- Codex needs a one-time interactive login (`codex login`) after first create — its auth lives in a container-only, repo-scoped `~/.codex` (bind-mounted from a host-side `~/.codex-flowtime-vnext`, chmod 700), so it survives rebuilds but never mixes with a native host Codex install or another repo's.
 
 ## API-First Development with Shared Docker Network
 
@@ -26,49 +32,23 @@ docker network create flowtime-dev
 
 ### FlowTime Dev Container Configuration
 
-The dev container automatically:
-- Joins the `flowtime-dev` network with stable name `flowtime-api`
-- Forwards port 8080 to the host for convenience
-- Does not auto-start the API (start manually via F5, VS Code tasks, or command line)
-
-This is configured in `.devcontainer/devcontainer.json`:
-```json
-{
-  "runArgs": ["--network=flowtime-dev", "--name", "flowtime-api"],
-  "forwardPorts": [8080]
-}
-```
+The dev container joins the `flowtime-dev` network (`runArgs: --network=flowtime-dev` in `.devcontainer/devcontainer.json`) and forwards its ports for host convenience. It does not auto-start the API — start manually via F5, VS Code tasks, or command line.
 
 ### Cross-Container Communication
 
-From other containers on the `flowtime-dev` network, access the API using the service name:
+From other containers on the `flowtime-dev` network, other services reach the Engine API via `FLOWTIME_API_BASEURL` (set in `containerEnv`, currently `http://flowtime-api:8081`).
 
 ```bash
-# Health check
-curl -s http://flowtime-api:8080/healthz
-
-# API calls
-export FLOWTIME_URL=http://flowtime-api:8080
-curl -s -X POST "$FLOWTIME_URL/run" 
-  -H "Content-Type: application/yaml" 
-  --data-binary @model.yaml
+curl -s http://flowtime-api:8081/healthz
 ```
 
 ### Host Access
 
-When port forwarding is enabled:
+Forwarded ports (see `forwardPorts` / `portsAttributes` in `devcontainer.json` for the current list): the Svelte UI (5173), the Engine and Sim APIs (8080/8081/8090/8091), and a Codex OAuth callback port (1455, used only during `codex login`).
+
 ```bash
-curl -s http://localhost:8080/healthz
+curl -s http://localhost:8081/healthz
 ```
-
-## Port Configuration
-
-**For detailed port configuration, see [development-setup.md](development-setup.md)**.
-
-Default ports:
-- **FlowTime API**: 8080
-- **FlowTime UI**: 5219 (development)
-- **FlowTime-Sim**: 8081 (separate repository)
 
 ## Troubleshooting
 
@@ -81,7 +61,7 @@ docker network inspect flowtime-dev | jq '.[0].Containers | keys'
 getent hosts flowtime-api || ping -c1 flowtime-api
 
 # Check API listening (inside FlowTime container)
-ss -lntp | grep 8080
+ss -lntp | grep 8081
 ```
 
 ### Debugging Across Multiple Dev Containers
@@ -93,25 +73,21 @@ ss -lntp | grep 8080
 
 ### Launch Configuration
 
-Example VS Code launch configuration for API:
+Example VS Code launch configuration for the Engine API:
 ```json
 {
   "name": "FlowTime.API",
   "type": "coreclr",
   "request": "launch",
   "program": "dotnet",
-  "args": ["run", "--project", "src/FlowTime.API", "--urls", "http://0.0.0.0:8080"]
+  "args": ["run", "--project", "src/FlowTime.API", "--urls", "http://0.0.0.0:8081"]
 }
 ```
 
-## Use
-- Open in VS Code and choose "Reopen in Container" (or start a Codespace).
-- Post-create runs `.devcontainer/init.ps1` to restore the solution.
+## `dev` / tmux compatibility
 
-## Next milestones
-When a milestone needs extra tooling, we’ll add flags and a Dockerfile to enable:
-- Node (elkjs, Monaco)
-- Azure CLI + Bicep + azd
-- Azurite (Blob/Queue/Table emulator)
+`.devcontainer/devcontainer.json` sets an explicit `--name`/`--hostname flowtime-vnext-dev` in `runArgs` (readable in Docker Desktop/Grafana; fails loudly on a stale-container name conflict instead of silently orphaning one), matching `deathcleaning`/`aiwf`/`yahoo-save`.
 
-We’ll mirror additions in CI so devcontainer and Actions stay in sync.
+This has one consequence worth knowing: `ai-dotfiles`' `dev` script, run from a bare host terminal (`dev flowtime-vnext`), discovers containers by matching `^vsc-<repo>-` — VS Code's *default* auto-generated name. Since this container is explicitly named `flowtime-vnext-dev` instead, that host-invoked lookup won't find it and silently falls back to a plain tmux session on the host, cd'd into the repo directory (not inside the container).
+
+This does **not** affect `dev left` / `dev right` run from a terminal already inside the container — that path (`dev`'s "already inside a container" branch) just runs `tmux new -A -D -s <name>` locally and never looks at the container's name at all. It only needs tmux (installed above) and the `dev` binary itself present in-container. That binary isn't wired in yet — `ai-dotfiles` is mid-flight on reworking its own integration story, so this repo isn't calling its `install.sh` until that lands; for now, use `docker exec -it flowtime-vnext-dev bash` (or VS Code's own integrated terminal, which already attaches you into the container) and run tmux directly.
