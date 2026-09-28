@@ -1,0 +1,9 @@
+{
+  ".guidance/index.md": "831b8007c01730a498ecae8fa82cd0387f256fd518e066561ec367e48b109a11",
+  ".guidance/packs/code-health/guide.md": "cf83d247fbfa0c3d60ae89b242517b648f3a31cadbd1a3f6dadd3ad8f821e4fd",
+  ".guidance/packs/code-health/rubric.md": "200bfee291a02acb9f404abad7844d4d0c3077f6c7f38354ee7ecf79b8f79228",
+  ".guidance/packs/csharp/dotnet/guide.md": "5dc90d2201b88619a4cbfcddce86f4947e3dba270168c08f19aa551a7ce5816b",
+  ".guidance/packs/rust/edition-2024-workspace/guide.md": "acb22aacf594067718bee99045f814cd1d977da056d679e725153ca01b14d36f",
+  "AGENTS.md": "e771a670becdd6d95cfadf5617a940284fb2a15c8f46680a55782604ca30bd52",
+  "CLAUDE.md": "e771a670becdd6d95cfadf5617a940284fb2a15c8f46680a55782604ca30bd52"
+}

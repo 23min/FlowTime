@@ -5,3 +5,33 @@ status_md:
   # Opting out of auto-update removes the STATUS.md regen step from
   # the hook entirely. Re-evaluate when G-039 is fixed upstream.
   auto_update: false
+
+# Assistants whose artifacts aiwf materializes here.
+hosts: [claude-code, codex]
+
+# Engineering guidance, installed as tracked files under .guidance/.
+# typescript/npm-vitest assumes npm, but ui/ uses pnpm; the root package.json
+# is only Playwright tooling, and Python appears only in one-off scripts.
+guidance:
+  packs: [code-health, csharp/dotnet, rust/edition-2024-workspace]
+  ignored: [typescript/npm-vitest, javascript/npm-node, python/astral]
+
+# Per-agent compute policy, injected into the materialized agent cards.
+agents:
+  builder:
+    model: opus
+    effort: medium
+  reviewer:
+    model: opus
+    effort: xhigh
+  deployer:
+    model: opus
+    effort: high
+
+hooks:
+  worktree-rituals-check.sh:
+    enabled: true
+# Co-author addresses the commit-msg hook refuses.
+provenance:
+  refuse_coauthors:
+    - noreply@anthropic.com
