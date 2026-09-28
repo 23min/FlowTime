@@ -11,7 +11,7 @@ For repo-specific cleanup, disk-pressure recovery, and persistence rules, see [d
 - Claude Code CLI and Codex CLI (both installed in `.devcontainer/init.sh`; Codex via the pinned standalone installer in `.devcontainer/install-codex.sh`)
 - tmux, for persistent sessions (e.g. running `dev left` / `dev right` from `ai-dotfiles` to open named panes)
 - uv, Rust (stable + clippy), Go, and Roslynator CLI, for the `/wf-dead-code-audit` recipes
-- aiwf (branch-tip pin during PoC)
+- aiwf (latest release, `go install github.com/23min/aiwf/cmd/aiwf@latest`)
 - VS Code extensions: C# Dev Kit, C#, EditorConfig, GitHub Actions, Git Graph, YAML, REST Client, GitHub Copilot, Claude Code, Svelte
 
 ## Use
