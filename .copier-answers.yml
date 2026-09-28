@@ -1,0 +1,29 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: v0.4.0
+_src_path: gh:23min/devcontainer-kit
+aiwf: true
+apt_packages: []
+data_dir: false
+dood: false
+extra_extensions:
+- ms-dotnettools.csharp
+- github.vscode-github-actions
+- GitHub.copilot
+- github.copilot-chat
+- humao.rest-client
+- shd101wyy.markdown-preview-enhanced
+- svelte.svelte-vscode
+languages:
+- node
+- rust
+- dotnet
+ports:
+    5173: Svelte UI
+    5219: Blazor UI
+    8081: FlowTime API
+    8090: FlowTime Sim API
+    8091: Sim API fallback
+project_slug: flowtime-vnext
+readonly_data: []
+siblings: []
+writable_siblings: []

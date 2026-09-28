@@ -109,7 +109,7 @@ flowtime-vnext/
 
 ### Prerequisites
 
-The recommended way to work with FlowTime is via the included **Dev Container** — it provides .NET 9, the Rust toolchain, and all required extensions pre-configured. See [`docs/development/devcontainer.md`](docs/development/devcontainer.md).
+The recommended way to work with FlowTime is via the included **Dev Container** — it provides the .NET SDK with the .NET 9 runtimes FlowTime targets, Node, the Rust toolchain, and the required extensions. See [`docs/development/devcontainer.md`](docs/development/devcontainer.md).
 
 Without the Dev Container you will need .NET 9 SDK, a Rust toolchain, and Git set up manually.
 
