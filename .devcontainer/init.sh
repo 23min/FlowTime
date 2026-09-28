@@ -12,6 +12,11 @@ fi
 # Install tmux (persistent dev sessions, e.g. `dev left` / `dev right`)
 if ! command -v tmux >/dev/null 2>&1; then
   echo "Installing tmux..."
+  # The base image's yarn apt source is signed with a key the image doesn't have
+  # (NO_PUBKEY 62D54FD4003F6525), which fails apt-get update; nothing here uses yarn.
+  for list in /etc/apt/sources.list.d/*; do
+    if grep -q 'dl.yarnpkg.com' "$list" 2>/dev/null; then sudo rm -f "$list"; fi
+  done
   sudo apt-get update -qq
   sudo apt-get install -y -qq --no-install-recommends tmux
   sudo rm -rf /var/lib/apt/lists/*
