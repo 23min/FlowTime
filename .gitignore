@@ -128,3 +128,6 @@ WHITEBOARD.md
 
 # Personal reference, kept out of history
 TIMELINE.md
+
+# Health files aiwf doctor writes
+.claude/health.*.json
