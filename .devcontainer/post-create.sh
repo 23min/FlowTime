@@ -11,9 +11,27 @@ cd "$(dirname "$0")/.."
 # shellcheck source=devkit.conf
 . .devcontainer/devkit.conf
 
-step() { printf '\n==> %s\n' "$*"; }
+step() { current_step=$*; printf '\n==> %s\n' "$*"; }
 warn() { printf '    ! %s\n' "$*" >&2; }
 uses() { case " $DEVKIT_LANGUAGES " in *" $1 "*) return 0 ;; esac; return 1; }
+
+current_step=setup
+# VS Code runs no postStartCommand after this script fails, and post-start is what installs
+# Codex and aiwf and runs aiwf update. Say so where the failure is reported, with the recovery.
+on_exit() {
+  local rc=$?
+  [ "$rc" -eq 0 ] && return
+  {
+    printf '\n!! post-create failed (exit %s) during: %s\n' "$rc" "$current_step"
+    if [ "$DEVKIT_AIWF" = 1 ]; then
+      printf '!! post-start will not run, so Codex and aiwf are not installed yet.\n'
+    else
+      printf '!! post-start will not run, so Codex is not installed yet.\n'
+    fi
+    printf '!! Fix the cause, then run: bash .devcontainer/post-create.sh && bash .devcontainer/post-start.sh\n'
+  } >&2
+}
+trap on_exit EXIT
 
 echo "==> ${DEVKIT_SLUG} devcontainer post-create"
 
