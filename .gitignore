@@ -156,3 +156,6 @@ aiwf.example.yaml
 
 # Health files aiwf doctor writes
 .claude/health.*.json
+
+# pnpm package store: in the devcontainer pnpm keeps it on the repo's own disk, to hard-link into node_modules
+.pnpm-store/
