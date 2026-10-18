@@ -174,18 +174,18 @@ These features keep FlowTime's existing guardrails; none of them needs individua
 
 ## Order of work
 
-These features follow the seeded rewrite's core, through its analysis and session phase (`rewrite/spec.md`). Every step is checked first on simulated telemetry from the seeded rewrite's simulation suite, where the true parameters are known, and only then on real telemetry. Within them, flow accounting on raw telemetry comes first, because it needs only ingestion and gives an analyst something useful before any model exists. Steps 1 to 4 applied to an incident window make the first use, a replay with residuals, and counterfactuals on that window are the first what-ifs.
+The seeded rewrite's order of work (`rewrite/spec.md`) builds these features, and its stages set their order: Stage B builds F1's adapters, F7 and F2's flow accounting, then a first derived model and its residuals, on telemetry from openshift-lab and from a simulation of it; Stage C adds F3's mechanisms one incident at a time; F4 to F6 are among its future directions. Every step is checked first on simulated telemetry, where the true parameters are known, and only then on the lab's real telemetry. Flow accounting on raw telemetry comes first, because it needs only ingestion and gives an analyst something useful before any model exists. Steps 1 to 4 applied to an incident window make the first use, a replay with residuals, and counterfactuals on that window are the first what-ifs.
 
 ![Fig. 2. Three sources of telemetry, checked in order. First, a FlowTime run's own series, with no randomness, are written out and read back through the F1 adapters, with no model involved; the check is whether the same numbers come back, which catches a value the adapters lose or change but says nothing about whether the model is realistic. Second, a request-by-request random simulation with known capacity and variability, test tooling that is never shipped, is binned and put through the whole analysis loop, the same code real telemetry goes through; the check is whether the loop recovers the truth, which catches a fit that reports the wrong capacity but misses what the simulation leaves out. Third, real telemetry goes through the same loop, and then on to what-if with bands, with no answer key; the check is the residuals, model minus telemetry, which catch where the system differs from the model but miss a wrong model that happens to fit.](spec/2-three-checks.svg)
 
-1. **Ingestion adapters and raw flow accounting** (F1's adapters, F2's first half): read telemetry and check it for flow balance.
-2. **Topology from traces** (F7): call graph, fan-out multipliers, synchronous or asynchronous edges.
-3. **Calibration with provenance and identifiability** (F1): fitted parameters, variability included, with ranges, and flags for what the data can't determine.
-4. **Model residuals** (F2's second half): needs step 3.
-5. **Feedback mechanics** (F3): timeouts and goodput first, then blocking edges, then modes. Each is accepted when it shrinks residuals on a real incident.
-6. **Observed tails and reliability flags** (F4): independent of steps 3 to 5; can run alongside them.
-7. **Uncertainty bands** (F6): needs the ranges from step 3.
-8. **Bin-size sensitivity** (F5): small; fits wherever there is room.
+1. **Ingestion adapters and raw flow accounting** (F1's adapters, F2's first half; rewrite B1): read telemetry and check it for flow balance.
+2. **Topology from traces** (F7; rewrite B1): call graph, fan-out multipliers, synchronous or asynchronous edges.
+3. **Calibration with provenance and identifiability** (F1): fitted parameters, variability included, with ranges, and flags for what the data can't determine. Rewrite B4 starts it by reading parameters from the configuration and from spans at low load.
+4. **Model residuals** (F2's second half; rewrite B4): needs step 3.
+5. **Feedback mechanics** (F3; rewrite Stage C): blocking calls first, then timeouts and retries, then wasted work and goodput; modes come with the rewrite's next mechanisms (D). Each is accepted when it shrinks residuals on a real incident.
+6. **Observed tails and reliability flags** (F4; a future direction): independent of steps 3 to 5; can run alongside them.
+7. **Uncertainty bands** (F6; a future direction): needs the ranges from step 3.
+8. **Bin-size sensitivity** (F5; a future direction): small; fits wherever there is room.
 
 Sweeps, sensitivity, goal-seeking and optimization stay as they are. Their value rises once calibration exists, because they then optimize the system rather than the author's assumptions.
 

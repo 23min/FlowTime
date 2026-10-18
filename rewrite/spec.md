@@ -1,13 +1,13 @@
 # FlowTime Seeded Rewrite
 
 **Status:** Decided direction, being specified. Nothing described here is built, and the new repository does not exist yet.
-**Date:** 2026-10-17
+**Date:** 2026-10-17, revised 2026-10-18
 
 FlowTime restarts in a new repository, seeded with the parts of today's Rust engine that work and checked against a new oracle built from the concept spec and from queueing theory. The C# engine, both .NET services, the Blazor UI and the existing planning prose stay behind in this repository, which is archived read-only.
 
 ## Decisions
 
-All decided on 2026-10-17.
+Decisions 1 to 14 were made on 2026-10-17, decisions 15 and 16 on 2026-10-18.
 
 | # | Question | Decision |
 | --- | --- | --- |
@@ -19,12 +19,14 @@ All decided on 2026-10-17.
 | 6 | How a queue is written | One backlog row in the model; a queue resource and a service with a buffer are distinct component kinds, and the UI draws them differently |
 | 7 | How flow splits | A router node with named outputs |
 | 8 | Parameters | Each parameter declares its class, value or structural, and a check confirms its uses match |
-| 9 | The UI | Decided at phase 6, once the HTTP and session contracts exist |
+| 9 | The UI | Decided once the HTTP and session contracts exist (direction H); until then one page draws the files the CLI writes |
 | 10 | The oracle | Closed forms per concept as the main oracle, laws every model obeys, and one reference evaluator for combinations; the C# engine is a second opinion, never a gate |
 | 11 | Validation | A small discrete-event simulation suite, run on demand, never a gate |
 | 12 | The oracle's language | Python, importing nothing from the engine |
 | 13 | Randomness below capacity | Variability is part of the model language; per-bin waiting estimates from standard formulas first, built so that tracking each queue's spread can follow |
 | 14 | What describes a service | Its servers and its service time per request type; its capacity follows from them, and a request's time at the service is its service time plus its wait |
+| 15 | How ambitious the core is | Shaped from the start for components that carry state and mechanisms; built one concept at a time, the service first, and each further mechanism added when an incident needs it |
+| 16 | What comes first | A slice that ingests telemetry from openshift-lab and from a simulation of it, replays it with a derived model and shows it on one page; templates and the full UI follow later (Order of work) |
 
 ## Why a seeded restart
 
@@ -43,10 +45,10 @@ One Cargo workspace. A pure core holds the essence; three libraries sit above it
 
 | Crate | Owns | Never does | Seeded from |
 | --- | --- | --- | --- |
-| `core` | Model types; validation (schema, references, one routing authority per split); compile to a plan with a parameter table; bin-major evaluation; derived metrics; invariant warnings; diagnostics with source positions | File or network access; template syntax; anything the UI shows but the engine did not compute | `engine/core`: `eval.rs`, `plan.rs`, `expr.rs` copied; `model.rs` and `compiler.rs` rewritten to the model spec |
-| `templates` | Template parsing, typed parameters, the authoring sugar and its lowering | Text substitution on YAML; evaluation | New; the 12 templates are its acceptance corpus |
-| `analysis` | Sweep, sensitivity, goal-seek and Nelder–Mead optimize, each a loop over evaluate-with-overrides | Recompiling per point | `FlowTime.TimeMachine/Sweep` (about 1,600 lines of C#) |
-| `runs` | The run folder: model, one CSV per series, `run.json`, manifest; reading it back | Computing values | `engine/core/src/sink.rs` |
+| `core` | Model types; validation (schema, references, one routing authority per split); compile to a plan with a parameter table; bin-major evaluation; derived metrics; invariant warnings; diagnostics with source positions | File or network access; template syntax; anything the UI shows but the engine did not compute | `engine/core`: `eval.rs`, `plan.rs`, `expr.rs` copied as the formula layer, with the evaluator's loop extended for component state and steps shorter than a bin; `model.rs` and `compiler.rs` rewritten to the model spec |
+| `templates` | Template parsing, typed parameters, the authoring sugar and its lowering | Text substitution on YAML; evaluation | New, in direction F; the 12 templates are its acceptance corpus |
+| `analysis` | Flow accounting, deriving a model from a run bundle, replay residuals; later sweep, sensitivity, goal-seek and Nelder–Mead optimize, each a loop over evaluate-with-overrides | Recompiling per point; reading files | New for telemetry; `FlowTime.TimeMachine/Sweep` (about 1,600 lines of C#) for the sweeps |
+| `runs` | The run folder: model, one CSV per series, `run.json`, manifest; reading it back; reading run bundles | Computing values | `engine/core/src/sink.rs` |
 | `flowtime` (binary) | CLI commands, HTTP endpoints, WebSocket session, all calling the same library functions | Business logic in handlers | `engine/cli` (session protocol) |
 
 ## One run, end to end
@@ -178,6 +180,7 @@ A spec without a check is the kind of document this repository already has too m
 | Model language | Node kinds and fields, reference rules, one routing authority per split | A CUE schema registered as an aiwf contract, with valid and invalid fixtures; the Rust parser reads the same fixtures | The 13 cross-reference rules listed in `docs/schemas/model.schema.yaml`; E-0023's 94-rule audit, deleted in the May migration and recoverable from git (`d0127eee`) |
 | Template language | Typed parameters, structural or value; the sugar and exactly what it lowers to | A CUE contract for the template's shape; snapshot tests for the lowering, template in, model out | The 12 templates; `QueueNodeSynthesizer` and `ModelCompiler` as reference behavior |
 | Run folder | Layout, series id format, `run.json`, manifest | A CUE contract per file; a write-then-read round trip; the writer's output checked against the contract | `engine/core/src/sink.rs` |
+| Run bundle | What one load-test run's telemetry holds: the run record, the configuration in force, spans, metric series for the run's window | A CUE contract with valid and invalid fixtures; openshift-lab's export and the simulation's output both checked against it | openshift-lab's k6 run record (`loadtest/post.js`), Tempo's trace API, Prometheus range queries |
 | Session and HTTP | Messages and endpoints, including the graph output with component kinds | A CUE contract for the messages; a verifier-kit spine for the session's states; Playwright tests in the UI | `engine/cli/src/protocol.rs`, `session.rs` |
 
 ## Verification
@@ -291,26 +294,72 @@ So the closed forms and laws must cover everything the templates don't exercise 
 
 ![Left, today's repository with sizes in production lines; right, the new repository. The Rust evaluator, plan and expression parser (885 lines) are copied, then reworked. The Rust model and compiler (2,071 lines) are rewritten against the model spec. The 12 templates are rewritten in the new template language as acceptance tests. The C# engine (15,014 lines) is consulted as a second opinion while deriving examples, never as a gate. Selected pages of the Svelte UI and dag-map are ported once the API settles. ADR-0001, the concept docs and the schema's rules become specs with checks. The .NET services, CLIs and TimeMachine (30,989 lines), the Blazor UI (32,812), the C# tests (62,056) and about 813,000 words of docs and plans stay behind in the archived repository.](spec/6-what-crosses-over.svg)
 
-Only about 3,000 lines cross over as code. The rest crosses as tests (the templates) or as specs.
+Only about 3,000 lines cross over as code. The rest crosses as tests (the templates) or as specs. What survives as code is the formula layer: expressions, operations over series, parameter overrides and the bin-by-bin loop, with the tests that pin their edge cases. How a service is modeled, latency and the compiler are new.
 
 ## Order of work
 
-Each phase ends on a check a machine can run. Phase 1 is specification and can start before the new repository exists.
+Usefulness is checked early. The first slice ingests telemetry, replays it with a model derived from it, and shows the result on one page, before templates or a full UI exist. Two sources of telemetry go through the same code: openshift-lab (`github.com/23min/openshift-lab`, private), a small real system that runs load tests and emits metrics and OpenTelemetry traces, and a simulation of it whose true parameters are known. Each step ends on a check a machine can run, and the oracle for each concept exists before its Rust does.
 
-1. **Concept spec and the oracle.** Write the concept spec one concept at a time, starting with the queue: per-bin equations with edge cases decided, closed-form results, and the laws each concept obeys. Pick 3 to 5 worked examples per concept whose numbers follow from the closed forms. Write the reference evaluator from the spec and trust it only once it passes every closed-form property. Consult the C# engine as a second opinion and settle every disagreement in the spec. Once the queue, routing and retry concepts are specified, build the simulation suite and write its findings into the spec as accuracy limits. Tag this repository and archive it read-only, keeping it runnable for second opinions.
-   *Done when* every concept in the spec has closed-form properties that the reference evaluator passes, and worked examples in the oracle's file format.
-2. **New repository, gate first.** Starts once the next aiwf release is out and verifier-kit is stable enough. Generate the devcontainer with devcontainer-kit (answers below), create the Cargo workspace, run `aiwf init`, install the CUE recipe, and bring in verifier-kit's `./verify` and guard, with the oracle under a guarded path. Copy in the evaluator, plan and expression parser.
+### Stage A: data and the first oracle
+
+Needs no new repository.
+
+1. **A1 Run bundle.** In openshift-lab, an export script writes one folder per load-test run: k6's run record, the configuration in force (replicas, pools, timeouts, retries), every span of the run from Tempo, and the Prometheus series for the run's time window. FlowTime owns the bundle's format as a CUE contract.
+   *Done when* a constant-rate baseline and one ramp are exported, both pass the contract, and each bundle's span count matches k6's iteration count.
+2. **A2 Simulation of the lab.** A discrete-event simulation, in Python on the oracle side, with the lab's services, worker pools and call order, written from the lab's code and its baseline spans rather than from FlowTime's spec. It writes the same bundle and records its true parameters.
+   *Done when* the simulation at the baseline's rate matches the lab's per-hop latencies within a stated tolerance, and its bundles pass the contract.
+3. **A3 The service concept and its oracle.** The concept spec for a service (servers, service time and variability; decisions 13 and 14) with its closed forms, laws and 3 to 5 worked examples; the reference evaluator for it; and the simulation suite's first systems, one service and two in series. The C# engine is consulted as a second opinion, and each disagreement is settled in the spec.
+   *Done when* the reference evaluator passes every closed-form property of the concept.
+
+### Stage B: the first useful slice
+
+Needs the new repository.
+
+1. **B0 New repository, gate first.** Starts once the next aiwf release is out and verifier-kit is stable enough. Generate the devcontainer with devcontainer-kit (answers below), create the Cargo workspace, run `aiwf init`, install the CUE recipe, and bring in verifier-kit's `./verify` and guard, with the oracle under a guarded path. Move `rewrite/` in, and copy the formula layer: evaluator, plan and expression parser. Tag this repository and archive it read-only, keeping it runnable for second opinions.
    *Done when* a failing test, a fixture the schema wrongly accepts, and a builder change to an oracle path each fail the pull request.
-3. **Core, one concept at a time.** Implement each concept in the model language against its closed-form properties and worked examples, starting with the queue; classes belong here, because three templates use them. Then run the engine against the reference evaluator on generated models that mix concepts.
-   *Done when* every closed-form property, law and worked example passes, the engine agrees with the reference evaluator on generated models, and `flowtime eval` runs a model from the CLI.
-4. **Templates.** Write the template spec, build the lowering, and rewrite the 12 templates in the new template language.
-   *Done when* every template lowers, passes its CUE contract, evaluates, and satisfies the laws.
-5. **Analysis and session.** Port sweep, sensitivity, goal-seek and optimize, and serve the session protocol.
-   *Done when* each mode passes properties whose answers follow from closed forms, such as the capacity at which a given backlog just clears by a given bin.
-6. **Server and UI.** Add the HTTP endpoints, decide what the UI keeps, port the chosen pages, and keep dag-map as a dependency.
-   *Done when* Playwright drives the what-if page against a real template, not a sample.
+2. **B1 Ingest and flow accounting.** Read a bundle into binned series per hop, take the call graph and call order from spans, and balance each hop's flow with no model (telemetry-analysis F1's adapters, F7, F2's first half).
+   *Done when* the simulated bundles balance exactly and their call graph equals the simulation's, and every imbalance in the lab's bundles is listed and explained.
+3. **B2 Page, telemetry only.** One HTML page that draws the files B1 writes: the topology from the data, a time scrubber and per-hop charts, in SVG, with no framework and no server.
+   *Done when* a browser test opens a bundle's output and scrubbing moves every view.
+4. **B3 The service in the engine.** Implement A3's concept, with each service's state shaped for counts by stage and age so that mechanisms can be added later.
+   *Done when* every closed-form property, law and worked example passes, the engine agrees with the reference evaluator, and the simulation suite states the concept's accuracy between 70% and 95% load.
+5. **B4 Derive and replay.** Build a model from a bundle: servers from the configuration, service times from spans at low load, demand from the load test. Replay the run and report residuals per hop and bin (F1, F2).
+   *Done when* the parameters derived from simulated bundles match the true ones and their residuals stay within tolerance, and the lab's bundles get residuals reported, largest first.
+6. **B5 Page, model and telemetry.** Telemetry as dots, the replay as lines, residuals marked.
+   *Done when* a browser test shows a replay beside its telemetry and the largest residual is marked.
+7. **B6 First prediction.** From the baseline alone, predict the lab's knee and the hop that saturates first, committed before the lab's ramp runs (openshift-lab E-0004, M-0014).
+   *Done when* the ramp's result is compared with the committed prediction and the comparison is recorded; a miss names what the model lacks.
+8. **B7 An AI describes the system.** A skill reads openshift-lab's code, manifests and configuration and writes the model, citing the file and line behind each value, then validates, evaluates and revises it against the residuals. A cited value counts as configured, an uncited one as assumed.
+   *Done when* its model is compared with B4's derived model and each disagreement is explained: a misreading, configuration that isn't what runs, or a mechanism the configuration doesn't show.
 
-Later, each when something needs it: telemetry ingestion and flow accounting, model fit, chunked evaluation, an MCP server, a capacity-aware allocator (G-0038), deployment.
+### Stage C: incidents, one mechanism each
+
+Each incident is designed in openshift-lab with its settings known, predicted before it runs, then run, replayed and explained. A mechanism's closed forms and simulation checks come before its Rust, and it is accepted when it shrinks the residual on the lab's incident and recovers the true parameters from the simulated one. The telemetry-analysis spec's coverage map records each one.
+
+1. **C1 Held workers.** A slow dependency holds the receiver's workers for the length of each call (F3, blocking calls).
+2. **C2 Timeouts and retries.** A client timeout with retries on the call to encryption, under load (F3).
+3. **C3 Wasted work.** The same, where the called service keeps working on calls whose caller gave up: the metastable case (F3). Whether the lab's services keep working after the caller gives up is to be checked.
+4. **C4 Counterfactuals.** Replay an incident with one setting changed, predict the outcome, then run that setting in the lab.
+
+*Done when* each mechanism passes its closed forms, recovers the simulation's truth and shrinks the lab's residual, and each counterfactual's prediction is compared with the lab's run.
+
+Not in Stages A to C: templates and the template language, the HTTP API and live session, the Svelte UI, sweeps and optimization, request classes, autoscalers and modes, variability levels above 1, and what-ifs computed in the page.
+
+### Next: D, more mechanisms
+
+Parallel calls and joins, asynchronous hand-offs and message queues, circuit breakers and other modes, autoscalers, rate limits, caches and batching. Each arrives the way Stage C's do: an incident designed in the lab, its prediction, its replay.
+
+### Future directions
+
+A note, not a plan. These follow as needs arise, in no fixed order.
+
+- **E More systems:** several request types (classes), a system of a different shape, and production telemetry, where spans are sampled and formats differ.
+- **F Authoring:** the template language, for systems that don't exist yet, lowered to the model language, with the 12 templates as its acceptance tests once the mechanisms they use exist; and the AI skill grown up.
+- **G Analysis:** uncertainty bands, the coverage map, competing mechanisms, and sweep, sensitivity, goal-seek and optimize.
+- **H Interaction:** the engine in the browser for live what-ifs, the animated view, then the HTTP API, the session and a full UI; what the Svelte UI keeps is decided here (decision 9).
+- **I Live:** telemetry streaming in, the model kept aligned with the present, and projection forward.
+
+Also waiting for a need: chunked evaluation, an MCP server, the capacity-aware allocator (G-0038) and deployment. The cost of a day at steps of a second or less for dozens of components is not measured.
 
 ## Devcontainer
 
@@ -318,7 +367,7 @@ Generated by devcontainer-kit.
 
 | Answer | Value | Why |
 | --- | --- | --- |
-| `languages` | `rust`, `python`, `go`; `node` when the UI returns | Rust for the system; Python for the oracle side; Go to build CUE and verifier-kit's Go `spine`; Node for the Svelte UI in phase 6 |
+| `languages` | `rust`, `python`, `go`; `node` when the UI returns | Rust for the system; Python for the oracle side; Go to build CUE and verifier-kit's Go `spine`; Node for the Svelte UI when it returns (direction H) |
 | `aiwf` | `true` | Planning, contracts and the pre-push contract check |
 | `siblings` | `flowtime-vnext`, read-only | The archived repository beside the new one, for edge cases. Running C# as a second opinion needs .NET, which this devcontainer leaves out, so that happens in the old repository's devcontainer |
 | `ports` | The new binary's HTTP port; `5173` when the UI returns | One service replaces 8081 and 8090 |
@@ -328,12 +377,14 @@ Generated by devcontainer-kit.
 
 | Risk | How it shows up | Guard |
 | --- | --- | --- |
-| Second-system effect | The new design tries to fix everything at once | Phases 3 to 6 only; everything else waits for a named trigger |
+| Second-system effect | The new design tries to fix everything at once | Stages A to C only, D next; the future directions wait for a need |
 | Lost edge cases | Behavior that 62,000 lines of C# tests pinned silently changes | The schema's rule list; closed forms and laws for every concept; the archived repository and its C# engine stay available |
 | A spec that is complete and wrong | Code and spec agree, and both are wrong | Closed forms derived independently of any evaluator; laws; validation against simulation, and later real telemetry |
 | The builder grades its own work | Tests written to pass, as with the parity test that skipped what it couldn't compare | Oracle files the builder never edits; each new test seen failing first; planted bugs in `./verify --full` |
 | Prose regrows | Plans and docs outnumber code and drift from it | Docs are the specs plus one architecture page; plans live only as aiwf entities |
-| A long stretch without a UI | Nothing to demo until phase 6 | The CLI evaluates models from phase 3; the session protocol already exists |
+| A long stretch with nothing to show | Usefulness is untested until late | A page on real telemetry at B2, a replay at B4 and a checked prediction at B6 |
+| The simulation shares a mistake with the spec | The lab simulation and FlowTime agree, and both are wrong | The simulation is written from the lab's code and checked against the lab's baseline before use; the lab itself is the final check |
+| A noisy lab | Runs differ because CRC shares one iMac with k6 and everything else | Repeated runs; the run record holds the node's CPU; residuals read against the spread between runs |
 | A work-in-progress toolkit at the center | verifier-kit changes under FlowTime, or FlowTime waits on a view it hasn't built | Pin the version; FlowTime's needs go upstream as verifier-kit issues; the numeric oracle runs as plain Python tests until a view exists |
 | CUE and Rust drift apart | The schema accepts a model the Rust parser rejects, or the reverse | One fixture set read by both; a disagreement fails the build |
 
@@ -342,7 +393,8 @@ Generated by devcontainer-kit.
 - **How verifier-kit enters the repository:** a pinned copy of its tools, a submodule that follows its main branch, or the Go `spine` binary once its port is done. Waits until verifier-kit is stable enough.
 - **The backlog row's kind name:** `buffer` would keep it apart from the `queue` component.
 - **Whether templates may refer to the name `self` lowers to,** or must name the queue explicitly.
-- **What the UI keeps:** decided at phase 6.
+- **What the UI keeps:** decided in direction H.
+- **How the page's browser test runs:** Playwright for Python, which the oracle side already has, or Node.
 ## Measurements
 
 Taken 2026-10-17 on commit 412467e0, in this repository's devcontainer (Linux; .NET SDK 10.0.401 targeting net9.0; cargo 1.98.1; Node 24.21.0). The scripts, and the model files they read, are in `evidence/measurements/`, indexed in `README.md`; entries without a script were single commands, and each entry says what was run. Figures 1 to 3 in `spec/` show the proposed system; Figures 4 and 5 chart the simulation entry below; the sizes in Figure 6 come from the last entry.
