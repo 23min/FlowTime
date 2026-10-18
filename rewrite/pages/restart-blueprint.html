@@ -1,0 +1,1047 @@
+<title>FlowTime Restart Blueprint</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: same system as the FlowTime Field Guide, so the two read as a pair. One ~68ch reading column; figures span 1120px and scroll sideways on phones. */
+:root {
+  --ground: #F3F4F0;
+  --panel: #FFFFFF;
+  --ink: #17202B;
+  --muted: #5A6570;
+  --rule: #D3D8D0;
+  --grid: #E5E8E1;
+  --code-bg: #EBEDE7;
+  --cobalt: #2944A8;
+  --cobalt-soft: rgba(41, 68, 168, 0.09);
+  --amber: #A84F07;
+  --amber-soft: rgba(176, 84, 9, 0.13);
+  --red: #B42318;
+  --green: #1D7444;
+  --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #0F1318; --panel: #161B22; --ink: #E2E6EB; --muted: #98A2AD; --rule: #2C333D;
+    --grid: #1D232B; --code-bg: #1B2129; --cobalt: #8FA3F5; --cobalt-soft: rgba(143, 163, 245, 0.13);
+    --amber: #F0A24E; --amber-soft: rgba(240, 162, 78, 0.16); --red: #F2786A; --green: #5FCB8D;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #0F1318; --panel: #161B22; --ink: #E2E6EB; --muted: #98A2AD; --rule: #2C333D;
+  --grid: #1D232B; --code-bg: #1B2129; --cobalt: #8FA3F5; --cobalt-soft: rgba(143, 163, 245, 0.13);
+  --amber: #F0A24E; --amber-soft: rgba(240, 162, 78, 0.16); --red: #F2786A; --green: #5FCB8D;
+  color-scheme: dark;
+}
+
+body { background: var(--ground); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+.page {
+  max-width: 1120px; margin: 0 auto; padding-block: 40px 96px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 64px;
+}
+.prose { max-width: 68ch; display: grid; gap: 14px; min-width: 0; }
+.prose p, .prose ul, .prose ol { margin: 0; }
+.prose ul, .prose ol { padding-left: 1.25em; display: grid; gap: 8px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(40px, 7vw, 68px); font-weight: 800; font-stretch: 115%; letter-spacing: -0.02em; line-height: 1.02; }
+h2 { font-size: clamp(26px, 3.4vw, 34px); font-weight: 750; font-stretch: 108%; letter-spacing: -0.01em; line-height: 1.15; }
+h3 { font-size: 18px; font-weight: 700; font-stretch: 104%; }
+code, .mono { font-family: var(--font-mono); font-size: 0.88em; }
+:not(pre) > code { background: var(--code-bg); padding: 0.08em 0.35em; border-radius: 3px; overflow-wrap: anywhere; }
+a { color: var(--cobalt); text-underline-offset: 3px; }
+a:focus-visible { outline: 2px solid var(--cobalt); outline-offset: 2px; border-radius: 2px; }
+strong { font-weight: 600; }
+
+header { display: grid; gap: 18px; }
+.eyebrow { font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); letter-spacing: 0.02em; }
+.lede { font-size: 19px; line-height: 1.55; max-width: 62ch; margin: 0; }
+.ruler {
+  height: 14px; max-width: 100%;
+  background-image: repeating-linear-gradient(90deg, var(--ink) 0 1px, transparent 1px 64px), repeating-linear-gradient(90deg, var(--muted) 0 1px, transparent 1px 16px);
+  background-size: 100% 14px, 100% 6px; background-repeat: no-repeat; background-position: 0 0, 0 8px; opacity: 0.55;
+}
+nav.toc { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; }
+nav.toc a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--rule); padding-bottom: 1px; }
+nav.toc a:hover { border-color: var(--cobalt); color: var(--cobalt); }
+
+.verdict { border-top: 1.5px solid var(--ink); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 40px; padding-top: 22px; }
+.verdict .answer { display: grid; gap: 12px; align-content: start; }
+.verdict .answer p { margin: 0; }
+.verdict .big { font-family: var(--font-display); font-size: clamp(24px, 3vw, 30px); font-weight: 750; font-stretch: 108%; line-height: 1.2; text-wrap: balance; }
+.verdict .big em { font-style: normal; color: var(--cobalt); }
+.verdict ul { margin: 0; padding-left: 1.15em; display: grid; gap: 10px; font-size: 15.5px; }
+@media (max-width: 760px) { .verdict { grid-template-columns: 1fr; gap: 20px; } }
+
+section { display: grid; gap: 22px; scroll-margin-top: 16px; }
+.kicker { font-family: var(--font-mono); font-size: 12px; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+.sec-head { display: grid; gap: 6px; max-width: 68ch; }
+
+figure { margin: 0; display: grid; gap: 10px; min-width: 0; }
+.fig-frame { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 18px 16px 14px; overflow-x: auto; }
+figcaption { font-size: 14px; color: var(--muted); max-width: 80ch; line-height: 1.5; }
+figcaption b { color: var(--ink); font-weight: 600; }
+svg.fig { display: block; width: 100%; height: auto; min-width: 780px; }
+svg.fig text { fill: var(--ink); font-family: var(--font-body); font-size: 12px; }
+svg.fig .tm { font-family: var(--font-mono); }
+svg.fig .mut { fill: var(--muted); }
+svg.fig .b { font-weight: 600; }
+svg.fig .s10 { font-size: 10.5px; }
+svg.fig .s11 { font-size: 11px; }
+svg.fig .s13 { font-size: 13px; }
+svg.fig .s15 { font-size: 15px; }
+svg.fig .s18 { font-size: 18px; }
+svg.fig .up { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; fill: var(--muted); }
+svg.fig .c-cob { fill: var(--cobalt); }
+svg.fig .c-amb { fill: var(--amber); }
+svg.fig .num { font-variant-numeric: tabular-nums; }
+.box { fill: var(--panel); stroke: var(--rule); stroke-width: 1; }
+.box-in { fill: var(--ground); stroke: var(--rule); stroke-width: 1; }
+.box-ink { fill: var(--panel); stroke: var(--ink); stroke-width: 1.75; }
+.box-cob { fill: var(--cobalt-soft); stroke: var(--cobalt); stroke-width: 1.5; }
+.box-amb { fill: var(--amber-soft); stroke: var(--amber); stroke-width: 1.2; }
+.box-dash { fill: none; stroke: var(--muted); stroke-width: 1.1; stroke-dasharray: 5 4; }
+.pill { fill: var(--panel); stroke: var(--cobalt); stroke-width: 1; }
+.ln { fill: none; stroke: var(--ink); stroke-width: 1.4; }
+.ln-cob { fill: none; stroke: var(--cobalt); stroke-width: 1.9; }
+.ln-amb-d { fill: none; stroke: var(--amber); stroke-width: 1.6; stroke-dasharray: 6 4; }
+.ln-mut-d { fill: none; stroke: var(--muted); stroke-width: 1.3; stroke-dasharray: 3 4; }
+.mk-ink { fill: var(--ink); }
+.mk-cob { fill: var(--cobalt); }
+.mk-amb { fill: var(--amber); }
+.mk-mut { fill: var(--muted); }
+svg.fig .c-grid { stroke: var(--grid); stroke-width: 1; }
+svg.fig .c-ax { stroke: var(--muted); stroke-width: 1; }
+svg.fig .c-band { fill: var(--amber); fill-opacity: 0.2; }
+svg.fig .c-flow { fill: none; stroke: var(--cobalt); stroke-width: 2.2; stroke-linejoin: round; }
+svg.fig .c-sim { fill: none; stroke: var(--amber); stroke-width: 1.8; stroke-linejoin: round; }
+svg.fig .c-theory { fill: none; stroke: var(--ink); stroke-width: 1.4; stroke-dasharray: 5 4; opacity: 0.8; }
+svg.fig .c-dot { fill: var(--amber); stroke: var(--panel); stroke-width: 1.5; }
+svg.fig text.c-t { font-size: 11px; fill: var(--ink); }
+svg.fig text.c-tm { font-family: var(--font-mono); font-size: 10.5px; fill: var(--muted); }
+svg.fig text.c-tt { font-size: 12.5px; font-weight: 600; fill: var(--ink); }
+svg.fig text.c-tv { font-size: 11px; font-weight: 600; fill: var(--amber); paint-order: stroke; stroke: var(--panel); stroke-width: 4px; stroke-linejoin: round; }
+svg.fig text.c-tf { font-size: 11px; font-weight: 600; fill: var(--cobalt); paint-order: stroke; stroke: var(--panel); stroke-width: 4px; stroke-linejoin: round; }
+
+pre { margin: 0; background: var(--code-bg); border-radius: 5px; padding: 14px 16px; overflow-x: auto; font-family: var(--font-mono); font-size: 13px; line-height: 1.55; }
+pre .note { color: var(--amber); }
+pre .dim { color: var(--muted); }
+.code-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.code-pair > div { display: grid; gap: 8px; min-width: 0; align-content: start; }
+.code-label { font-size: 13.5px; font-weight: 600; }
+.code-label span { font-weight: 400; color: var(--muted); }
+
+.table-wrap { overflow-x: auto; border-top: 1.5px solid var(--ink); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; line-height: 1.45; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px 10px 0; border-bottom: 1px solid var(--rule); }
+th { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+td code { font-size: 12.5px; }
+th.rec, td.rec { background: var(--cobalt-soft); padding-left: 12px; }
+.rules { counter-reset: r; list-style: none; padding: 0; margin: 0; display: grid; gap: 0; max-width: 80ch; border-top: 1.5px solid var(--ink); }
+.rules li { counter-increment: r; display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 2px 10px; padding: 12px 0; border-bottom: 1px solid var(--rule); font-size: 15px; }
+.rules li::before { content: counter(r); font-family: var(--font-mono); font-size: 13px; color: var(--cobalt); font-weight: 600; padding-top: 2px; }
+.rules li b { font-weight: 600; }
+
+ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 0; max-width: 84ch; border-top: 1.5px solid var(--ink); }
+ol.steps li { counter-increment: s; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 4px 12px; padding: 16px 0; border-bottom: 1px solid var(--rule); }
+ol.steps li::before { content: counter(s, decimal) ""; font-family: var(--font-display); font-weight: 800; font-stretch: 115%; font-size: 26px; line-height: 1.1; color: var(--cobalt); grid-row: span 3; }
+ol.steps.zero li::before { content: counter(s, decimal); }
+ol.steps li b { font-size: 16.5px; }
+ol.steps li p { margin: 0; font-size: 15px; }
+ol.steps li .exit { font-size: 14px; color: var(--muted); }
+ol.steps li .exit strong { color: var(--ink); }
+
+.aside { font-size: 14px; color: var(--muted); max-width: 80ch; margin: 0; }
+footer { font-size: 13.5px; color: var(--muted); display: grid; gap: 8px; max-width: 80ch; border-top: 1px solid var(--rule); padding-top: 18px; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="page">
+
+<header>
+  <div class="eyebrow">flowtime-vnext · commit 412467e0 · 2026-10-17 · companion to the FlowTime Field Guide · decided: seeded restart in a new repository · source: rewrite/spec.md</div>
+  <h1>FlowTime Restart Blueprint</h1>
+  <div class="ruler" aria-hidden="true"></div>
+  <p class="lede">Should FlowTime start over with clean specs and a Rust rewrite, and if so, what should the new system look like? This page gives a recommendation, the target architecture, what crosses over from the current repository, and the order of work. Facts about today's repository come from the measurements in the Field Guide; everything about the new system is a proposal.</p>
+  <nav class="toc" aria-label="Sections">
+    <a href="#options">Three ways forward</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#run">One run, end to end</a>
+    <a href="#language">The model language</a>
+    <a href="#specs">Clean specs</a>
+    <a href="#verification">Verification</a>
+    <a href="#crossover">What crosses over</a>
+    <a href="#csharp">C# second opinion</a>
+    <a href="#order">Order of work</a>
+    <a href="#risks">Risks</a>
+    <a href="#decisions">Decisions ahead</a>
+  </nav>
+</header>
+
+<section aria-label="Recommendation">
+  <div class="verdict">
+    <div class="answer">
+      <p class="big">Yes to a new repository. <em>No to starting from zero.</em></p>
+      <p>Seed the new repository with the parts that work. Correctness comes from a new oracle: closed-form results from queueing theory, laws every model must obey, and a small reference evaluator, all independent of the engine's code.</p>
+      <p><strong>Decided 2026-10-17:</strong> seeded restart, in a new repository, with CUE contracts and verifier-kit in from the start, and an oracle built from closed forms, laws and a reference evaluator, with worked examples stored as data files. The C# engine is a second opinion, never a gate. The repository is created with devcontainer-kit once the next aiwf release is out and verifier-kit is stable enough. Until then this page is the specification.</p>
+    </div>
+    <ul>
+      <li><strong>The core is small and works.</strong> About 3,200 lines of Rust engine logic, 218 passing tests, and numbers that match C# wherever both engines run a model.</li>
+      <li><strong>The weight is everywhere else.</strong> About 79,000 lines of C#, 62,000 lines of C# tests and 813,000 words of docs and plans, much of it describing a system the code no longer matches. Working in place, every step must keep those paths working or delete them first.</li>
+      <li><strong>Nothing forces compatibility.</strong> There are no users; the consolidation proposal already says so (P8).</li>
+      <li><strong>A restart won't fix the process that grew the repo.</strong> Scope ran ahead of code, and the Rust engine's ten milestones merged in two days with a parity test that skipped what it couldn't compare. The new repository needs an oracle the builder can't edit, CI from the first commit, and plans kept only as aiwf entities.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ OPTIONS ============ -->
+<section id="options">
+  <div class="sec-head">
+    <span class="kicker">Decided 2026-10-17: seeded restart</span>
+    <h2>Three ways forward</h2>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>Start from zero</th><th class="rec">Seeded restart (recommended)</th><th>Replace in place</th></tr></thead>
+      <tbody>
+        <tr><td><strong>What it is</strong></td><td>New repository, everything written fresh from new specs</td><td class="rec">New repository, seeded with the working Rust engine pieces and the template corpus; the old repository archived read-only</td><td>Today's repository; Rust takes over piece by piece, then the .NET code is deleted (the consolidation proposal's epics E-0026 to E-0033)</td></tr>
+        <tr><td><strong>Check on correctness</strong></td><td>Only what the new specs say</td><td class="rec">Closed forms from queueing theory, laws, a reference evaluator and worked examples; the C# engine as a second opinion</td><td>The live C# engine, plus the same tests</td></tr>
+        <tr><td><strong>Old weight while working</strong></td><td>None</td><td class="rec">None; the old repository is reference only</td><td>Two engines, three queue lowerings, two services and the old docs, until the last retirement epic</td></tr>
+        <tr><td><strong>Reuse of the Rust core</strong></td><td>No</td><td class="rec">Yes: evaluator, plan and expression parser copied, then reworked</td><td>Yes</td></tr>
+        <tr><td><strong>Usable software during the change</strong></td><td>Nothing until the core is rebuilt</td><td class="rec">A CLI that evaluates models from the first phase; the UI comes back later</td><td>Everything keeps working throughout</td></tr>
+        <tr><td><strong>Main risk</strong></td><td>Second-system effect and lost edge cases</td><td class="rec">Interactions no worked example or property covers</td><td>The transition never finishes, and the old gravity shapes the new design</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="aside">Today's verification plan argues for replacing in place because "a rebuild in <code>v2/</code> has nothing to land on". An oracle derived from the spec and from queueing theory gives a rebuild something to land on, and it doesn't depend on the old engine at all.</p>
+</section>
+
+<!-- ============ ARCHITECTURE ============ -->
+<section id="architecture">
+  <div class="sec-head">
+    <span class="kicker">Proposal</span>
+    <h2>The architecture: one pure core, thin everything else</h2>
+  </div>
+  <div class="prose">
+    <p>One Cargo workspace. At the bottom is a pure library holding the essence: model types, validation, compilation, bin-by-bin evaluation, derived metrics and invariant checks. It does no file, network or clock access, so every result is a function of its input. Three libraries sit above it: templates, analysis and runs. One binary on top serves the CLI, the HTTP API and the WebSocket session from the same calls. Dependencies point only downward.</p>
+  </div>
+  <figure>
+    <div class="fig-frame">
+      <svg class="fig" viewBox="0 0 1080 560" role="img" aria-label="Layered architecture. The Svelte UI talks HTTP and WebSocket to one Rust binary that serves the CLI, HTTP API and WebSocket session. The binary calls three libraries: templates, analysis and runs. All of them use the pure core: model types, validate, compile, evaluate, metrics and invariants. A dashed oracle box below checks the core and is never shipped.">
+        <defs>
+          <marker id="a1-ink" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-ink"/></marker>
+          <marker id="a1-cob" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-cob"/></marker>
+          <marker id="a1-mut" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-mut"/></marker>
+        </defs>
+        <!-- UI -->
+        <rect class="box" x="380" y="14" width="320" height="56" rx="5"/>
+        <text x="396" y="37" class="b s13">Svelte UI <tspan class="tm s11 mut">TypeScript</tspan></text>
+        <text x="396" y="56" class="s11 mut">pages ported from today's UI · dag-map for topology</text>
+        <path class="ln" d="M540,70 L540,108" marker-end="url(#a1-ink)"/>
+        <text x="550" y="94" class="s11 mut">HTTP · WebSocket</text>
+        <!-- binary -->
+        <rect class="box-ink" x="60" y="112" width="960" height="64" rx="6"/>
+        <text x="76" y="138" class="tm b s15">flowtime</text>
+        <text x="76" y="158" class="s11 mut">one Rust binary · parses arguments and requests, then calls the libraries</text>
+        <rect class="box" x="560" y="126" width="120" height="34" rx="4"/><text x="620" y="148" text-anchor="middle" class="b">CLI</text>
+        <rect class="box" x="696" y="126" width="140" height="34" rx="4"/><text x="766" y="148" text-anchor="middle" class="b">HTTP API</text>
+        <rect class="box" x="852" y="126" width="152" height="34" rx="4"/><text x="928" y="148" text-anchor="middle" class="b">WebSocket session</text>
+        <!-- binary to libs -->
+        <path class="ln" d="M210,176 L210,222" marker-end="url(#a1-ink)"/>
+        <path class="ln" d="M540,176 L540,222" marker-end="url(#a1-ink)"/>
+        <path class="ln" d="M870,176 L870,222" marker-end="url(#a1-ink)"/>
+        <path class="ln" d="M375,176 L375,362" marker-end="url(#a1-ink)"/>
+        <text x="218" y="204" class="s10 mut">calls</text>
+        <!-- libraries -->
+        <rect class="box" x="60" y="226" width="300" height="80" rx="5"/>
+        <text x="76" y="250" class="tm b s13">templates</text>
+        <text x="76" y="270" class="s11">template → model</text>
+        <text x="76" y="288" class="s11 mut">typed parameters · sugar lowered in one place</text>
+        <rect class="box" x="390" y="226" width="300" height="80" rx="5"/>
+        <text x="406" y="250" class="tm b s13">analysis</text>
+        <text x="406" y="270" class="s11">sweep · sensitivity · goal-seek · optimize</text>
+        <text x="406" y="288" class="s11 mut">loops over evaluate-with-overrides · later: fit</text>
+        <rect class="box" x="720" y="226" width="300" height="80" rx="5"/>
+        <text x="736" y="250" class="tm b s13">runs</text>
+        <text x="736" y="270" class="s11">run folder write and read</text>
+        <text x="736" y="288" class="s11 mut">content-hashed run id · one series format</text>
+        <!-- libs to core -->
+        <path class="ln" d="M210,306 L210,362" marker-end="url(#a1-ink)"/>
+        <path class="ln" d="M540,306 L540,362" marker-end="url(#a1-ink)"/>
+        <path class="ln" d="M870,306 L870,362" marker-end="url(#a1-ink)"/>
+        <text x="218" y="338" class="s10 mut">uses</text>
+        <!-- core -->
+        <rect class="box-cob" x="60" y="366" width="960" height="100" rx="8"/>
+        <text x="76" y="392"><tspan class="tm b s18 c-cob">core</tspan><tspan class="s11 mut">   pure library · no files, no network, no clock · the essence</tspan></text>
+        <rect class="pill" x="78" y="412" width="170" height="36" rx="4"/><text x="163" y="435" text-anchor="middle" class="b">model types</text>
+        <rect class="pill" x="266" y="412" width="170" height="36" rx="4"/><text x="351" y="435" text-anchor="middle" class="b">validate</text>
+        <rect class="pill" x="454" y="412" width="170" height="36" rx="4"/><text x="539" y="435" text-anchor="middle" class="b">compile → Plan</text>
+        <rect class="pill" x="642" y="412" width="170" height="36" rx="4"/><text x="727" y="435" text-anchor="middle" class="b">evaluate, bin by bin</text>
+        <rect class="pill" x="830" y="412" width="170" height="36" rx="4"/><text x="915" y="435" text-anchor="middle" class="b">metrics · invariants</text>
+        <path class="ln-cob" d="M250,430 L262,430" marker-end="url(#a1-cob)"/>
+        <path class="ln-cob" d="M438,430 L450,430" marker-end="url(#a1-cob)"/>
+        <path class="ln-cob" d="M626,430 L638,430" marker-end="url(#a1-cob)"/>
+        <path class="ln-cob" d="M814,430 L826,430" marker-end="url(#a1-cob)"/>
+        <!-- dev loop -->
+        <rect class="box-dash" x="60" y="500" width="960" height="48" rx="6"/>
+        <text x="76" y="529"><tspan class="b">oracle, in Python, never shipped</tspan><tspan class="s11 mut">   CUE contracts · worked examples · properties · verifier-kit spines · all run by ./verify</tspan></text>
+        <path class="ln-mut-d" d="M540,500 L540,472" marker-end="url(#a1-mut)"/>
+        <text x="548" y="490" class="s10 mut">checks</text>
+      </svg>
+    </div>
+    <figcaption><b>Fig. 1. Proposal.</b> Five Rust crates, a TypeScript UI, and an oracle in Python that is never shipped. Everything that computes lives in <code>core</code>, so there is exactly one evaluator, one validator and one place where the topology becomes rows. The arrow straight from the binary to <code>core</code> covers plain models that need no template.</figcaption>
+  </figure>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Crate</th><th>Owns</th><th>Never does</th><th>Seeded from</th></tr></thead>
+      <tbody>
+        <tr><td><code>core</code></td><td>model types, validation (schema, references, one routing authority per split), compile to a Plan with a parameter table, bin-major evaluation, derived metrics, invariant warnings, diagnostics with source positions</td><td>file or network access; template syntax; anything the UI shows but the engine didn't compute</td><td><code>engine/core</code>: <code>eval.rs</code>, <code>plan.rs</code>, <code>expr.rs</code> copied; <code>model.rs</code> and <code>compiler.rs</code> rewritten to the new model spec</td></tr>
+        <tr><td><code>templates</code></td><td>template parsing, typed parameters, the authoring sugar and its lowering to the model language</td><td>text substitution on YAML; evaluation</td><td>new; the 12 templates are its acceptance corpus</td></tr>
+        <tr><td><code>analysis</code></td><td>sweep, sensitivity, goal-seek and Nelder–Mead optimize, each a loop over evaluate-with-overrides</td><td>recompiling per point</td><td>port of <code>FlowTime.TimeMachine/Sweep</code> (about 1,600 lines of C#)</td></tr>
+        <tr><td><code>runs</code></td><td>the run folder: model, one CSV per series, <code>run.json</code>, manifest; reading it back</td><td>computing values</td><td><code>engine/core/src/sink.rs</code></td></tr>
+        <tr><td><code>flowtime</code> (binary)</td><td>CLI commands, HTTP endpoints, WebSocket session, all calling the same library functions</td><td>business logic in handlers</td><td><code>engine/cli</code> (session protocol)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============ RUN ============ -->
+<section id="run">
+  <div class="sec-head">
+    <span class="kicker">Proposal</span>
+    <h2>One run, end to end</h2>
+  </div>
+  <div class="prose">
+    <p>A template and its parameter values go in. The templates crate lowers them to a model in which every series is declared once. The core validates and compiles that model once, then evaluates it. The result goes to one of three places: a stored run, the UI's live session, or an analysis loop that re-evaluates the same compiled plan with different constants.</p>
+  </div>
+  <figure>
+    <div class="fig-frame">
+      <svg class="fig" viewBox="0 0 1080 300" role="img" aria-label="Pipeline from template plus parameter values, through lowering, to a model, then validate, compile and evaluate. The result feeds a stored run, the UI session, or an analysis loop that re-evaluates without recompiling. Diagnostics from validation point back to the template line and parameter.">
+        <defs>
+          <marker id="a2-ink" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-ink"/></marker>
+          <marker id="a2-cob" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-cob"/></marker>
+          <marker id="a2-amb" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-amb"/></marker>
+        </defs>
+        <!-- diagnostics loop -->
+        <path class="ln-amb-d" d="M636,60 V38 H86 V56" marker-end="url(#a2-amb)"/>
+        <text x="360" y="31" text-anchor="middle" class="s11 c-amb b">diagnostics name the template line and the parameter</text>
+        <!-- stages -->
+        <rect class="box-in" x="16" y="60" width="140" height="80" rx="5"/>
+        <text x="30" y="88" class="tm b s13">template.yaml</text>
+        <text x="30" y="106" class="s11 mut">+ parameter values</text>
+        <rect class="box" x="196" y="60" width="180" height="80" rx="5"/>
+        <text x="210" y="82" class="tm b s13">templates: lower</text>
+        <text x="210" y="100" class="s11 mut">bind typed parameters</text>
+        <text x="210" y="116" class="s11 mut">self → queue node</text>
+        <text x="210" y="132" class="s11 mut">edge weights → split rows</text>
+        <rect class="box-ink" x="416" y="60" width="120" height="80" rx="5"/>
+        <text x="430" y="88" class="tm b s13">model</text>
+        <text x="430" y="106" class="s11 mut">every series</text>
+        <text x="430" y="122" class="s11 mut">declared once</text>
+        <rect class="box-cob" x="576" y="60" width="120" height="80" rx="5"/>
+        <text x="590" y="84" class="b s13 c-cob">validate</text>
+        <text x="590" y="102" class="s11 mut">schema</text>
+        <text x="590" y="117" class="s11 mut">references</text>
+        <text x="590" y="132" class="s11 mut">one authority</text>
+        <rect class="box-cob" x="736" y="60" width="120" height="80" rx="5"/>
+        <text x="750" y="88" class="b s13 c-cob">compile</text>
+        <text x="750" y="106" class="s11 mut">Plan +</text>
+        <text x="750" y="122" class="s11 mut">parameter table</text>
+        <rect class="box-cob" x="896" y="60" width="168" height="80" rx="5"/>
+        <text x="910" y="88" class="b s13 c-cob">evaluate</text>
+        <text x="910" y="106" class="s11 mut">bin by bin</text>
+        <text x="910" y="122" class="s11 mut">metrics · invariants</text>
+        <path class="ln" d="M156,100 L192,100" marker-end="url(#a2-ink)"/>
+        <path class="ln" d="M376,100 L412,100" marker-end="url(#a2-ink)"/>
+        <path class="ln" d="M536,100 L572,100" marker-end="url(#a2-ink)"/>
+        <path class="ln" d="M696,100 L732,100" marker-end="url(#a2-ink)"/>
+        <path class="ln" d="M856,100 L892,100" marker-end="url(#a2-ink)"/>
+        <!-- consumers -->
+        <path class="ln" d="M968,140 V180 H640 V214" marker-end="url(#a2-ink)"/>
+        <path class="ln" d="M820,180 V214" marker-end="url(#a2-ink)"/>
+        <path class="ln" d="M968,180 V214" marker-end="url(#a2-ink)"/>
+        <rect class="box-in" x="560" y="218" width="160" height="62" rx="5"/>
+        <text x="574" y="242" class="tm b s13">runs/&lt;id&gt;/</text>
+        <text x="574" y="262" class="s11 mut">stored result</text>
+        <rect class="box-in" x="740" y="218" width="160" height="62" rx="5"/>
+        <text x="754" y="242" class="tm b s13">session</text>
+        <text x="754" y="262" class="s11 mut">UI what-if</text>
+        <rect class="box-in" x="920" y="218" width="144" height="62" rx="5"/>
+        <text x="934" y="242" class="tm b s13">analysis</text>
+        <text x="934" y="262" class="s11 mut">sweep, optimize …</text>
+        <path class="ln-cob" d="M1052,218 V146" marker-end="url(#a2-cob)"/>
+        <text x="1044" y="206" text-anchor="end" class="s10 c-cob b">override, no recompile</text>
+      </svg>
+    </div>
+    <figcaption><b>Fig. 2. Proposal.</b> The only place sugar becomes rows is the lowering step. Today that happens in three places: Sim's <code>QueueNodeSynthesizer</code>, C#'s <code>ModelCompiler</code> and the Rust compiler. Analysis and the UI session reuse one compiled plan and change only constant rows, as today's Rust session already does.</figcaption>
+  </figure>
+</section>
+
+<!-- ============ LANGUAGE ============ -->
+<section id="language">
+  <div class="sec-head">
+    <span class="kicker">Proposal · needs decisions</span>
+    <h2>The model language</h2>
+  </div>
+  <div class="prose">
+    <p>The restart is worth most here. Today's two engines disagree mainly about how a model is written, not about arithmetic. Six rules settle it:</p>
+  </div>
+  <ol class="rules">
+    <li><span><b>Every series is declared once, by id: as a row, or as a router's named output.</b> No name is invented by convention. Today Rust creates <code>processing_queue</code> and <code>processing_utilization</code> from a topology node's id, and renaming that node silently renames them.</span></li>
+    <li><span><b>Anything that computes is a node.</b> That covers <code>const</code>, <code>expr</code>, <code>pmf</code>, the backlog row and <code>router</code>. A split is one router node that lists all its branches; consumers read a branch by name, such as <code>HubRouter.airport</code>. In templates, edge weights and class routes become such a router. Today C# lets a router overwrite placeholder rows declared as <code>expr: "0"</code>, and Rust applies edge weights only after evaluation, so they feed nothing downstream.</span></li>
+    <li><span><b>The topology computes nothing.</b> It names the components, says what kind each one is, labels rows with roles (arrivals, served, capacity, buffer) and carries layout. Derived metrics are outputs addressed by the component, such as <code>Processing.utilization</code>.</span></li>
+    <li><span><b>Sugar exists only in templates</b> and is lowered in one place: <code>queueDepth: self</code>, edge weights, class shorthands.</span></li>
+    <li><span><b>Parameters are typed, and each one's class is declared.</b> A value parameter becomes a constant row that formulas name directly and that analysis and the UI override without recompiling. A structural parameter (a bin count, a dispatch period, a telemetry file) is resolved when the template is lowered, on the parsed template, never by replacing text. A check rejects a value parameter wherever a literal is required, such as a grid field or a PULSE period.</span></li>
+    <li><span><b>Variability is an input.</b> Each arrival stream and each service carries how uneven it is (its coefficient of variation): taken from a PMF, measured from telemetry, or assumed. The core reports a per-bin estimate of the random queue and wait beside the fluid queue.</span></li>
+  </ol>
+  <div class="prose">
+    <p><strong>Variability, today and decided.</strong> Today both engines replace a PMF with its average before evaluating: C# fills every bin with the expected value (<code>PmfNode</code>), Rust compiles a PMF to a constant, and generated template models store a PMF as an average shaped by a daily profile. A C# path that samples a PMF per bin (<code>PmfCompiler</code>) has no caller in the application. The only use of a PMF's spread is Rust's Kingman metric, which treats every other series as having none. FlowTime computes no request-time percentiles: the Sim service's <code>/api/v1/series/summarize</code> reports percentiles of a series' per-bin values, and telemetry series can be tagged as percentiles so the UI shows them as such.</p>
+    <p><strong>Decided 2026-10-17:</strong> variability becomes part of the model language now. The first estimate per bin uses standard formulas for the typical line and wait at a given load and variability, including services with several parallel workers. Carrying each queue's spread alongside its average, which also handles recovery after a rush and yields bands and approximate percentiles, can follow. The simulation suite judges both against random runs.</p>
+  </div>
+  <div class="code-pair">
+    <div>
+      <div class="code-label">Template <span>· what an author writes</span></div>
+<pre>parameters:
+  - name: capacity       <span class="note"># value (the default): a const row</span>
+    type: number
+    default: 200
+  - name: bins
+    type: integer
+    structural: true     <span class="note"># resolved when lowering</span>
+    default: 12
+grid: { bins: ${bins}, binSize: 10, binUnit: minutes }
+nodes:
+  - id: demand
+    kind: const
+    values: [100, 100, 100, 300, 300, 300, …]
+  - id: served
+    kind: expr
+    expr: "MIN(capacity, demand + SHIFT(processing_queue, 1))"
+topology:
+  nodes:
+    - id: Processing
+      kind: service
+      semantics:
+        arrivals: demand
+        served: served
+        capacity: capacity
+        queueDepth: self   <span class="note"># sugar, lowered once</span></pre>
+    </div>
+    <div>
+      <div class="code-label">Model <span>· what the engine accepts, after lowering</span></div>
+<pre>schemaVersion: 2
+grid: { bins: 12, binSize: 10, binUnit: minutes }
+nodes:
+  - id: capacity          <span class="note"># from the parameter</span>
+    kind: const
+    values: [200, 200, 200, …]
+  - id: demand
+    kind: const
+    values: [100, 100, 100, 300, 300, 300, …]
+  - id: served
+    kind: expr
+    expr: "MIN(capacity, demand + SHIFT(processing_queue, 1))"
+  - id: processing_queue  <span class="note"># declared, not implied</span>
+    kind: queue
+    inflow: demand
+    outflow: served
+topology:                 <span class="note"># labels only</span>
+  nodes:
+    - id: Processing
+      kind: service
+      semantics:
+        arrivals: demand
+        served: served
+        capacity: capacity
+        queueDepth: processing_queue</pre>
+    </div>
+  </div>
+  <p class="aside">The syntax shown stays close to today's YAML on purpose; only the rules are new. The model is form A from the Field Guide with a plainer kind name, and the template is form D. In the template, <code>processing_queue</code> is the name <code>self</code> lowers to; whether templates may refer to it, or must name the queue explicitly, is one of the open decisions.</p>
+
+  <h3>Two kinds of queue</h3>
+  <div class="prose">
+    <p><strong>Decided 2026-10-17:</strong> one backlog row in the model, and two component kinds in the topology. The arithmetic is the same recurrence. What differs is who owns the backlog, what drains it, and which metrics apply.</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>Queue resource</th><th>Service with a buffer</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Examples</strong></td><td>Azure Service Bus queue, Amazon SQS, RabbitMQ</td><td>SQL Server, an HTTP server's request queue, a thread pool</td></tr>
+        <tr><td><strong>In the topology</strong></td><td>its own component, <code>kind: queue</code></td><td>a <code>service</code> that owns a buffer row</td></tr>
+        <tr><td><strong>What drains it</strong></td><td>its consumers, pulling: a consumer's served reads the queue's depth in the previous bin</td><td>the service's own capacity: served = MIN(capacity, arrivals + previous depth)</td></tr>
+        <tr><td><strong>Its own losses</strong></td><td>expiry (TTL), dead-lettering after too many deliveries, producers refused when it is full</td><td>requests rejected when the buffer is full, client timeouts</td></tr>
+        <tr><td><strong>Metrics</strong></td><td>depth and wait time; no utilization of its own</td><td>depth, wait time and utilization</td></tr>
+        <tr><td><strong>Template shorthand (proposed)</strong></td><td>a queue component with <code>buffer: self</code>; its consumers name it</td><td>a service with <code>buffer: self</code> and a capacity, lowered to the buffer row plus the standard served formula</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose">
+    <p>The UI must draw the two differently, so the difference has to reach it as a fact. The engine's graph output, in the session and in the run folder, carries each component's kind and the buffer row it owns. The UI draws from that and never infers it from names, and the graph message gets its own CUE contract. Today the Svelte UI receives a node kind but draws every node the same way: nothing in <code>ui/src/lib</code> or <code>lib/dag-map/src</code> changes the drawing by kind. The Rust session's graph also mixes formula rows and topology components in one list. The new graph output keeps them apart.</p>
+    <p>A queue with several competing consumers needs a rule for how they share it. That is ADR-0001's deferred class 2 (G-0038). Until that allocator exists, such a queue is modeled with one consumer or a fixed split.</p>
+    <p>Still open: the row's kind name. Calling the row <code>buffer</code> would keep it apart from the <code>queue</code> component.</p>
+  </div>
+</section>
+
+<!-- ============ SPECS ============ -->
+<section id="specs">
+  <div class="sec-head">
+    <span class="kicker">Proposal</span>
+    <h2>Clean specs, each with a check</h2>
+  </div>
+  <div class="prose">
+    <p>"Clean specs" means few and short, each paired with a test that fails when the code and the spec disagree. A spec with no check is the kind of document this repository has nearly 700 of.</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Spec</th><th>Defines</th><th>Checked by</th><th>Starting material in today's repo</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Concepts</strong></td><td>The per-bin equations, one section per concept, with edge cases decided: queue, WIP and overflow, dispatch, routing and splits, constraints, retry echo, PMF, SHIFT and feedback, classes, derived metrics, invariants</td><td>Closed-form results per concept, run as property tests over generated models; laws such as conservation and non-negativity; worked examples as readable instances</td><td>The rules table in the Field Guide; <code>docs/architecture/nan-policy.md</code>, <code>retry-modeling.md</code>, <code>flow-authority-policy.md</code>; ADR-0001</td></tr>
+        <tr><td><strong>Model language</strong></td><td>Node kinds and fields, reference rules, one routing authority per split</td><td>A CUE schema registered as an aiwf contract, with valid and invalid fixtures; the Rust parser reads the same fixtures</td><td>The 13 cross-reference rules listed in <code>docs/schemas/model.schema.yaml</code>; E-0023's 94-rule audit, deleted in the May migration and recoverable from git</td></tr>
+        <tr><td><strong>Template language</strong></td><td>Typed parameters, structural or value, the sugar and exactly what it lowers to</td><td>A CUE contract for the template's shape; snapshot tests for the lowering, template in, model out</td><td>The 12 templates; <code>QueueNodeSynthesizer</code> and <code>ModelCompiler</code> as reference behavior</td></tr>
+        <tr><td><strong>Run folder</strong></td><td>Layout, series id format, <code>run.json</code>, manifest</td><td>A CUE contract per file; a write-then-read round trip; the writer's output checked against the contract</td><td><code>engine/core/src/sink.rs</code></td></tr>
+        <tr><td><strong>Session and HTTP</strong></td><td>Messages and endpoints</td><td>A CUE contract for the messages; a verifier-kit spine for the session's states; Playwright tests in the UI</td><td><code>engine/cli/src/protocol.rs</code>, <code>session.rs</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="aside">CUE is in from the start. Each schema is an aiwf contract, so <code>aiwf contract verify</code> checks its fixtures on every push, and its evolve pass catches a change that breaks a file that used to be valid. This reverses today's verification plan, which deferred CUE until outside consumers appeared.</p>
+</section>
+
+<!-- ============ VERIFICATION ============ -->
+<section id="verification">
+  <div class="sec-head">
+    <span class="kicker">Decided: CUE contracts and verifier-kit are in</span>
+    <h2>How it's verified: one gate, three kinds of check</h2>
+  </div>
+  <div class="prose">
+    <p>"Verified" covers three different questions, and no single tool answers all three. CUE contracts check that every file and message crossing a boundary has the right shape. They cannot tell a right queue from a wrong one: a model can pass every schema and still compute nonsense, so the numbers need their own oracle, owned by people. verifier-kit contributes the method and the plumbing: one <code>./verify</code> that every gate calls, a guard that stops the builder from editing the oracle, spines for the parts that really are state machines, and planted bugs that check the checks.</p>
+  </div>
+  <figure>
+    <div class="fig-frame">
+      <svg class="fig" viewBox="0 0 1080 436" role="img" aria-label="The builder's Stop hook, CI and a person all call one ./verify script. It runs three kinds of check: shape, through CUE schemas registered as aiwf contracts; meaning, through closed-form results, laws and a reference evaluator; and behavior, through verifier-kit spines for the session and run lifecycle. Below, the guard keeps the builder out of oracle paths and the --full mode plants bugs that must be caught.">
+        <defs>
+          <marker id="a4-ink" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-ink"/></marker>
+        </defs>
+        <!-- callers -->
+        <rect class="box" x="120" y="12" width="260" height="46" rx="5"/>
+        <text x="250" y="32" text-anchor="middle" class="b">builder agent</text><text x="250" y="49" text-anchor="middle" class="s11 mut">Stop hook</text>
+        <rect class="box" x="410" y="12" width="260" height="46" rx="5"/>
+        <text x="540" y="32" text-anchor="middle" class="b">CI</text><text x="540" y="49" text-anchor="middle" class="s11 mut">every pull request</text>
+        <rect class="box" x="700" y="12" width="260" height="46" rx="5"/>
+        <text x="830" y="32" text-anchor="middle" class="b">a person</text><text x="830" y="49" text-anchor="middle" class="s11 mut">before asking for review</text>
+        <path class="ln" d="M250,58 L430,96" marker-end="url(#a4-ink)"/>
+        <path class="ln" d="M540,58 L540,96" marker-end="url(#a4-ink)"/>
+        <path class="ln" d="M830,58 L650,96" marker-end="url(#a4-ink)"/>
+        <!-- verify -->
+        <rect class="box-ink" x="340" y="100" width="400" height="52" rx="6"/>
+        <text x="540" y="124" text-anchor="middle" class="tm b s18">./verify</text>
+        <text x="540" y="143" text-anchor="middle" class="s11 mut">the one entry point · a step that doesn't run says why</text>
+        <path class="ln" d="M440,152 L200,194" marker-end="url(#a4-ink)"/>
+        <path class="ln" d="M540,152 L540,194" marker-end="url(#a4-ink)"/>
+        <path class="ln" d="M640,152 L880,194" marker-end="url(#a4-ink)"/>
+        <!-- columns -->
+        <rect class="box" x="20" y="198" width="340" height="168" rx="6"/>
+        <text x="36" y="222" class="b s15">Shape</text>
+        <text x="36" y="241" class="s11">CUE schemas, registered as aiwf contracts</text>
+        <text x="36" y="264" class="s11 mut">model · template · run folder · session messages</text>
+        <text x="36" y="280" class="s11 mut">valid/ and invalid/ fixtures, plus an evolve pass</text>
+        <text x="36" y="296" class="s11 mut">the Rust parser reads the same fixtures</text>
+        <text x="36" y="324" class="s11">catches: a shape the schema should refuse</text>
+        <text x="36" y="342" class="s11 mut">misses: wrong numbers</text>
+        <rect class="box-cob" x="370" y="198" width="340" height="168" rx="6"/>
+        <text x="386" y="222" class="b s15 c-cob">Meaning</text>
+        <text x="386" y="241" class="s11">the numbers, with an oracle owned by people</text>
+        <text x="386" y="264" class="s11 mut">closed forms from queueing theory, per concept</text>
+        <text x="386" y="280" class="s11 mut">laws: conservation, non-negativity, Little's law</text>
+        <text x="386" y="296" class="s11 mut">a reference evaluator for combinations</text>
+        <text x="386" y="324" class="s11">catches: a wrong value in any bin</text>
+        <text x="386" y="342" class="s11 mut">misses: cases no example or property reaches</text>
+        <rect class="box" x="720" y="198" width="340" height="168" rx="6"/>
+        <text x="736" y="222" class="b s15">Behavior</text>
+        <text x="736" y="241" class="s11">verifier-kit spines</text>
+        <text x="736" y="264" class="s11 mut">session: compile, then eval, then get series</text>
+        <text x="736" y="280" class="s11 mut">run lifecycle; later chunk_step</text>
+        <text x="736" y="296" class="s11 mut">spine check · behaviors · conform</text>
+        <text x="736" y="324" class="s11">catches: a step allowed or refused wrongly</text>
+        <text x="736" y="342" class="s11 mut">misses: the values inside a step</text>
+        <!-- guard and mutation -->
+        <rect class="box-amb" x="20" y="380" width="510" height="46" rx="5"/>
+        <text x="36" y="400" class="b">guard</text>
+        <text x="36" y="417" class="s11 mut">policy.yaml: the builder may read oracle paths, never change them</text>
+        <rect class="box" x="550" y="380" width="510" height="46" rx="5"/>
+        <text x="566" y="400" class="tm b">./verify --full</text>
+        <text x="566" y="417" class="s11 mut">planted bugs must be caught, which checks the checks</text>
+      </svg>
+    </div>
+    <figcaption><b>Fig. 3. Proposal.</b> Each column catches what the others miss. aiwf's own pre-push hook also runs the contract checks, so a shape error is stopped even before CI.</figcaption>
+  </figure>
+  <div class="prose">
+    <p>One rule keeps CUE from becoming a second, unchecked copy of the model rules. The CUE schema is the source of truth for shape, and a Rust test feeds the same <code>valid/</code> and <code>invalid/</code> fixtures to the Rust parser. If CUE and Rust disagree on a fixture, the build fails. Without that test the repository would again have two validators drifting apart, which E-0023 spent three milestones removing.</p>
+    <p>verifier-kit fits part of FlowTime as it is. Its spine covers "lifecycle and permissions only", which suits the session and the run lifecycle but not the arithmetic. For the arithmetic, its design suggests reusing a property-testing library (proptest here) and lists decision tables as designed but not built. FlowTime's numeric oracle could be the first real user of that view.</p>
+  </div>
+
+  <h3>Where the expected numbers come from</h3>
+  <div class="prose">
+    <p><strong>Decided 2026-10-17:</strong> closed-form results per concept are the main oracle, and one reference evaluator covers combinations, trusted only after it passes every closed-form property. Nobody computes grids by hand. The whole oracle side is written in Python, imports nothing from the engine, and reaches it only through its CLI.</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Source</th><th>Covers</th><th>Independent because</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Closed forms</strong> from queueing theory</td><td>Each concept in simple shapes: a queue's growth, peak and clear time; queues in series; splits; WIP limits and overflow; constraints; dispatch; retries; Little's law; the Kingman metric against exact M/M/1</td><td>Derived by algebra over the whole run, not bin by bin, so they can't share an evaluator's mistake</td></tr>
+        <tr><td><strong>Laws</strong></td><td>Any model: conservation, non-negativity, more capacity never lengthens a queue, renaming changes nothing</td><td>They hold for any correct engine</td></tr>
+        <tr><td><strong>Reference evaluator</strong></td><td>Combinations with no closed form, such as retries feeding a router in a feedback loop</td><td>Written from the spec alone, naive and grid-shaped, small enough to read in one sitting, and trusted only after passing every closed-form property</td></tr>
+        <tr><td><strong>C# second opinion</strong></td><td>Whatever C# can run</td><td>Written by other hands, earlier; see <a href="#csharp">its section</a> for when to distrust it</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose">
+    <p>The models come from a property-based generator: short, seeded so any failure replays, and shrinking a failing model to the smallest one that still fails. It belongs to the oracle side, and every model it produces must pass the CUE model contract.</p>
+    <p>Measured on 2026-10-17: a 30-line generator built 300 random single-queue spike models (random grid, demands, capacity, spike start and length). In every bin of every model, today's Rust engine matched the closed form: the queue grows by spike demand minus capacity per bin and drains by capacity minus base demand. With the backlog removed from the served formula, all 300 failed, each naming its first wrong bin.</p>
+    <p>Worked examples are readable instances of the closed forms. The spike example's peak of 300 is 3 bins × 100 excess.</p>
+  </div>
+
+  <h3>The oracle's files</h3>
+  <div class="prose">
+    <p><strong>Decided:</strong> the oracle is worked examples, stored as data files that one harness reads. The layout below is a proposal. People own everything under <code>oracle/</code>, and the guard keeps the builder out of it.</p>
+  </div>
+  <div class="code-pair">
+    <div>
+      <div class="code-label">Layout</div>
+<pre>oracle/
+  examples/                <span class="note"># one folder per concept</span>
+    queue/
+      spike-drains/
+        model.yaml         <span class="dim"># in the new model language</span>
+        expected.csv       <span class="dim"># a row per bin, a column per series</span>
+        warnings.yaml      <span class="dim"># expected warnings</span>
+        derivation.md      <span class="dim"># the closed form behind the numbers</span>
+        example.yaml       <span class="dim"># what it shows, who ratified it</span>
+  properties/              <span class="note"># closed forms and laws, with generators</span>
+  reference/               <span class="note"># the reference evaluator, once ratified</span></pre>
+    </div>
+    <div>
+      <div class="code-label">example.yaml <span>· its shape is itself a CUE contract</span></div>
+<pre>id: queue/spike-drains
+concept: queue
+shows: >
+  Demand of 300 against capacity 200 builds the
+  queue by 100 per bin; it drains by 100 per bin
+  once demand falls back to 100.
+derivedFrom: >
+  peak = spike bins x (spike demand - capacity);
+  clears after peak / (capacity - base demand) bins
+checkedBy: reference evaluator, every bin
+secondOpinion: C# engine agrees in every bin
+ratifiedBy: human/peter
+tolerance: { relative: 1.0e-9, absolute: 1.0e-9 }</pre>
+      <div class="prose" style="font-size:15px">
+        <p>The harness follows five rules:</p>
+        <ul>
+          <li>Every series in <code>expected.csv</code> must exist in the output. A missing series fails; nothing is skipped silently.</li>
+          <li>Values are compared bin by bin within the tolerance. A failure names the example, the series, the first differing bin and both values.</li>
+          <li>Warnings are compared exactly, as a set of node and code.</li>
+          <li>Extra output series are ignored: an example pins only what someone derived.</li>
+          <li>An example is committed only when its closed form, the reference evaluator and your ratification agree. A disagreement, including one with the C# second opinion, is settled in the concept spec first.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <p class="aside">The first rule is aimed at a known failure: today's parity test skips every Rust series that has no C# series of the same name, so it never compared a single queue Rust created.</p>
+
+  <h3>Validation against simulation</h3>
+  <div class="prose">
+    <p><strong>Decided 2026-10-17:</strong> a small discrete-event simulation suite, run on demand and never a gate, built once the core concepts are specified. It doesn't check FlowTime's code. It checks how good the per-bin flow approximation is, and its findings become stated accuracy limits in the concept spec. It also produces synthetic telemetry with known true parameters, which the telemetry work will need.</p>
+  </div>
+
+  <h3>The theory: the fluid limit</h3>
+  <div class="prose">
+    <p>FlowTime's per-bin recurrence is what queueing theory calls a fluid model. Work is treated as a continuous flow, so a queue grows exactly as fast as arrivals exceed capacity and drains exactly as fast as capacity exceeds arrivals. A real system is random: arrivals come in bursts and service times vary, so its queue follows a random path.</p>
+    <p>The fluid limit connects the two. Multiply arrivals and capacity by a factor n and divide the random queue by n; as n grows, the result converges to the fluid path, the way an average converges in the law of large numbers. The random wobble around that path grows only like √n, by the central limit theorem, so relative to the flow it shrinks like 1/√n. In one line: <strong>queue ≈ n × fluid path + √n × noise.</strong></p>
+  </div>
+  <figure>
+    <div class="fig-frame">
+<svg class="fig" viewBox="0 0 1080 372" role="img" aria-label="Three panels show the spike model at 1, 10 and 100 times the volume. FlowTime's queue rises linearly to its peak at 60 minutes and falls back to zero at 90. The simulation's average follows it, and the band holding the middle 90% of runs narrows from 79 to 122% of the peak at 1x to 98 to 102% at 100x. At 90 minutes the simulation still holds 7.0%, 2.1% and 0.63% of the peak.">
+<path class="c-flow" d="M70,22 H98"/>
+<text class="c-t" x="106" y="26">FlowTime, the flow model</text>
+<path class="c-sim" d="M300,22 H328"/>
+<text class="c-t" x="336" y="26">simulation, mean of all runs</text>
+<rect class="c-band" x="560" y="15" width="28" height="14" rx="2"/>
+<text class="c-t" x="596" y="26">simulation, middle 90% of runs</text>
+<text class="c-tt" x="70" y="64">1× volume · 4,000 runs</text>
+<line class="c-ax" x1="70" y1="300" x2="340" y2="300"/>
+<text class="c-tm" x="64" y="303.5" text-anchor="end">0</text>
+<line class="c-grid" x1="70" y1="216.2" x2="340" y2="216.2"/>
+<text class="c-tm" x="64" y="219.7" text-anchor="end">50%</text>
+<line class="c-grid" x1="70" y1="132.3" x2="340" y2="132.3"/>
+<text class="c-tm" x="64" y="135.8" text-anchor="end">100%</text>
+<line class="c-ax" x1="70" y1="300" x2="70" y2="304"/>
+<text class="c-tm" x="70" y="316" text-anchor="middle">0</text>
+<line class="c-ax" x1="137.5" y1="300" x2="137.5" y2="304"/>
+<text class="c-tm" x="137.5" y="316" text-anchor="middle">30</text>
+<line class="c-ax" x1="205" y1="300" x2="205" y2="304"/>
+<text class="c-tm" x="205" y="316" text-anchor="middle">60</text>
+<line class="c-ax" x1="272.5" y1="300" x2="272.5" y2="304"/>
+<text class="c-tm" x="272.5" y="316" text-anchor="middle">90</text>
+<line class="c-ax" x1="340" y1="300" x2="340" y2="304"/>
+<text class="c-tm" x="340" y="316" text-anchor="middle">120 min</text>
+<polygon class="c-band" points="70,300 74.5,297.8 79,297.8 83.5,297.8 88,297.8 92.5,297.8 97,297.8 101.5,297.8 106,297.8 110.5,297.8 115,297.8 119.5,297.8 124,297.8 128.5,297.8 133,297.8 137.5,297.8 142,278.8 146.5,264.2 151,249.7 155.5,235.2 160,222.3 164.5,209.4 169,197.1 173.5,184.3 178,172 182.5,158.6 187,145.7 191.5,133.4 196,121.1 200.5,108.8 205,96 209.5,106 214,116.7 218.5,127.3 223,137.9 227.5,148.5 232,158.6 236.5,169.8 241,180.4 245.5,191 250,201.6 254.5,211.7 259,222.9 263.5,232.9 268,243.5 272.5,254.7 277,265.9 281.5,275.4 286,286 290.5,295 295,297.2 299.5,297.8 304,297.8 308.5,297.8 313,297.8 317.5,297.8 322,297.8 326.5,297.8 331,297.8 335.5,297.8 340,297.8 340,300 335.5,300 331,300 326.5,300 322,300 317.5,300 313,300 308.5,300 304,300 299.5,300 295,300 290.5,300 286,300 281.5,300 277,300 272.5,300 268,300 263.5,300 259,300 254.5,297.2 250,284.3 245.5,273.2 241,261.4 236.5,249.1 232,238 227.5,225.7 223,213.9 218.5,201.6 214,189.3 209.5,178.1 205,167 200.5,176.5 196,187.1 191.5,196.6 187,206.1 182.5,216.2 178,225.7 173.5,235.2 169,244.7 164.5,254.2 160,263.1 155.5,272.1 151,281 146.5,288.8 142,295.5 137.5,300 133,300 128.5,300 124,300 119.5,300 115,300 110.5,300 106,300 101.5,300 97,300 92.5,300 88,300 83.5,300 79,300 74.5,300 70,300"/>
+<polyline class="c-flow" points="70,300 137.5,300 205,132.3 272.5,300 340,300"/>
+<polyline class="c-sim" points="70,300 74.5,299.4 79,299.4 83.5,299.4 88,299.4 92.5,299.5 97,299.4 101.5,299.5 106,299.5 110.5,299.5 115,299.5 119.5,299.4 124,299.4 128.5,299.4 133,299.4 137.5,299.4 142,287.6 146.5,276.4 151,265.2 155.5,254.2 160,243 164.5,231.9 169,220.8 173.5,209.6 178,198.3 182.5,187.2 187,175.9 191.5,164.8 196,153.5 200.5,142.2 205,131 209.5,142.2 214,153.3 218.5,164.4 223,175.7 227.5,186.9 232,198.1 236.5,209.3 241,220.4 245.5,231.6 250,242.9 254.5,253.8 259,264.1 263.5,273.7 268,281.8 272.5,288.2 277,292.9 281.5,296 286,297.8 290.5,298.6 295,299.1 299.5,299.3 304,299.4 308.5,299.4 313,299.4 317.5,299.4 322,299.5 326.5,299.4 331,299.4 335.5,299.4 340,299.4"/>
+<circle class="c-dot" cx="272.5" cy="288.2" r="3.6"/>
+<text class="c-tv" x="280.5" y="281.2">7.0%</text>
+<text class="c-t" x="70" y="340">middle 90% at the peak: 79–122%</text>
+<text class="c-t" x="70" y="356">still waiting at 90 min: 7.0% of the peak</text>
+<text class="c-tt" x="420" y="64">10× volume · 2,000 runs</text>
+<line class="c-ax" x1="420" y1="300" x2="690" y2="300"/>
+<text class="c-tm" x="414" y="303.5" text-anchor="end">0</text>
+<line class="c-grid" x1="420" y1="216.2" x2="690" y2="216.2"/>
+<text class="c-tm" x="414" y="219.7" text-anchor="end">50%</text>
+<line class="c-grid" x1="420" y1="132.3" x2="690" y2="132.3"/>
+<text class="c-tm" x="414" y="135.8" text-anchor="end">100%</text>
+<line class="c-ax" x1="420" y1="300" x2="420" y2="304"/>
+<text class="c-tm" x="420" y="316" text-anchor="middle">0</text>
+<line class="c-ax" x1="487.5" y1="300" x2="487.5" y2="304"/>
+<text class="c-tm" x="487.5" y="316" text-anchor="middle">30</text>
+<line class="c-ax" x1="555" y1="300" x2="555" y2="304"/>
+<text class="c-tm" x="555" y="316" text-anchor="middle">60</text>
+<line class="c-ax" x1="622.5" y1="300" x2="622.5" y2="304"/>
+<text class="c-tm" x="622.5" y="316" text-anchor="middle">90</text>
+<line class="c-ax" x1="690" y1="300" x2="690" y2="304"/>
+<text class="c-tm" x="690" y="316" text-anchor="middle">120 min</text>
+<polygon class="c-band" points="420,300 424.5,299.8 429,299.8 433.5,299.8 438,299.8 442.5,299.8 447,299.8 451.5,299.8 456,299.8 460.5,299.8 465,299.8 469.5,299.8 474,299.8 478.5,299.8 483,299.8 487.5,299.8 492,285.7 496.5,273.4 501,261.5 505.5,249.5 510,237.7 514.5,225.9 519,214.3 523.5,202.8 528,191.2 532.5,179.3 537,167.6 541.5,156.2 546,144.4 550.5,133.1 555,121.4 559.5,132.1 564,143.4 568.5,154.5 573,165.7 577.5,176.6 582,187.8 586.5,198.7 591,209.7 595.5,220.5 600,231.6 604.5,242.8 609,253.4 613.5,264.2 618,275.6 622.5,286.1 627,297.4 631.5,299.8 636,299.8 640.5,299.8 645,299.8 649.5,299.8 654,299.8 658.5,299.8 663,299.8 667.5,299.8 672,299.8 676.5,299.8 681,299.8 685.5,299.8 690,299.8 690,300 685.5,300 681,300 676.5,300 672,300 667.5,300 663,300 658.5,300 654,300 649.5,300 645,300 640.5,300 636,300 631.5,300 627,300 622.5,300 618,299.9 613.5,290.6 609,279.3 604.5,267.8 600,256.5 595.5,245.1 591,234 586.5,222.9 582,211 577.5,199.7 573,188.8 568.5,177.5 564,166 559.5,154.6 555,143.1 550.5,153.9 546,164.7 541.5,175.5 537,186.2 532.5,197.3 528,207.9 523.5,218.6 519,229.1 514.5,239.7 510,250.2 505.5,260.6 501,271.3 496.5,281.6 492,291.4 487.5,300 483,300 478.5,300 474,300 469.5,300 465,300 460.5,300 456,300 451.5,300 447,300 442.5,300 438,300 433.5,300 429,300 424.5,300 420,300"/>
+<polyline class="c-flow" points="420,300 487.5,300 555,132.3 622.5,300 690,300"/>
+<polyline class="c-sim" points="420,300 424.5,299.9 429,299.9 433.5,299.9 438,299.9 442.5,299.9 447,299.9 451.5,299.9 456,299.9 460.5,299.9 465,299.9 469.5,299.9 474,299.9 478.5,299.9 483,299.9 487.5,299.9 492,288.7 496.5,277.5 501,266.4 505.5,255.2 510,244 514.5,232.8 519,221.6 523.5,210.4 528,199.3 532.5,188.1 537,176.9 541.5,165.7 546,154.5 550.5,143.3 555,132.2 559.5,143.3 564,154.5 568.5,165.7 573,176.8 577.5,188.1 582,199.2 586.5,210.4 591,221.6 595.5,232.7 600,243.9 604.5,255.1 609,266.3 613.5,277.4 618,288.3 622.5,296.6 627,299.6 631.5,299.9 636,299.9 640.5,299.9 645,299.9 649.5,299.9 654,299.9 658.5,299.9 663,299.9 667.5,299.9 672,299.9 676.5,299.9 681,299.9 685.5,299.9 690,299.9"/>
+<circle class="c-dot" cx="622.5" cy="296.6" r="3.6"/>
+<text class="c-tv" x="630.5" y="289.6">2.1%</text>
+<text class="c-t" x="420" y="340">middle 90% at the peak: 94–107%</text>
+<text class="c-t" x="420" y="356">still waiting at 90 min: 2.1% of the peak</text>
+<text class="c-tt" x="770" y="64">100× volume · 1,000 runs</text>
+<line class="c-ax" x1="770" y1="300" x2="1040" y2="300"/>
+<text class="c-tm" x="764" y="303.5" text-anchor="end">0</text>
+<line class="c-grid" x1="770" y1="216.2" x2="1040" y2="216.2"/>
+<text class="c-tm" x="764" y="219.7" text-anchor="end">50%</text>
+<line class="c-grid" x1="770" y1="132.3" x2="1040" y2="132.3"/>
+<text class="c-tm" x="764" y="135.8" text-anchor="end">100%</text>
+<line class="c-ax" x1="770" y1="300" x2="770" y2="304"/>
+<text class="c-tm" x="770" y="316" text-anchor="middle">0</text>
+<line class="c-ax" x1="837.5" y1="300" x2="837.5" y2="304"/>
+<text class="c-tm" x="837.5" y="316" text-anchor="middle">30</text>
+<line class="c-ax" x1="905" y1="300" x2="905" y2="304"/>
+<text class="c-tm" x="905" y="316" text-anchor="middle">60</text>
+<line class="c-ax" x1="972.5" y1="300" x2="972.5" y2="304"/>
+<text class="c-tm" x="972.5" y="316" text-anchor="middle">90</text>
+<line class="c-ax" x1="1040" y1="300" x2="1040" y2="304"/>
+<text class="c-tm" x="1040" y="316" text-anchor="middle">120 min</text>
+<polygon class="c-band" points="770,300 774.5,300 779,300 783.5,300 788,300 792.5,300 797,300 801.5,300 806,300 810.5,300 815,300 819.5,300 824,300 828.5,300 833,300 837.5,300 842,287.9 846.5,276.4 851,264.8 855.5,253.6 860,242.1 864.5,230.7 869,219.4 873.5,208 878,196.6 882.5,185.3 887,173.9 891.5,162.7 896,151.5 900.5,140.3 905,128.9 909.5,140 914,151.1 918.5,162.2 923,173.3 927.5,184.4 932,195.6 936.5,206.6 941,217.8 945.5,228.9 950,240.1 954.5,251.2 959,262.4 963.5,273.4 968,284.5 972.5,295.5 977,300 981.5,300 986,300 990.5,300 995,300 999.5,300 1004,300 1008.5,300 1013,300 1017.5,300 1022,300 1026.5,300 1031,300 1035.5,300 1040,300 1040,300 1035.5,300 1031,300 1026.5,300 1022,300 1017.5,300 1013,300 1008.5,300 1004,300 999.5,300 995,300 990.5,300 986,300 981.5,300 977,300 972.5,300 968,293.3 963.5,282.1 959,270.9 954.5,259.7 950,248.5 945.5,237.2 941,225.9 936.5,214.7 932,203.5 927.5,192.1 923,181 918.5,169.7 914,158.4 909.5,147.2 905,135.8 900.5,147 896,158.2 891.5,169.1 887,180.2 882.5,191.3 878,202.4 873.5,213.4 869,224.3 864.5,235.3 860,246.3 855.5,257.1 851,268.1 846.5,278.9 842,289.7 837.5,300 833,300 828.5,300 824,300 819.5,300 815,300 810.5,300 806,300 801.5,300 797,300 792.5,300 788,300 783.5,300 779,300 774.5,300 770,300"/>
+<polyline class="c-flow" points="770,300 837.5,300 905,132.3 972.5,300 1040,300"/>
+<polyline class="c-sim" points="770,300 774.5,300 779,300 783.5,300 788,300 792.5,300 797,300 801.5,300 806,300 810.5,300 815,300 819.5,300 824,300 828.5,300 833,300 837.5,300 842,288.8 846.5,277.6 851,266.5 855.5,255.3 860,244.1 864.5,232.9 869,221.7 873.5,210.6 878,199.4 882.5,188.2 887,177 891.5,165.9 896,154.7 900.5,143.5 905,132.3 909.5,143.5 914,154.7 918.5,165.9 923,177.1 927.5,188.3 932,199.5 936.5,210.6 941,221.8 945.5,233 950,244.2 954.5,255.4 959,266.5 963.5,277.7 968,288.9 972.5,298.9 977,300 981.5,300 986,300 990.5,300 995,300 999.5,300 1004,300 1008.5,300 1013,300 1017.5,300 1022,300 1026.5,300 1031,300 1035.5,300 1040,300"/>
+<circle class="c-dot" cx="972.5" cy="298.9" r="3.6"/>
+<text class="c-tv" x="980.5" y="291.9">0.63%</text>
+<text class="c-t" x="770" y="340">middle 90% at the peak: 98–102%</text>
+<text class="c-t" x="770" y="356">still waiting at 90 min: 0.63% of the peak</text>
+</svg>
+    </div>
+    <figcaption><b>Fig. 4. Measured.</b> The spike model as a random M/M/1 queue, demand and capacity scaled together and the queue shown as a share of FlowTime's peak. The band holding the middle 90% of simulated runs narrows by about √10 at each tenfold step in volume. The dots mark 90 minutes, when FlowTime's queue is zero and the simulation still holds part of the peak.</figcaption>
+  </figure>
+  <div class="prose">
+    <p><strong>Where the gap concentrates.</strong> A queue can't go below zero, so wherever the fluid path sits at zero, randomness only adds: the average of max(0, X) is larger than max(0, the average of X). At the moment a backlog clears, the queue's accumulated randomness is close to normal, with variance σ² = Σ (arrival rate + service rate) × duration over the busy period, and the average of its positive part is σ/√(2π), about 0.4σ. For the spike, σ² = (30 + 20) × 30 + (10 + 20) × 30 = 2,400 at 1×, so theory predicts 19.5 items still waiting where FlowTime says zero; the simulation shows 21.0. This closed form can be one of the simulation suite's own checks.</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Volume</th><th>Runs</th><th>Simulated mean at the peak, against FlowTime</th><th>Middle 90% of runs at the peak</th><th>Still waiting at 90 min, simulated</th><th>Predicted, σ/√(2π)</th></tr></thead>
+      <tbody>
+        <tr><td>1×</td><td>4,000</td><td>+0.76%</td><td>79–122%</td><td>21.0 items, 7.0% of the peak</td><td>19.5</td></tr>
+        <tr><td>10×</td><td>2,000</td><td>+0.09%</td><td>94–107%</td><td>61.6 items, 2.1% of the peak</td><td>61.8</td></tr>
+        <tr><td>100×</td><td>1,000</td><td>−0.01%</td><td>98–102%</td><td>188 items, 0.63% of the peak</td><td>195, within one standard error</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose">
+    <p><strong>At steady load.</strong> Below capacity the fluid queue is zero at any load, but a random queue holds ρ/(1 − ρ) items on average, where ρ is arrivals divided by capacity (one server, random arrivals and service times: the M/M/1 queue). The simulation lands on that curve.</p>
+  </div>
+  <figure>
+    <div class="fig-frame">
+<svg class="fig" viewBox="0 0 1080 312" role="img" aria-label="Average number of items in a one-server system against load. FlowTime's queue is zero at every load below capacity. Queueing theory's curve rises slowly, then steeply near capacity, and the simulation's points at loads 0.5 to 0.95 sit on it.">
+<text class="c-tm" x="80" y="30">average items in the system</text>
+<line class="c-ax" x1="80" y1="264" x2="600" y2="264"/>
+<text class="c-tm" x="74" y="267.5" text-anchor="end">0</text>
+<line class="c-grid" x1="80" y1="220" x2="600" y2="220"/>
+<text class="c-tm" x="74" y="223.5" text-anchor="end">5</text>
+<line class="c-grid" x1="80" y1="176" x2="600" y2="176"/>
+<text class="c-tm" x="74" y="179.5" text-anchor="end">10</text>
+<line class="c-grid" x1="80" y1="132" x2="600" y2="132"/>
+<text class="c-tm" x="74" y="135.5" text-anchor="end">15</text>
+<line class="c-grid" x1="80" y1="88" x2="600" y2="88"/>
+<text class="c-tm" x="74" y="91.5" text-anchor="end">20</text>
+<line class="c-grid" x1="80" y1="44" x2="600" y2="44"/>
+<text class="c-tm" x="74" y="47.5" text-anchor="end">25</text>
+<line class="c-ax" x1="80" y1="264" x2="80" y2="268"/>
+<text class="c-tm" x="80" y="280" text-anchor="middle">0</text>
+<line class="c-ax" x1="184" y1="264" x2="184" y2="268"/>
+<text class="c-tm" x="184" y="280" text-anchor="middle">0.2</text>
+<line class="c-ax" x1="288" y1="264" x2="288" y2="268"/>
+<text class="c-tm" x="288" y="280" text-anchor="middle">0.4</text>
+<line class="c-ax" x1="392" y1="264" x2="392" y2="268"/>
+<text class="c-tm" x="392" y="280" text-anchor="middle">0.6</text>
+<line class="c-ax" x1="496" y1="264" x2="496" y2="268"/>
+<text class="c-tm" x="496" y="280" text-anchor="middle">0.8</text>
+<line class="c-ax" x1="600" y1="264" x2="600" y2="268"/>
+<text class="c-tm" x="600" y="280" text-anchor="middle">1</text>
+<text class="c-tm" x="340" y="298" text-anchor="middle">load = arrivals ÷ capacity</text>
+<polyline class="c-theory" points="80,264 82.6,264 85.2,263.9 87.8,263.9 90.4,263.8 93,263.8 95.6,263.7 98.2,263.7 100.8,263.6 103.4,263.6 106,263.5 108.6,263.5 111.2,263.4 113.8,263.4 116.4,263.3 119,263.3 121.6,263.2 124.2,263.2 126.8,263.1 129.4,263.1 132,263 134.6,263 137.2,262.9 139.8,262.9 142.4,262.8 145,262.7 147.6,262.7 150.2,262.6 152.8,262.6 155.4,262.5 158,262.4 160.6,262.4 163.2,262.3 165.8,262.3 168.4,262.2 171,262.1 173.6,262.1 176.2,262 178.8,261.9 181.4,261.9 184,261.8 186.6,261.7 189.2,261.7 191.8,261.6 194.4,261.5 197,261.4 199.6,261.4 202.2,261.3 204.8,261.2 207.4,261.1 210,261.1 212.6,261 215.2,260.9 217.8,260.8 220.4,260.7 223,260.7 225.6,260.6 228.2,260.5 230.8,260.4 233.4,260.3 236,260.2 238.6,260.1 241.2,260 243.8,260 246.4,259.9 249,259.8 251.6,259.7 254.2,259.6 256.8,259.5 259.4,259.4 262,259.3 264.6,259.2 267.2,259.1 269.8,258.9 272.4,258.8 275,258.7 277.6,258.6 280.2,258.5 282.8,258.4 285.4,258.3 288,258.1 290.6,258 293.2,257.9 295.8,257.8 298.4,257.6 301,257.5 303.6,257.4 306.2,257.2 308.8,257.1 311.4,256.9 314,256.8 316.6,256.7 319.2,256.5 321.8,256.4 324.4,256.2 327,256 329.6,255.9 332.2,255.7 334.8,255.5 337.4,255.4 340,255.2 342.6,255 345.2,254.8 347.8,254.7 350.4,254.5 353,254.3 355.6,254.1 358.2,253.9 360.8,253.7 363.4,253.5 366,253.2 368.6,253 371.2,252.8 373.8,252.6 376.4,252.3 379,252.1 381.6,251.8 384.2,251.6 386.8,251.3 389.4,251.1 392,250.8 394.6,250.5 397.2,250.2 399.8,249.9 402.4,249.6 405,249.3 407.6,249 410.2,248.7 412.8,248.4 415.4,248 418,247.7 420.6,247.3 423.2,246.9 425.8,246.5 428.4,246.1 431,245.7 433.6,245.3 436.2,244.9 438.8,244.4 441.4,243.9 444,243.5 446.6,243 449.2,242.5 451.8,241.9 454.4,241.4 457,240.8 459.6,240.2 462.2,239.6 464.8,239 467.4,238.3 470,237.6 472.6,236.9 475.2,236.1 477.8,235.4 480.4,234.5 483,233.7 485.6,232.8 488.2,231.9 490.8,230.9 493.4,229.9 496,228.8 498.6,227.7 501.2,226.5 503.8,225.2 506.4,223.9 509,222.5 511.6,221 514.2,219.5 516.8,217.8 519.4,216 522,214.1 524.6,212.1 527.2,209.9 529.8,207.6 532.4,205.1 535,202.4 537.6,199.5 540.2,196.3 542.8,192.8 545.4,189 548,184.8 550.6,180.2 553.2,175 555.8,169.3 558.4,162.8 561,155.5 563.6,147.1 566.2,137.4 568.8,126.1 571.4,112.8 574,96.8 576.6,77.2 579.2,52.8"/>
+<path class="c-flow" d="M80,264 H600"/>
+<path class="c-ax" d="M94,238 V262"/>
+<text class="c-tf" x="86" y="232">FlowTime's queue: 0 at every load below capacity</text>
+<text class="c-t" x="402.4" y="180.4">theory: ρ / (1 − ρ)</text>
+<circle class="c-dot" cx="340" cy="255.2" r="4.2"/>
+<circle class="c-dot" cx="444" cy="243.4" r="4.2"/>
+<circle class="c-dot" cx="496" cy="228.8" r="4.2"/>
+<circle class="c-dot" cx="548" cy="186.6" r="4.2"/>
+<circle class="c-dot" cx="574" cy="87.9" r="4.2"/>
+<text class="c-tt" x="660" y="50">Average queue, one server</text>
+<text class="c-tm" x="660" y="74">load</text>
+<text class="c-tm" x="780" y="74" text-anchor="end">simulated</text>
+<text class="c-tm" x="870" y="74" text-anchor="end">theory</text>
+<text class="c-tm" x="960" y="74" text-anchor="end">FlowTime</text>
+<text class="c-t" x="660" y="96">0.5</text>
+<text class="c-t" x="780" y="96" text-anchor="end">1.00</text>
+<text class="c-t" x="870" y="96" text-anchor="end">1.00</text>
+<text class="c-t" x="960" y="96" text-anchor="end">0</text>
+<text class="c-t" x="660" y="116">0.7</text>
+<text class="c-t" x="780" y="116" text-anchor="end">2.34</text>
+<text class="c-t" x="870" y="116" text-anchor="end">2.33</text>
+<text class="c-t" x="960" y="116" text-anchor="end">0</text>
+<text class="c-t" x="660" y="136">0.8</text>
+<text class="c-t" x="780" y="136" text-anchor="end">4.00</text>
+<text class="c-t" x="870" y="136" text-anchor="end">4.00</text>
+<text class="c-t" x="960" y="136" text-anchor="end">0</text>
+<text class="c-t" x="660" y="156">0.9</text>
+<text class="c-t" x="780" y="156" text-anchor="end">8.79</text>
+<text class="c-t" x="870" y="156" text-anchor="end">9.00</text>
+<text class="c-t" x="960" y="156" text-anchor="end">0</text>
+<text class="c-t" x="660" y="176">0.95</text>
+<text class="c-t" x="780" y="176" text-anchor="end">20.01</text>
+<text class="c-t" x="870" y="176" text-anchor="end">19.00</text>
+<text class="c-t" x="960" y="176" text-anchor="end">0</text>
+<text class="c-t" x="660" y="196">0.99</text>
+<text class="c-tm" x="780" y="196" text-anchor="end">not run</text>
+<text class="c-t" x="870" y="196" text-anchor="end">99.00</text>
+<text class="c-t" x="960" y="196" text-anchor="end">0</text>
+<circle class="c-dot" cx="666" cy="270" r="4.2"/>
+<text class="c-t" x="678" y="274">simulation</text>
+<path class="c-theory" d="M770,270 H798"/>
+<text class="c-t" x="806" y="274">queueing theory</text>
+<path class="c-flow" d="M660,292 H688"/>
+<text class="c-t" x="696" y="296">FlowTime</text>
+</svg>
+    </div>
+    <figcaption><b>Fig. 5. Measured.</b> M/M/1 with capacity 1, simulated for 4 million time units at each load. FlowTime's queue reads zero at every load below capacity; the real queue follows ρ/(1 − ρ).</figcaption>
+  </figure>
+  <div class="prose">
+    <p>Counted in items, that queue does not grow with volume when one server simply gets faster, so at high volume it is small next to the flow. Counted in time it does not shrink: an item spends 1/(1 − ρ) service times in the system at any volume, 10 at a load of 0.9 and 20 at 0.95, and that is what latency targets feel. It grows without bound as load approaches capacity: 9 items at 0.9, 19 at 0.95, 99 at 0.99. That is where the flow model is least reliable. FlowTime's Kingman metric is its tool for that wait, and it needs the variability of arrivals and service as input: today it takes it from PMF nodes and treats constant series as having none. When volume comes from more parallel servers rather than a faster one, a different regime applies (the many-server, or Halfin–Whitt, regime); that is a question for the simulation suite and is not measured here. Tails such as p99 stay outside what a flow model predicts at any volume.</p>
+    <p><strong>Two services in series, near capacity.</strong> A more realistic case shows the size of the gap. Service A feeds service B, which is 10% faster. Demand rises from 75% of A's capacity to 90%, then 95%, exceeds it at 105% for 30 minutes, and recedes. FlowTime (the Rust engine on the same model) reports no queue at A except during the overload, and never a queue at B.</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Load on A, end of phase</th><th>Queue at A: FlowTime</th><th>Queue at A: simulation</th><th>Queue at B: FlowTime</th><th>Queue at B: simulation</th></tr></thead>
+      <tbody>
+        <tr><td>75%</td><td>0</td><td>2.9</td><td>0</td><td>2.1</td></tr>
+        <tr><td>90%</td><td>0</td><td>9.1</td><td>0</td><td>4.4</td></tr>
+        <tr><td>95%</td><td>0</td><td>15.8</td><td>0</td><td>6.1</td></tr>
+        <tr><td>105%, overload</td><td>30</td><td>53.6</td><td>0</td><td>9.0</td></tr>
+        <tr><td>back to 95%</td><td>0</td><td>35.5</td><td>0</td><td>7.8</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose">
+    <p>This is not a defect in the engine, which computes the fluid model exactly. It is the fluid model's blind spot, and it sits where most production systems run, between about 70% and 95% of capacity. FlowTime therefore carries variability as an input and estimates waiting per bin (see <a href="#language">The model language</a>); the simulation suite's main job is to judge those estimates.</p>
+  </div>
+</section>
+
+<!-- ============ CROSSOVER ============ -->
+<section id="crossover">
+  <div class="sec-head">
+    <span class="kicker">Proposal · sizes measured</span>
+    <h2>What crosses over</h2>
+  </div>
+  <figure>
+    <div class="fig-frame">
+      <svg class="fig" viewBox="0 0 1080 446" role="img" aria-label="Left, today's repository; right, the new repository. Six arrows cross: the Rust evaluator, plan and expression parser are copied; the Rust model and compiler are rewritten; the 12 templates are rewritten into the new template language; the C# engine stays runnable in the archive as a second opinion; the Svelte UI and dag-map are ported later; decisions and concept docs become the concept spec. The .NET services, Blazor UI, C# tests and the docs and plans stay behind in an archived, read-only repository.">
+        <defs>
+          <marker id="a3-ink" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-ink"/></marker>
+          <marker id="a3-cob" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-cob"/></marker>
+          <marker id="a3-mut" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-mut"/></marker>
+        </defs>
+        <text x="20" y="22" class="up">flowtime-vnext today</text>
+        <text x="720" y="22" class="up">new repository</text>
+        <!-- left items -->
+        <g>
+          <rect class="box-cob" x="20" y="40" width="340" height="30" rx="4"/><text x="34" y="60" class="b">Rust: eval · plan · expr</text><text x="350" y="60" text-anchor="end" class="tm s11 mut num">885 lines</text>
+          <rect class="box" x="20" y="78" width="340" height="30" rx="4"/><text x="34" y="98" class="b">Rust: model · compiler</text><text x="350" y="98" text-anchor="end" class="tm s11 mut num">2,071 lines</text>
+          <rect class="box" x="20" y="116" width="340" height="30" rx="4"/><text x="34" y="136" class="b">12 templates</text><text x="350" y="136" text-anchor="end" class="tm s11 mut num">12 files</text>
+          <rect class="box-ink" x="20" y="154" width="340" height="30" rx="4"/><text x="34" y="174" class="b">C# engine, runs all 12 templates</text><text x="350" y="174" text-anchor="end" class="tm s11 mut num">15,014 lines</text>
+          <rect class="box" x="20" y="192" width="340" height="30" rx="4"/><text x="34" y="212" class="b">Svelte UI · dag-map</text><text x="350" y="212" text-anchor="end" class="tm s11 mut num">15,916 + 4,954</text>
+          <rect class="box" x="20" y="230" width="340" height="30" rx="4"/><text x="34" y="250" class="b">ADR-0001 · concept docs · schema rules</text><text x="350" y="250" text-anchor="end" class="tm s11 mut num">a few files</text>
+          <rect class="box-in" x="20" y="286" width="340" height="30" rx="4"/><text x="34" y="306">.NET services, CLIs, Sim, TimeMachine</text><text x="350" y="306" text-anchor="end" class="tm s11 mut num">30,989 lines</text>
+          <rect class="box-in" x="20" y="324" width="340" height="30" rx="4"/><text x="34" y="344">Blazor UI</text><text x="350" y="344" text-anchor="end" class="tm s11 mut num">32,812 lines</text>
+          <rect class="box-in" x="20" y="362" width="340" height="30" rx="4"/><text x="34" y="382">C# tests</text><text x="350" y="382" text-anchor="end" class="tm s11 mut num">62,056 lines</text>
+          <rect class="box-in" x="20" y="400" width="340" height="30" rx="4"/><text x="34" y="420">docs/ and work/</text><text x="350" y="420" text-anchor="end" class="tm s11 mut num">813,000 words</text>
+        </g>
+        <!-- right items -->
+        <g>
+          <rect class="box-cob" x="720" y="40" width="340" height="30" rx="4"/><text x="734" y="60" class="b c-cob">core: eval · plan · expr</text><text x="1050" y="60" text-anchor="end" class="s11 mut">seed</text>
+          <rect class="box-cob" x="720" y="78" width="340" height="30" rx="4"/><text x="734" y="98" class="b c-cob">core: model · compiler</text><text x="1050" y="98" text-anchor="end" class="s11 mut">to the new spec</text>
+          <rect class="box" x="720" y="116" width="340" height="30" rx="4"/><text x="734" y="136" class="b">template corpus</text><text x="1050" y="136" text-anchor="end" class="s11 mut">acceptance tests</text>
+          <rect class="box-amb" x="720" y="154" width="340" height="30" rx="4"/><text x="734" y="174" class="b">second opinion</text><text x="1050" y="174" text-anchor="end" class="s11 mut">run from the archive</text>
+          <rect class="box" x="720" y="192" width="340" height="30" rx="4"/><text x="734" y="212" class="b">UI pages</text><text x="1050" y="212" text-anchor="end" class="s11 mut">after the API settles</text>
+          <rect class="box" x="720" y="230" width="340" height="30" rx="4"/><text x="734" y="250" class="b">concept spec · decisions</text><text x="1050" y="250" text-anchor="end" class="s11 mut">with checks</text>
+        </g>
+        <!-- crossing arrows -->
+        <path class="ln-cob" d="M360,55 L716,55" marker-end="url(#a3-cob)"/><text x="540" y="49" text-anchor="middle" class="s11 c-cob b">copy, then rework</text>
+        <path class="ln" d="M360,93 L716,93" marker-end="url(#a3-ink)"/><text x="540" y="87" text-anchor="middle" class="s11">rewrite against the model spec</text>
+        <path class="ln" d="M360,131 L716,131" marker-end="url(#a3-ink)"/><text x="540" y="125" text-anchor="middle" class="s11">rewrite in the new template language</text>
+        <path class="ln" d="M360,169 L716,169" marker-end="url(#a3-ink)"/><text x="540" y="163" text-anchor="middle" class="s11 c-amb b">consulted while deriving examples, never a gate</text>
+        <path class="ln" d="M360,207 L716,207" marker-end="url(#a3-ink)"/><text x="540" y="201" text-anchor="middle" class="s11">port selected pages</text>
+        <path class="ln" d="M360,245 L716,245" marker-end="url(#a3-ink)"/><text x="540" y="239" text-anchor="middle" class="s11">rewrite as specs with checks</text>
+        <!-- archive -->
+        <rect class="box-dash" x="430" y="286" width="250" height="144" rx="6"/>
+        <text x="446" y="312" class="b s13">stays behind</text>
+        <text x="446" y="334" class="s11 mut">old repository tagged and</text>
+        <text x="446" y="350" class="s11 mut">archived read-only</text>
+        <text x="446" y="374" class="s11 mut">the C# engine stays runnable</text>
+        <text x="446" y="390" class="s11 mut">as a second opinion</text>
+        <text x="446" y="414" class="s11 mut">reference for edge cases</text>
+        <path class="ln-mut-d" d="M360,301 L426,301" marker-end="url(#a3-mut)"/>
+        <path class="ln-mut-d" d="M360,339 L426,339" marker-end="url(#a3-mut)"/>
+        <path class="ln-mut-d" d="M360,377 L426,377" marker-end="url(#a3-mut)"/>
+        <path class="ln-mut-d" d="M360,415 L426,415" marker-end="url(#a3-mut)"/>
+      </svg>
+    </div>
+    <figcaption><b>Fig. 6. Proposal; sizes measured.</b> Line counts are production code without tests, from <code>wc -l</code> on 2026-10-17. Only about 3,000 lines of code cross over as code. The rest crosses as tests (the templates) or as specs.</figcaption>
+  </figure>
+</section>
+
+<!-- ============ C# SECOND OPINION ============ -->
+<section id="csharp">
+  <div class="sec-head">
+    <span class="kicker">Decided 2026-10-17 · measured</span>
+    <h2>The C# engine: a second opinion, never a gate</h2>
+  </div>
+  <div class="prose">
+    <p>The oracle is the closed forms, the laws and the reference evaluator. The C# engine stays runnable in the archived repository and is consulted while examples are derived. When an example disagrees with what C# computes for the same model, that is a question for the concept spec and is settled there, never in C#'s favor by default. Nothing is captured, and nothing in the new repository depends on C#.</p>
+    <p>Either C# path gives the same answer. I ran all 12 templates through <code>flowtime run</code> and through the Sim orchestration endpoint at their default parameters and declared seeds (2026-10-17, commit 412467e0). On the 11 templates where both succeed, every series both paths write is identical in every bin. Orchestration also writes edge series, refuses a run without an explicit <code>rng.seed</code>, and fails on <code>supply-chain-incident-retry</code> with a duplicate-key error in <code>EdgeFlowMaterializer.BuildEdgeFlowSeries</code> (<code>EdgeFlowMaterializer.cs:27</code>).</p>
+  </div>
+  <h3>Why it can't be the oracle</h3>
+  <div class="prose">
+    <p>The C# engine records current behavior; it does not judge correct behavior. Its arithmetic holds up where it can be checked independently: the spike model in the Field Guide matches a hand calculation in every bin. Its agreement with the Rust engine counts for little, because Rust was translated from C#. These problems are already known:</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Problem</th><th>Where</th><th>Evidence</th><th>For a second opinion</th></tr></thead>
+      <tbody>
+        <tr><td>A convolution estimate of backlog is added to a queue's inflow, so backlog is counted twice; each queue peaks 2.8 times higher than the same recurrence without it</td><td><code>it-system-microservices</code>, <code>manufacturing-line</code>, <code>network-reliability</code></td><td>measured</td><td>don't use these templates' results as a reference</td></tr>
+        <tr><td>C#'s own conservation check fails (<code>edge_flow_mismatch_incoming</code>, 6 warnings): splits are written as arithmetic in the consumer while edges keep weight 1</td><td>the three above and <code>transportation-basic</code></td><td>measured</td><td>treat their split values as suspect</td></tr>
+        <tr><td>Capacity, processing-time or served-count series are missing, so utilization or service time can't be computed for some nodes</td><td><code>supply-chain-incident-retry</code>, <code>transportation-basic-classes</code></td><td>measured</td><td>no opinion on those metrics</td></tr>
+        <tr><td>Constraint allocation and WIP-overflow routing are never applied on any run path; no template exercises either</td><td>engine</td><td>from code; measured for the templates</td><td>no opinion at all on constraints or WIP limits</td></tr>
+        <tr><td>Crash in a feedback loop when the queue has a constant loss series</td><td>engine</td><td>measured</td><td>leave the loss out, or skip C#</td></tr>
+        <tr><td><code>flowtime run</code> crashes on <code>queueDepth: self</code></td><td>engine</td><td>measured</td><td>write the queue as an explicit node</td></tr>
+        <tr><td>The test suite's warning baseline, captured 2026-05-01, doesn't match today's runs (for example 8 expected and 3 raised on <code>transportation-basic-classes</code>)</td><td><code>TemplateWarningSurveyTests.cs</code></td><td>measured against the code's table</td><td>unexplained; don't rely on it</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose">
+    <p>So the closed forms and laws have to cover everything the templates don't exercise and C# can't vouch for: a constraint that binds, WIP limits and overflow, dispatch schedules, retries and feedback loops.</p>
+  </div>
+</section>
+
+<!-- ============ ORDER ============ -->
+<section id="order">
+  <div class="sec-head">
+    <span class="kicker">Proposal</span>
+    <h2>Order of work</h2>
+  </div>
+  <div class="prose">
+    <p>Each phase ends on a check a machine can run. The first phase is specification, so it can start before the new repository exists.</p>
+  </div>
+  <ol class="steps">
+    <li><b>Concept spec and worked examples</b><p>Write the concept spec one concept at a time, starting with the queue: its per-bin equations, with edge cases decided. For each concept, state its closed-form results and the laws it must obey, and pick 3 to 5 worked examples whose numbers follow from those closed forms. Write the reference evaluator from the spec, and trust it only once it passes every closed-form property. Consult the C# engine as a second opinion, and settle every disagreement in the spec. Once the queue, routing and retry concepts are specified, build the simulation suite and write its findings into the spec as accuracy limits. Tag the old repository and archive it read-only, keeping it runnable for second opinions.</p><p class="exit"><strong>Done when</strong> every concept in the spec has closed-form properties that the reference evaluator passes, and worked examples in the oracle's file format.</p></li>
+    <li><b>New repository, gate first</b><p>Starts once the next aiwf release is out and verifier-kit is stable enough. Generate the devcontainer with devcontainer-kit (answers below). Create the Cargo workspace, run <code>aiwf init</code>, install the CUE recipe, and bring in verifier-kit's <code>./verify</code> and guard, with the expected files under a guarded path. The builder's Stop hook and CI call <code>./verify</code>, which runs <code>cargo test</code>, clippy, format, <code>aiwf contract verify</code> and the Python oracle's property tests. Copy in the evaluator, plan and expression parser.</p><p class="exit"><strong>Done when</strong> a failing test, a fixture the schema wrongly accepts, and a builder change to an oracle path each fail the pull request.</p></li>
+    <li><b>Core, one concept at a time</b><p>Implement each concept in the model language against its closed-form properties and worked examples, starting with the queue. Then run the engine against the reference evaluator on generated models that mix concepts. Classes belong here, because three templates use them.</p><p class="exit"><strong>Done when</strong> every closed-form property, law and worked example passes, the engine agrees with the reference evaluator on generated models, and <code>flowtime eval</code> runs a model from the CLI.</p></li>
+    <li><b>Templates</b><p>Write the template spec, build the lowering, and rewrite the 12 templates in the new template language.</p><p class="exit"><strong>Done when</strong> every template lowers, passes its CUE contract, evaluates, and satisfies the properties.</p></li>
+    <li><b>Analysis and session</b><p>Port sweep, sensitivity, goal-seek and optimize, and serve the session protocol.</p><p class="exit"><strong>Done when</strong> each mode passes properties whose answers follow from closed forms, such as the capacity at which a given backlog just clears by a given bin.</p></li>
+    <li><b>Server and UI</b><p>Add the HTTP endpoints, port the what-if, topology and analysis pages, and keep dag-map as a dependency.</p><p class="exit"><strong>Done when</strong> Playwright drives the what-if page against a real template, not a sample.</p></li>
+  </ol>
+  <p class="aside">Later, each when something needs it: telemetry ingestion and flow accounting (today's telemetry-analysis spec), model fit, chunked evaluation, an MCP server, a capacity-aware allocator (G-0038), deployment.</p>
+
+  <h3>The devcontainer, from devcontainer-kit</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Answer</th><th>Proposed value</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td><code>languages</code></td><td><code>rust</code>, <code>python</code>, <code>go</code>; <code>node</code> when the UI returns</td><td>Rust for the system; Python for the oracle side; Go to build CUE and verifier-kit's Go <code>spine</code>; Node for the Svelte UI in phase 6</td></tr>
+        <tr><td><code>aiwf</code></td><td><code>true</code></td><td>Planning, contracts and the pre-push contract check</td></tr>
+        <tr><td><code>siblings</code></td><td><code>flowtime-vnext</code>, read-only</td><td>The archived repository beside the new one, for edge cases. Running C# as a second opinion needs .NET, which this devcontainer leaves out, so that happens in the old repository's devcontainer</td></tr>
+        <tr><td><code>ports</code></td><td>the new binary's HTTP port; <code>5173</code> when the UI returns</td><td>One service replaces 8081 and 8090</td></tr>
+        <tr><td>open</td><td>how <code>cue</code> gets installed</td><td>devcontainer-kit has no CUE option. It could be a Go install step, an apt package, or a new kit option; settle it when the repository is created</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============ RISKS ============ -->
+<section id="risks">
+  <div class="sec-head">
+    <span class="kicker">Risks</span>
+    <h2>What could go wrong</h2>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Risk</th><th>How it shows up</th><th>Guard</th></tr></thead>
+      <tbody>
+        <tr><td>Second-system effect</td><td>The new design tries to fix everything at once: CUE, telemetry, MCP, a new UI</td><td>Phases 3 to 6 only; everything else waits for a named trigger</td></tr>
+        <tr><td>Lost edge cases</td><td>Behavior that 62,000 lines of C# tests pinned silently changes</td><td>The schema's rule list; worked examples for every concept; the archived repository and its C# engine stay available as a second opinion</td></tr>
+        <tr><td>A spec that is complete and wrong</td><td>Code and spec agree, and both are wrong</td><td>Closed forms from queueing theory, derived independently of any evaluator; laws that hold for any correct engine; later, validation against simulation or real telemetry</td></tr>
+        <tr><td>The builder grades its own work</td><td>Fast AI-built code with tests written to pass, as with the parity test that skipped what it couldn't compare</td><td>Expected files and worked examples the builder never edits; each new test seen failing first</td></tr>
+        <tr><td>Prose regrows</td><td>Plans and docs again outnumber code and drift from it</td><td>Docs are the specs plus one architecture page; plans live only as aiwf entities</td></tr>
+        <tr><td>A long stretch without a UI</td><td>Nothing to demo until phase 6</td><td>The CLI evaluates models from phase 3; the session protocol already exists, so the UI port needs no new protocol</td></tr>
+        <tr><td>A work-in-progress toolkit at the center</td><td>verifier-kit changes under FlowTime, or FlowTime waits on a view verifier-kit hasn't built</td><td>Pin the version FlowTime uses; FlowTime's needs go upstream as verifier-kit issues, not local patches; the numeric oracle runs as plain Rust tests until a view exists for it</td></tr>
+        <tr><td>CUE and Rust drift apart</td><td>The schema accepts a model the Rust parser rejects, or the reverse</td><td>One fixture set read by both; a disagreement fails the build</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============ DECISIONS ============ -->
+<section id="decisions">
+  <div class="sec-head">
+    <span class="kicker">For you</span>
+    <h2>Decisions ahead, in the order they block</h2>
+  </div>
+  <ol class="steps">
+    <li><b>Restart or replace in place</b><p><strong>Decided 2026-10-17:</strong> seeded restart.</p></li>
+    <li><b>New repository or a fresh tree in this one</b><p><strong>Decided 2026-10-17:</strong> new repository, with CUE contracts and verifier-kit in from the start.</p></li>
+    <li><b>The oracle's file format</b><p><strong>Decided 2026-10-17:</strong> data files read by one harness; layout proposed under <a href="#verification">Verification</a>.</p></li>
+    <li><b>The oracle itself</b><p><strong>Decided 2026-10-17:</strong> built from the spec and queueing theory, independent of any engine. The C# engine is a second opinion, never a gate; nothing is captured.</p></li>
+    <li><b>Where expected numbers come from</b><p><strong>Decided 2026-10-17:</strong> closed-form results per concept as the main oracle, plus one reference evaluator for combinations, trusted only after it passes every closed-form property; worked examples are readable instances of the closed forms.</p></li>
+    <li><b>Simulation for validation</b><p><strong>Decided 2026-10-17:</strong> a small suite of standard systems (one queue, two in series, a router, retries with timeouts), run on demand and never a gate; its findings become accuracy limits in the concept spec.</p></li>
+    <li><b>Randomness below capacity</b><p><strong>Decided 2026-10-17:</strong> variability is part of the model language; per-bin waiting estimates from standard formulas first, built so that tracking each queue's spread can follow.</p></li>
+    <li><b>The oracle's language</b><p><strong>Decided 2026-10-17:</strong> Python for the whole oracle side (generators, closed-form properties, reference evaluator, simulation suite). It imports nothing from the engine and reaches it only through the CLI.</p></li>
+    <li><b>How verifier-kit enters the repository</b><p>A pinned copy of its tools, a submodule that follows its main branch, or the Go <code>spine</code> binary once its port is done. Waits until verifier-kit is stable enough.</p></li>
+    <li><b>The queue form</b><p><strong>Decided 2026-10-17:</strong> one backlog row in the model; queue resources and services with buffers are distinct component kinds, and the UI draws them differently from the engine's graph output. Open: the row's kind name.</p></li>
+    <li><b>Splits and routers</b><p><strong>Decided 2026-10-17:</strong> a router node with named outputs. Its shares sit in one declaration, so their completeness is a local check; G-0038's capacity-aware allocator later takes the same shape.</p></li>
+    <li><b>Parameters</b><p><strong>Decided 2026-10-17:</strong> each parameter's class is declared and checked against its uses. A scan of today's 12 templates found 37 value parameters, 18 structural ones, 10 telemetry-file strings and 5 used both ways. Proposed syntax: <code>structural: true</code>, with value as the default.</p></li>
+    <li><b>What the UI keeps</b><p><strong>Decided 2026-10-17:</strong> decide at phase 6, once the HTTP and session contracts exist. Blazor stays behind either way. Facts for then, measured: analysis 1,826 lines (analysis endpoints), time-travel 1,379 (<code>/v1/runs</code>), what-if 709 (Rust session over WebSocket), run 240 and health 124 (Sim API); shared components 6,465 lines in 44 files.</p></li>
+  </ol>
+</section>
+
+<footer>
+  <div><strong>Basis.</strong> Facts about today's repository come from the FlowTime Field Guide's measurements at commit 412467e0: line counts by <code>wc -l</code>, both engines run over all 75 models in the repository, call chains traced in the source. Edge series in Rust are computed after evaluation (<code>compute_edge_series</code> in <code>engine/core/src/compiler.rs</code>). The 13 cross-reference rules are listed in <code>docs/schemas/model.schema.yaml</code>. Everything about the new system is a proposal.</div>
+  <div><strong>Not covered.</strong> Deployment and hosting, authentication, multi-user state, performance targets, the telemetry and fit features, and the detailed syntax of the new languages, which belongs in their specs.</div>
+</footer>
+
+</div>

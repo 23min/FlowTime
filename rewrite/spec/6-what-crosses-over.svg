@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 446" width="1080" height="446">
+  <title>What crosses over from today's repository</title>
+  <style>
+    :root {
+      --surface: #ffffff; --ground: #f3f4f0; --ink: #17202b; --ink-2: #3b4755; --muted: #5a6570;
+      --line: #cfd5cc; --line-2: #8a96a5;
+      --cobalt: #2944a8; --cobalt-soft: #e9edf8; --amber: #a84f07; --amber-soft: #f7ebe0;
+      --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --surface: #161b22; --ground: #0f1318; --ink: #e2e6eb; --ink-2: #b6c1cd; --muted: #98a2ad;
+        --line: #2c333d; --line-2: #627082;
+        --cobalt: #8fa3f5; --cobalt-soft: #1c2440; --amber: #f0a24e; --amber-soft: #2b2015;
+      }
+    }
+    .bg { fill: var(--surface); stroke: var(--line); }
+    .box { fill: var(--surface); stroke: var(--line-2); stroke-width: 1.1; }
+    .box-in { fill: var(--ground); stroke: var(--line-2); stroke-width: 1; }
+    .box-ink { fill: var(--surface); stroke: var(--ink); stroke-width: 1.75; }
+    .box-cob { fill: var(--cobalt-soft); stroke: var(--cobalt); stroke-width: 1.5; }
+    .box-amb { fill: var(--amber-soft); stroke: var(--amber); stroke-width: 1.2; }
+    .pill { fill: var(--surface); stroke: var(--cobalt); stroke-width: 1; }
+    .scope { fill: none; stroke: var(--amber); stroke-width: 1.4; stroke-dasharray: 6 4; }
+    .keep { fill: none; stroke: var(--line-2); stroke-width: 1.1; stroke-dasharray: 5 4; }
+    .e { fill: none; stroke: var(--ink-2); stroke-width: 1.4; }
+    .e-cob { fill: none; stroke: var(--cobalt); stroke-width: 1.9; }
+    .e-amb { fill: none; stroke: var(--amber); stroke-width: 1.6; stroke-dasharray: 6 4; }
+    .e-mut { fill: none; stroke: var(--line-2); stroke-width: 1.3; stroke-dasharray: 3 4; }
+    .mk { fill: var(--ink-2); }
+    .mk-cob { fill: var(--cobalt); }
+    .mk-amb { fill: var(--amber); }
+    .mk-mut { fill: var(--line-2); }
+    .th { font: 600 15px var(--font-body); fill: var(--ink); }
+    .tt { font: 600 13px var(--font-body); fill: var(--ink); }
+    .tb { font: 600 12px var(--font-body); fill: var(--ink); }
+    .tr { font: 400 11.5px var(--font-body); fill: var(--ink); }
+    .ts { font: 400 11px var(--font-body); fill: var(--muted); }
+    .tm { font: 400 11px var(--font-mono); fill: var(--muted); }
+    .tmb { font: 600 13px var(--font-mono); fill: var(--ink); }
+    .tbig { font: 600 15px var(--font-mono); fill: var(--ink); }
+    .tcore { font: 700 18px var(--font-mono); fill: var(--cobalt); }
+    .tz { font: 500 10.5px var(--font-mono); letter-spacing: 0.06em; fill: var(--muted); }
+    .cob { fill: var(--cobalt); }
+    .amb { fill: var(--amber); }
+    /* Edge labels carry a halo in the colour beneath them, so a line under the text does not strike through it. */
+    .te { font: 400 11px var(--font-body); fill: var(--ink-2); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+    .te.cob { fill: var(--cobalt); }
+    .te.amb { fill: var(--amber); }
+  </style>
+  <defs>
+    <marker id="f4-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="f4-cob" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="mk-cob" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="f4-amb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="mk-amb" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="f4-mut" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-mut" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+  <rect class="bg" x="0.5" y="0.5" width="1079" height="445" rx="10"/>
+  <text class="tz" x="20" y="26">FLOWTIME-VNEXT TODAY · PRODUCTION LINES</text>
+  <text class="tz" x="700" y="26">NEW REPOSITORY</text>
+
+  <!-- today: what crosses -->
+  <rect class="box-cob" x="20" y="40" width="360" height="30" rx="4"/>
+  <text class="tb" x="34" y="60">Rust: eval · plan · expr</text>
+  <text class="tm" x="370" y="60" text-anchor="end">885</text>
+  <rect class="box" x="20" y="78" width="360" height="30" rx="4"/>
+  <text class="tb" x="34" y="98">Rust: model · compiler</text>
+  <text class="tm" x="370" y="98" text-anchor="end">2,071</text>
+  <rect class="box" x="20" y="116" width="360" height="30" rx="4"/>
+  <text class="tb" x="34" y="136">12 templates</text>
+  <text class="tm" x="370" y="136" text-anchor="end">12 files</text>
+  <rect class="box-ink" x="20" y="154" width="360" height="30" rx="4"/>
+  <text class="tb" x="34" y="174">C# engine (FlowTime.Core)</text>
+  <text class="tm" x="370" y="174" text-anchor="end">15,014</text>
+  <rect class="box" x="20" y="192" width="360" height="30" rx="4"/>
+  <text class="tb" x="34" y="212">Svelte UI · dag-map</text>
+  <text class="tm" x="370" y="212" text-anchor="end">15,916 + 4,954</text>
+  <rect class="box" x="20" y="230" width="360" height="30" rx="4"/>
+  <text class="tb" x="34" y="250">ADR-0001, concept docs, rules</text>
+  <text class="tm" x="370" y="250" text-anchor="end">a few files</text>
+
+  <!-- today: what stays behind -->
+  <rect class="box-in" x="20" y="286" width="360" height="30" rx="4"/>
+  <text class="tr" x="34" y="306">.NET services, CLIs, TimeMachine</text>
+  <text class="tm" x="370" y="306" text-anchor="end">30,989</text>
+  <rect class="box-in" x="20" y="324" width="360" height="30" rx="4"/>
+  <text class="tr" x="34" y="344">Blazor UI</text>
+  <text class="tm" x="370" y="344" text-anchor="end">32,812</text>
+  <rect class="box-in" x="20" y="362" width="360" height="30" rx="4"/>
+  <text class="tr" x="34" y="382">C# tests</text>
+  <text class="tm" x="370" y="382" text-anchor="end">62,056</text>
+  <rect class="box-in" x="20" y="400" width="360" height="30" rx="4"/>
+  <text class="tr" x="34" y="420">docs/ and work/</text>
+  <text class="tm" x="370" y="420" text-anchor="end">813k words</text>
+
+  <!-- new repository -->
+  <rect class="box-cob" x="700" y="40" width="360" height="30" rx="4"/>
+  <text class="tb cob" x="714" y="60">core: eval · plan · expr</text>
+  <text class="ts" x="1050" y="60" text-anchor="end">seed</text>
+  <rect class="box-cob" x="700" y="78" width="360" height="30" rx="4"/>
+  <text class="tb cob" x="714" y="98">core: model · compiler</text>
+  <text class="ts" x="1050" y="98" text-anchor="end">to the new spec</text>
+  <rect class="box" x="700" y="116" width="360" height="30" rx="4"/>
+  <text class="tb" x="714" y="136">template corpus</text>
+  <text class="ts" x="1050" y="136" text-anchor="end">acceptance tests</text>
+  <rect class="box-amb" x="700" y="154" width="360" height="30" rx="4"/>
+  <text class="tb" x="714" y="174">second opinion</text>
+  <text class="ts" x="1050" y="174" text-anchor="end">run from the archive</text>
+  <rect class="box" x="700" y="192" width="360" height="30" rx="4"/>
+  <text class="tb" x="714" y="212">UI pages</text>
+  <text class="ts" x="1050" y="212" text-anchor="end">after the API settles</text>
+  <rect class="box" x="700" y="230" width="360" height="30" rx="4"/>
+  <text class="tb" x="714" y="250">concept spec · decisions</text>
+  <text class="ts" x="1050" y="250" text-anchor="end">with checks</text>
+
+  <!-- crossing arrows -->
+  <path class="e-cob" d="M380,55 H696" marker-end="url(#f4-cob)"/>
+  <text class="te cob" x="540" y="49" text-anchor="middle">copy, then rework</text>
+  <path class="e" d="M380,93 H696" marker-end="url(#f4-ink)"/>
+  <text class="te" x="540" y="87" text-anchor="middle">rewrite against the model spec</text>
+  <path class="e" d="M380,131 H696" marker-end="url(#f4-ink)"/>
+  <text class="te" x="540" y="125" text-anchor="middle">rewrite in the new template language</text>
+  <path class="e-amb" d="M380,169 H696" marker-end="url(#f4-amb)"/>
+  <text class="te amb" x="540" y="163" text-anchor="middle">consulted while deriving examples, never a gate</text>
+  <path class="e" d="M380,207 H696" marker-end="url(#f4-ink)"/>
+  <text class="te" x="540" y="201" text-anchor="middle">port selected pages</text>
+  <path class="e" d="M380,245 H696" marker-end="url(#f4-ink)"/>
+  <text class="te" x="540" y="239" text-anchor="middle">rewrite as specs with checks</text>
+
+  <!-- what stays behind -->
+  <rect class="keep" x="440" y="284" width="220" height="146" rx="6"/>
+  <text class="tb" x="456" y="310">stays behind</text>
+  <text class="ts" x="456" y="332">old repository tagged and</text>
+  <text class="ts" x="456" y="348">archived read-only</text>
+  <text class="ts" x="456" y="372">the C# engine stays runnable</text>
+  <text class="ts" x="456" y="388">as a second opinion</text>
+  <text class="ts" x="456" y="412">reference for edge cases</text>
+  <path class="e-mut" d="M380,301 H436" marker-end="url(#f4-mut)"/>
+  <path class="e-mut" d="M380,339 H436" marker-end="url(#f4-mut)"/>
+  <path class="e-mut" d="M380,377 H436" marker-end="url(#f4-mut)"/>
+  <path class="e-mut" d="M380,415 H436" marker-end="url(#f4-mut)"/>
+</svg>

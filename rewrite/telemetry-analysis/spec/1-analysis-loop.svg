@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 300" width="1080" height="300">
+  <title>The analysis loop: from telemetry to a trusted what-if</title>
+  <style>
+    :root {
+      --surface: #ffffff; --ground: #f3f4f0; --ink: #17202b; --ink-2: #3b4755; --muted: #5a6570;
+      --line: #cfd5cc; --line-2: #8a96a5;
+      --cobalt: #2944a8; --cobalt-soft: #e9edf8; --amber: #a84f07; --amber-soft: #f7ebe0;
+      --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --surface: #161b22; --ground: #0f1318; --ink: #e2e6eb; --ink-2: #b6c1cd; --muted: #98a2ad;
+        --line: #2c333d; --line-2: #627082;
+        --cobalt: #8fa3f5; --cobalt-soft: #1c2440; --amber: #f0a24e; --amber-soft: #2b2015;
+      }
+    }
+    .bg { fill: var(--surface); stroke: var(--line); }
+    .box { fill: var(--surface); stroke: var(--line-2); stroke-width: 1.1; }
+    .box-key { fill: var(--cobalt-soft); stroke: var(--cobalt); stroke-width: 2.6; }
+    .e { fill: none; stroke: var(--ink-2); stroke-width: 1.4; }
+    .mk { fill: var(--ink-2); }
+    .tt { font: 600 13px var(--font-body); fill: var(--ink); }
+    .tr { font: 400 11.5px var(--font-body); fill: var(--ink); }
+    .ts { font: 400 11px var(--font-body); fill: var(--muted); }
+    .cob { fill: var(--cobalt); }
+    /* Edge labels carry a halo in the colour beneath them, so a line under the text does not strike through it. */
+    .te { font: 400 11px var(--font-body); fill: var(--ink-2); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+  </style>
+  <defs>
+    <marker id="ta1-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+  <rect class="bg" x="0.5" y="0.5" width="1079" height="299" rx="10"/>
+
+  <!-- row 1: telemetry, ingest, calibrated model -->
+  <rect class="box" x="50" y="24" width="260" height="92" rx="6"/>
+  <text class="tt" x="68" y="50">Telemetry</text>
+  <text class="tr" x="68" y="70">simulated first, then real</text>
+  <text class="ts" x="68" y="88">metrics · logs · trace spans</text>
+  <text class="ts" x="68" y="104">latency histograms</text>
+
+  <rect class="box" x="410" y="24" width="260" height="92" rx="6"/>
+  <text class="tt" x="428" y="50">Ingest and account</text>
+  <text class="tr" x="428" y="70">F1 adapters · F7 topology</text>
+  <text class="ts" x="428" y="88">F2 flow balance, before any model</text>
+
+  <rect class="box" x="770" y="24" width="260" height="92" rx="6"/>
+  <text class="tt" x="788" y="50">Calibrated model</text>
+  <text class="tr" x="788" y="70">F1 fit, variability included</text>
+  <text class="ts" x="788" y="88">provenance · identifiability</text>
+
+  <!-- row 2, read right to left: residuals, explain, what-if -->
+  <rect class="box-key" x="770" y="184" width="260" height="92" rx="6"/>
+  <text class="tt cob" x="788" y="210">Residuals</text>
+  <text class="tr" x="788" y="230">F2 model minus telemetry</text>
+  <text class="ts" x="788" y="248">per node and bin, ranked</text>
+
+  <rect class="box" x="410" y="184" width="260" height="92" rx="6"/>
+  <text class="tt" x="428" y="210">Explain</text>
+  <text class="tr" x="428" y="230">F3 feedback · F4 tails</text>
+  <text class="ts" x="428" y="248">F5 bin-size sensitivity</text>
+
+  <rect class="box" x="50" y="184" width="260" height="92" rx="6"/>
+  <text class="tt" x="68" y="210">What-if with bands</text>
+  <text class="tr" x="68" y="230">F6 ensembles and spread</text>
+  <text class="ts" x="68" y="248">sweeps · goal-seek · optimize</text>
+
+  <!-- edges -->
+  <path class="e" d="M310,70 H408" marker-end="url(#ta1-ink)"/>
+  <text class="te" x="359" y="62" text-anchor="middle">read</text>
+  <path class="e" d="M670,70 H768" marker-end="url(#ta1-ink)"/>
+  <text class="te" x="719" y="62" text-anchor="middle">fit</text>
+  <path class="e" d="M900,116 V182" marker-end="url(#ta1-ink)"/>
+  <text class="te" x="910" y="153">compare</text>
+  <path class="e" d="M770,230 H672" marker-end="url(#ta1-ink)"/>
+  <text class="te" x="721" y="222" text-anchor="middle">largest first</text>
+  <path class="e" d="M630,184 V150 H800 V118" marker-end="url(#ta1-ink)"/>
+  <text class="te" x="715" y="143" text-anchor="middle">refine the model</text>
+  <path class="e" d="M410,230 H312" marker-end="url(#ta1-ink)"/>
+  <text class="te" x="361" y="222" text-anchor="middle">refined model</text>
+</svg>

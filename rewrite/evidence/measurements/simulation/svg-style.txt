@@ -1,0 +1,49 @@
+  <style>
+    :root {
+      --surface: #ffffff; --ground: #f3f4f0; --ink: #17202b; --ink-2: #3b4755; --muted: #5a6570;
+      --line: #cfd5cc; --line-2: #8a96a5;
+      --cobalt: #2944a8; --cobalt-soft: #e9edf8; --amber: #a84f07; --amber-soft: #f7ebe0;
+      --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --surface: #161b22; --ground: #0f1318; --ink: #e2e6eb; --ink-2: #b6c1cd; --muted: #98a2ad;
+        --line: #2c333d; --line-2: #627082;
+        --cobalt: #8fa3f5; --cobalt-soft: #1c2440; --amber: #f0a24e; --amber-soft: #2b2015;
+      }
+    }
+    .bg { fill: var(--surface); stroke: var(--line); }
+    .box { fill: var(--surface); stroke: var(--line-2); stroke-width: 1.1; }
+    .box-in { fill: var(--ground); stroke: var(--line-2); stroke-width: 1; }
+    .box-ink { fill: var(--surface); stroke: var(--ink); stroke-width: 1.75; }
+    .box-cob { fill: var(--cobalt-soft); stroke: var(--cobalt); stroke-width: 1.5; }
+    .box-amb { fill: var(--amber-soft); stroke: var(--amber); stroke-width: 1.2; }
+    .pill { fill: var(--surface); stroke: var(--cobalt); stroke-width: 1; }
+    .scope { fill: none; stroke: var(--amber); stroke-width: 1.4; stroke-dasharray: 6 4; }
+    .keep { fill: none; stroke: var(--line-2); stroke-width: 1.1; stroke-dasharray: 5 4; }
+    .e { fill: none; stroke: var(--ink-2); stroke-width: 1.4; }
+    .e-cob { fill: none; stroke: var(--cobalt); stroke-width: 1.9; }
+    .e-amb { fill: none; stroke: var(--amber); stroke-width: 1.6; stroke-dasharray: 6 4; }
+    .e-mut { fill: none; stroke: var(--line-2); stroke-width: 1.3; stroke-dasharray: 3 4; }
+    .mk { fill: var(--ink-2); }
+    .mk-cob { fill: var(--cobalt); }
+    .mk-amb { fill: var(--amber); }
+    .mk-mut { fill: var(--line-2); }
+    .th { font: 600 15px var(--font-body); fill: var(--ink); }
+    .tt { font: 600 13px var(--font-body); fill: var(--ink); }
+    .tb { font: 600 12px var(--font-body); fill: var(--ink); }
+    .tr { font: 400 11.5px var(--font-body); fill: var(--ink); }
+    .ts { font: 400 11px var(--font-body); fill: var(--muted); }
+    .tm { font: 400 11px var(--font-mono); fill: var(--muted); }
+    .tmb { font: 600 13px var(--font-mono); fill: var(--ink); }
+    .tbig { font: 600 15px var(--font-mono); fill: var(--ink); }
+    .tcore { font: 700 18px var(--font-mono); fill: var(--cobalt); }
+    .tz { font: 500 10.5px var(--font-mono); letter-spacing: 0.06em; fill: var(--muted); }
+    .cob { fill: var(--cobalt); }
+    .amb { fill: var(--amber); }
+    /* Edge labels carry a halo in the colour beneath them, so a line under the text does not strike through it. */
+    .te { font: 400 11px var(--font-body); fill: var(--ink-2); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+    .te.cob { fill: var(--cobalt); }
+    .te.amb { fill: var(--amber); }
+  </style>
