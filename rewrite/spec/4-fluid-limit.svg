@@ -1,0 +1,143 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 372" width="1080" height="372">
+  <title>The fluid limit: the simulation closes in on the flow model as volume grows</title>
+  <style>
+    :root {
+      --surface: #ffffff; --ground: #f3f4f0; --ink: #17202b; --ink-2: #3b4755; --muted: #5a6570;
+      --line: #cfd5cc; --line-2: #8a96a5;
+      --cobalt: #2944a8; --cobalt-soft: #e9edf8; --amber: #a84f07; --amber-soft: #f7ebe0;
+      --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --surface: #161b22; --ground: #0f1318; --ink: #e2e6eb; --ink-2: #b6c1cd; --muted: #98a2ad;
+        --line: #2c333d; --line-2: #627082;
+        --cobalt: #8fa3f5; --cobalt-soft: #1c2440; --amber: #f0a24e; --amber-soft: #2b2015;
+      }
+    }
+    .bg { fill: var(--surface); stroke: var(--line); }
+    .box { fill: var(--surface); stroke: var(--line-2); stroke-width: 1.1; }
+    .box-in { fill: var(--ground); stroke: var(--line-2); stroke-width: 1; }
+    .box-ink { fill: var(--surface); stroke: var(--ink); stroke-width: 1.75; }
+    .box-cob { fill: var(--cobalt-soft); stroke: var(--cobalt); stroke-width: 1.5; }
+    .box-amb { fill: var(--amber-soft); stroke: var(--amber); stroke-width: 1.2; }
+    .pill { fill: var(--surface); stroke: var(--cobalt); stroke-width: 1; }
+    .scope { fill: none; stroke: var(--amber); stroke-width: 1.4; stroke-dasharray: 6 4; }
+    .keep { fill: none; stroke: var(--line-2); stroke-width: 1.1; stroke-dasharray: 5 4; }
+    .e { fill: none; stroke: var(--ink-2); stroke-width: 1.4; }
+    .e-cob { fill: none; stroke: var(--cobalt); stroke-width: 1.9; }
+    .e-amb { fill: none; stroke: var(--amber); stroke-width: 1.6; stroke-dasharray: 6 4; }
+    .e-mut { fill: none; stroke: var(--line-2); stroke-width: 1.3; stroke-dasharray: 3 4; }
+    .mk { fill: var(--ink-2); }
+    .mk-cob { fill: var(--cobalt); }
+    .mk-amb { fill: var(--amber); }
+    .mk-mut { fill: var(--line-2); }
+    .th { font: 600 15px var(--font-body); fill: var(--ink); }
+    .tt { font: 600 13px var(--font-body); fill: var(--ink); }
+    .tb { font: 600 12px var(--font-body); fill: var(--ink); }
+    .tr { font: 400 11.5px var(--font-body); fill: var(--ink); }
+    .ts { font: 400 11px var(--font-body); fill: var(--muted); }
+    .tm { font: 400 11px var(--font-mono); fill: var(--muted); }
+    .tmb { font: 600 13px var(--font-mono); fill: var(--ink); }
+    .tbig { font: 600 15px var(--font-mono); fill: var(--ink); }
+    .tcore { font: 700 18px var(--font-mono); fill: var(--cobalt); }
+    .tz { font: 500 10.5px var(--font-mono); letter-spacing: 0.06em; fill: var(--muted); }
+    .cob { fill: var(--cobalt); }
+    .amb { fill: var(--amber); }
+    /* Edge labels carry a halo in the colour beneath them, so a line under the text does not strike through it. */
+    .te { font: 400 11px var(--font-body); fill: var(--ink-2); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+    .te.cob { fill: var(--cobalt); }
+    .te.amb { fill: var(--amber); }
+    .c-grid { stroke: var(--line); stroke-width: 1; }
+    .c-ax { stroke: var(--line-2); stroke-width: 1; }
+    .c-band { fill: var(--amber); fill-opacity: 0.2; stroke: none; }
+    .c-flow { fill: none; stroke: var(--cobalt); stroke-width: 2.2; stroke-linejoin: round; }
+    .c-sim { fill: none; stroke: var(--amber); stroke-width: 1.8; stroke-linejoin: round; }
+    .c-theory { fill: none; stroke: var(--ink-2); stroke-width: 1.4; stroke-dasharray: 5 4; }
+    .c-dot { fill: var(--amber); stroke: var(--surface); stroke-width: 1.5; }
+    .c-t { font: 400 11px var(--font-body); fill: var(--ink-2); }
+    .c-tm { font: 400 10.5px var(--font-mono); fill: var(--muted); }
+    .c-tt { font: 600 12.5px var(--font-body); fill: var(--ink); }
+    .c-tv { font: 600 11px var(--font-body); fill: var(--amber); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+    .c-tf { font: 600 11px var(--font-body); fill: var(--cobalt); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+  </style>
+  <rect class="bg" x="0.5" y="0.5" width="1079" height="371" rx="10"/>
+  <path class="c-flow" d="M70,22 H98"/>
+  <text class="c-t" x="106" y="26">FlowTime, the flow model</text>
+  <path class="c-sim" d="M300,22 H328"/>
+  <text class="c-t" x="336" y="26">simulation, mean of all runs</text>
+  <rect class="c-band" x="560" y="15" width="28" height="14" rx="2"/>
+  <text class="c-t" x="596" y="26">simulation, middle 90% of runs</text>
+  <text class="c-tt" x="70" y="64">1× volume · 4,000 runs</text>
+  <line class="c-ax" x1="70" y1="300" x2="340" y2="300"/>
+  <text class="c-tm" x="64" y="303.5" text-anchor="end">0</text>
+  <line class="c-grid" x1="70" y1="216.2" x2="340" y2="216.2"/>
+  <text class="c-tm" x="64" y="219.7" text-anchor="end">50%</text>
+  <line class="c-grid" x1="70" y1="132.3" x2="340" y2="132.3"/>
+  <text class="c-tm" x="64" y="135.8" text-anchor="end">100%</text>
+  <line class="c-ax" x1="70" y1="300" x2="70" y2="304"/>
+  <text class="c-tm" x="70" y="316" text-anchor="middle">0</text>
+  <line class="c-ax" x1="137.5" y1="300" x2="137.5" y2="304"/>
+  <text class="c-tm" x="137.5" y="316" text-anchor="middle">30</text>
+  <line class="c-ax" x1="205" y1="300" x2="205" y2="304"/>
+  <text class="c-tm" x="205" y="316" text-anchor="middle">60</text>
+  <line class="c-ax" x1="272.5" y1="300" x2="272.5" y2="304"/>
+  <text class="c-tm" x="272.5" y="316" text-anchor="middle">90</text>
+  <line class="c-ax" x1="340" y1="300" x2="340" y2="304"/>
+  <text class="c-tm" x="340" y="316" text-anchor="middle">120 min</text>
+  <polygon class="c-band" points="70,300 74.5,297.8 79,297.8 83.5,297.8 88,297.8 92.5,297.8 97,297.8 101.5,297.8 106,297.8 110.5,297.8 115,297.8 119.5,297.8 124,297.8 128.5,297.8 133,297.8 137.5,297.8 142,278.8 146.5,264.2 151,249.7 155.5,235.2 160,222.3 164.5,209.4 169,197.1 173.5,184.3 178,172 182.5,158.6 187,145.7 191.5,133.4 196,121.1 200.5,108.8 205,96 209.5,106 214,116.7 218.5,127.3 223,137.9 227.5,148.5 232,158.6 236.5,169.8 241,180.4 245.5,191 250,201.6 254.5,211.7 259,222.9 263.5,232.9 268,243.5 272.5,254.7 277,265.9 281.5,275.4 286,286 290.5,295 295,297.2 299.5,297.8 304,297.8 308.5,297.8 313,297.8 317.5,297.8 322,297.8 326.5,297.8 331,297.8 335.5,297.8 340,297.8 340,300 335.5,300 331,300 326.5,300 322,300 317.5,300 313,300 308.5,300 304,300 299.5,300 295,300 290.5,300 286,300 281.5,300 277,300 272.5,300 268,300 263.5,300 259,300 254.5,297.2 250,284.3 245.5,273.2 241,261.4 236.5,249.1 232,238 227.5,225.7 223,213.9 218.5,201.6 214,189.3 209.5,178.1 205,167 200.5,176.5 196,187.1 191.5,196.6 187,206.1 182.5,216.2 178,225.7 173.5,235.2 169,244.7 164.5,254.2 160,263.1 155.5,272.1 151,281 146.5,288.8 142,295.5 137.5,300 133,300 128.5,300 124,300 119.5,300 115,300 110.5,300 106,300 101.5,300 97,300 92.5,300 88,300 83.5,300 79,300 74.5,300 70,300"/>
+  <polyline class="c-flow" points="70,300 137.5,300 205,132.3 272.5,300 340,300"/>
+  <polyline class="c-sim" points="70,300 74.5,299.4 79,299.4 83.5,299.4 88,299.4 92.5,299.5 97,299.4 101.5,299.5 106,299.5 110.5,299.5 115,299.5 119.5,299.4 124,299.4 128.5,299.4 133,299.4 137.5,299.4 142,287.6 146.5,276.4 151,265.2 155.5,254.2 160,243 164.5,231.9 169,220.8 173.5,209.6 178,198.3 182.5,187.2 187,175.9 191.5,164.8 196,153.5 200.5,142.2 205,131 209.5,142.2 214,153.3 218.5,164.4 223,175.7 227.5,186.9 232,198.1 236.5,209.3 241,220.4 245.5,231.6 250,242.9 254.5,253.8 259,264.1 263.5,273.7 268,281.8 272.5,288.2 277,292.9 281.5,296 286,297.8 290.5,298.6 295,299.1 299.5,299.3 304,299.4 308.5,299.4 313,299.4 317.5,299.4 322,299.5 326.5,299.4 331,299.4 335.5,299.4 340,299.4"/>
+  <circle class="c-dot" cx="272.5" cy="288.2" r="3.6"/>
+  <text class="c-tv" x="280.5" y="281.2">7.0%</text>
+  <text class="c-t" x="70" y="340">middle 90% at the peak: 79–122%</text>
+  <text class="c-t" x="70" y="356">still waiting at 90 min: 7.0% of the peak</text>
+  <text class="c-tt" x="420" y="64">10× volume · 2,000 runs</text>
+  <line class="c-ax" x1="420" y1="300" x2="690" y2="300"/>
+  <text class="c-tm" x="414" y="303.5" text-anchor="end">0</text>
+  <line class="c-grid" x1="420" y1="216.2" x2="690" y2="216.2"/>
+  <text class="c-tm" x="414" y="219.7" text-anchor="end">50%</text>
+  <line class="c-grid" x1="420" y1="132.3" x2="690" y2="132.3"/>
+  <text class="c-tm" x="414" y="135.8" text-anchor="end">100%</text>
+  <line class="c-ax" x1="420" y1="300" x2="420" y2="304"/>
+  <text class="c-tm" x="420" y="316" text-anchor="middle">0</text>
+  <line class="c-ax" x1="487.5" y1="300" x2="487.5" y2="304"/>
+  <text class="c-tm" x="487.5" y="316" text-anchor="middle">30</text>
+  <line class="c-ax" x1="555" y1="300" x2="555" y2="304"/>
+  <text class="c-tm" x="555" y="316" text-anchor="middle">60</text>
+  <line class="c-ax" x1="622.5" y1="300" x2="622.5" y2="304"/>
+  <text class="c-tm" x="622.5" y="316" text-anchor="middle">90</text>
+  <line class="c-ax" x1="690" y1="300" x2="690" y2="304"/>
+  <text class="c-tm" x="690" y="316" text-anchor="middle">120 min</text>
+  <polygon class="c-band" points="420,300 424.5,299.8 429,299.8 433.5,299.8 438,299.8 442.5,299.8 447,299.8 451.5,299.8 456,299.8 460.5,299.8 465,299.8 469.5,299.8 474,299.8 478.5,299.8 483,299.8 487.5,299.8 492,285.7 496.5,273.4 501,261.5 505.5,249.5 510,237.7 514.5,225.9 519,214.3 523.5,202.8 528,191.2 532.5,179.3 537,167.6 541.5,156.2 546,144.4 550.5,133.1 555,121.4 559.5,132.1 564,143.4 568.5,154.5 573,165.7 577.5,176.6 582,187.8 586.5,198.7 591,209.7 595.5,220.5 600,231.6 604.5,242.8 609,253.4 613.5,264.2 618,275.6 622.5,286.1 627,297.4 631.5,299.8 636,299.8 640.5,299.8 645,299.8 649.5,299.8 654,299.8 658.5,299.8 663,299.8 667.5,299.8 672,299.8 676.5,299.8 681,299.8 685.5,299.8 690,299.8 690,300 685.5,300 681,300 676.5,300 672,300 667.5,300 663,300 658.5,300 654,300 649.5,300 645,300 640.5,300 636,300 631.5,300 627,300 622.5,300 618,299.9 613.5,290.6 609,279.3 604.5,267.8 600,256.5 595.5,245.1 591,234 586.5,222.9 582,211 577.5,199.7 573,188.8 568.5,177.5 564,166 559.5,154.6 555,143.1 550.5,153.9 546,164.7 541.5,175.5 537,186.2 532.5,197.3 528,207.9 523.5,218.6 519,229.1 514.5,239.7 510,250.2 505.5,260.6 501,271.3 496.5,281.6 492,291.4 487.5,300 483,300 478.5,300 474,300 469.5,300 465,300 460.5,300 456,300 451.5,300 447,300 442.5,300 438,300 433.5,300 429,300 424.5,300 420,300"/>
+  <polyline class="c-flow" points="420,300 487.5,300 555,132.3 622.5,300 690,300"/>
+  <polyline class="c-sim" points="420,300 424.5,299.9 429,299.9 433.5,299.9 438,299.9 442.5,299.9 447,299.9 451.5,299.9 456,299.9 460.5,299.9 465,299.9 469.5,299.9 474,299.9 478.5,299.9 483,299.9 487.5,299.9 492,288.7 496.5,277.5 501,266.4 505.5,255.2 510,244 514.5,232.8 519,221.6 523.5,210.4 528,199.3 532.5,188.1 537,176.9 541.5,165.7 546,154.5 550.5,143.3 555,132.2 559.5,143.3 564,154.5 568.5,165.7 573,176.8 577.5,188.1 582,199.2 586.5,210.4 591,221.6 595.5,232.7 600,243.9 604.5,255.1 609,266.3 613.5,277.4 618,288.3 622.5,296.6 627,299.6 631.5,299.9 636,299.9 640.5,299.9 645,299.9 649.5,299.9 654,299.9 658.5,299.9 663,299.9 667.5,299.9 672,299.9 676.5,299.9 681,299.9 685.5,299.9 690,299.9"/>
+  <circle class="c-dot" cx="622.5" cy="296.6" r="3.6"/>
+  <text class="c-tv" x="630.5" y="289.6">2.1%</text>
+  <text class="c-t" x="420" y="340">middle 90% at the peak: 94–107%</text>
+  <text class="c-t" x="420" y="356">still waiting at 90 min: 2.1% of the peak</text>
+  <text class="c-tt" x="770" y="64">100× volume · 1,000 runs</text>
+  <line class="c-ax" x1="770" y1="300" x2="1040" y2="300"/>
+  <text class="c-tm" x="764" y="303.5" text-anchor="end">0</text>
+  <line class="c-grid" x1="770" y1="216.2" x2="1040" y2="216.2"/>
+  <text class="c-tm" x="764" y="219.7" text-anchor="end">50%</text>
+  <line class="c-grid" x1="770" y1="132.3" x2="1040" y2="132.3"/>
+  <text class="c-tm" x="764" y="135.8" text-anchor="end">100%</text>
+  <line class="c-ax" x1="770" y1="300" x2="770" y2="304"/>
+  <text class="c-tm" x="770" y="316" text-anchor="middle">0</text>
+  <line class="c-ax" x1="837.5" y1="300" x2="837.5" y2="304"/>
+  <text class="c-tm" x="837.5" y="316" text-anchor="middle">30</text>
+  <line class="c-ax" x1="905" y1="300" x2="905" y2="304"/>
+  <text class="c-tm" x="905" y="316" text-anchor="middle">60</text>
+  <line class="c-ax" x1="972.5" y1="300" x2="972.5" y2="304"/>
+  <text class="c-tm" x="972.5" y="316" text-anchor="middle">90</text>
+  <line class="c-ax" x1="1040" y1="300" x2="1040" y2="304"/>
+  <text class="c-tm" x="1040" y="316" text-anchor="middle">120 min</text>
+  <polygon class="c-band" points="770,300 774.5,300 779,300 783.5,300 788,300 792.5,300 797,300 801.5,300 806,300 810.5,300 815,300 819.5,300 824,300 828.5,300 833,300 837.5,300 842,287.9 846.5,276.4 851,264.8 855.5,253.6 860,242.1 864.5,230.7 869,219.4 873.5,208 878,196.6 882.5,185.3 887,173.9 891.5,162.7 896,151.5 900.5,140.3 905,128.9 909.5,140 914,151.1 918.5,162.2 923,173.3 927.5,184.4 932,195.6 936.5,206.6 941,217.8 945.5,228.9 950,240.1 954.5,251.2 959,262.4 963.5,273.4 968,284.5 972.5,295.5 977,300 981.5,300 986,300 990.5,300 995,300 999.5,300 1004,300 1008.5,300 1013,300 1017.5,300 1022,300 1026.5,300 1031,300 1035.5,300 1040,300 1040,300 1035.5,300 1031,300 1026.5,300 1022,300 1017.5,300 1013,300 1008.5,300 1004,300 999.5,300 995,300 990.5,300 986,300 981.5,300 977,300 972.5,300 968,293.3 963.5,282.1 959,270.9 954.5,259.7 950,248.5 945.5,237.2 941,225.9 936.5,214.7 932,203.5 927.5,192.1 923,181 918.5,169.7 914,158.4 909.5,147.2 905,135.8 900.5,147 896,158.2 891.5,169.1 887,180.2 882.5,191.3 878,202.4 873.5,213.4 869,224.3 864.5,235.3 860,246.3 855.5,257.1 851,268.1 846.5,278.9 842,289.7 837.5,300 833,300 828.5,300 824,300 819.5,300 815,300 810.5,300 806,300 801.5,300 797,300 792.5,300 788,300 783.5,300 779,300 774.5,300 770,300"/>
+  <polyline class="c-flow" points="770,300 837.5,300 905,132.3 972.5,300 1040,300"/>
+  <polyline class="c-sim" points="770,300 774.5,300 779,300 783.5,300 788,300 792.5,300 797,300 801.5,300 806,300 810.5,300 815,300 819.5,300 824,300 828.5,300 833,300 837.5,300 842,288.8 846.5,277.6 851,266.5 855.5,255.3 860,244.1 864.5,232.9 869,221.7 873.5,210.6 878,199.4 882.5,188.2 887,177 891.5,165.9 896,154.7 900.5,143.5 905,132.3 909.5,143.5 914,154.7 918.5,165.9 923,177.1 927.5,188.3 932,199.5 936.5,210.6 941,221.8 945.5,233 950,244.2 954.5,255.4 959,266.5 963.5,277.7 968,288.9 972.5,298.9 977,300 981.5,300 986,300 990.5,300 995,300 999.5,300 1004,300 1008.5,300 1013,300 1017.5,300 1022,300 1026.5,300 1031,300 1035.5,300 1040,300"/>
+  <circle class="c-dot" cx="972.5" cy="298.9" r="3.6"/>
+  <text class="c-tv" x="980.5" y="291.9">0.63%</text>
+  <text class="c-t" x="770" y="340">middle 90% at the peak: 98–102%</text>
+  <text class="c-t" x="770" y="356">still waiting at 90 min: 0.63% of the peak</text>
+</svg>

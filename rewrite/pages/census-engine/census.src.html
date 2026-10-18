@@ -1,0 +1,266 @@
+<title>FlowTime Census Engine</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+{{CSS}}
+</style>
+<style>
+/* Additions for this page; tokens and base styles are shared with Building Blocks. */
+.cols3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 32px; border-top: 1.5px solid var(--ink); max-width: 1120px; }
+.cols3 > div { display: grid; gap: 8px; align-content: start; padding: 14px 0 16px; min-width: 0; }
+.cols3 h3 { font-size: 17px; }
+.cols3 p { margin: 0; font-size: 14.5px; color: var(--muted); }
+.cols3 ul { margin: 0; padding-left: 1.1em; display: grid; gap: 6px; font-size: 15px; }
+@media (max-width: 760px) { .cols3 { grid-template-columns: 1fr; } .cols3 > div { border-bottom: 1px solid var(--rule); } }
+.tag.amb { border-color: var(--amber); color: var(--amber); }
+.band { fill: var(--cobalt-soft); stroke: var(--cobalt); stroke-width: 1; stroke-dasharray: 5 4; }
+.box-red { fill: var(--red-soft); stroke: var(--red); stroke-width: 1.4; }
+.gl { fill: var(--muted); opacity: 0.75; }
+.surge { fill: var(--grid); }
+svg.fig .k-a, svg.fig .k-b, svg.fig .k-c, svg.fig .k-d, svg.fig .k-e { fill: none; stroke-width: 2; stroke-linejoin: round; }
+svg.fig .k-a { stroke: var(--ink); }
+svg.fig .k-b { stroke: var(--cobalt); stroke-width: 2.4; }
+svg.fig .k-c { stroke: var(--green); stroke-dasharray: 7 4; }
+svg.fig .k-d { stroke: var(--red); }
+svg.fig .k-e { stroke: var(--cobalt); stroke-width: 5; stroke-opacity: 0.5; }
+svg.fig .k-thin { stroke-width: 1.3; }
+.bar-req { fill: var(--cobalt); }
+.bar-res { fill: var(--amber); }
+.bar-inf { fill: var(--panel); stroke: var(--ink); stroke-width: 1.4; }
+.bar-in { fill: var(--grid); stroke: var(--muted); stroke-width: 1; }
+</style>
+
+<div class="page">
+
+<header>
+  <div class="eyebrow">FlowTime · exploration · 2026-10-18 · companion to Building Blocks</div>
+  <h1>Every request is somewhere</h1>
+  <p class="lede">A design for FlowTime's engine. It keeps a census of where every request is and how long it has been there, steps that census forward from the present state, and derives everything it shows from it. Every real loop has a delay, so feedback needs no special machinery. The one hard case is a loop that reacts faster than the step.</p>
+  <div class="ruler" aria-hidden="true"></div>
+  <nav class="toc" aria-label="Sections">
+    <a href="#four">Four models</a>
+    <a href="#census">The census</a>
+    <a href="#edges">What depends on what</a>
+    <a href="#loops">Loops</a>
+    <a href="#forward">Forward only</a>
+    <a href="#design">The design</a>
+    <a href="#open">Not settled</a>
+  </nav>
+</header>
+
+<div class="verdict">
+  <div class="answer">
+    <p class="big">The next state comes from <em>the current state</em>, and nothing else.</p>
+    <p>Time only goes forward. A retry follows its timeout, an autoscaler follows its metric window, and a held worker is freed when the reply arrives. The engine's job is to carry enough state that every loop closes through it, and to take steps short enough for the loops that react fastest.</p>
+  </div>
+  <ul>
+    <li><b>Carried</b> from one step to the next: the census, changes already under way, and what each controller remembers.</li>
+    <li><b>Computed</b> in a step: the transitions. They are what a wire carries.</li>
+    <li><b>Derived</b> and never stored: latency, utilization, throughput, queue length.</li>
+    <li><b>Needs care:</b> a loop that reacts faster than the step.</li>
+  </ul>
+</div>
+
+<section id="four">
+  <div class="sec-head">
+    <div class="kicker">Figure 1 · why mechanisms matter</div>
+    <h2>Same demand, four stories</h2>
+  </div>
+  <div class="prose">
+    <p>The toy from the Building Blocks page, run four times on the same hour of checkout traffic with the same servers and service times. Only the mechanisms change: whether the api holds a worker while it waits on a call, how long a pricing call may wait, and whether pricing learns that a caller gave up.</p>
+  </div>
+  <figure>
+    <div class="fig-frame">
+{{FIG1}}
+    </div>
+    <figcaption><b>Where the queue forms, what fails, and whether the system recovers all depend on mechanisms.</b> Latency is how long a checkout arriving at that moment takes, whether it succeeds or not. In the fourth run every pricing call gives up at 2 seconds, so its latency matches the third run while every checkout fails.</figcaption>
+  </figure>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Mechanisms</th><th>Queue forms at</th><th class="n">Peak latency</th><th class="n">Failed checkouts at peak</th><th>Back to normal</th></tr></thead>
+      <tbody>
+        <tr><td>As on the Building Blocks page: 30 s timeout, 10 s steps</td><td>pricing, {{A_PQ}} waiting</td><td class="n">{{A_LAT}}</td><td class="n">{{A_FAIL}}</td><td>failures stop {{A_FAILEND}}, queue gone {{A_QEND}}</td></tr>
+        <tr><td>Plus: the api holds a worker for each call</td><td>api, {{B_AQ}} waiting</td><td class="n">{{B_LAT}}</td><td class="n">none</td><td>queue gone {{B_QEND}}</td></tr>
+        <tr><td>2 s timeout instead, with 1 s steps</td><td>pricing, {{C_PQ}} waiting</td><td class="n">{{C_LAT}}</td><td class="n">{{C_FAIL}}</td><td>{{C_QEND}}</td></tr>
+        <tr><td>2 s timeout, and pricing serves calls whose caller gave up</td><td>pricing, {{D_PQ}} and growing</td><td class="n">{{D_LAT}}</td><td class="n">{{D_FAIL}}, every checkout</td><td>still failing at 11:00</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="aside">Each row varies one thing from the row above it, except the third, which also shortens the step so a 2-second timeout can be expressed. With a worker held, nothing times out, so the timeout rows leave holding off. All four runs use the Building Blocks page's code; numbers are from the toy, not from FlowTime.</p>
+</section>
+
+<section id="census">
+  <div class="sec-head">
+    <div class="kicker">Figure 2 · the state</div>
+    <h2>The state is a census of requests</h2>
+  </div>
+  <div class="prose">
+    <p>Every request is somewhere at every moment: queued, being served, waiting on a call it made, backing off before a retry, done, or failed. The engine's state counts how many requests of each type are in each of those stages, and how long they have been there.</p>
+    <p>Components are views over that census. The api's workers in use are the requests in the stages that hold an api worker. Pricing's queue is every request, of any type, in the stage "queued at pricing".</p>
+  </div>
+  <figure>
+    <div class="fig-frame">
+{{FIG2}}
+    </div>
+    <figcaption><b>One checkout's journey as stages.</b> Each stage holds a count of requests by age; together those counts are the engine's whole state for this request type. Arrows are transitions, counted each step, and they are what flows along a wire. Retries are unrolled by attempt, so the stages form no cycle. Email has stages of its own, not drawn.</figcaption>
+  </figure>
+  <div class="cols3">
+    <div>
+      <h3>Carried to the next step</h3>
+      <ul>
+        <li>The census: counts by request type, stage and age.</li>
+        <li>Attempt number, deadline left or priority, only where a mechanism reads them. Each one multiplies the cost.</li>
+        <li>Changes under way, such as two pods that are ready at 10:17:30.</li>
+        <li>Controller memory: breaker mode and error window, token bucket level, autoscaler window, the averages they read.</li>
+        <li>Cache warmth, and each stage's spread for the variability levels.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Computed in a step</h3>
+      <ul>
+        <li>Started, completed, called, replied, timed out, retried, rejected, abandoned.</li>
+        <li>Each as a count for the step, with the ages of what moved.</li>
+        <li>A wire in the picture is the set of transitions between stages that belong to two components.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Derived, never stored</h3>
+      <ul>
+        <li>Latency: age when a request reaches done.</li>
+        <li>Wait: age when service starts.</li>
+        <li>Utilization: workers held by working or waiting stages, divided by workers.</li>
+        <li>Throughput, error rate, queue length.</li>
+        <li>A checkpoint holds the state only. Everything shown is recomputed from it.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="prose">
+    <p><b>A test for a complete state.</b> If a mechanism needs anything older than the state, the state is missing a delay line. The age of each count is such a delay line. Demographers have modeled populations this way for a long time: arrivals are births, and completions and timeouts are deaths whose rate depends on age. The toy's age-bucket shift is essentially their Leslie matrix.</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Telemetry</th><th>In the census</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td>Counter</td><td>a transition, summed</td><td>checkouts completed; pricing calls timed out</td></tr>
+        <tr><td>Gauge</td><td>a census cell, or a setting</td><td>requests queued at pricing; api workers in use; replicas</td></tr>
+        <tr><td>Histogram</td><td>the ages at a transition</td><td>checkout latency is the age at done</td></tr>
+        <tr><td>Span</td><td>one request's path through the stages</td><td>a checkout trace: api, then cart and three pricing calls in parallel</td></tr>
+        <tr><td>Log event</td><td>a controller changing state</td><td>the breaker on api to pricing opened at 10:16:40</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="aside">Traces also supply the stages themselves: who calls whom, in what order, and what runs in parallel. Because the census is made of what telemetry measures, a fitted model and its residuals compare like with like.</p>
+</section>
+
+<section id="edges">
+  <div class="sec-head">
+    <div class="kicker">Figure 3 · dependencies</div>
+    <h2>Three kinds of edge</h2>
+  </div>
+  <figure>
+    <div class="fig-frame">
+{{FIG3}}
+    </div>
+    <figcaption><b>Everything that couples one part of the system to another is one of three kinds.</b> Requests move and are conserved. Resources are held by stages, so their coupling always goes through the state. Information reaches a decision only after a delay that the real system has too.</figcaption>
+  </figure>
+  <div class="prose">
+    <p>Information delays belong to the mechanism, not to the step. A load balancer that sends traffic to the shortest queue using queue lengths a few seconds old herds traffic back and forth. That is real behavior, and the model shows it only if its delay is the real one.</p>
+  </div>
+</section>
+
+<section id="loops">
+  <div class="sec-head">
+    <div class="kicker">Figure 4 · feedback</div>
+    <h2>Loops, sorted by what they need</h2>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Kind of loop</th><th>Examples</th><th>What it needs</th></tr></thead>
+      <tbody>
+        <tr><td>Bounded, through requests</td><td>retries with a maximum, redirects, hop limits</td><td>Unroll by attempt. The stages form no cycle; a retry storm still shows, because every attempt queues at the same pricing.</td></tr>
+        <tr><td>Through information</td><td>breaker, autoscaler, load balancing on queue length, rate limits that adapt</td><td>A delay line with the real delay. Forward only, and exact when the step is no longer than the delay.</td></tr>
+        <tr><td>Through resources</td><td>held workers and connections, backpressure, full queues</td><td>The only kind that needs care. A short step where it reacts fast, a solve inside the step, or a settled formula.</td></tr>
+        <tr><td>Unbounded, through requests</td><td>a job that resubmits itself forever</td><td>Rare. Carry it as state, with its delay.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <figure>
+    <div class="fig-frame">
+{{FIG4}}
+    </div>
+    <figcaption><b>Loops inside loops are a ladder of speeds.</b> Each loop sees the slower loops around it as fixed during its step, and the faster loops inside it as averages. A loop to the left of a step's line reacts within one step. Ranges are typical values, not measurements.</figcaption>
+  </figure>
+  <div class="prose">
+    <p>Metastable failures live in this nesting. An inner loop has two stable states, healthy and storm. A trigger pushes it across, and nothing outside pushes it back unless an outer loop, such as a breaker opening or load shedding, is built to. In the fourth run of Figure 1, demand falls back to 40 per second at 10:32, and pricing still spends all of its capacity on calls whose callers have left.</p>
+  </div>
+</section>
+
+<section id="forward">
+  <div class="sec-head">
+    <div class="kicker">Figure 5 · measured</div>
+    <h2>Stepping forward without a solve</h2>
+  </div>
+  <div class="prose">
+    <p>The held-worker loop, run forward only: each step's holding time comes from the previous step's state, with no solve. It works, but only once the step is short enough for the loop.</p>
+  </div>
+  <figure>
+    <div class="fig-frame">
+{{FIG5}}
+    </div>
+    <figcaption><b>The delay is not the problem; the steepness is.</b> Near capacity, pricing's wait climbs steeply with load. A step of lag lets the api send too much, the wait jumps, the api then sends too little, and the holding time swings every step. At 0.1-second steps it settles on the value the solve finds.</figcaption>
+  </figure>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Scheme</th><th class="n">Step</th><th>api holding time, 10:20 to 10:30</th><th class="n">Peak latency</th><th class="n">Peak api backlog</th><th class="n">Run time</th></tr></thead>
+      <tbody>
+        <tr><td>Solve inside the step</td><td class="n">10 s</td><td>0.311 s, steady</td><td class="n">353 s</td><td class="n">18,097</td><td class="n">175 ms</td></tr>
+        <tr><td>Solve inside the step</td><td class="n">1 s</td><td>0.278 to 0.326 s</td><td class="n">335 s</td><td class="n">16,109</td><td class="n">1.7 s</td></tr>
+        <tr><td>Forward only</td><td class="n">10 s</td><td>swings 0.17 to 3.99 s</td><td class="n">11,608 s</td><td class="n">46,673</td><td class="n">9 ms</td></tr>
+        <tr><td>Forward only</td><td class="n">1 s</td><td>swings 0.17 to 24.9 s</td><td class="n">20,820 s</td><td class="n">19,558</td><td class="n">70 ms</td></tr>
+        <tr><td>Forward only</td><td class="n">0.5 s</td><td>swings 0.17 to 2.59 s</td><td class="n">2,817 s</td><td class="n">17,454</td><td class="n">130 ms</td></tr>
+        <tr><td>Forward only</td><td class="n">0.25 s</td><td>swings 0.19 to 30.3 s</td><td class="n">33,784 s</td><td class="n">17,853</td><td class="n">277 ms</td></tr>
+        <tr class="rec"><td>Forward only</td><td class="n">0.1 s</td><td>0.300 s, steady</td><td class="n">362 s</td><td class="n">16,109</td><td class="n">1.6 s</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="aside">One run of each in node on one machine; the solve runs 60 rounds of bisection and is not tuned. The 0.1-second forward run and the 1-second solve agree on the backlog, 16,109; the 10-second solve overstates it, because a coarse step also blurs how fast the backlog builds. A 30-second timeout applies in every run.</p>
+</section>
+
+<section id="design">
+  <div class="sec-head">
+    <div class="kicker">The design that follows</div>
+    <h2>What the engine would do</h2>
+  </div>
+  <ol class="steps">
+    <li><b>Declare the state per mechanism.</b><p>The census, changes under way, controller memory and spread. Each mechanism in the library says what it carries.</p></li>
+    <li><b>Classify every edge.</b><p>Requests, resources or information. Information edges declare their real delay, and the oracle checks that requests are conserved in every step.</p></li>
+    <li><b>Unroll bounded loops by attempt.</b><p>Retries, redirects and hop limits become stages, so the stages never form a cycle.</p></li>
+    <li><b>Choose the step per group of loops.</b><p>From how fast each group reacts, and over time: fine as a surge starts, coarse in quiet hours. Where a stiff loop cannot afford a short step, solve inside the step or use a settled formula, and say so in the output.</p></li>
+    <li><b>Track ages finer than the step.<span class="tag amb">untested</span></b><p>Shift several age cells per step, so a 2-second timeout is exact with 10-second steps, and unrolled retries land inside the same step. To check: rerun the timeout script with 10-second steps and 1-second age cells; it should match the 1-second run, with a pricing backlog of 620.</p></li>
+  </ol>
+  <div class="prose">
+    <p>The solve inside a step becomes the exception, used only where a loop is both fast and steep. This replaces the two-speed clock on the Building Blocks page: the reporting bin stays what users and telemetry see, while the engine's step is chosen per loop.</p>
+  </div>
+</section>
+
+<section id="open">
+  <div class="sec-head">
+    <div class="kicker">Not settled</div>
+    <h2>What this page does not show</h2>
+  </div>
+  <ol class="steps">
+    <li><b>How accurate each approximation is.</b><p>The simulation suite (decision 11) runs the same declared system request by request and states the error of each approximation.</p></li>
+    <li><b>The cost at scale.</b><p>Not measured. A day at 1-second steps for 50 components is the case to time, in Rust, once the census exists.</p></li>
+    <li><b>How the engine picks a step on its own.</b><p>Each mechanism would report how fast it reacts in its current state; the rule that turns that into a step is still to be written.</p></li>
+    <li><b>Whether a model like this matches a real system.</b><p>That is a question of evidence, not of the engine; the <a href="{{DERIVED_URL}}">Derived Models</a> page takes it up.</p></li>
+  </ol>
+</section>
+
+<footer>
+  <p>Exploration only; nothing on this page is built. Prepared 2026-10-18 alongside the seeded-rewrite spec and the <a href="{{BB_URL}}">Building Blocks</a> and <a href="{{BP_URL}}">Restart Blueprint</a> pages.</p>
+  <p>Figures 1 and 5 and both tables come from scratch scripts that run the Building Blocks toy in node; they illustrate mechanisms and are not FlowTime output. Loop speeds in Figure 4 are typical values. The Leslie-matrix comparison is from memory.</p>
+</footer>
+
+</div>

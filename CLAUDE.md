@@ -42,6 +42,7 @@ Role agents are materialized by the `aiwf` binary into `.claude/agents/`.
 - `ui/` — SvelteKit + shadcn-svelte frontend.
 - `tests/` mirrors project names (e.g., `tests/FlowTime.Core.Tests`, `tests/FlowTime.Sim.Tests`, `tests/FlowTime.Api.Tests`); UI Playwright at `tests/ui/`.
 - `docs/` — Engine/shared documentation. `docs-sim/` is archived — ignore unless explicitly requested.
+- `rewrite/` — specification for FlowTime's next version (a seeded restart in a new repository), with its evidence scripts and page sources; see `rewrite/README.md`. Exploration only, never authority for this repository's code.
 
 **Planning tree** (canonical layout defined by `aiwf.yaml`; per-kind frontmatter via `aiwf schema`)
 

@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 312" width="1080" height="312">
+  <title>At steady load the random queue follows rho/(1-rho), while the flow model reads zero</title>
+  <style>
+    :root {
+      --surface: #ffffff; --ground: #f3f4f0; --ink: #17202b; --ink-2: #3b4755; --muted: #5a6570;
+      --line: #cfd5cc; --line-2: #8a96a5;
+      --cobalt: #2944a8; --cobalt-soft: #e9edf8; --amber: #a84f07; --amber-soft: #f7ebe0;
+      --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --surface: #161b22; --ground: #0f1318; --ink: #e2e6eb; --ink-2: #b6c1cd; --muted: #98a2ad;
+        --line: #2c333d; --line-2: #627082;
+        --cobalt: #8fa3f5; --cobalt-soft: #1c2440; --amber: #f0a24e; --amber-soft: #2b2015;
+      }
+    }
+    .bg { fill: var(--surface); stroke: var(--line); }
+    .box { fill: var(--surface); stroke: var(--line-2); stroke-width: 1.1; }
+    .box-in { fill: var(--ground); stroke: var(--line-2); stroke-width: 1; }
+    .box-ink { fill: var(--surface); stroke: var(--ink); stroke-width: 1.75; }
+    .box-cob { fill: var(--cobalt-soft); stroke: var(--cobalt); stroke-width: 1.5; }
+    .box-amb { fill: var(--amber-soft); stroke: var(--amber); stroke-width: 1.2; }
+    .pill { fill: var(--surface); stroke: var(--cobalt); stroke-width: 1; }
+    .scope { fill: none; stroke: var(--amber); stroke-width: 1.4; stroke-dasharray: 6 4; }
+    .keep { fill: none; stroke: var(--line-2); stroke-width: 1.1; stroke-dasharray: 5 4; }
+    .e { fill: none; stroke: var(--ink-2); stroke-width: 1.4; }
+    .e-cob { fill: none; stroke: var(--cobalt); stroke-width: 1.9; }
+    .e-amb { fill: none; stroke: var(--amber); stroke-width: 1.6; stroke-dasharray: 6 4; }
+    .e-mut { fill: none; stroke: var(--line-2); stroke-width: 1.3; stroke-dasharray: 3 4; }
+    .mk { fill: var(--ink-2); }
+    .mk-cob { fill: var(--cobalt); }
+    .mk-amb { fill: var(--amber); }
+    .mk-mut { fill: var(--line-2); }
+    .th { font: 600 15px var(--font-body); fill: var(--ink); }
+    .tt { font: 600 13px var(--font-body); fill: var(--ink); }
+    .tb { font: 600 12px var(--font-body); fill: var(--ink); }
+    .tr { font: 400 11.5px var(--font-body); fill: var(--ink); }
+    .ts { font: 400 11px var(--font-body); fill: var(--muted); }
+    .tm { font: 400 11px var(--font-mono); fill: var(--muted); }
+    .tmb { font: 600 13px var(--font-mono); fill: var(--ink); }
+    .tbig { font: 600 15px var(--font-mono); fill: var(--ink); }
+    .tcore { font: 700 18px var(--font-mono); fill: var(--cobalt); }
+    .tz { font: 500 10.5px var(--font-mono); letter-spacing: 0.06em; fill: var(--muted); }
+    .cob { fill: var(--cobalt); }
+    .amb { fill: var(--amber); }
+    /* Edge labels carry a halo in the colour beneath them, so a line under the text does not strike through it. */
+    .te { font: 400 11px var(--font-body); fill: var(--ink-2); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+    .te.cob { fill: var(--cobalt); }
+    .te.amb { fill: var(--amber); }
+    .c-grid { stroke: var(--line); stroke-width: 1; }
+    .c-ax { stroke: var(--line-2); stroke-width: 1; }
+    .c-band { fill: var(--amber); fill-opacity: 0.2; stroke: none; }
+    .c-flow { fill: none; stroke: var(--cobalt); stroke-width: 2.2; stroke-linejoin: round; }
+    .c-sim { fill: none; stroke: var(--amber); stroke-width: 1.8; stroke-linejoin: round; }
+    .c-theory { fill: none; stroke: var(--ink-2); stroke-width: 1.4; stroke-dasharray: 5 4; }
+    .c-dot { fill: var(--amber); stroke: var(--surface); stroke-width: 1.5; }
+    .c-t { font: 400 11px var(--font-body); fill: var(--ink-2); }
+    .c-tm { font: 400 10.5px var(--font-mono); fill: var(--muted); }
+    .c-tt { font: 600 12.5px var(--font-body); fill: var(--ink); }
+    .c-tv { font: 600 11px var(--font-body); fill: var(--amber); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+    .c-tf { font: 600 11px var(--font-body); fill: var(--cobalt); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+  </style>
+  <rect class="bg" x="0.5" y="0.5" width="1079" height="311" rx="10"/>
+  <text class="c-tm" x="80" y="30">average items in the system</text>
+  <line class="c-ax" x1="80" y1="264" x2="600" y2="264"/>
+  <text class="c-tm" x="74" y="267.5" text-anchor="end">0</text>
+  <line class="c-grid" x1="80" y1="220" x2="600" y2="220"/>
+  <text class="c-tm" x="74" y="223.5" text-anchor="end">5</text>
+  <line class="c-grid" x1="80" y1="176" x2="600" y2="176"/>
+  <text class="c-tm" x="74" y="179.5" text-anchor="end">10</text>
+  <line class="c-grid" x1="80" y1="132" x2="600" y2="132"/>
+  <text class="c-tm" x="74" y="135.5" text-anchor="end">15</text>
+  <line class="c-grid" x1="80" y1="88" x2="600" y2="88"/>
+  <text class="c-tm" x="74" y="91.5" text-anchor="end">20</text>
+  <line class="c-grid" x1="80" y1="44" x2="600" y2="44"/>
+  <text class="c-tm" x="74" y="47.5" text-anchor="end">25</text>
+  <line class="c-ax" x1="80" y1="264" x2="80" y2="268"/>
+  <text class="c-tm" x="80" y="280" text-anchor="middle">0</text>
+  <line class="c-ax" x1="184" y1="264" x2="184" y2="268"/>
+  <text class="c-tm" x="184" y="280" text-anchor="middle">0.2</text>
+  <line class="c-ax" x1="288" y1="264" x2="288" y2="268"/>
+  <text class="c-tm" x="288" y="280" text-anchor="middle">0.4</text>
+  <line class="c-ax" x1="392" y1="264" x2="392" y2="268"/>
+  <text class="c-tm" x="392" y="280" text-anchor="middle">0.6</text>
+  <line class="c-ax" x1="496" y1="264" x2="496" y2="268"/>
+  <text class="c-tm" x="496" y="280" text-anchor="middle">0.8</text>
+  <line class="c-ax" x1="600" y1="264" x2="600" y2="268"/>
+  <text class="c-tm" x="600" y="280" text-anchor="middle">1</text>
+  <text class="c-tm" x="340" y="298" text-anchor="middle">load = arrivals ÷ capacity</text>
+  <polyline class="c-theory" points="80,264 82.6,264 85.2,263.9 87.8,263.9 90.4,263.8 93,263.8 95.6,263.7 98.2,263.7 100.8,263.6 103.4,263.6 106,263.5 108.6,263.5 111.2,263.4 113.8,263.4 116.4,263.3 119,263.3 121.6,263.2 124.2,263.2 126.8,263.1 129.4,263.1 132,263 134.6,263 137.2,262.9 139.8,262.9 142.4,262.8 145,262.7 147.6,262.7 150.2,262.6 152.8,262.6 155.4,262.5 158,262.4 160.6,262.4 163.2,262.3 165.8,262.3 168.4,262.2 171,262.1 173.6,262.1 176.2,262 178.8,261.9 181.4,261.9 184,261.8 186.6,261.7 189.2,261.7 191.8,261.6 194.4,261.5 197,261.4 199.6,261.4 202.2,261.3 204.8,261.2 207.4,261.1 210,261.1 212.6,261 215.2,260.9 217.8,260.8 220.4,260.7 223,260.7 225.6,260.6 228.2,260.5 230.8,260.4 233.4,260.3 236,260.2 238.6,260.1 241.2,260 243.8,260 246.4,259.9 249,259.8 251.6,259.7 254.2,259.6 256.8,259.5 259.4,259.4 262,259.3 264.6,259.2 267.2,259.1 269.8,258.9 272.4,258.8 275,258.7 277.6,258.6 280.2,258.5 282.8,258.4 285.4,258.3 288,258.1 290.6,258 293.2,257.9 295.8,257.8 298.4,257.6 301,257.5 303.6,257.4 306.2,257.2 308.8,257.1 311.4,256.9 314,256.8 316.6,256.7 319.2,256.5 321.8,256.4 324.4,256.2 327,256 329.6,255.9 332.2,255.7 334.8,255.5 337.4,255.4 340,255.2 342.6,255 345.2,254.8 347.8,254.7 350.4,254.5 353,254.3 355.6,254.1 358.2,253.9 360.8,253.7 363.4,253.5 366,253.2 368.6,253 371.2,252.8 373.8,252.6 376.4,252.3 379,252.1 381.6,251.8 384.2,251.6 386.8,251.3 389.4,251.1 392,250.8 394.6,250.5 397.2,250.2 399.8,249.9 402.4,249.6 405,249.3 407.6,249 410.2,248.7 412.8,248.4 415.4,248 418,247.7 420.6,247.3 423.2,246.9 425.8,246.5 428.4,246.1 431,245.7 433.6,245.3 436.2,244.9 438.8,244.4 441.4,243.9 444,243.5 446.6,243 449.2,242.5 451.8,241.9 454.4,241.4 457,240.8 459.6,240.2 462.2,239.6 464.8,239 467.4,238.3 470,237.6 472.6,236.9 475.2,236.1 477.8,235.4 480.4,234.5 483,233.7 485.6,232.8 488.2,231.9 490.8,230.9 493.4,229.9 496,228.8 498.6,227.7 501.2,226.5 503.8,225.2 506.4,223.9 509,222.5 511.6,221 514.2,219.5 516.8,217.8 519.4,216 522,214.1 524.6,212.1 527.2,209.9 529.8,207.6 532.4,205.1 535,202.4 537.6,199.5 540.2,196.3 542.8,192.8 545.4,189 548,184.8 550.6,180.2 553.2,175 555.8,169.3 558.4,162.8 561,155.5 563.6,147.1 566.2,137.4 568.8,126.1 571.4,112.8 574,96.8 576.6,77.2 579.2,52.8"/>
+  <path class="c-flow" d="M80,264 H600"/>
+  <path class="c-ax" d="M94,238 V262"/>
+  <text class="c-tf" x="86" y="232">FlowTime's queue: 0 at every load below capacity</text>
+  <text class="c-t" x="402.4" y="180.4">theory: ρ / (1 − ρ)</text>
+  <circle class="c-dot" cx="340" cy="255.2" r="4.2"/>
+  <circle class="c-dot" cx="444" cy="243.4" r="4.2"/>
+  <circle class="c-dot" cx="496" cy="228.8" r="4.2"/>
+  <circle class="c-dot" cx="548" cy="186.6" r="4.2"/>
+  <circle class="c-dot" cx="574" cy="87.9" r="4.2"/>
+  <text class="c-tt" x="660" y="50">Average queue, one server</text>
+  <text class="c-tm" x="660" y="74">load</text>
+  <text class="c-tm" x="780" y="74" text-anchor="end">simulated</text>
+  <text class="c-tm" x="870" y="74" text-anchor="end">theory</text>
+  <text class="c-tm" x="960" y="74" text-anchor="end">FlowTime</text>
+  <text class="c-t" x="660" y="96">0.5</text>
+  <text class="c-t" x="780" y="96" text-anchor="end">1.00</text>
+  <text class="c-t" x="870" y="96" text-anchor="end">1.00</text>
+  <text class="c-t" x="960" y="96" text-anchor="end">0</text>
+  <text class="c-t" x="660" y="116">0.7</text>
+  <text class="c-t" x="780" y="116" text-anchor="end">2.34</text>
+  <text class="c-t" x="870" y="116" text-anchor="end">2.33</text>
+  <text class="c-t" x="960" y="116" text-anchor="end">0</text>
+  <text class="c-t" x="660" y="136">0.8</text>
+  <text class="c-t" x="780" y="136" text-anchor="end">4.00</text>
+  <text class="c-t" x="870" y="136" text-anchor="end">4.00</text>
+  <text class="c-t" x="960" y="136" text-anchor="end">0</text>
+  <text class="c-t" x="660" y="156">0.9</text>
+  <text class="c-t" x="780" y="156" text-anchor="end">8.79</text>
+  <text class="c-t" x="870" y="156" text-anchor="end">9.00</text>
+  <text class="c-t" x="960" y="156" text-anchor="end">0</text>
+  <text class="c-t" x="660" y="176">0.95</text>
+  <text class="c-t" x="780" y="176" text-anchor="end">20.01</text>
+  <text class="c-t" x="870" y="176" text-anchor="end">19.00</text>
+  <text class="c-t" x="960" y="176" text-anchor="end">0</text>
+  <text class="c-t" x="660" y="196">0.99</text>
+  <text class="c-tm" x="780" y="196" text-anchor="end">not run</text>
+  <text class="c-t" x="870" y="196" text-anchor="end">99.00</text>
+  <text class="c-t" x="960" y="196" text-anchor="end">0</text>
+  <circle class="c-dot" cx="666" cy="270" r="4.2"/>
+  <text class="c-t" x="678" y="274">simulation</text>
+  <path class="c-theory" d="M770,270 H798"/>
+  <text class="c-t" x="806" y="274">queueing theory</text>
+  <path class="c-flow" d="M660,292 H688"/>
+  <text class="c-t" x="696" y="296">FlowTime</text>
+</svg>

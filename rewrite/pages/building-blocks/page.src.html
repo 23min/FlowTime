@@ -1,0 +1,878 @@
+<title>FlowTime Building Blocks</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: same system as the FlowTime Field Guide and Restart Blueprint, so the three read as a set. One ~68ch reading column; figures span 1120px and scroll sideways on phones. */
+:root {
+  --ground: #F3F4F0;
+  --panel: #FFFFFF;
+  --ink: #17202B;
+  --muted: #5A6570;
+  --rule: #D3D8D0;
+  --grid: #E5E8E1;
+  --code-bg: #EBEDE7;
+  --cobalt: #2944A8;
+  --cobalt-soft: rgba(41, 68, 168, 0.09);
+  --amber: #A84F07;
+  --amber-soft: rgba(176, 84, 9, 0.13);
+  --red: #B42318;
+  --red-soft: rgba(180, 35, 24, 0.10);
+  --green: #1D7444;
+  --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #0F1318; --panel: #161B22; --ink: #E2E6EB; --muted: #98A2AD; --rule: #2C333D;
+    --grid: #1D232B; --code-bg: #1B2129; --cobalt: #8FA3F5; --cobalt-soft: rgba(143, 163, 245, 0.13);
+    --amber: #F0A24E; --amber-soft: rgba(240, 162, 78, 0.16); --red: #F2786A; --red-soft: rgba(242, 120, 106, 0.14); --green: #5FCB8D;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #0F1318; --panel: #161B22; --ink: #E2E6EB; --muted: #98A2AD; --rule: #2C333D;
+  --grid: #1D232B; --code-bg: #1B2129; --cobalt: #8FA3F5; --cobalt-soft: rgba(143, 163, 245, 0.13);
+  --amber: #F0A24E; --amber-soft: rgba(240, 162, 78, 0.16); --red: #F2786A; --red-soft: rgba(242, 120, 106, 0.14); --green: #5FCB8D;
+  color-scheme: dark;
+}
+
+body { background: var(--ground); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+.page {
+  max-width: 1120px; margin: 0 auto; padding-block: 40px 96px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 64px;
+}
+.prose { max-width: 68ch; display: grid; gap: 14px; min-width: 0; }
+.prose p, .prose ul, .prose ol { margin: 0; }
+.prose ul, .prose ol { padding-left: 1.25em; display: grid; gap: 8px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(40px, 7vw, 68px); font-weight: 800; font-stretch: 115%; letter-spacing: -0.02em; line-height: 1.02; }
+h2 { font-size: clamp(26px, 3.4vw, 34px); font-weight: 750; font-stretch: 108%; letter-spacing: -0.01em; line-height: 1.15; }
+h3 { font-size: 18px; font-weight: 700; font-stretch: 104%; }
+code, .mono { font-family: var(--font-mono); font-size: 0.88em; }
+:not(pre) > code { background: var(--code-bg); padding: 0.08em 0.35em; border-radius: 3px; overflow-wrap: anywhere; }
+a { color: var(--cobalt); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--cobalt); outline-offset: 2px; border-radius: 2px; }
+strong { font-weight: 600; }
+
+header { display: grid; gap: 18px; }
+.eyebrow { font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); letter-spacing: 0.02em; }
+.lede { font-size: 19px; line-height: 1.55; max-width: 64ch; margin: 0; }
+.ruler {
+  height: 14px; max-width: 100%;
+  background-image: repeating-linear-gradient(90deg, var(--ink) 0 1px, transparent 1px 64px), repeating-linear-gradient(90deg, var(--muted) 0 1px, transparent 1px 16px);
+  background-size: 100% 14px, 100% 6px; background-repeat: no-repeat; background-position: 0 0, 0 8px; opacity: 0.55;
+}
+nav.toc { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; }
+nav.toc a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--rule); padding-bottom: 1px; }
+nav.toc a:hover { border-color: var(--cobalt); color: var(--cobalt); }
+
+.verdict { border-top: 1.5px solid var(--ink); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 40px; padding-top: 22px; }
+.verdict .answer { display: grid; gap: 12px; align-content: start; }
+.verdict .answer p { margin: 0; }
+.verdict .big { font-family: var(--font-display); font-size: clamp(24px, 3vw, 30px); font-weight: 750; font-stretch: 108%; line-height: 1.2; text-wrap: balance; }
+.verdict .big em { font-style: normal; color: var(--cobalt); }
+.verdict ul { margin: 0; padding-left: 1.15em; display: grid; gap: 10px; font-size: 15.5px; }
+@media (max-width: 760px) { .verdict { grid-template-columns: 1fr; gap: 20px; } }
+
+section { display: grid; gap: 22px; scroll-margin-top: 16px; }
+.kicker { font-family: var(--font-mono); font-size: 12px; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+.sec-head { display: grid; gap: 6px; max-width: 68ch; }
+
+figure { margin: 0; display: grid; gap: 10px; min-width: 0; }
+.fig-frame { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 18px 16px 14px; overflow-x: auto; }
+figcaption { font-size: 14px; color: var(--muted); max-width: 80ch; line-height: 1.5; }
+figcaption b { color: var(--ink); font-weight: 600; }
+svg.fig { display: block; width: 100%; height: auto; min-width: 780px; }
+svg.fig text { fill: var(--ink); font-family: var(--font-body); font-size: 12px; }
+svg.fig .tm { font-family: var(--font-mono); }
+svg.fig .mut { fill: var(--muted); }
+svg.fig .b { font-weight: 600; }
+svg.fig .s10 { font-size: 10.5px; }
+svg.fig .s11 { font-size: 11px; }
+svg.fig .s13 { font-size: 13px; }
+svg.fig .s15 { font-size: 15px; }
+svg.fig .up { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; fill: var(--muted); }
+svg.fig .c-cob { fill: var(--cobalt); }
+svg.fig .c-amb { fill: var(--amber); }
+svg.fig .c-red { fill: var(--red); }
+svg.fig .num { font-variant-numeric: tabular-nums; }
+svg.fig .halo { paint-order: stroke; stroke: var(--panel); stroke-width: 4px; stroke-linejoin: round; }
+.box { fill: var(--panel); stroke: var(--rule); stroke-width: 1; }
+.box-in { fill: var(--ground); stroke: var(--rule); stroke-width: 1; }
+.box-ink { fill: var(--panel); stroke: var(--ink); stroke-width: 1.75; }
+.box-cob { fill: var(--cobalt-soft); stroke: var(--cobalt); stroke-width: 1.5; }
+.box-amb { fill: var(--amber-soft); stroke: var(--amber); stroke-width: 1.2; }
+.chip { fill: var(--ground); stroke: var(--rule); stroke-width: 1; }
+.ln { fill: none; stroke: var(--ink); stroke-width: 1.4; }
+.ln-d { fill: none; stroke: var(--ink); stroke-width: 1.4; stroke-dasharray: 5 4; }
+.ln-cob { fill: none; stroke: var(--cobalt); stroke-width: 1.9; }
+.ln-amb { fill: none; stroke: var(--amber); stroke-width: 1.7; }
+.ln-amb-d { fill: none; stroke: var(--amber); stroke-width: 1.6; stroke-dasharray: 6 4; }
+.ln-red { fill: none; stroke: var(--red); stroke-width: 1.5; }
+.ln-mut { fill: none; stroke: var(--muted); stroke-width: 1.2; }
+.ln-mut-d { fill: none; stroke: var(--muted); stroke-width: 1.3; stroke-dasharray: 3 4; }
+.mk-ink { fill: var(--ink); }
+.mk-cob { fill: var(--cobalt); }
+.mk-amb { fill: var(--amber); }
+.mk-red { fill: var(--red); }
+.mk-mut { fill: var(--muted); }
+.slot-on { fill: var(--cobalt); }
+.slot-off { fill: none; stroke: var(--muted); stroke-width: 0.8; opacity: 0.7; }
+.qbg { fill: var(--grid); }
+.age0 { fill: var(--cobalt); opacity: 0.35; }
+.age1 { fill: var(--cobalt); opacity: 0.75; }
+.age2 { fill: var(--amber); }
+.age3 { fill: var(--red); }
+svg.fig .c-grid { stroke: var(--grid); stroke-width: 1; }
+svg.fig .c-ax { stroke: var(--muted); stroke-width: 1; }
+svg.fig .c-band { fill: var(--amber); fill-opacity: 0.18; stroke: none; }
+svg.fig .c-model { fill: none; stroke: var(--cobalt); stroke-width: 2.2; stroke-linejoin: round; }
+svg.fig .c-proj { fill: none; stroke: var(--amber); stroke-width: 2.2; stroke-linejoin: round; }
+svg.fig .c-whatif { fill: none; stroke: var(--green); stroke-width: 2; stroke-dasharray: 6 4; stroke-linejoin: round; }
+svg.fig .tdot { fill: var(--panel); stroke: var(--ink); stroke-width: 1.3; }
+svg.fig .c-now { stroke: var(--ink); stroke-width: 1.2; stroke-dasharray: 4 4; }
+
+/* the live view */
+.live { display: grid; gap: 14px; }
+.live-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; }
+.live-controls button { font: 600 14px var(--font-body); color: var(--ink); background: var(--panel); border: 1.5px solid var(--ink); border-radius: 4px; padding: 7px 14px; min-width: 88px; cursor: pointer; }
+.live-controls button:hover { border-color: var(--cobalt); color: var(--cobalt); }
+.live-controls input[type="range"] { flex: 1 1 260px; min-width: 0; accent-color: var(--cobalt); }
+.clock { font-family: var(--font-mono); font-size: 15px; font-variant-numeric: tabular-nums; min-width: 8ch; }
+.live-switches { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; padding-top: 10px; border-top: 1px solid var(--rule); }
+.switch-head { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 14.5px; cursor: pointer; }
+.toggle input { accent-color: var(--cobalt); width: 16px; height: 16px; }
+.readouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); border-top: 1.5px solid var(--ink); }
+.readout { padding: 9px 14px 10px 0; border-bottom: 1px solid var(--rule); display: grid; gap: 2px; min-width: 0; }
+.readout span { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.readout b { font-family: var(--font-display); font-size: 24px; font-weight: 750; font-stretch: 105%; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.readout b.bad { color: var(--red); }
+.readout b.warn { color: var(--amber); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13.5px; color: var(--muted); }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+.legend .lf { background: var(--cobalt); } .legend .lr { background: var(--amber); } .legend .lx { background: var(--red); }
+.legend .q0 { background: var(--cobalt); opacity: 0.35; border-radius: 1px; } .legend .q1 { background: var(--cobalt); opacity: 0.75; border-radius: 1px; } .legend .q2 { background: var(--amber); border-radius: 1px; } .legend .q3 { background: var(--red); border-radius: 1px; }
+#live-svg .card { fill: var(--panel); stroke: var(--rule); stroke-width: 1.2; }
+#live-svg .card.hot { stroke: var(--red); stroke-width: 1.6; }
+#live-svg .card.warm { stroke: var(--amber); stroke-width: 1.6; }
+#live-svg .edge { fill: none; stroke: var(--muted); stroke-opacity: 0.5; stroke-linecap: round; }
+#live-svg .edge.async { stroke-dasharray: 5 5; }
+#live-svg .edge.fail { stroke: var(--red); }
+#live-svg .p-flow { fill: var(--cobalt); }
+#live-svg .p-retry { fill: var(--amber); }
+#live-svg .p-fail { fill: var(--red); }
+#live-svg .src { fill: var(--cobalt-soft); stroke: var(--cobalt); stroke-width: 1.4; }
+#live-svg .sink { fill: var(--red-soft); stroke: var(--red); stroke-width: 1.2; }
+#chart-svg { cursor: ew-resize; touch-action: none; }
+#chart-svg .area { fill: var(--cobalt); fill-opacity: 0.14; stroke: none; }
+#chart-svg .line-in { fill: none; stroke: var(--cobalt); stroke-width: 1.6; }
+#chart-svg .line-base { fill: none; stroke: var(--red); stroke-width: 2; stroke-linejoin: round; }
+#chart-svg .line-whatif { fill: none; stroke: var(--green); stroke-width: 2; stroke-dasharray: 6 4; stroke-linejoin: round; }
+#chart-svg .cursor { stroke: var(--ink); stroke-width: 1.2; }
+
+pre { margin: 0; background: var(--code-bg); border-radius: 5px; padding: 14px 16px; overflow-x: auto; font-family: var(--font-mono); font-size: 13px; line-height: 1.55; }
+.table-wrap { overflow-x: auto; border-top: 1.5px solid var(--ink); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; line-height: 1.45; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px 10px 0; border-bottom: 1px solid var(--rule); }
+th { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+td.n, th.n { text-align: right; }
+tr.rec td { background: var(--cobalt-soft); }
+tr.rec td:first-child { padding-left: 10px; }
+ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 0; max-width: 84ch; border-top: 1.5px solid var(--ink); }
+ol.steps li { counter-increment: s; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 4px 12px; padding: 16px 0; border-bottom: 1px solid var(--rule); }
+ol.steps li::before { content: counter(s); font-family: var(--font-display); font-weight: 800; font-stretch: 115%; font-size: 26px; line-height: 1.1; color: var(--cobalt); grid-row: span 2; }
+ol.steps li b { font-size: 16.5px; }
+ol.steps li p { margin: 0; font-size: 15px; }
+.tag { display: inline-block; font-family: var(--font-mono); font-size: 11.5px; padding: 1px 7px; border-radius: 3px; border: 1px solid var(--cobalt); color: var(--cobalt); margin-left: 8px; vertical-align: 2px; }
+.decided { border-top: 1.5px solid var(--ink); padding-top: 14px; display: grid; gap: 6px; max-width: 80ch; }
+.decided p { margin: 0; }
+.aside { font-size: 14px; color: var(--muted); max-width: 80ch; margin: 0; }
+footer { font-size: 13.5px; color: var(--muted); display: grid; gap: 8px; max-width: 80ch; border-top: 1px solid var(--rule); padding-top: 18px; }
+footer p { margin: 0; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="page">
+
+<header>
+  <div class="eyebrow">FlowTime · exploration · 2026-10-17, updated 2026-10-18 · companion to the Restart Blueprint</div>
+  <h1>Building blocks for flows</h1>
+  <p class="lede">Components that each have their own behavior, snapped together with calls, with request types sent through them. FlowTime works out what happens to the whole flow, bin by bin, without simulating single requests. That keeps it as quick as a spreadsheet, lets you scrub back and forth in time, and lets it run on telemetry as well as on models.</p>
+  <div class="ruler" aria-hidden="true"></div>
+  <nav class="toc" aria-label="Sections">
+    <a href="#view">The view</a>
+    <a href="#pieces">The pieces</a>
+    <a href="#component">Inside a component</a>
+    <a href="#call">Along a call</a>
+    <a href="#instant">Staying instant</a>
+    <a href="#time">Past, now, future</a>
+    <a href="#prior">Where it sits</a>
+    <a href="#costs">Costs</a>
+    <a href="#decisions">Decisions</a>
+  </nav>
+</header>
+
+<div class="verdict">
+  <div class="answer">
+    <p class="big">Like building blocks: pick a piece, set its parts, snap it to the next, then <em>send traffic through</em>.</p>
+    <p>The pieces come from a fixed library. Each one has parameters, a little state it remembers from one bin to the next, and equations that say what it does in a bin. FlowTime turns a model built from them into one per-bin plan and evaluates it in milliseconds.</p>
+  </div>
+  <ul>
+    <li><b>Components</b> carry servers, a queue, limits, an autoscaler, modes.</li>
+    <li><b>Calls</b> carry what the caller does: wait or not, fan out, time out, retry, break the circuit.</li>
+    <li><b>Request types</b> say what flows: each one a call tree, the same shape a trace has.</li>
+    <li><b>State</b> is richer than one backlog number: the backlog by age, its spread, the replica count, the mode.</li>
+  </ul>
+</div>
+
+<section id="view">
+  <div class="sec-head">
+    <div class="kicker">What it could look like</div>
+    <h2>One hour of checkout traffic, computed in this page</h2>
+  </div>
+  <div class="prose">
+    <p>A toy model of the system in Figure 1. At 10:13 checkout traffic ramps from 40 to 70 per second. Pricing gets three calls per checkout and runs out of servers. Calls that wait longer than 30 seconds time out: the api retries half of them and the other half fail. Email is called without waiting, so its backlog grows and drains later without failing anything. Two switches add mechanisms the plain toy leaves out: the api holding one of its 16 workers for every call it waits on, and pricing still serving calls whose caller has already given up. Drag the time bar or press play, then try the what-if with each switch on and off.</p>
+  </div>
+  <div class="live">
+    <div class="live-controls">
+      <button type="button" id="play">Play</button>
+      <input type="range" id="scrub" min="0" max="359" step="1" value="120" aria-label="Time">
+      <span class="clock" id="clock">10:20:00</span>
+      <label class="toggle" for="whatif"><input type="checkbox" id="whatif"> What if pricing had 32 servers</label>
+    </div>
+    <div class="live-switches" role="group" aria-labelledby="switch-head">
+      <span class="switch-head" id="switch-head">Mechanisms</span>
+      <label class="toggle" for="hold"><input type="checkbox" id="hold"> api holds a worker while it waits on a call</label>
+      <label class="toggle" for="aband"><input type="checkbox" id="aband"> pricing serves calls whose caller gave up</label>
+    </div>
+    <div class="readouts">
+      <div class="readout"><span>Checkout latency</span><b id="ro-lat">–</b></div>
+      <div class="readout"><span>Failed checkouts</span><b id="ro-fail">–</b></div>
+      <div class="readout"><span>Retries to pricing</span><b id="ro-retry">–</b></div>
+      <div class="readout"><span>api workers in use</span><b id="ro-api">–</b></div>
+      <div class="readout"><span>Wasted pricing work</span><b id="ro-waste">–</b></div>
+      <div class="readout"><span>Both runs computed in</span><b id="ro-ms">–</b></div>
+    </div>
+    <div class="fig-frame">
+      <svg class="fig" id="live-svg" viewBox="0 0 1000 410" role="img" aria-label="Animated topology: checkout requests enter the api, which calls cart and its database synchronously, pricing three times in parallel, and email without waiting. Each component shows its servers filling up, its backlog coloured by age, its arrival rate and its wait. Dots along each call show the rate, with retries and timeouts in their own colours.">
+        <g id="edges"></g>
+        <g id="particles"></g>
+        <g id="nodes"></g>
+      </svg>
+    </div>
+    <div class="legend">
+      <span><i class="lf"></i>calls</span><span><i class="lr"></i>retries</span><span><i class="lx"></i>timed out</span>
+      <span><i class="q0"></i>waited under 10 s</span><span><i class="q1"></i>10 to 20 s</span><span><i class="q2"></i>20 to 30 s</span><span><i class="q3"></i>over 30 s</span>
+      <span>dots appear at a fifth of the request rate</span>
+    </div>
+    <div class="fig-frame">
+      <svg class="fig" id="chart-svg" viewBox="0 0 1000 240" role="img" aria-label="Two charts over the hour: checkout arrivals rising from 40 to 70 per second between 10:13 and 10:32, and checkout latency on a log scale for the mechanisms switched on, solid as is and dashed with 32 pricing servers. A vertical line marks the current time; drag across the chart to move it."></svg>
+    </div>
+    <p class="aside">The toy tracks averages, the backlog by age, and a per-bin multi-server waiting estimate (levels 0 to 2 in the table below); a wait is what a call arriving in that bin would see. With the api holding a worker, each bin's holding time is solved inside the bin. The queue then forms at the api's front door, nothing times out, and 32 pricing servers are no longer enough, because the api would need about 31 workers in use at once; in a scratch run, 32 pricing servers with 64 api workers brought latency back to 0.44 s. While the api holds workers, the second switch changes nothing, because no call waits at pricing long enough to time out. Without holding, it turns 16 minutes of partial failure into an outage that is still failing every checkout at 11:00, half an hour after the surge ended. The toy has no timeout at the front door, and its 10-second bins force a 30-second timeout where a real call would give up after about 2 seconds; the <a href="{{ENGINE_URL}}">Census Engine</a> page measures what a 2-second timeout changes. Every number here comes from this page's script, not from FlowTime; the timer above measures the script on your device.</p>
+  </div>
+</section>
+
+<section id="pieces">
+  <div class="sec-head">
+    <div class="kicker">Figure 1</div>
+    <h2>The pieces, snapped together</h2>
+  </div>
+  <figure>
+    <div class="fig-frame">
+      <svg class="fig" viewBox="0 0 1080 400" role="img" aria-label="Left: the checkout request type at 40 per second as a call tree. The api does 20 milliseconds of its own work, calls cart synchronously (10 ms), which calls db synchronously (2 ms), calls pricing three times in parallel and waits for all three (150 ms each), and calls email without waiting (50 ms). Right: the components it is sent through, with the load each one gets: api 40 per second, cart 40, db 40, pricing 120, email 40, and each component's servers, service time, capacity and how busy it is. Pricing is the busiest at 75 percent.">
+        <defs>
+          <marker id="m1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-ink" d="M0,0 L10,5 L0,10 z"/></marker>
+        </defs>
+        <rect class="box-in" x="20" y="20" width="300" height="360" rx="6"/>
+        <text class="up" x="40" y="48">Request type</text>
+        <text class="b s15" x="40" y="72">checkout · 40 per second</text>
+        <path class="ln-mut" d="M52,118 V268 M52,144 H70 M52,216 H70 M52,268 H70 M82,152 V180 H100"/>
+        <text class="tm s13 b" x="44" y="112">api</text>
+        <text class="tm s11 mut" x="300" y="112" text-anchor="end">20 ms</text>
+        <text class="tm s13" x="76" y="148">cart</text>
+        <text class="s11 mut" x="124" y="148">sync</text>
+        <text class="tm s11 mut" x="300" y="148" text-anchor="end">10 ms</text>
+        <text class="tm s13" x="106" y="184">db</text>
+        <text class="s11 mut" x="134" y="184">sync</text>
+        <text class="tm s11 mut" x="300" y="184" text-anchor="end">2 ms</text>
+        <text class="tm s13" x="76" y="220">pricing ×3</text>
+        <text class="tm s11 mut" x="300" y="220" text-anchor="end">150 ms</text>
+        <text class="s11 mut" x="76" y="238">sync · parallel · waits for all</text>
+        <text class="tm s13" x="76" y="272">email</text>
+        <text class="s11 mut" x="130" y="272">async</text>
+        <text class="tm s11 mut" x="300" y="272" text-anchor="end">50 ms</text>
+        <text class="s11 mut" x="40" y="330">A trace from Jaeger has this shape:</text>
+        <text class="s11 mut" x="40" y="347">one span per call, with its duration.</text>
+
+        <path class="ln" d="M320,200 H398" marker-end="url(#m1)"/>
+        <text class="s11 b halo" x="359" y="192" text-anchor="middle">40/s</text>
+        <text class="s11 mut" x="359" y="218" text-anchor="middle">sent through</text>
+
+        <text class="up" x="400" y="48">Components and calls</text>
+        <rect class="box" x="400" y="164" width="180" height="72" rx="6"/>
+        <text class="b s13" x="416" y="188">api</text>
+        <text class="s11" x="416" y="206">16 servers × 20 ms</text>
+        <text class="s11 mut" x="416" y="224">800/s · 5% busy</text>
+
+        <path class="ln" d="M580,200 H698" marker-end="url(#m1)"/>
+        <text class="s11 halo" x="650" y="192" text-anchor="middle">120/s · sync ×3</text>
+        <path class="ln" d="M600,200 V76 H698" marker-end="url(#m1)"/>
+        <text class="s11 halo" x="650" y="68" text-anchor="middle">40/s · sync</text>
+        <path class="ln-d" d="M600,200 V332 H698" marker-end="url(#m1)"/>
+        <text class="s11 halo" x="650" y="324" text-anchor="middle">40/s · async</text>
+
+        <rect class="box" x="700" y="40" width="150" height="72" rx="6"/>
+        <text class="b s13" x="716" y="64">cart</text>
+        <text class="s11" x="716" y="82">4 servers × 10 ms</text>
+        <text class="s11 mut" x="716" y="100">400/s · 10% busy</text>
+        <path class="ln" d="M850,76 H888" marker-end="url(#m1)"/>
+        <text class="s11 halo" x="869" y="68" text-anchor="middle">sync</text>
+        <rect class="box" x="890" y="40" width="160" height="72" rx="6"/>
+        <text class="b s13" x="906" y="64">db</text>
+        <text class="s11" x="906" y="82">4 servers × 2 ms</text>
+        <text class="s11 mut" x="906" y="100">2,000/s · 2% busy</text>
+
+        <rect class="box-cob" x="700" y="164" width="170" height="72" rx="6"/>
+        <text class="b s13 c-cob" x="716" y="188">pricing</text>
+        <text class="s11" x="716" y="206">24 servers × 150 ms</text>
+        <text class="s11 mut" x="716" y="224">160/s · 75% busy</text>
+
+        <rect class="box" x="700" y="296" width="170" height="72" rx="6"/>
+        <text class="b s13" x="716" y="320">email</text>
+        <text class="s11" x="716" y="338">3 servers × 50 ms</text>
+        <text class="s11 mut" x="716" y="356">60/s · 67% busy</text>
+
+        <text class="s11 mut" x="890" y="198">Capacity follows from</text>
+        <text class="s11 mut" x="890" y="214">servers ÷ service time</text>
+        <text class="s11 mut" x="890" y="230">(decision 14).</text>
+      </svg>
+    </div>
+    <figcaption><b>Request types are sent through components joined by calls.</b> Every load on the right follows from the call tree on the left: one checkout means one api request, one cart call, one db call, three pricing calls and one email. Raise checkout to 70 per second and every number on the right changes with it.</figcaption>
+  </figure>
+  <div class="prose">
+    <p>There are three kinds of piece. A <b>component</b> is something that does work: a service, a database, a message queue, a team of pickers. A <b>call</b> joins two components and says how the caller behaves. A <b>request type</b> is a kind of traffic with its own path through the components, its own arrival rate over the day, and its own cost at each component.</p>
+    <p>Today's models describe the flow instead: arrivals at a node, a router splitting them by weights. A weight says a request goes to A <i>or</i> B. It cannot say a request goes to A <i>and</i> B and waits for the slower one, which is what pricing ×3 does. Call trees can, and traces already record them, so a first model can be drawn from a day of traces.</p>
+  </div>
+</section>
+
+<section id="component">
+  <div class="sec-head">
+    <div class="kicker">Figure 2</div>
+    <h2>Inside a component</h2>
+  </div>
+  <figure>
+    <div class="fig-frame">
+      <svg class="fig" viewBox="0 0 1080 430" role="img" aria-label="A component, pricing, built from mechanisms. Arrivals per request type pass admission (a rate limit of 500 per second, shedding load when full), then a first-come-first-served queue whose backlog is shown by age from newest to oldest, then 24 servers taking 150 milliseconds each, 18 of them busy. An autoscaler and modes adjust the servers from above. Rejected requests leave from admission, requests whose caller gave up leave from the queue, and served requests and calls out leave on the right. Below: what the component carries from one bin to the next: backlog by age, busy servers, replicas, mode.">
+        <defs>
+          <marker id="m2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-ink" d="M0,0 L10,5 L0,10 z"/></marker>
+          <marker id="m2m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-mut" d="M0,0 L10,5 L0,10 z"/></marker>
+          <marker id="m2r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-red" d="M0,0 L10,5 L0,10 z"/></marker>
+        </defs>
+        <rect class="box-ink" x="130" y="30" width="830" height="270" rx="8"/>
+        <text class="b s15" x="150" y="60">pricing</text>
+        <text class="s11 mut" x="222" y="60">one component, built from mechanisms</text>
+
+        <text class="s11" x="20" y="152">arrivals per</text>
+        <text class="s11" x="20" y="166">request type</text>
+        <path class="ln" d="M16,180 H158" marker-end="url(#m2)"/>
+
+        <rect class="box" x="160" y="130" width="180" height="100" rx="6"/>
+        <text class="b s13" x="176" y="156">admission</text>
+        <text class="s11" x="176" y="176">rate limit 500/s</text>
+        <text class="s11 mut" x="176" y="194">sheds load when full</text>
+        <path class="ln" d="M340,180 H368" marker-end="url(#m2)"/>
+
+        <rect class="box" x="370" y="130" width="250" height="100" rx="6"/>
+        <text class="b s13" x="386" y="156">queue</text>
+        <text class="s11" x="386" y="174">first come first served</text>
+        <rect class="age0" x="386" y="184" width="90" height="16"/>
+        <rect class="age1" x="476" y="184" width="60" height="16"/>
+        <rect class="age2" x="536" y="184" width="40" height="16"/>
+        <rect class="age3" x="576" y="184" width="30" height="16"/>
+        <text class="s10 mut" x="386" y="217">newest</text>
+        <text class="s10 mut" x="606" y="217" text-anchor="end">oldest</text>
+        <path class="ln" d="M620,180 H648" marker-end="url(#m2)"/>
+
+        <rect class="box-cob" x="650" y="130" width="280" height="100" rx="6"/>
+        <text class="b s13 c-cob" x="666" y="156">servers</text>
+        <text class="s11" x="666" y="174">24 × 150 ms each · 18 busy</text>
+        <g id="fig2-slots"></g>
+
+        <rect class="box" x="650" y="74" width="135" height="40" rx="5"/>
+        <text class="b s11" x="662" y="90">autoscaler</text>
+        <text class="s11 mut" x="662" y="106">replicas, 90 s lag</text>
+        <path class="ln" d="M717,114 V128" marker-end="url(#m2)"/>
+        <rect class="box" x="795" y="74" width="135" height="40" rx="5"/>
+        <text class="b s11" x="807" y="90">modes</text>
+        <text class="s11 mut" x="807" y="106">healthy, degraded</text>
+        <path class="ln" d="M862,114 V128" marker-end="url(#m2)"/>
+
+        <path class="ln" d="M930,165 H1060" marker-end="url(#m2)"/>
+        <text class="s11 halo" x="1000" y="157" text-anchor="middle">served</text>
+        <path class="ln" d="M930,200 H1060" marker-end="url(#m2)"/>
+        <text class="s11 halo" x="1000" y="192" text-anchor="middle">calls out</text>
+
+        <path class="ln-mut" d="M250,230 V328" marker-end="url(#m2m)"/>
+        <text class="s11 mut" x="260" y="322">rejected</text>
+        <path class="ln-red" d="M591,230 V328" marker-end="url(#m2r)"/>
+        <text class="s11 c-red" x="601" y="322">caller gave up (timeout)</text>
+
+        <text class="up" x="130" y="370">Carried from one bin to the next</text>
+        <rect class="chip" x="130" y="382" width="122" height="26" rx="13"/>
+        <text class="s11" x="191" y="399" text-anchor="middle">backlog by age</text>
+        <rect class="chip" x="262" y="382" width="106" height="26" rx="13"/>
+        <text class="s11" x="315" y="399" text-anchor="middle">busy servers</text>
+        <rect class="chip" x="378" y="382" width="80" height="26" rx="13"/>
+        <text class="s11" x="418" y="399" text-anchor="middle">replicas</text>
+        <rect class="chip" x="468" y="382" width="66" height="26" rx="13"/>
+        <text class="s11" x="501" y="399" text-anchor="middle">mode</text>
+        <rect class="chip" x="544" y="382" width="140" height="26" rx="13"/>
+        <text class="s11" x="614" y="399" text-anchor="middle">spread of the queue</text>
+      </svg>
+    </div>
+    <figcaption><b>A component is a stack of mechanisms, each with its own parameters, state and per-bin equations.</b> Pick only the ones a component needs. A message queue such as Service Bus is a component with a queue and no servers of its own; a database is servers and a queue with a connection limit.</figcaption>
+  </figure>
+  <div class="prose">
+    <p>The library holds mechanisms such as these: servers with a service time per request type; a queue with a discipline (first come first served, priority, fair share) and a limit; admission (rate limits, concurrency limits, load shedding); an autoscaler with a lag; modes, where a degraded component runs slower; a cache whose hit ratio cuts calls further down; batching and scheduled dispatch. Each enters the library with its own spec, closed forms and simulation check, the way the queue does in phase 1.</p>
+    <p>The backlog by age is what makes waits, timeouts and the oldest item computable without following single requests. For a first-come-first-served queue it is exact: the wait of whatever leaves now is the time since that amount of work arrived.</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Same capacity, 100/s, at 90/s</th><th class="n">Each request takes</th><th class="n">Waiting</th><th class="n">Response time</th><th>Today's FlowTime</th></tr></thead>
+      <tbody>
+        <tr><td>1 server</td><td class="n">10 ms</td><td class="n">90 ms</td><td class="n">100 ms</td><td>no queue, latency 0</td></tr>
+        <tr><td>10 servers</td><td class="n">100 ms</td><td class="n">67 ms</td><td class="n">167 ms</td><td>no queue, latency 0</td></tr>
+        <tr><td>100 servers</td><td class="n">1 s</td><td class="n">22 ms</td><td class="n">1,022 ms</td><td>no queue, latency 0</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="aside">Why decision 14 makes servers and service time the inputs: capacity alone cannot tell these three apart. Computed with the Erlang C formula (random arrivals and service times).</p>
+</section>
+
+<section id="call">
+  <div class="sec-head">
+    <div class="kicker">Figure 3</div>
+    <h2>Along a call</h2>
+  </div>
+  <figure>
+    <div class="fig-frame">
+      <svg class="fig" viewBox="0 0 1080 340" role="img" aria-label="A call from api to pricing. On the caller's side the call passes a circuit breaker that opens at 50 percent errors, then a 2-second timeout with two retries after 1 and 2 seconds, with a retry loop drawn back into the timeout, then a fan-out into three parallel calls that wait for all three, over 1 millisecond of network each way, into pricing. Below, a bracket shows that one api thread is held from sending until the slowest of the three answers.">
+        <defs>
+          <marker id="m3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-ink" d="M0,0 L10,5 L0,10 z"/></marker>
+          <marker id="m3a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-amb" d="M0,0 L10,5 L0,10 z"/></marker>
+        </defs>
+        <rect class="box" x="20" y="110" width="180" height="120" rx="6"/>
+        <text class="b s13" x="36" y="136">api</text>
+        <text class="s11 mut" x="36" y="154">the caller</text>
+        <text class="s11" x="36" y="178">threads, 6 of 16 held</text>
+        <g id="fig3-threads"></g>
+
+        <text class="up" x="240" y="128">What the caller does</text>
+        <path class="ln" d="M200,170 H238" marker-end="url(#m3)"/>
+        <rect class="box" x="240" y="142" width="140" height="56" rx="5"/>
+        <text class="b s11" x="252" y="164">circuit breaker</text>
+        <text class="s11 mut" x="252" y="182">opens at 50% errors</text>
+        <path class="ln" d="M380,170 H408" marker-end="url(#m3)"/>
+        <rect class="box-amb" x="410" y="142" width="190" height="56" rx="5"/>
+        <text class="b s11" x="422" y="164">timeout 2 s</text>
+        <text class="s11 mut" x="422" y="182">2 retries, after 1 s and 2 s</text>
+        <path class="ln-amb" d="M560,198 V236 H450 V202" marker-end="url(#m3a)"/>
+        <text class="s11 c-amb" x="505" y="252" text-anchor="middle">retry after a timeout</text>
+        <path class="ln" d="M600,170 H628" marker-end="url(#m3)"/>
+        <rect class="box" x="630" y="142" width="110" height="56" rx="5"/>
+        <text class="b s11" x="642" y="164">fan-out ×3</text>
+        <text class="s11 mut" x="642" y="182">waits for all</text>
+        <path class="ln" d="M740,156 H878" marker-end="url(#m3)"/>
+        <path class="ln" d="M740,170 H878" marker-end="url(#m3)"/>
+        <path class="ln" d="M740,184 H878" marker-end="url(#m3)"/>
+        <text class="s11 mut" x="809" y="146" text-anchor="middle">1 ms network each way</text>
+
+        <rect class="box-cob" x="880" y="110" width="180" height="120" rx="6"/>
+        <text class="b s13 c-cob" x="896" y="136">pricing</text>
+        <text class="s11 mut" x="896" y="154">the callee</text>
+        <text class="s11" x="896" y="178">queue and servers</text>
+        <rect class="age0" x="896" y="190" width="56" height="12"/>
+        <rect class="age1" x="952" y="190" width="40" height="12"/>
+        <rect class="age2" x="992" y="190" width="24" height="12"/>
+        <rect class="age3" x="1016" y="190" width="16" height="12"/>
+
+        <path class="ln-amb-d" d="M110,232 V284 H970 V232"/>
+        <text class="s13" x="540" y="306" text-anchor="middle">Sync: one api thread is held from sending until the slowest of the three answers,</text>
+        <text class="s13" x="540" y="324" text-anchor="middle">so pricing's wait becomes api's busy time. An async call hands off and the thread moves on.</text>
+      </svg>
+    </div>
+    <figcaption><b>A call carries what the caller does.</b> Timeouts, retries and circuit breakers live on the caller's side of a call, so they belong to the call rather than to either component. Retry storms come from here.</figcaption>
+  </figure>
+  <div class="prose">
+    <p>The held thread is the coupling that matters most in real systems. When pricing slows down, the api's threads stay busy waiting for it, so the api runs out of threads even though its own work hasn't changed. Layered queueing networks model exactly this. In FlowTime it becomes a small equation solved inside each bin: the api's busy threads depend on pricing's wait, and pricing's wait depends on how much the api sends. Switch it on in the live view at the top to see where the queue moves.</p>
+  </div>
+</section>
+
+<section id="instant">
+  <div class="sec-head">
+    <div class="kicker">Figure 4</div>
+    <h2>How it stays instant</h2>
+  </div>
+  <figure>
+    <div class="fig-frame">
+      <svg class="fig" viewBox="0 0 1080 300" role="img" aria-label="Four 5-minute bins from 10:00 to 10:15. Inside each bin, fast loops settle in seconds: retries, threads held by synchronous calls, timeouts and fan-out waits. Between bins, arrows carry the slow state forward: the backlog by age, busy servers, replicas and the breaker's mode.">
+        <defs>
+          <marker id="m4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-ink" d="M0,0 L10,5 L0,10 z"/></marker>
+          <marker id="m4c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="mk-cob" d="M0,0 L10,5 L0,10 z"/></marker>
+        </defs>
+        <path class="ln-mut" d="M60,46 H1060"/>
+        <path class="ln-mut" d="M60,40 V52 M330,40 V52 M600,40 V52 M870,40 V52"/>
+        <text class="tm s11" x="60" y="32">10:00</text>
+        <text class="tm s11" x="330" y="32">10:05</text>
+        <text class="tm s11" x="600" y="32">10:10</text>
+        <text class="tm s11" x="870" y="32">10:15</text>
+        <text class="s11 mut" x="1060" y="32" text-anchor="end">one bin = 5 minutes</text>
+
+        <rect class="box" x="60" y="70" width="190" height="150" rx="6"/>
+        <path class="ln-cob" d="M177,136 A22 22 0 1 1 155,114" marker-end="url(#m4c)"/>
+        <text class="s11 mut" x="155" y="190" text-anchor="middle">settles</text>
+        <path class="ln" d="M250,145 H328" marker-end="url(#m4)"/>
+        <text class="s11 halo" x="289" y="137" text-anchor="middle">carries</text>
+
+        <rect class="box-cob" x="330" y="70" width="190" height="150" rx="6"/>
+        <path class="ln-cob" d="M384,112 A22 22 0 1 1 362,90" marker-end="url(#m4c)"/>
+        <text class="b s11" x="396" y="104">fast loops settle</text>
+        <text class="s11 mut" x="396" y="120">in seconds</text>
+        <text class="s11" x="346" y="160">retries</text>
+        <text class="s11" x="346" y="176">threads held by sync calls</text>
+        <text class="s11" x="346" y="192">timeouts</text>
+        <text class="s11" x="346" y="208">fan-out waits</text>
+        <path class="ln" d="M520,145 H598" marker-end="url(#m4)"/>
+        <text class="s11 halo" x="559" y="137" text-anchor="middle">carries</text>
+
+        <rect class="box" x="600" y="70" width="190" height="150" rx="6"/>
+        <path class="ln-cob" d="M717,136 A22 22 0 1 1 695,114" marker-end="url(#m4c)"/>
+        <text class="s11 mut" x="695" y="190" text-anchor="middle">settles</text>
+        <path class="ln" d="M790,145 H868" marker-end="url(#m4)"/>
+        <text class="s11 halo" x="829" y="137" text-anchor="middle">carries</text>
+
+        <rect class="box" x="870" y="70" width="190" height="150" rx="6"/>
+        <path class="ln-cob" d="M987,136 A22 22 0 1 1 965,114" marker-end="url(#m4c)"/>
+        <text class="s11 mut" x="965" y="190" text-anchor="middle">settles</text>
+
+        <text class="s13" x="60" y="256"><tspan class="b">Carried from bin to bin (slow):</tspan> backlog by age · busy servers · replicas · breaker mode · spread of the queue</text>
+        <text class="s13 mut" x="60" y="280">Settled inside each bin (fast): one small solve per bin, like a spreadsheet with iterative calculation switched on.</text>
+      </svg>
+    </div>
+    <figcaption><b>Two speeds.</b> What happens in seconds settles inside a bin; what builds up over minutes carries from one bin to the next. Today every feedback waits at least one bin, so a retry that really happens after 2 seconds arrives 5 to 15 minutes later in the IT templates.</figcaption>
+  </figure>
+  <div class="prose">
+    <p>The <a href="{{ENGINE_URL}}">Census Engine</a> page refines this picture. The engine carries where every request is and steps it forward from the present state; it needs a solve inside a step only for a loop that reacts faster than the step, and the page measures what that costs.</p>
+    <p>Each component can be described as simply or as fully as it needs. A component at a low level stays cheap; a low-volume component can afford the full distribution.</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Level</th><th>A component tracks</th><th>What it can answer</th><th>Cost</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td>averages (today)</td><td>overload, backlog, when it clears</td><td>trivial</td></tr>
+        <tr><td>1</td><td>+ a waiting estimate from variability (decision 13)</td><td>waiting below capacity</td><td>trivial</td></tr>
+        <tr><td>2</td><td>+ the backlog by age</td><td>each item's wait, timeouts, the oldest item, deadlines</td><td>one short list per component</td></tr>
+        <tr><td>3</td><td>+ the spread of the queue</td><td>bands, approximate percentiles, alignment with live telemetry</td><td>a few numbers per component</td></tr>
+        <tr><td>4</td><td>the whole queue-length distribution</td><td>exact percentiles under textbook assumptions</td><td>high; for low-volume components</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="aside">Level 3 is accurate exactly where level 4 gets expensive, at high volume: the random part of a queue grows like √n while the flow grows like n, the same result as the fluid-limit chart in the Restart Blueprint.</p>
+</section>
+
+<section id="time">
+  <div class="sec-head">
+    <div class="kicker">Figure 5</div>
+    <h2>Past, now, future</h2>
+  </div>
+  <figure>
+    <div class="fig-frame">
+      <svg class="fig" viewBox="0 0 1080 320" role="img" aria-label="A schematic timeline of the queue at pricing from 08:00 to 14:00. Before now, at 11:30, measured telemetry is drawn as dots with the model's line through them. At now, each new measurement corrects the model's state. After now, a projection rises to a peak around 12:12 inside a band that widens with time, and a dashed what-if line with 8 more servers falls to zero.">
+        <path class="c-grid" d="M60,80 H1040 M60,165 H1040"/>
+        <path class="c-ax" d="M60,250 H1040"/>
+        <g class="s11 mut">
+          <text x="60" y="268" text-anchor="middle" class="tm s11 mut">08:00</text>
+          <text x="223.3" y="268" text-anchor="middle" class="tm s11 mut">09:00</text>
+          <text x="386.7" y="268" text-anchor="middle" class="tm s11 mut">10:00</text>
+          <text x="550" y="268" text-anchor="middle" class="tm s11 mut">11:00</text>
+          <text x="713.3" y="268" text-anchor="middle" class="tm s11 mut">12:00</text>
+          <text x="876.7" y="268" text-anchor="middle" class="tm s11 mut">13:00</text>
+          <text x="1040" y="268" text-anchor="middle" class="tm s11 mut">14:00</text>
+        </g>
+        <text class="up" x="60" y="30">Past · replay</text>
+        <text class="up" x="631.7" y="30" text-anchor="middle">Now</text>
+        <text class="up" x="1040" y="30" text-anchor="end">Future · project</text>
+        <text class="s11 mut" x="60" y="70">queue at pricing</text>
+
+        <polygon class="c-band" points="{{BAND}}"/>
+        <polyline class="c-model" points="{{PAST}}"/>
+        {{DOTS}}
+        <polyline class="c-proj" points="{{PROJ}}"/>
+        <polyline class="c-whatif" points="{{WHATIF}}"/>
+        <path class="c-now" d="M631.7,44 V250"/>
+
+        <text class="s11" x="420" y="120">telemetry, with the model</text>
+        <text class="s11" x="420" y="135">drawn through it</text>
+        <text class="s11 c-amb b" x="790" y="70">projection, band widening</text>
+        <text class="s11 halo" x="700" y="228" style="fill: var(--green)">what-if: 8 more servers</text>
+        <text class="s11" x="631.7" y="294" text-anchor="middle">Now: each new measurement corrects the model's state, the way a weather forecast does.</text>
+      </svg>
+    </div>
+    <figcaption><b>One model, three uses.</b> Replay the past and compare; keep the model aligned with live telemetry; project forward from now, with a band and with what-if branches. Schematic: the curves illustrate the idea and are not computed.</figcaption>
+  </figure>
+  <div class="prose">
+    <p>Keeping the model aligned in the present needs level 3: the correction weighs the model's own spread against the measurement's noise. The projection then answers the question an on-call engineer asks: "at this rate the queue overflows at 12:10, unless we add 8 servers".</p>
+  </div>
+</section>
+
+<section id="prior">
+  <div class="sec-head">
+    <div class="kicker">Where it sits</div>
+    <h2>What exists, and the gap</h2>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Kind</th><th>Examples</th><th>Good at</th><th>Missing for this job</th></tr></thead>
+      <tbody>
+        <tr><td>Queueing calculators and networks</td><td>Erlang calculators, layered queueing networks, Palladio</td><td>servers, variability, threads held across calls</td><td>load that changes over the day; telemetry</td></tr>
+        <tr><td>Discrete-event simulation</td><td>SimPy, AnyLogic</td><td>anything you can program</td><td>speed, repeatable answers, explaining a number, calibration</td></tr>
+        <tr><td>System dynamics</td><td>Vensim, Stella</td><td>stocks and flows over time</td><td>servers, randomness, calls, telemetry</td></tr>
+        <tr><td>Traffic maps</td><td>Netflix Vizceral, Kiali, Grafana Tempo's service graph</td><td>live traffic between services</td><td>what happens inside a node; what-ifs</td></tr>
+        <tr><td>Trace and metric viewers</td><td>Jaeger, Grafana</td><td>single requests; charts of measurements</td><td>a model, so no "why" and no "what if"</td></tr>
+        <tr class="rec"><td>FlowTime, as proposed</td><td>building blocks, per bin</td><td>all of the above at bin level, from models or telemetry, with time travel</td><td>single requests, by design</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="aside">Tools are named from memory and were not checked for this page. Palladio-like descriptions, computed over time and calibrated from OpenTelemetry, is a position none of them holds. The view would read Prometheus, OpenTelemetry and Jaeger data and link back to them rather than replace them.</p>
+</section>
+
+<section id="costs">
+  <div class="sec-head">
+    <div class="kicker">Costs and risks</div>
+    <h2>What it takes</h2>
+  </div>
+  <ol class="steps">
+    <li><b>Every mechanism has to be verified.</b><p>Each one needs a spec, closed forms, worked examples and a simulation check before it ships. The library grows one mechanism at a time.</p></li>
+    <li><b>Rich models take work to write.</b><p>Building the first draft from traces has to come early, with defaults for everything traces don't show.</p></li>
+    <li><b>The per-bin solve must always settle.</b><p>Some loops, a retry storm for one, can have two equilibria. The spec has to say which one the engine picks and flag the bin.</p></li>
+    <li><b>Levels 1 to 3 are approximations.</b><p>The simulation suite states how accurate each one is, and the UI shows it.</p></li>
+    <li><b>A library is not a language.</b><p>New behavior enters as a specified mechanism, never as free-form code inside a model.</p></li>
+  </ol>
+</section>
+
+<section id="decisions">
+  <div class="sec-head">
+    <div class="kicker">Decisions</div>
+    <h2>Where this leaves the plan</h2>
+  </div>
+  <div class="decided">
+    <p><b>Decided, decision 14.</b> A service is described by its servers and its service time per request type; its capacity follows from them. Latency is service time plus waiting.</p>
+  </div>
+  <div class="decided">
+    <p><b>Open: how ambitious the core is.</b> The core's shape is set before the queue spec: what a row holds, the order things are evaluated in, whether there is a solve inside each bin.</p>
+  </div>
+  <ol class="steps">
+    <li><b>Adopt the building blocks and climb the levels one at a time.<span class="tag">recommended</span></b><p>Phase 1 still starts with the queue, as a component with servers, service time and a queue at levels 0 to 2. The core is designed from the start for component state, a mechanism library, call trees and a step chosen per loop (see the Census Engine page), so nothing built now is rebuilt later.</p></li>
+    <li><b>Keep the current plan and add richness after the core ships.</b><p>Smaller now. One number per row and a single evaluation order get baked in, so the rewrite would itself need rewriting.</p></li>
+    <li><b>Specify the whole library before building anything.</b><p>Complete on paper, with no feedback from running code, and the most likely to stall.</p></li>
+  </ol>
+</section>
+
+<footer>
+  <p>Exploration only; nothing on this page is built. Prepared 2026-10-17 and updated 2026-10-18 from the FlowTime repository at commit 412467e0, alongside the seeded-rewrite spec in <code>rewrite/spec.md</code>.</p>
+  <p>The multi-server table was computed with the Erlang C formula in a scratch script. The live view runs a toy model in this page; its numbers are illustrations, not FlowTime output, and were checked in node against the scratch scripts behind the Census Engine page. Figure 5 is schematic. Tools in "Where it sits" are named from memory.</p>
+</footer>
+
+</div>
+
+<script>
+{{MODEL}}
+
+(() => {
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+  const tx = (attrs, s, parent) => { const e = el("text", attrs, parent); e.textContent = s; return e; };
+
+  // Static slots in figures 2 and 3.
+  const f2 = document.getElementById("fig2-slots");
+  for (let i = 0; i < 24; i++) el("rect", { x: 666 + (i % 12) * 21, y: 186 + Math.floor(i / 12) * 16, width: 16, height: 11, rx: 2, class: i < 18 ? "slot-on" : "slot-off" }, f2);
+  const f3 = document.getElementById("fig3-threads");
+  for (let i = 0; i < 16; i++) el("rect", { x: 36 + (i % 8) * 16, y: 188 + Math.floor(i / 8) * 15, width: 12, height: 10, rx: 2, class: i < 6 ? "slot-on" : "slot-off" }, f3);
+
+  // Runs: a pair (as is, and with 32 pricing servers) for each combination of the mechanism switches, computed on first use.
+  const KEYS = ["api", "cart", "db", "pricing", "email"];
+  const holdSw = document.getElementById("hold"), abandSw = document.getElementById("aband");
+  const cache = {};
+  function variant() {
+    const key = holdSw.checked + "|" + abandSw.checked;
+    if (!cache[key]) {
+      const opts = { holdWorkers: holdSw.checked, serveAbandoned: abandSw.checked };
+      const t0 = performance.now();
+      const v = { base: run({ ...opts, pricingServers: 24 }), whatif: run({ ...opts, pricingServers: 32 }) };
+      v.ms = performance.now() - t0;
+      v.scale = {};
+      for (const k of KEYS) v.scale[k] = Math.max(1, ...v.base[k].map(s => s.backlog), ...v.whatif[k].map(s => s.backlog));
+      cache[key] = v;
+    }
+    return cache[key];
+  }
+  let runs = variant();
+
+  // Topology.
+  const svg = document.getElementById("live-svg");
+  const gEdges = document.getElementById("edges"), gParts = document.getElementById("particles"), gNodes = document.getElementById("nodes");
+  const CARD_W = 170, CARD_H = 88;
+  const POS = { api: [150, 168], cart: [410, 30], db: [680, 30], pricing: [410, 168], email: [410, 306] };
+  const EDGES = {
+    in:    { d: "M116,212 H148" },
+    cart:  { d: "M320,194 C365,194 365,74 408,74", lab: [376, 132, "start"] },
+    pr:    { d: "M320,212 H408", lab: [364, 204, "middle"], lab2: [364, 230, "middle"] },
+    em:    { d: "M320,230 C365,230 365,350 408,350", cls: "async", lab: [376, 296, "start"] },
+    db:    { d: "M580,74 H678", lab: [629, 66, "middle"] },
+    to:    { d: "M580,212 H678", cls: "fail", lab: [629, 204, "middle"] },
+  };
+  for (const k in EDGES) {
+    const e = EDGES[k];
+    e.path = el("path", { d: e.d, class: "edge " + (e.cls || "") }, gEdges);
+    e.len = e.path.getTotalLength();
+    if (e.lab) e.text = tx({ x: e.lab[0], y: e.lab[1], "text-anchor": e.lab[2], class: "s11 halo num" }, "", gEdges);
+    if (e.lab2) e.text2 = tx({ x: e.lab2[0], y: e.lab2[1], "text-anchor": e.lab2[2], class: "s11 halo num c-amb" }, "", gEdges);
+  }
+  el("rect", { x: 16, y: 190, width: 100, height: 44, rx: 22, class: "src" }, gNodes);
+  tx({ x: 66, y: 209, "text-anchor": "middle", class: "b" }, "checkout", gNodes);
+  const srcRate = tx({ x: 66, y: 225, "text-anchor": "middle", class: "s11 mut num" }, "", gNodes);
+  el("rect", { x: 680, y: 189, width: 170, height: 46, rx: 6, class: "sink" }, gNodes);
+  tx({ x: 692, y: 207, class: "b s11" }, "timed out", gNodes);
+  tx({ x: 692, y: 224, class: "s11 mut" }, "half retried, half fail", gNodes);
+
+  const cards = {};
+  for (const k of KEYS) {
+    const [x, y] = POS[k], g = el("g", {}, gNodes), c = { };
+    c.rect = el("rect", { x, y, width: CARD_W, height: CARD_H, rx: 6, class: "card" }, g);
+    tx({ x: x + 12, y: y + 19, class: "b s13" }, k, g);
+    c.inRate = tx({ x: x + 158, y: y + 19, "text-anchor": "end", class: "s11 mut num" }, "", g);
+    c.slots = [];
+    for (let i = 0; i < 32; i++) c.slots.push(el("rect", { x: x + 12 + (i % 16) * 9, y: y + 28 + Math.floor(i / 16) * 9, width: 7, height: 7, rx: 1.5, class: "slot-off" }, g));
+    el("rect", { x: x + 12, y: y + 50, width: 146, height: 9, class: "qbg" }, g);
+    c.segs = [0, 1, 2, 3].map(i => el("rect", { x: x + 12, y: y + 50, width: 0, height: 9, class: "age" + i }, g));
+    c.backlog = tx({ x: x + 12, y: y + 77, class: "s11 num" }, "", g);
+    c.wait = tx({ x: x + 158, y: y + 77, "text-anchor": "end", class: "s11 num" }, "", g);
+    c.x = x; cards[k] = c;
+  }
+
+  // Chart.
+  const chart = document.getElementById("chart-svg");
+  const X0 = 50, X1 = 980, bx = b => X0 + b / (BINS - 1) * (X1 - X0);
+  const A0 = 72, A1 = 22, ay = v => A0 - v / 80 * (A0 - A1);
+  const L0 = 214, L1 = 114, ly = v => L0 - (Math.log10(Math.min(1000, Math.max(0.1, v))) + 1) / 4 * (L0 - L1);
+  tx({ x: X0, y: 13, class: "s11 mut" }, "checkout arrivals, per second", chart);
+  tx({ x: X0, y: 101, class: "s11 mut" }, "checkout latency, log scale: solid as is, dashed with 32 pricing servers", chart);
+  for (const [v, y] of [[0, ay(0)], [40, ay(40)], [80, ay(80)]]) { el("path", { d: `M${X0},${y} H${X1}`, class: "c-grid" }, chart); tx({ x: X0 - 6, y: y + 4, "text-anchor": "end", class: "tm s10 mut" }, String(v), chart); }
+  for (const [v, s] of [[0.1, "0.1 s"], [1, "1 s"], [10, "10 s"], [100, "100 s"], [1000, "1000 s"]]) { const y = ly(v); el("path", { d: `M${X0},${y} H${X1}`, class: "c-grid" }, chart); tx({ x: X0 - 6, y: y + 4, "text-anchor": "end", class: "tm s10 mut" }, s, chart); }
+  [["10:00", 0], ["10:15", 90], ["10:30", 180], ["10:45", 270], ["11:00", 359]].forEach(([s, b]) => tx({ x: bx(b), y: 234, "text-anchor": "middle", class: "tm s10 mut" }, s, chart));
+  const pts = (arr, f) => arr.map((v, b) => `${bx(b).toFixed(1)},${f(v).toFixed(1)}`).join(" ");
+  el("polygon", { points: `${X0},${A0} ${pts(runs.base.checkout, ay)} ${X1},${A0}`, class: "area" }, chart);
+  el("polyline", { points: pts(runs.base.checkout, ay), class: "line-in" }, chart);
+  const lineBase = el("polyline", { class: "line-base" }, chart), lineWhatif = el("polyline", { class: "line-whatif" }, chart);
+  const drawLatency = () => { lineBase.setAttribute("points", pts(runs.base.latency, ly)); lineWhatif.setAttribute("points", pts(runs.whatif.latency, ly)); };
+  drawLatency();
+  const cursor = el("path", { d: "", class: "cursor" }, chart);
+
+  // Rendering one bin.
+  const $ = id => document.getElementById(id);
+  const scrub = $("scrub"), whatif = $("whatif"), playBtn = $("play");
+  const fmtRate = v => (v < 10 ? v.toFixed(1) : Math.round(v).toString()) + "/s";
+  const fmtWait = w => w < 0.001 ? "wait 0" : w < 1 ? "wait " + Math.round(w * 1000) + " ms" : w < 10 ? "wait " + w.toFixed(1) + " s" : w < 120 ? "wait " + Math.round(w) + " s" : "wait " + (w / 60).toFixed(1) + " min";
+  const fmtSec = s => s < 1 ? Math.round(s * 1000) + " ms" : s < 120 ? s.toFixed(1) + " s" : (s / 60).toFixed(1) + " min";
+  const clockOf = b => { const s = 10 * 3600 + b * BIN_S, h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, ss = s % 60; return [h, m, ss].map(n => String(n).padStart(2, "0")).join(":"); };
+  let bin = 120, live = null;
+  function render(b) {
+    const r = whatif.checked ? runs.whatif : runs.base;
+    const at = k => r[k][b];
+    live = {
+      in: [{ rate: r.checkout[b], cls: "p-flow" }],
+      cart: [{ rate: at("api").servedRate, cls: "p-flow" }],
+      pr: [{ rate: 3 * at("api").servedRate, cls: "p-flow" }, { rate: r.retries[b], cls: "p-retry" }],
+      em: [{ rate: at("api").servedRate, cls: "p-flow" }],
+      db: [{ rate: at("cart").servedRate, cls: "p-flow" }],
+      to: [{ rate: at("pricing").timedOutRate, cls: "p-fail" }],
+    };
+    for (const k in EDGES) {
+      const total = live[k].reduce((s, f) => s + f.rate, 0);
+      EDGES[k].path.style.strokeWidth = (1.5 + Math.min(10, total / 25)).toFixed(1);
+      if (EDGES[k].text) EDGES[k].text.textContent = fmtRate(k === "pr" ? 3 * at("api").servedRate : total);
+      if (EDGES[k].text2) EDGES[k].text2.textContent = r.retries[b] > 0.05 ? "+" + fmtRate(r.retries[b]) + " retries" : "";
+    }
+    srcRate.textContent = fmtRate(r.checkout[b]);
+    for (const k of KEYS) {
+      const s = at(k), c = cards[k], servers = (whatif.checked && k === "pricing") ? 32 : BASE[k].servers;
+      const busy = Math.round(s.busy * servers);
+      c.slots.forEach((sl, i) => { sl.style.display = i < servers ? "" : "none"; sl.setAttribute("class", i < busy ? "slot-on" : "slot-off"); });
+      c.inRate.textContent = "in " + fmtRate(s.inRate);
+      let x = c.x + 12; const total = s.backlog, w = 146 * Math.min(1, total / runs.scale[k]);
+      [0, 1, 2, 3].forEach(i => { const sw = total > 0 ? w * s.ages[i] / total : 0; c.segs[i].setAttribute("x", x.toFixed(1)); c.segs[i].setAttribute("width", sw.toFixed(1)); x += sw; });
+      c.backlog.textContent = "backlog " + Math.round(total).toLocaleString("en-US");
+      c.wait.textContent = fmtWait(s.wait);
+      c.rect.setAttribute("class", "card" + (s.timedOutRate > 0 ? " hot" : s.backlog > 1 ? " warm" : ""));
+    }
+    $("clock").textContent = clockOf(b);
+    const lat = r.latency[b]; const latEl = $("ro-lat"); latEl.textContent = fmtSec(lat); latEl.className = lat > 2 ? "bad" : lat > 0.3 ? "warn" : "";
+    const fail = r.failed[b]; const failEl = $("ro-fail"); failEl.textContent = fmtRate(fail); failEl.className = fail > 0.05 ? "bad" : "";
+    const rt = r.retries[b]; const rtEl = $("ro-retry"); rtEl.textContent = fmtRate(rt); rtEl.className = rt > 0.05 ? "warn" : "";
+    const inUse = r.apiInUse[b]; const apiEl = $("ro-api"); apiEl.textContent = (inUse < 10 ? inUse.toFixed(1) : Math.round(inUse)) + " of 16"; apiEl.className = inUse > 15.5 ? "bad" : inUse > 12 ? "warn" : "";
+    const waste = at("pricing").wastedRate; const wEl = $("ro-waste"); wEl.textContent = fmtRate(waste); wEl.className = waste > 0.05 ? "bad" : "";
+    cursor.setAttribute("d", `M${bx(b).toFixed(1)},18 V218`);
+    scrub.value = b;
+  }
+  const showMs = () => { const ms = runs.ms; $("ro-ms").textContent = ms < 1 ? ms.toFixed(2) + " ms" : ms.toFixed(1) + " ms"; };
+  showMs();
+  render(bin);
+
+  // Controls.
+  let playing = false, tBin = bin;
+  const setPlaying = p => { playing = p; playBtn.textContent = p ? "Pause" : "Play"; };
+  playBtn.addEventListener("click", () => { if (!playing && bin >= BINS - 1) { tBin = 0; } setPlaying(!playing); });
+  scrub.addEventListener("input", () => { tBin = bin = +scrub.value; render(bin); });
+  whatif.addEventListener("change", () => render(bin));
+  const onSwitch = () => { runs = variant(); drawLatency(); showMs(); render(bin); };
+  holdSw.addEventListener("change", onSwitch);
+  abandSw.addEventListener("change", onSwitch);
+  const scrubFromChart = ev => { const p = chart.createSVGPoint(); p.x = ev.clientX; p.y = ev.clientY; const loc = p.matrixTransform(chart.getScreenCTM().inverse()); tBin = bin = Math.max(0, Math.min(BINS - 1, Math.round((loc.x - X0) / (X1 - X0) * (BINS - 1)))); render(bin); };
+  chart.addEventListener("pointerdown", ev => { chart.setPointerCapture(ev.pointerId); scrubFromChart(ev); });
+  chart.addEventListener("pointermove", ev => { if (chart.hasPointerCapture(ev.pointerId)) scrubFromChart(ev); });
+
+  // Particles: drawn from the current bin's rates, never simulated.
+  const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const ITEMS_PER_DOT = 5, SPEED = 120, BINS_PER_SEC = 6, MAX_DOTS = 420;
+  const dots = [], acc = {};
+  let last = null;
+  function frame(ts) {
+    const dt = last === null ? 0 : Math.min(0.1, (ts - last) / 1000); last = ts;
+    if (playing) {
+      tBin += dt * BINS_PER_SEC;
+      if (tBin >= BINS - 1) { tBin = BINS - 1; setPlaying(false); }
+      const b = Math.floor(tBin); if (b !== bin) { bin = b; render(bin); }
+    }
+    if (!reduced && live) {
+      for (const k in live) live[k].forEach((f, i) => {
+        const key = k + i; acc[key] = (acc[key] || Math.random()) + f.rate * dt / ITEMS_PER_DOT;
+        while (acc[key] >= 1) { acc[key] -= 1; if (dots.length < MAX_DOTS) dots.push({ e: EDGES[k], s: Math.random() * SPEED * dt, off: (Math.random() - 0.5) * 5, node: el("circle", { r: 2.4, class: f.cls }, gParts) }); }
+      });
+      for (let i = dots.length - 1; i >= 0; i--) {
+        const d = dots[i]; d.s += SPEED * dt;
+        if (d.s >= d.e.len) { d.node.remove(); dots.splice(i, 1); continue; }
+        const p = d.e.path.getPointAtLength(d.s);
+        d.node.setAttribute("cx", p.x.toFixed(1)); d.node.setAttribute("cy", (p.y + d.off).toFixed(1));
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>

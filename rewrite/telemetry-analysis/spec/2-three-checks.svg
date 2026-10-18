@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 510" width="1080" height="510">
+  <title>Three sources of telemetry, three checks</title>
+  <style>
+    :root {
+      --surface: #ffffff; --ground: #f3f4f0; --ink: #17202b; --ink-2: #3b4755; --muted: #5a6570;
+      --line: #cfd5cc; --line-2: #8a96a5;
+      --cobalt: #2944a8; --cobalt-soft: #e9edf8; --amber: #a84f07; --amber-soft: #f7ebe0;
+      --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --surface: #161b22; --ground: #0f1318; --ink: #e2e6eb; --ink-2: #b6c1cd; --muted: #98a2ad;
+        --line: #2c333d; --line-2: #627082;
+        --cobalt: #8fa3f5; --cobalt-soft: #1c2440; --amber: #f0a24e; --amber-soft: #2b2015;
+      }
+    }
+    .bg { fill: var(--surface); stroke: var(--line); }
+    .box { fill: var(--surface); stroke: var(--line-2); stroke-width: 1.1; }
+    .box-cob { fill: var(--cobalt-soft); stroke: var(--cobalt); stroke-width: 1.5; }
+    .box-sim { fill: var(--amber-soft); stroke: var(--amber); stroke-width: 1.4; stroke-dasharray: 6 4; }
+    .keep { fill: none; stroke: var(--line-2); stroke-width: 1.1; stroke-dasharray: 5 4; }
+    .e { fill: none; stroke: var(--ink-2); stroke-width: 1.4; }
+    .e-cob { fill: none; stroke: var(--cobalt); stroke-width: 1.7; }
+    .e-amb { fill: none; stroke: var(--amber); stroke-width: 1.7; }
+    .mk { fill: var(--ink-2); }
+    .mk-cob { fill: var(--cobalt); }
+    .mk-amb { fill: var(--amber); }
+    .tt { font: 600 13px var(--font-body); fill: var(--ink); }
+    .tr { font: 400 11.5px var(--font-body); fill: var(--ink); }
+    .ts { font: 400 11px var(--font-body); fill: var(--muted); }
+    .tz { font: 500 10.5px var(--font-mono); letter-spacing: 0.06em; fill: var(--muted); }
+    .cob { fill: var(--cobalt); }
+    .amb { fill: var(--amber); }
+    /* Edge labels carry a halo in the colour beneath them, so a line under the text does not strike through it. */
+    .te { font: 400 11px var(--font-body); fill: var(--ink-2); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+    .te.cob { fill: var(--cobalt); }
+    .te.amb { fill: var(--amber); }
+  </style>
+  <defs>
+    <marker id="ta2-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="ta2-cob" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-cob" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="ta2-amb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-amb" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+  <rect class="bg" x="0.5" y="0.5" width="1079" height="509" rx="10"/>
+
+  <!-- column heads -->
+  <text class="tz" x="30" y="36">TELEMETRY FROM, IN THIS ORDER</text>
+  <text class="tz" x="340" y="36">GOES THROUGH</text>
+  <text class="tz" x="720" y="36">CATCHES · MISSES</text>
+  <path class="keep" d="M700,50 V490"/>
+
+  <!-- 1: round trip -->
+  <rect class="box" x="30" y="54" width="250" height="92" rx="6"/>
+  <text class="tt" x="48" y="80">1 · a FlowTime run</text>
+  <text class="tr" x="48" y="100">the model's own series</text>
+  <text class="ts" x="48" y="117">no randomness</text>
+  <path class="e" d="M280,100 H338" marker-end="url(#ta2-ink)"/>
+  <text class="te" x="309" y="92" text-anchor="middle">written</text>
+  <rect class="box" x="340" y="54" width="320" height="92" rx="6"/>
+  <text class="tt" x="358" y="80">F1 adapters</text>
+  <text class="tr" x="358" y="100">read the files back as telemetry</text>
+  <text class="ts" x="358" y="117">no model involved</text>
+  <path class="e" d="M500,146 V166 H155 V148" marker-end="url(#ta2-ink)"/>
+  <text class="te" x="328" y="184" text-anchor="middle">same numbers back?</text>
+  <text class="tr" x="720" y="94">catches: a value the adapters lose or change</text>
+  <text class="ts" x="720" y="114">misses: whether the model is realistic</text>
+
+  <!-- 2: rehearsal -->
+  <rect class="box-sim" x="30" y="204" width="250" height="92" rx="6"/>
+  <text class="tt amb" x="48" y="230">2 · simulation</text>
+  <text class="tr" x="48" y="250">request by request, random</text>
+  <text class="ts" x="48" y="267">known capacity and variability</text>
+  <text class="ts" x="48" y="283">test tooling, never shipped</text>
+  <path class="e" d="M280,250 H338" marker-end="url(#ta2-ink)"/>
+  <text class="te" x="309" y="242" text-anchor="middle">binned</text>
+  <rect class="box" x="340" y="204" width="320" height="92" rx="6"/>
+  <text class="tt" x="358" y="230">the analysis loop (Fig. 1)</text>
+  <text class="tr" x="358" y="250">ingest · fit · residuals · explain</text>
+  <text class="ts" x="358" y="267">the same code real telemetry goes through</text>
+  <path class="e-amb" d="M500,296 V316 H155 V298" marker-end="url(#ta2-amb)"/>
+  <text class="te amb" x="328" y="334" text-anchor="middle">recovers the truth?</text>
+  <text class="tr" x="720" y="244">catches: a fit that reports the wrong capacity</text>
+  <text class="ts" x="720" y="264">misses: what the simulation leaves out</text>
+
+  <!-- 3: real telemetry -->
+  <rect class="box-cob" x="30" y="354" width="250" height="92" rx="6"/>
+  <text class="tt cob" x="48" y="380">3 · real telemetry</text>
+  <text class="tr" x="48" y="400">metrics, logs, spans</text>
+  <text class="ts" x="48" y="417">no answer key</text>
+  <path class="e" d="M280,400 H338" marker-end="url(#ta2-ink)"/>
+  <text class="te" x="309" y="392" text-anchor="middle">read</text>
+  <rect class="box" x="340" y="354" width="320" height="92" rx="6"/>
+  <text class="tt" x="358" y="380">the analysis loop (Fig. 1)</text>
+  <text class="tr" x="358" y="400">ingest · fit · residuals · explain</text>
+  <text class="ts" x="358" y="417">then what-if with bands</text>
+  <path class="e-cob" d="M500,446 V466 H155 V448" marker-end="url(#ta2-cob)"/>
+  <text class="te cob" x="328" y="484" text-anchor="middle">residuals: model minus telemetry</text>
+  <text class="tr" x="720" y="394">catches: where the system differs from the model</text>
+  <text class="ts" x="720" y="414">misses: a wrong model that happens to fit</text>
+</svg>

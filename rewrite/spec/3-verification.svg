@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 440" width="1080" height="440">
+  <title>How it is verified: one gate, three kinds of check</title>
+  <style>
+    :root {
+      --surface: #ffffff; --ground: #f3f4f0; --ink: #17202b; --ink-2: #3b4755; --muted: #5a6570;
+      --line: #cfd5cc; --line-2: #8a96a5;
+      --cobalt: #2944a8; --cobalt-soft: #e9edf8; --amber: #a84f07; --amber-soft: #f7ebe0;
+      --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --surface: #161b22; --ground: #0f1318; --ink: #e2e6eb; --ink-2: #b6c1cd; --muted: #98a2ad;
+        --line: #2c333d; --line-2: #627082;
+        --cobalt: #8fa3f5; --cobalt-soft: #1c2440; --amber: #f0a24e; --amber-soft: #2b2015;
+      }
+    }
+    .bg { fill: var(--surface); stroke: var(--line); }
+    .box { fill: var(--surface); stroke: var(--line-2); stroke-width: 1.1; }
+    .box-in { fill: var(--ground); stroke: var(--line-2); stroke-width: 1; }
+    .box-ink { fill: var(--surface); stroke: var(--ink); stroke-width: 1.75; }
+    .box-cob { fill: var(--cobalt-soft); stroke: var(--cobalt); stroke-width: 1.5; }
+    .box-amb { fill: var(--amber-soft); stroke: var(--amber); stroke-width: 1.2; }
+    .pill { fill: var(--surface); stroke: var(--cobalt); stroke-width: 1; }
+    .scope { fill: none; stroke: var(--amber); stroke-width: 1.4; stroke-dasharray: 6 4; }
+    .keep { fill: none; stroke: var(--line-2); stroke-width: 1.1; stroke-dasharray: 5 4; }
+    .e { fill: none; stroke: var(--ink-2); stroke-width: 1.4; }
+    .e-cob { fill: none; stroke: var(--cobalt); stroke-width: 1.9; }
+    .e-amb { fill: none; stroke: var(--amber); stroke-width: 1.6; stroke-dasharray: 6 4; }
+    .e-mut { fill: none; stroke: var(--line-2); stroke-width: 1.3; stroke-dasharray: 3 4; }
+    .mk { fill: var(--ink-2); }
+    .mk-cob { fill: var(--cobalt); }
+    .mk-amb { fill: var(--amber); }
+    .mk-mut { fill: var(--line-2); }
+    .th { font: 600 15px var(--font-body); fill: var(--ink); }
+    .tt { font: 600 13px var(--font-body); fill: var(--ink); }
+    .tb { font: 600 12px var(--font-body); fill: var(--ink); }
+    .tr { font: 400 11.5px var(--font-body); fill: var(--ink); }
+    .ts { font: 400 11px var(--font-body); fill: var(--muted); }
+    .tm { font: 400 11px var(--font-mono); fill: var(--muted); }
+    .tmb { font: 600 13px var(--font-mono); fill: var(--ink); }
+    .tbig { font: 600 15px var(--font-mono); fill: var(--ink); }
+    .tcore { font: 700 18px var(--font-mono); fill: var(--cobalt); }
+    .tz { font: 500 10.5px var(--font-mono); letter-spacing: 0.06em; fill: var(--muted); }
+    .cob { fill: var(--cobalt); }
+    .amb { fill: var(--amber); }
+    /* Edge labels carry a halo in the colour beneath them, so a line under the text does not strike through it. */
+    .te { font: 400 11px var(--font-body); fill: var(--ink-2); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+    .te.cob { fill: var(--cobalt); }
+    .te.amb { fill: var(--amber); }
+  </style>
+  <defs>
+    <marker id="f3-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+  <rect class="bg" x="0.5" y="0.5" width="1079" height="439" rx="10"/>
+
+  <!-- who runs the gate -->
+  <rect class="box" x="120" y="12" width="260" height="46" rx="6"/>
+  <text class="tb" x="250" y="32" text-anchor="middle">builder agent</text>
+  <text class="ts" x="250" y="49" text-anchor="middle">Stop hook</text>
+  <rect class="box" x="410" y="12" width="260" height="46" rx="6"/>
+  <text class="tb" x="540" y="32" text-anchor="middle">CI</text>
+  <text class="ts" x="540" y="49" text-anchor="middle">every pull request</text>
+  <rect class="box" x="700" y="12" width="260" height="46" rx="6"/>
+  <text class="tb" x="830" y="32" text-anchor="middle">a person</text>
+  <text class="ts" x="830" y="49" text-anchor="middle">before asking for review</text>
+  <path class="e" d="M250,58 L430,96" marker-end="url(#f3-ink)"/>
+  <path class="e" d="M540,58 V96" marker-end="url(#f3-ink)"/>
+  <path class="e" d="M830,58 L650,96" marker-end="url(#f3-ink)"/>
+  <text class="te" x="550" y="82">calls</text>
+
+  <!-- the gate -->
+  <rect class="box-ink" x="340" y="100" width="400" height="52" rx="6"/>
+  <text class="tbig" x="540" y="124" text-anchor="middle">./verify</text>
+  <text class="ts" x="540" y="143" text-anchor="middle">one entry point; a skipped step says why</text>
+  <path class="e" d="M440,152 L200,194" marker-end="url(#f3-ink)"/>
+  <path class="e" d="M540,152 V194" marker-end="url(#f3-ink)"/>
+  <path class="e" d="M640,152 L880,194" marker-end="url(#f3-ink)"/>
+  <text class="te" x="550" y="178">runs</text>
+
+  <!-- shape -->
+  <rect class="box" x="20" y="198" width="340" height="168" rx="6"/>
+  <text class="th" x="36" y="222">Shape</text>
+  <text class="tr" x="36" y="241">CUE schemas, registered as aiwf contracts</text>
+  <text class="ts" x="36" y="264">model, template, run folder, session</text>
+  <text class="ts" x="36" y="280">valid and invalid fixtures, evolve pass</text>
+  <text class="ts" x="36" y="296">the Rust parser reads the same fixtures</text>
+  <text class="tr" x="36" y="324">catches: a shape the schema should refuse</text>
+  <text class="ts" x="36" y="342">misses: wrong numbers</text>
+
+  <!-- meaning -->
+  <rect class="box-cob" x="370" y="198" width="340" height="168" rx="6"/>
+  <text class="th cob" x="386" y="222">Meaning</text>
+  <text class="tr" x="386" y="241">the numbers, with an oracle owned by people</text>
+  <text class="ts" x="386" y="264">closed forms from queueing theory</text>
+  <text class="ts" x="386" y="280">laws: conservation, Little's law, …</text>
+  <text class="ts" x="386" y="296">a reference evaluator for combinations</text>
+  <text class="tr" x="386" y="324">catches: a wrong value in any bin</text>
+  <text class="ts" x="386" y="342">misses: what no form, law or model reaches</text>
+
+  <!-- behavior -->
+  <rect class="box" x="720" y="198" width="340" height="168" rx="6"/>
+  <text class="th" x="736" y="222">Behavior</text>
+  <text class="tr" x="736" y="241">verifier-kit spines</text>
+  <text class="ts" x="736" y="264">session: compile, then eval, then get series</text>
+  <text class="ts" x="736" y="280">run lifecycle; later chunk_step</text>
+  <text class="ts" x="736" y="296">spine check · behaviors · conform</text>
+  <text class="tr" x="736" y="324">catches: a step allowed or refused wrongly</text>
+  <text class="ts" x="736" y="342">misses: the values inside a step</text>
+
+  <!-- guard and planted bugs -->
+  <rect class="box-amb" x="20" y="380" width="510" height="46" rx="6"/>
+  <text class="tb" x="36" y="400">guard</text>
+  <text class="ts" x="36" y="417">policy.yaml: the builder may read oracle paths, never change them</text>
+  <rect class="box" x="550" y="380" width="510" height="46" rx="6"/>
+  <text class="tmb" x="566" y="400">./verify --full</text>
+  <text class="ts" x="566" y="417">planted bugs must be caught, which checks the checks</text>
+</svg>

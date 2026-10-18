@@ -1,0 +1,26 @@
+# README example, reduced: a demand spike hits a capacity-limited service with a queue
+grid:
+  bins: 12
+  binSize: 10
+  binUnit: minutes
+nodes:
+  - id: demand
+    kind: const
+    values: [100, 100, 100, 300, 300, 300, 100, 100, 100, 100, 100, 100]
+  - id: proc_capacity
+    kind: const
+    values: [200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200]
+  - id: proc_served
+    kind: expr
+    expr: "MIN(proc_capacity, demand + SHIFT(proc_queue, 1))"
+topology:
+  nodes:
+    - id: Processing
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: demand
+        served: proc_served
+        queueDepth: proc_queue
+        capacity: proc_capacity
+  edges: []
+  constraints: []
