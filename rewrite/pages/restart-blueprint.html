@@ -389,15 +389,16 @@ footer { font-size: 13.5px; color: var(--muted); display: grid; gap: 8px; max-wi
     <h2>The model language</h2>
   </div>
   <div class="prose">
-    <p>The restart is worth most here. Today's two engines disagree mainly about how a model is written, not about arithmetic. Six rules settle it:</p>
+    <p>The restart is worth most here. Today's two engines disagree mainly about how a model is written, not about arithmetic. Seven rules settle it:</p>
   </div>
   <ol class="rules">
     <li><span><b>Every series is declared once, by id: as a row, or as a router's named output.</b> No name is invented by convention. Today Rust creates <code>processing_queue</code> and <code>processing_utilization</code> from a topology node's id, and renaming that node silently renames them.</span></li>
     <li><span><b>Anything that computes is a node.</b> That covers <code>const</code>, <code>expr</code>, <code>pmf</code>, the backlog row and <code>router</code>. A split is one router node that lists all its branches; consumers read a branch by name, such as <code>HubRouter.airport</code>. In templates, edge weights and class routes become such a router. Today C# lets a router overwrite placeholder rows declared as <code>expr: "0"</code>, and Rust applies edge weights only after evaluation, so they feed nothing downstream.</span></li>
-    <li><span><b>The topology computes nothing.</b> It names the components, says what kind each one is, labels rows with roles (arrivals, served, capacity, buffer) and carries layout. Derived metrics are outputs addressed by the component, such as <code>Processing.utilization</code>.</span></li>
+    <li><span><b>The topology computes nothing.</b> It names the components, says what kind each one is, labels rows with roles (arrivals, served, servers, service time, capacity, buffer) and carries layout. Derived metrics are outputs addressed by the component, such as <code>Processing.utilization</code>.</span></li>
     <li><span><b>Sugar exists only in templates</b> and is lowered in one place: <code>queueDepth: self</code>, edge weights, class shorthands.</span></li>
     <li><span><b>Parameters are typed, and each one's class is declared.</b> A value parameter becomes a constant row that formulas name directly and that analysis and the UI override without recompiling. A structural parameter (a bin count, a dispatch period, a telemetry file) is resolved when the template is lowered, on the parsed template, never by replacing text. A check rejects a value parameter wherever a literal is required, such as a grid field or a PULSE period.</span></li>
     <li><span><b>Variability is an input.</b> Each arrival stream and each service carries how uneven it is (its coefficient of variation): taken from a PMF, measured from telemetry, or assumed. The core reports a per-bin estimate of the random queue and wait beside the fluid queue.</span></li>
+    <li><span><b>A service is described by its servers and its service time,</b> per request type. Its capacity follows: servers × bin length ÷ service time. A request's time at the service is its service time plus its wait, so two services with the same capacity can differ widely in latency. At the same capacity of 100 requests a second and a load of 90, one server taking 10 ms gives 100 ms per request, and 100 servers taking 1 s each give about 1,022 ms; a model that knows only capacity reports the same for both.</span></li>
   </ol>
   <div class="prose">
     <p><strong>Variability, today and decided.</strong> Today both engines replace a PMF with its average before evaluating: C# fills every bin with the expected value (<code>PmfNode</code>), Rust compiles a PMF to a constant, and generated template models store a PMF as an average shaped by a daily profile. A C# path that samples a PMF per bin (<code>PmfCompiler</code>) has no caller in the application. The only use of a PMF's spread is Rust's Kingman metric, which treats every other series as having none. FlowTime computes no request-time percentiles: the Sim service's <code>/api/v1/series/summarize</code> reports percentiles of a series' per-bin values, and telemetry series can be tagged as percentiles so the UI shows them as such.</p>
@@ -407,9 +408,12 @@ footer { font-size: 13.5px; color: var(--muted); display: grid; gap: 8px; max-wi
     <div>
       <div class="code-label">Template <span>· what an author writes</span></div>
 <pre>parameters:
-  - name: capacity       <span class="note"># value (the default): a const row</span>
+  - name: servers        <span class="note"># value (the default): a const row</span>
+    type: integer
+    default: 4
+  - name: serviceTime    <span class="note"># seconds per request</span>
     type: number
-    default: 200
+    default: 12
   - name: bins
     type: integer
     structural: true     <span class="note"># resolved when lowering</span>
@@ -419,6 +423,9 @@ nodes:
   - id: demand
     kind: const
     values: [100, 100, 100, 300, 300, 300, …]
+  - id: capacity
+    kind: expr
+    expr: "servers * 600 / serviceTime"  <span class="note"># 600 s a bin</span>
   - id: served
     kind: expr
     expr: "MIN(capacity, demand + SHIFT(processing_queue, 1))"
@@ -429,6 +436,8 @@ topology:
       semantics:
         arrivals: demand
         served: served
+        servers: servers
+        serviceTime: serviceTime
         capacity: capacity
         queueDepth: self   <span class="note"># sugar, lowered once</span></pre>
     </div>
@@ -437,9 +446,15 @@ topology:
 <pre>schemaVersion: 2
 grid: { bins: 12, binSize: 10, binUnit: minutes }
 nodes:
-  - id: capacity          <span class="note"># from the parameter</span>
+  - id: servers           <span class="note"># from the parameter</span>
     kind: const
-    values: [200, 200, 200, …]
+    values: [4, 4, 4, …]
+  - id: serviceTime       <span class="note"># from the parameter</span>
+    kind: const
+    values: [12, 12, 12, …]
+  - id: capacity          <span class="note"># 200 per bin</span>
+    kind: expr
+    expr: "servers * 600 / serviceTime"
   - id: demand
     kind: const
     values: [100, 100, 100, 300, 300, 300, …]
@@ -457,6 +472,8 @@ topology:                 <span class="note"># labels only</span>
       semantics:
         arrivals: demand
         served: served
+        servers: servers
+        serviceTime: serviceTime
         capacity: capacity
         queueDepth: processing_queue</pre>
     </div>
@@ -473,10 +490,10 @@ topology:                 <span class="note"># labels only</span>
       <tbody>
         <tr><td><strong>Examples</strong></td><td>Azure Service Bus queue, Amazon SQS, RabbitMQ</td><td>SQL Server, an HTTP server's request queue, a thread pool</td></tr>
         <tr><td><strong>In the topology</strong></td><td>its own component, <code>kind: queue</code></td><td>a <code>service</code> that owns a buffer row</td></tr>
-        <tr><td><strong>What drains it</strong></td><td>its consumers, pulling: a consumer's served reads the queue's depth in the previous bin</td><td>the service's own capacity: served = MIN(capacity, arrivals + previous depth)</td></tr>
+        <tr><td><strong>What drains it</strong></td><td>its consumers, pulling: a consumer's served reads the queue's depth in the previous bin</td><td>the service's own capacity, which follows from its servers and service time: served = MIN(capacity, arrivals + previous depth)</td></tr>
         <tr><td><strong>Its own losses</strong></td><td>expiry (TTL), dead-lettering after too many deliveries, producers refused when it is full</td><td>requests rejected when the buffer is full, client timeouts</td></tr>
         <tr><td><strong>Metrics</strong></td><td>depth and wait time; no utilization of its own</td><td>depth, wait time and utilization</td></tr>
-        <tr><td><strong>Template shorthand (proposed)</strong></td><td>a queue component with <code>buffer: self</code>; its consumers name it</td><td>a service with <code>buffer: self</code> and a capacity, lowered to the buffer row plus the standard served formula</td></tr>
+        <tr><td><strong>Template shorthand (proposed)</strong></td><td>a queue component with <code>buffer: self</code>; its consumers name it</td><td>a service with <code>buffer: self</code>, servers and a service time, lowered to the capacity row, the buffer row and the standard served formula</td></tr>
       </tbody>
     </table>
   </div>
@@ -1030,6 +1047,7 @@ tolerance: { relative: 1.0e-9, absolute: 1.0e-9 }</pre>
     <li><b>Where expected numbers come from</b><p><strong>Decided 2026-10-17:</strong> closed-form results per concept as the main oracle, plus one reference evaluator for combinations, trusted only after it passes every closed-form property; worked examples are readable instances of the closed forms.</p></li>
     <li><b>Simulation for validation</b><p><strong>Decided 2026-10-17:</strong> a small suite of standard systems (one queue, two in series, a router, retries with timeouts), run on demand and never a gate; its findings become accuracy limits in the concept spec.</p></li>
     <li><b>Randomness below capacity</b><p><strong>Decided 2026-10-17:</strong> variability is part of the model language; per-bin waiting estimates from standard formulas first, built so that tracking each queue's spread can follow.</p></li>
+    <li><b>What describes a service</b><p><strong>Decided 2026-10-17:</strong> its servers and its service time per request type. Its capacity follows from them, and a request's time at the service is its service time plus its wait: at the same capacity and load, one server taking 10 ms answers in 100 ms, and 100 servers taking 1 s answer in about 1,022 ms.</p></li>
     <li><b>The oracle's language</b><p><strong>Decided 2026-10-17:</strong> Python for the whole oracle side (generators, closed-form properties, reference evaluator, simulation suite). It imports nothing from the engine and reaches it only through the CLI.</p></li>
     <li><b>How verifier-kit enters the repository</b><p>A pinned copy of its tools, a submodule that follows its main branch, or the Go <code>spine</code> binary once its port is done. Waits until verifier-kit is stable enough.</p></li>
     <li><b>The queue form</b><p><strong>Decided 2026-10-17:</strong> one backlog row in the model; queue resources and services with buffers are distinct component kinds, and the UI draws them differently from the engine's graph output. Open: the row's kind name.</p></li>

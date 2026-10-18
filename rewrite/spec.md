@@ -24,6 +24,7 @@ All decided on 2026-10-17.
 | 11 | Validation | A small discrete-event simulation suite, run on demand, never a gate |
 | 12 | The oracle's language | Python, importing nothing from the engine |
 | 13 | Randomness below capacity | Variability is part of the model language; per-bin waiting estimates from standard formulas first, built so that tracking each queue's spread can follow |
+| 14 | What describes a service | Its servers and its service time per request type; its capacity follows from them, and a request's time at the service is its service time plus its wait |
 
 ## Why a seeded restart
 
@@ -60,10 +61,11 @@ The template is lowered once; the model is compiled once; analysis and the UI se
 
 1. **Every series is declared once, by id: as a row, or as a router's named output.** No name is invented by convention. Today's Rust engine creates names such as `processing_queue` and `processing_utilization` from a topology node's id, so renaming the node silently renames them.
 2. **Anything that computes is a node:** `const`, `expr`, `pmf`, the backlog row, and `router`. A split is one router node that lists all its branches; consumers read a branch by name, such as `HubRouter.airport`. In templates, edge weights and class routes become such a router. Its shares sit in one declaration, so "positive and complete" is a local check, and the capacity-aware allocator deferred in G-0038 later takes the same shape.
-3. **The topology computes nothing.** It names the components, says what kind each one is, labels rows with roles (arrivals, served, capacity, buffer) and carries layout. Derived metrics are outputs addressed by the component, such as `Processing.utilization`.
+3. **The topology computes nothing.** It names the components, says what kind each one is, labels rows with roles (arrivals, served, servers, service time, capacity, buffer) and carries layout. Derived metrics are outputs addressed by the component, such as `Processing.utilization`.
 4. **Sugar exists only in templates,** and is lowered in one place: `queueDepth: self`, edge weights, class shorthands.
 5. **Parameters are typed, and each one's class is declared.** A value parameter becomes a constant row that formulas name directly and that analysis and the UI override without recompiling. A structural parameter (a bin count, a dispatch period, a telemetry file) is resolved when the template is lowered, on the parsed template, never by replacing text. A check rejects a value parameter wherever a literal is required, such as a grid field or a `PULSE` period. Proposed syntax: `structural: true`, with value as the default.
 6. **Variability is an input.** Each arrival stream and each service carries how uneven it is (its coefficient of variation): taken from a PMF, measured from telemetry, or assumed. The core reports a per-bin estimate of the random queue and wait beside the fluid queue.
+7. **A service is described by its servers and its service time,** per request type. Its capacity follows: servers × bin length ÷ service time. A request's time at the service is its service time plus its wait, so two services with the same capacity can differ widely in latency. At the same capacity of 100 requests a second and a load of 90, one server taking 10 ms gives 100 ms per request, and 100 servers taking 1 s each give about 1,022 ms; a model that knows only capacity reports the same for both.
 
 ### Variability
 
@@ -79,10 +81,10 @@ The arithmetic is one recurrence, Q[t] = max(0, Q[t−1] + inflow[t] − outflow
 | --- | --- | --- |
 | Examples | Azure Service Bus queue, Amazon SQS, RabbitMQ | SQL Server, an HTTP server's request queue, a thread pool |
 | In the topology | Its own component, `kind: queue` | A `service` that owns a buffer row |
-| What drains it | Its consumers, pulling: a consumer's served reads the queue's depth in the previous bin | The service's own capacity: served = MIN(capacity, arrivals + previous depth) |
+| What drains it | Its consumers, pulling: a consumer's served reads the queue's depth in the previous bin | The service's own capacity, which follows from its servers and service time: served = MIN(capacity, arrivals + previous depth) |
 | Its own losses | Expiry (TTL), dead-lettering after too many deliveries, producers refused when full | Requests rejected when the buffer is full, client timeouts |
 | Metrics | Depth and wait time; no utilization of its own | Depth, wait time and utilization |
-| Template shorthand (proposed) | A queue component with `buffer: self`; its consumers name it | A service with `buffer: self` and a capacity, lowered to the buffer row plus the standard served formula |
+| Template shorthand (proposed) | A queue component with `buffer: self`; its consumers name it | A service with `buffer: self`, servers and a service time, lowered to the capacity row, the buffer row and the standard served formula |
 
 The UI draws the two differently, so the difference reaches it as a fact: the engine's graph output, in the session and in the run folder, carries each component's kind and the buffer row it owns, and that graph message has its own CUE contract. The UI never infers a kind from names. A queue with several competing consumers needs a capacity-aware share between them (ADR-0001's class 2, deferred in G-0038); until that exists it is modeled with one consumer or a fixed split.
 
@@ -92,9 +94,12 @@ Template, as an author writes it:
 
 ```yaml
 parameters:
-  - name: capacity        # value (the default): a const row
+  - name: servers         # value (the default): a const row
+    type: integer
+    default: 4
+  - name: serviceTime     # seconds per request
     type: number
-    default: 200
+    default: 12
   - name: bins
     type: integer
     structural: true      # resolved when lowering
@@ -104,6 +109,9 @@ nodes:
   - id: demand
     kind: const
     values: [100, 100, 100, 300, 300, 300, 100, 100, 100, 100, 100, 100]
+  - id: capacity
+    kind: expr
+    expr: "servers * 600 / serviceTime"   # 600 s in a 10-minute bin
   - id: served
     kind: expr
     expr: "MIN(capacity, demand + SHIFT(processing_queue, 1))"
@@ -114,6 +122,8 @@ topology:
       semantics:
         arrivals: demand
         served: served
+        servers: servers
+        serviceTime: serviceTime
         capacity: capacity
         queueDepth: self    # sugar, lowered once
 ```
@@ -124,9 +134,15 @@ Model, as the engine accepts it after lowering:
 schemaVersion: 2
 grid: { bins: 12, binSize: 10, binUnit: minutes }
 nodes:
-  - id: capacity            # from the parameter
+  - id: servers             # from the parameter
     kind: const
-    values: [200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200]
+    values: [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+  - id: serviceTime         # from the parameter
+    kind: const
+    values: [12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12]
+  - id: capacity            # 200 per bin
+    kind: expr
+    expr: "servers * 600 / serviceTime"
   - id: demand
     kind: const
     values: [100, 100, 100, 300, 300, 300, 100, 100, 100, 100, 100, 100]
@@ -144,6 +160,8 @@ topology:                   # labels only
       semantics:
         arrivals: demand
         served: served
+        servers: servers
+        serviceTime: serviceTime
         capacity: capacity
         queueDepth: processing_queue
 ```
@@ -156,7 +174,7 @@ A spec without a check is the kind of document this repository already has too m
 
 | Spec | Defines | Checked by | Starting material in this repository |
 | --- | --- | --- | --- |
-| Concepts | Per-bin equations, one section per concept, edge cases decided: queue, WIP and overflow, dispatch, routing and splits, constraints, retry echo, PMF, `SHIFT` and feedback, classes, derived metrics, invariants | Closed-form properties over generated models; laws; worked examples as readable instances | ADR-0001; `docs/architecture/nan-policy.md`, `retry-modeling.md`, `flow-authority-policy.md` |
+| Concepts | Per-bin equations, one section per concept, edge cases decided: queue, service (servers and service time), WIP and overflow, dispatch, routing and splits, constraints, retry echo, PMF, `SHIFT` and feedback, classes, derived metrics, invariants | Closed-form properties over generated models; laws; worked examples as readable instances | ADR-0001; `docs/architecture/nan-policy.md`, `retry-modeling.md`, `flow-authority-policy.md` |
 | Model language | Node kinds and fields, reference rules, one routing authority per split | A CUE schema registered as an aiwf contract, with valid and invalid fixtures; the Rust parser reads the same fixtures | The 13 cross-reference rules listed in `docs/schemas/model.schema.yaml`; E-0023's 94-rule audit, deleted in the May migration and recoverable from git (`d0127eee`) |
 | Template language | Typed parameters, structural or value; the sugar and exactly what it lowers to | A CUE contract for the template's shape; snapshot tests for the lowering, template in, model out | The 12 templates; `QueueNodeSynthesizer` and `ModelCompiler` as reference behavior |
 | Run folder | Layout, series id format, `run.json`, manifest | A CUE contract per file; a write-then-read round trip; the writer's output checked against the contract | `engine/core/src/sink.rs` |
